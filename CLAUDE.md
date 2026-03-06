@@ -12,7 +12,7 @@
 - **简洁回复**：少说多做，避免冗长解释，给结果和关键数据
 - **遵循四大开发纪律**（见下方"开发纪律"章节）
 - **技术栈待定**：Phase 0 阶段，选型前先讨论，不要擅自引入框架
-- **Git 提交署名**：以 offic0600 和 Claude 的名义提交。commit 末尾必须包含 `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>`，Git author 使用 offic0600 身份（`offic0600 <offic0600@163.com>`）
+- **Git 提交署名**：以 offic0600的名义提交。Git author 使用 offic0600 身份（`offic0600 <offic0600@163.com>`）
 
 ---
 
@@ -70,7 +70,7 @@
 
 ### 纪律 1：Logbook 维护（对抗遗忘）
 
-**文件**：`references/planning/dev-logbook.md`
+**文件**：`docs/planning/dev-logbook.md`
 
 **何时更新**：每次 Session 结束时更新。如果用户忘了，主动提醒。
 
@@ -88,8 +88,8 @@
 
 两份基线定位不同：
 
-- **设计基线** `references/baselines/design-baseline-v1.md`：**实现驱动**，每个 Phase 结束后根据实际实现更新，记录"我们造了什么"
-- **规划基线** `references/planning/baseline-v1.5.md`：**设计驱动**，讨论后更新，记录"我们要造什么"
+- **设计基线** `docs/baselines/design-baseline.md`：**实现驱动**，每个 Phase 结束后根据实际实现更新，记录"我们造了什么"
+- **规划基线** `docs/planning/plan-baseline.md`：**设计驱动**，讨论后更新，记录"我们要造什么"
 
 **更新时机**：Phase 结束 → 先更新设计基线（对齐实现）→ 与规划基线交叉校验 → 发现偏差后决定是修正规划还是补齐实现
 
@@ -122,6 +122,11 @@
 - **Git 提交粒度**：每个逻辑变更一个 commit，不做包含 20+ 文件的大杂烩提交
 - **经验编码管道**：`Logbook 经验沉淀 → 验证（跨 2+ Session 确认） → 编码到 CLAUDE.md（已知陷阱/纪律）`
 
+### 纪律 5：文档整理
+
+- **references/**：这个目录只放置对标项目的参考文档，只可读不可写，本项目的任何文档都不允许保存到此目录
+- **docs/**：本项目产生的所有过程文档均保存在此目录下，可以创建子目录以便于文档归类
+
 ---
 
 ## 并行 Agent 策略
@@ -136,11 +141,11 @@
 ## Git
 
 - **Remote**：`offic0600/Cruise`（branch: main）
-- **开发日志**：`references/planning/dev-logbook.md`
-- **设计基线**：`references/baselines/design-baseline-v1.md`
-- **规划基线**：`references/planning/baseline-v1.5.md`
-- **验收测试**：`references/acceptance-tests/`
-- **文档导航**：`references/index.md`
+- **开发日志**：`docs/planning/dev-logbook.md`
+- **设计基线**：`docs/baselines/design-baseline.md`
+- **规划基线**：`docs/planning/plan-baseline.md`
+- **验收测试**：`docs/acceptance-tests/`
+- **文档导航**：`docs/index.md`
 
 ---
 
