@@ -56,7 +56,70 @@
 ### 1.6 Git Commit
 
 `3047885` — `docs: add AI coding best practices and project docs structure`
-`[下次提交 hash]` — `docs: initialize project documentation infrastructure`
+`e54231f` — `docs: initialize project documentation infrastructure`
+
+---
+
+## Session 2 — 2026-03-06：Phase 0 骨架搭建
+
+**目标**：搭建项目骨架，后端 Spring Boot + 前端 Next.js + 数据库 Migration。
+
+### 2.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 新增 | `settings.gradle.kts` | Gradle monorepo 入口 |
+| 新增 | `build.gradle.kts` | 根构建配置：Kotlin 1.9+, Spring Boot 3.3.5, JDK 21 |
+| 新增 | `gradle.properties` | 并行构建配置 |
+| 新增 | `gradlew` / `gradlew.bat` | Gradle wrapper |
+| 新增 | `gradle/wrapper/gradle-wrapper.properties` | Gradle 8.10.2 |
+| 新增 | `.gitignore` | 扩展忽略规则 |
+| 新增 | `backend/build.gradle.kts` | Spring Boot 后端配置 |
+| 新增 | `backend/settings.gradle.kts` | 后端模块配置 |
+| 新增 | `backend/src/main/kotlin/com/cruise/CruiseApplication.kt` | Spring Boot 启动类 |
+| 新增 | `backend/src/main/kotlin/com/cruise/controller/HealthController.kt` | Health 端点 |
+| 新增 | `backend/src/main/kotlin/com/cruise/entity/*.kt` | 5 个 Entity 类 |
+| 新增 | `backend/src/main/resources/application.yml` | PostgreSQL 配置 |
+| 新增 | `backend/src/main/resources/db/migration/V1__init_schema.sql` | 数据库 DDL |
+| 新增 | `frontend/package.json` | Next.js 15 + React 19 + Tailwind |
+| 新增 | `frontend/tsconfig.json` | TypeScript strict 配置 |
+| 新增 | `frontend/next.config.js` | Next.js 配置 |
+| 新增 | `frontend/tailwind.config.ts` | Tailwind CSS 配置 |
+| 新增 | `frontend/postcss.config.js` | PostCSS 配置 |
+| 新增 | `frontend/src/app/page.tsx` | 首页 |
+| 新增 | `frontend/src/app/layout.tsx` | 根布局 |
+| 新增 | `frontend/src/app/globals.css` | 全局样式 |
+
+### 2.2 技术确认
+
+| 维度 | 选择 | 说明 |
+|------|------|------|
+| 前端样式 | Tailwind CSS | 用户确认采用 |
+| 数据库 | cruise / cruise_db / cruise123 | 用户确认采用 |
+
+### 2.3 Bug 记录
+
+无（本 Session 为骨架创建，无代码调试）。
+
+### 2.4 经验沉淀
+
+- 并行 Agent 策略：前端/后端可并行创建（本 Session 顺序执行演示）
+- Gradle wrapper 下载失败时，使用 raw.githubusercontent.com 镜像源
+- 前端 Next.js 15 + React 19 + Tailwind 组合已验证
+
+### 2.5 统计快照
+
+| 指标 | 值 |
+|------|-----|
+| 文件总数 | 23（含配置文件） |
+| 代码文件 | 12（Kotlin + TypeScript） |
+| Entity 类 | 5（Project/Requirement/Task/TeamMember/Defect） |
+| 单元测试 | 0 |
+| 验收场景 | Phase 0：4 场景 / 12 用例 |
+
+### 2.6 Git Commit
+
+`[待提交]` — `feat: Phase 0 骨架搭建（Spring Boot + Next.js）`
 
 ---
 
