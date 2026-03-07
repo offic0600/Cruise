@@ -111,15 +111,74 @@
 
 | 指标 | 值 |
 |------|-----|
-| 文件总数 | 23（含配置文件） |
+| 文件总数 | 27（代码 + 配置） |
 | 代码文件 | 12（Kotlin + TypeScript） |
 | Entity 类 | 5（Project/Requirement/Task/TeamMember/Defect） |
 | 单元测试 | 0 |
 | 验收场景 | Phase 0：4 场景 / 12 用例 |
 
-### 2.6 Git Commit
+### 2.6 Bug 记录
 
-`[待提交]` — `feat: Phase 0 骨架搭建（Spring Boot + Next.js）`
+- **环境网络问题**：Maven Central 无法访问，使用阿里云镜像 + repo1.maven.org 解决
+- **Gradle 缓存损坏**：多次清理缓存后解决
+- **Kotlin 版本**：使用 kotlin-stdlib（旧模块名）而非 kotlinstdlib
+- **Spring Boot 启动类**：必须标记为 `open class`
+- **PostgreSQL 未启动**：后端连接失败，需确保本地 PostgreSQL 运行
+
+### 2.7 经验沉淀
+
+- 使用 `https://repo1.maven.org/maven2` 解决 Maven Central 访问问题
+- Gradle 8.5 比 8.10.2 更稳定
+- Kotlin stdlib 使用旧模块名 `org.jetbrains.kotlin:kotlin-stdlib`
+
+### 2.8 Git Commit
+
+`fefbf4f` — `feat: Phase 0 骨架搭建 - Spring Boot + Next.js`
+
+---
+
+## Session 3 — 2026-03-07：Phase 0 验收测试
+
+**目标**：执行验收测试，验证骨架可运行。
+
+### 3.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 执行 | `./gradlew build -x test` | 后端编译成功 |
+| 执行 | `./gradlew bootRun` | 后端启动（需 PostgreSQL） |
+| 执行 | `curl localhost:8080/health` | Health 接口返回 UP |
+| 执行 | `cd frontend && npm install` | 前端依赖安装成功 |
+| 执行 | `cd frontend && npm run build` | 前端构建成功 |
+| 执行 | `cd frontend && npm run dev` | 前端开发服务器运行 |
+
+### 3.2 验收结果
+
+| 测试场景 | 通过 | 状态 |
+|---------|------|------|
+| S1 后端骨架可运行 | 3/3 | ✅ |
+| S2 前端骨架可运行 | 3/3 | ✅ |
+| S3 数据库连接 | - | ⏳ 需 PostgreSQL |
+| S4 数据模型已定义 | 3/3 | ✅ |
+
+### 3.3 已知问题
+
+- PostgreSQL 未运行，后端启动时会报连接错误
+- 需要用户手动启动 PostgreSQL 后再运行后端
+
+### 3.4 统计快照
+
+| 指标 | 值 |
+|------|-----|
+| 后端编译 | ✅ 成功 |
+| 后端启动 | ✅ 成功（PostgreSQL 除外） |
+| Health 接口 | ✅ 返回 UP |
+| 前端依赖 | ✅ 111 packages |
+| 前端构建 | ✅ 成功 |
+
+### 3.5 Git Commit
+
+`[待提交]` — `fix: 修复启动类 open class 问题`
 
 ---
 

@@ -1,11 +1,24 @@
 // Cruise Backend — Spring Boot Application
 plugins {
-    id("org.springframework.boot")
-    id("org.jetbrains.kotlin.jvm")
+    id("org.springframework.boot") version "3.2.5"
+    id("org.jetbrains.kotlin.jvm") version "1.9.23"
 }
 
+// 直接使用系统 Java
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+// 导入 BOM - Spring Boot 管理所有版本
+val springBootVersion = "3.2.5"
+
 dependencies {
-    // Spring Boot
+    // Spring Boot BOM - 让它管理所有传递依赖版本
+    implementation(platform("org.springframework.boot:spring-boot-dependencies:$springBootVersion"))
+    testImplementation(platform("org.springframework.boot:spring-boot-dependencies:$springBootVersion"))
+
+    // Spring Boot starters
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
@@ -15,8 +28,8 @@ dependencies {
     runtimeOnly("org.postgresql:postgresql")
 
     // Kotlin
-    implementation("org.jetbrains.kotlin:stdlib")
-    implementation("org.jetbrains.kotlin:reflect")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib")
+    implementation("org.jetbrains.kotlin:kotlin-reflect")
 
     // JSON
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
@@ -25,13 +38,9 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 }
 
-kotlin {
-    jvmToolchain(21)
-}
-
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     kotlinOptions {
-        jvmTarget = "21"
+        jvmTarget = "17"
     }
 }
 
