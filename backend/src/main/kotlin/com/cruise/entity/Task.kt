@@ -35,4 +35,18 @@ class Task(
 
     @Column(name = "updated_at")
     val updatedAt: java.time.LocalDateTime = java.time.LocalDateTime.now()
-)
+) {
+    // Required by JPA
+    constructor() : this(
+        id = 0,
+        title = "",
+        description = null,
+        status = "PENDING",
+        requirementId = 0,
+        assigneeId = null,
+        estimatedHours = 0f,
+        actualHours = 0f,
+        createdAt = java.time.LocalDateTime.now(),
+        updatedAt = java.time.LocalDateTime.now()
+    )
+}

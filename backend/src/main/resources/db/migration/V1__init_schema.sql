@@ -1,9 +1,20 @@
 -- Cruise Database Schema Initialization
 -- Phase 0: Core data model
+-- Database: H2 (embedded)
+
+-- User table
+CREATE TABLE IF NOT EXISTS app_user (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    email VARCHAR(100) NOT NULL,
+    role VARCHAR(50) DEFAULT 'USER',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
 -- Project table
 CREATE TABLE IF NOT EXISTS project (
-    id BIGSERIAL PRIMARY KEY,
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     status VARCHAR(50) DEFAULT 'ACTIVE',
@@ -14,23 +25,23 @@ CREATE TABLE IF NOT EXISTS project (
 
 -- Requirement table
 CREATE TABLE IF NOT EXISTS requirement (
-    id BIGSERIAL PRIMARY KEY,
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     description TEXT,
     status VARCHAR(50) DEFAULT 'NEW',
     priority VARCHAR(20) DEFAULT 'MEDIUM',
-    project_id BIGINT NOT NULL REFERENCES project(id),
+    project_id BIGINT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Task table
 CREATE TABLE IF NOT EXISTS task (
-    id BIGSERIAL PRIMARY KEY,
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     description TEXT,
     status VARCHAR(50) DEFAULT 'PENDING',
-    requirement_id BIGINT NOT NULL REFERENCES requirement(id),
+    requirement_id BIGINT NOT NULL,
     assignee_id BIGINT,
     estimated_hours FLOAT DEFAULT 0,
     actual_hours FLOAT DEFAULT 0,
@@ -40,7 +51,7 @@ CREATE TABLE IF NOT EXISTS task (
 
 -- Team Member table
 CREATE TABLE IF NOT EXISTS team_member (
-    id BIGSERIAL PRIMARY KEY,
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     email VARCHAR(100),
     role VARCHAR(50) DEFAULT 'DEVELOPER',
@@ -51,12 +62,12 @@ CREATE TABLE IF NOT EXISTS team_member (
 
 -- Defect table
 CREATE TABLE IF NOT EXISTS defect (
-    id BIGSERIAL PRIMARY KEY,
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     description TEXT,
     severity VARCHAR(20) DEFAULT 'MEDIUM',
     status VARCHAR(50) DEFAULT 'OPEN',
-    project_id BIGINT NOT NULL REFERENCES project(id),
+    project_id BIGINT NOT NULL,
     task_id BIGINT,
     reporter_id BIGINT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

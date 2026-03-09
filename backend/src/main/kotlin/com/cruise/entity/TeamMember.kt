@@ -26,4 +26,15 @@ class TeamMember(
 
     @Column(name = "created_at")
     val createdAt: java.time.LocalDateTime = java.time.LocalDateTime.now()
-)
+) {
+    // Required by JPA
+    constructor() : this(
+        id = 0,
+        name = "",
+        email = null,
+        role = "DEVELOPER",
+        skills = null,
+        teamId = null,
+        createdAt = java.time.LocalDateTime.now()
+    )
+}

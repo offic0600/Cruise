@@ -26,4 +26,15 @@ class Project(
 
     @Column(name = "created_at")
     val createdAt: java.time.LocalDateTime = java.time.LocalDateTime.now()
-)
+) {
+    // Required by JPA
+    constructor() : this(
+        id = 0,
+        name = "",
+        description = null,
+        status = "ACTIVE",
+        startDate = null,
+        endDate = null,
+        createdAt = java.time.LocalDateTime.now()
+    )
+}

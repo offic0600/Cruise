@@ -35,4 +35,18 @@ class Defect(
 
     @Column(name = "updated_at")
     val updatedAt: java.time.LocalDateTime = java.time.LocalDateTime.now()
-)
+) {
+    // Required by JPA
+    constructor() : this(
+        id = 0,
+        title = "",
+        description = null,
+        severity = "MEDIUM",
+        status = "OPEN",
+        projectId = 0,
+        taskId = null,
+        reporterId = null,
+        createdAt = java.time.LocalDateTime.now(),
+        updatedAt = java.time.LocalDateTime.now()
+    )
+}

@@ -25,7 +25,7 @@
 | 运行时 | JDK | 21（必须！低版本会编译失败） |
 | 前端框架 | React + Next.js | Next.js 15, App Router |
 | 前端语言 | TypeScript | strict mode |
-| 数据库 | PostgreSQL | 16 |
+| 数据库 | H2 | 2.2 (embedded) |
 | 构建工具（后端） | Gradle Kotlin DSL | 8.x |
 | 包管理（前端） | npm | — |
 | 部署 | 本地裸跑优先，后期 Docker Compose | — |
@@ -36,12 +36,15 @@
 
 ## Quick Start
 
-> ⚠️ Phase 0 阶段，项目骨架尚未建立，构建命令待骨架完成后补充。
-
 ```bash
-# 待补充：后端启动（./gradlew bootRun）
-# 待补充：前端启动（npm run dev）
-# 待补充：全量测试命令
+# 后端启动
+cd backend && ./gradlew bootRun
+
+# 前端启动（另一个终端）
+cd frontend && npm run dev
+
+# 验证
+curl http://localhost:8080/actuator/health
 ```
 
 ---
