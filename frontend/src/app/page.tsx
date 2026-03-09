@@ -1,27 +1,31 @@
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
 export default function Home() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      router.push('/dashboard');
+    } else {
+      router.push('/login');
+    }
+  }, [router]);
+
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-8">
-      <div className="max-w-4xl w-full text-center">
-        <h1 className="text-5xl font-bold mb-4 text-blue-600">Cruise</h1>
-        <p className="text-xl text-gray-600 mb-8">智能开发管理平台</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
-          <div className="p-6 bg-white rounded-lg shadow-md">
-            <h3 className="text-lg font-semibold mb-2">需求管理</h3>
-            <p className="text-gray-600">需求录入、状态流转、优先级管理</p>
-          </div>
-          <div className="p-6 bg-white rounded-lg shadow-md">
-            <h3 className="text-lg font-semibold mb-2">任务管理</h3>
-            <p className="text-gray-600">任务拆解、分配、进度跟踪</p>
-          </div>
-          <div className="p-6 bg-white rounded-lg shadow-md">
-            <h3 className="text-lg font-semibold mb-2">开发看板</h3>
-            <p className="text-gray-600">多角色视图、实时数据聚合</p>
-          </div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+      <div className="text-center">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-400 to-cyan-400 rounded-2xl mb-4 shadow-lg shadow-blue-500/30 animate-pulse">
+          <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
         </div>
-        <div className="mt-12 text-gray-500 text-sm">
-          Phase 0 骨架搭建中...
-        </div>
+        <h1 className="text-2xl font-bold text-white">Cruise</h1>
+        <p className="text-blue-200/60 mt-2">智能开发管理平台</p>
       </div>
-    </main>
+    </div>
   );
 }
