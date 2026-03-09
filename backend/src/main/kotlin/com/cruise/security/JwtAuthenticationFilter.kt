@@ -19,8 +19,13 @@ class JwtAuthenticationFilter(
 ) : OncePerRequestFilter() {
 
     override fun shouldNotFilter(request: HttpServletRequest): Boolean {
-        return request.requestURI.startsWith("/api/auth") ||
-                request.method == "OPTIONS"
+        if (request.requestURI.startsWith("/api/auth")) {
+            return true
+        }
+        if (request.method == "OPTIONS") {
+            return true
+        }
+        return false
     }
 
     override fun doFilterInternal(
@@ -31,18 +36,21 @@ class JwtAuthenticationFilter(
         try {
             val jwt = getJwtFromRequest(request)
 
-            if (StringUtils.hasText(jwt) && jwtTokenProvider.validateToken(jwt!!)) {
-                val username = jwtTokenProvider.getUsernameFromToken(jwt!!)
-                val userDetails = customUserDetailsService.loadUserByUsername(username)
+            if (StringUtils.hasText(jwt)) {
+                val jwtValue = jwt!!
+                if (jwtTokenProvider.validateToken(jwtValue)) {
+                    val username = jwtTokenProvider.getUsernameFromToken(jwtValue)
+                    val userDetails = customUserDetailsService.loadUserByUsername(username)
 
-                val authentication = UsernamePasswordAuthenticationToken(
-                    userDetails,
-                    null,
-                    userDetails.authorities
-                )
-                authentication.details = WebAuthenticationDetailsSource().buildDetails(request)
+                    val authentication = UsernamePasswordAuthenticationToken(
+                        userDetails,
+                        null,
+                        userDetails.authorities
+                    )
+                    authentication.details = WebAuthenticationDetailsSource().buildDetails(request)
 
-                SecurityContextHolder.getContext().authentication = authentication
+                    SecurityContextHolder.getContext().authentication = authentication
+                }
             }
         } catch (ex: Exception) {
             logger.error("Could not set user authentication in security context", ex)
