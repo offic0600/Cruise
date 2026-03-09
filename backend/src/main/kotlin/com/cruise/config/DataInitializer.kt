@@ -19,6 +19,7 @@ open class DataInitializer {
         requirementTagRepository: RequirementTagRepository,
         requirementRepository: RequirementRepository,
         taskRepository: TaskRepository,
+        defectRepository: DefectRepository,
         passwordEncoder: PasswordEncoder
     ): CommandLineRunner {
         return CommandLineRunner {
@@ -323,6 +324,67 @@ open class DataInitializer {
                     )
                 )
                 tasks.forEach { taskRepository.save(it) }
+            }
+
+            // Init defects if empty
+            if (defectRepository.count() == 0L) {
+                val defects = listOf(
+                    Defect(
+                        title = "用户登录页面样式错位",
+                        description = "登录页面在不同分辨率下显示错位，需要响应式布局修复",
+                        severity = "HIGH",
+                        status = "IN_PROGRESS",
+                        projectId = 1,
+                        taskId = 3,
+                        reporterId = 1
+                    ),
+                    Defect(
+                        title = "JWT token 过期后无提示",
+                        description = "token 过期时页面无提示，直接跳转登录页，体验不佳",
+                        severity = "MEDIUM",
+                        status = "OPEN",
+                        projectId = 1,
+                        taskId = null,
+                        reporterId = 1
+                    ),
+                    Defect(
+                        title = "任务列表加载缓慢",
+                        description = "任务列表数据量超过100条时加载超过5秒，需要分页或虚拟滚动",
+                        severity = "HIGH",
+                        status = "OPEN",
+                        projectId = 1,
+                        taskId = null,
+                        reporterId = 5
+                    ),
+                    Defect(
+                        title = "需求删除确认框文案错误",
+                        description = "删除需求时确认框显示的是「任务」，需要修正",
+                        severity = "LOW",
+                        status = "RESOLVED",
+                        projectId = 1,
+                        taskId = null,
+                        reporterId = 2
+                    ),
+                    Defect(
+                        title = "团队成员头像显示为中文首字母",
+                        description = "头像使用用户名首字母时，中文名字显示不正确",
+                        severity = "LOW",
+                        status = "CLOSED",
+                        projectId = 1,
+                        taskId = null,
+                        reporterId = 3
+                    ),
+                    Defect(
+                        title = "API 返回数据缺少 null 值处理",
+                        description = "某些 API 返回的 null 值在前端显示为「null」字符串",
+                        severity = "MEDIUM",
+                        status = "REOPENED",
+                        projectId = 1,
+                        taskId = null,
+                        reporterId = 5
+                    )
+                )
+                defects.forEach { defectRepository.save(it) }
             }
 
             println("=== Test data initialized successfully ===")
