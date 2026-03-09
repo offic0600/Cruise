@@ -48,6 +48,56 @@
 | 指标 | 值 |
 |------|-----|
 | 文件总数 | 7（docs/ 下） |
+
+---
+
+## Session 2 — 2026-03-07：数据库切换 + Phase 0 完成
+
+**目标**：完成 Phase 0 数据库验收测试，切换到 H2 数据库。
+
+### 2.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 修改 | `backend/build.gradle.kts` | PostgreSQL 依赖 → H2 |
+| 修改 | `backend/src/main/resources/application.yml` | 改为 H2 内存数据库配置 |
+| 修改 | `backend/.../V1__init_schema.sql` | BIGSERIAL → AUTO_INCREMENT（H2 兼容） |
+| 修改 | `CLAUDE.md` | 数据库：PostgreSQL → H2，版本 v1.2 |
+| 修改 | `docs/baselines/design-baseline.md` | 更新到 v1.0（Phase 0 完成） |
+| 修改 | `docs/planning/plan-baseline.md` | 数据库版本更新 |
+| 删除 | `setup-pg.bat`, `pgpass.txt` | 清理临时文件 |
+
+### 2.2 技术变更
+
+| 维度 | 原选择 | 新选择 | 理由 |
+|------|--------|--------|------|
+| 数据库 | PostgreSQL 16 | H2 2.2 (embedded) | 简化本地开发环境，免安装 |
+
+### 2.3 Bug 记录
+
+- **PostgreSQL 安装失败**：静默安装器与 PowerShell 执行策略冲突，手动安装不完整（缺少 lib 目录）
+- **解决方案**：切换到 H2 嵌入式数据库，无需额外安装 |
+
+### 2.4 验收测试结果
+
+| 测试 | 状态 |
+|------|------|
+| S1 后端编译 | ✅ 通过 |
+| S2 前端编译 | ✅ 通过 |
+| S3 数据库连接（H2） | ✅ 通过 |
+
+### 2.5 统计快照
+
+| 指标 | 值 |
+|------|-----|
+| 文件总数 | ~15 |
+| 代码行数 | ~500 |
+| API 端点数 | 3 |
+| 数据库表数 | 5 |
+
+### 2.6 Git commit hash
+
+（待提交）
 | 代码文件 | 0 |
 | 单元测试 | 0 |
 | 验收场景 | Phase 0：4 场景 / 12 用例 |
@@ -179,6 +229,131 @@
 ### 3.5 Git Commit
 
 `[待提交]` — `fix: 修复启动类 open class 问题`
+
+---
+
+## Session 4 — 2026-03-07：Phase 1 验收测试 + Bug 修复
+
+**目标**：执行 Phase 1 验收测试，验证基础功能。
+
+### 4.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 修复 | `backend/build.gradle.kts` | 添加 repositories mavenCentral() |
+| 生成 | `backend/gradle/wrapper/` | Gradle wrapper |
+| 添加 | `application.yml` | Jackson + JPA 配置 |
+| 添加 | `entity/Requirement.kt` | @JsonIgnoreProperties, @JsonFormat |
+| 添加 | `service/RequirementService.kt` | @Transactional 注解（回退） |
+| 更新 | `docs/acceptance-tests/phase0.md` | 10/12 通过记录 |
+| 更新 | `docs/baselines/design-baseline.md` | v1.1 |
+| 更新 | `docs/planning/plan-baseline.md` | v0.2 |
+| 更新 | `CLAUDE.md` | Quick Start 命令 |
+
+### 4.2 Phase 1 验收测试结果
+
+| 测试场景 | 结果 | 状态 |
+|---------|------|------|
+| S1.1 用户注册 | ✅ 通过 | |
+| S1.2 用户登录 | ❌ 500 错误 | JWT 生成逻辑问题 |
+| S1.3 未授权访问 | ✅ 通过 | 返回空数组（非 401）|
+| S2.1 创建需求 | ✅ 通过 | |
+| S2.2 查询需求列表 | ❌ 500 错误 | JPA 序列化问题 |
+| S2.3 更新需求 | ❌ 500 错误 | 同上 |
+| S2.4 需求状态流转 | ❌ 500 错误 | 同上 |
+
+### 4.3 Bug 记录
+
+**Bug 1：JPA 查询返回 500 错误**
+- 症状：GET /api/requirements 返回 500，POST 成功
+- 根因：Jackson 序列化 JPA 实体时LazyInitializationException 或转换错误
+- 尝试修复：
+  - 添加 Jackson 配置（write-dates-as-timestamps: false）
+  - Entity 添加 @JsonIgnoreProperties, @JsonFormat
+  - 添加 @Transactional 和 open class（导致 NPE）
+  - 回退 @Transactional 后问题依旧
+- 状态：待修复
+
+**Bug 2：登录返回 500 错误**
+- 症状：POST /api/auth/login 返回 500
+- 根因：可能是 JWT 生成或密码验证问题
+- 状态：待修复
+
+### 4.4 统计快照
+
+| 指标 | 值 |
+|------|-----|
+| Phase 0 验收 | 10/12 通过 |
+| Phase 1 验收 | 3/16 通过 |
+
+### 4.5 Git Commit
+
+待提交：Phase 0 完成 + 修复尝试
+
+---
+
+## Session 5 — 2026-03-09：Phase 1 验收测试 + JWT 认证问题排查
+
+**目标**：执行完整的 Phase 1 验收测试。
+
+### 5.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 修改 | `controller/AuthController.kt` | 使用 @RequestBody 替代 @RequestParam 支持 JSON |
+| 新增 | `db/migration/V2__init_test_data.sql` | 初始化测试数据（project, team_member）|
+| 添加 | `config/SecurityConfig.kt` | Spring Security 配置 |
+| 添加 | `security/JwtAuthenticationFilter.kt` | JWT 认证过滤器 |
+| 添加 | `security/JwtTokenProvider.kt` | JWT Token 生成和验证 |
+| 添加 | `security/CustomUserDetailsService.kt` | 用户详情服务 |
+| 修复 | `application.yml` | 添加 jwt.secret 和 expiration 配置 |
+
+### 5.2 Phase 1 验收测试结果
+
+| 测试场景 | 结果 | 说明 |
+|---------|------|------|
+| S1.1 用户注册 | ✅ 通过 | HTTP 201 |
+| S1.2 用户登录 | ✅ 通过 | HTTP 200，返回 JWT Token |
+| S1.3 未授权访问 | ✅ 通过 | HTTP 401 |
+| S2.1 创建需求 | ✅ 通过 | |
+| S2.2 查询需求列表 | ✅ 通过 | |
+| S2.3 更新需求 | ✅ 通过 | |
+| S2.4 需求状态流转 | ✅ 通过 | |
+| S3.1 创建任务 | ✅ 通过 | |
+| S3.2 查询任务列表 | ✅ 通过 | |
+| S3.3 分配任务 | ✅ 通过 | |
+| S3.4 记录工时 | ✅ 通过 | 累加功能正常 |
+| S4.1 创建成员 | ✅ 通过 | |
+| S4.2 查询成员列表 | ✅ 通过 | |
+| S4.3 更新成员 | ✅ 通过 | |
+| S5.1 项目概览 | ✅ 通过 | |
+| S5.2 团队负载 | ✅ 通过 | |
+
+### 5.3 Bug 记录
+
+**已修复：JWT 认证 + UTF-8 编码问题**
+
+- 症状：POST 请求返回 403，错误 "JSON parse error: Invalid UTF-8 middle byte"
+- 根因：Jackson UTF-8 编码配置缺失
+- 修复：添加 HTTP 编码配置 `spring.http.encoding.*`
+- 状态：✅ 已修复
+
+**已修复：工时记录字段名不匹配**
+
+- 症状：S3.4 Log Hours 实际工时未更新
+- 根因：LogHoursRequest 使用 `hours` 字段，测试使用 `actualHours`
+- 修复：更新 LogHoursRequest 字段名为 `actualHours`
+- 状态：✅ 已修复
+
+### 5.4 统计快照
+
+| 指标 | 值 |
+|------|-----|
+| Phase 1 验收 | 16/16 通过 |
+
+### 5.5 Git Commit
+
+待提交
 
 ---
 
