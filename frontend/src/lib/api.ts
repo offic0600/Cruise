@@ -110,4 +110,17 @@ export const updateRequirementTag = (id: number, data: { name?: string; color?: 
   api.put(`/requirement-tags/${id}`, data).then((r) => r.data);
 export const deleteRequirementTag = (id: number) => api.delete(`/requirement-tags/${id}`);
 
+// Defects
+export const getDefects = () => api.get('/defects').then((r) => r.data);
+export const getDefect = (id: number) => api.get(`/defects/${id}`).then((r) => r.data);
+export const getDefectsByProject = (projectId: number) => api.get(`/defects/project/${projectId}`).then((r) => r.data);
+export const getDefectsByTask = (taskId: number) => api.get(`/defects/task/${taskId}`).then((r) => r.data);
+export const createDefect = (data: { title: string; description?: string; severity?: string; projectId: number; taskId?: number }) =>
+  api.post('/defects', data).then((r) => r.data);
+export const updateDefect = (id: number, data: { title?: string; description?: string; severity?: string; status?: string }) =>
+  api.put(`/defects/${id}`, data).then((r) => r.data);
+export const updateDefectStatus = (id: number, status: string) =>
+  api.patch(`/defects/${id}/status`, { status }).then((r) => r.data);
+export const deleteDefect = (id: number) => api.delete(`/defects/${id}`);
+
 export default api;
