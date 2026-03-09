@@ -2,7 +2,7 @@
 
 > **定位**：实现驱动，记录"我们造了什么"。每个 Phase 结束后对照实际代码更新。
 > **交叉校验**：Phase 结束时先更新本文件，再与规划基线（plan-baseline.md）交叉校验。
-> **当前版本**：v1.2（Phase 1 验收完成）
+> **当前版本**：v1.3（Phase 2 验收完成）
 
 ---
 
@@ -128,6 +128,17 @@ Cruise/
 | /api/defects/{id} | PUT | 更新缺陷 | ✅ 已实现 |
 | /api/defects/{id}/status | PATCH | 状态流转 | ✅ 已实现 |
 | /api/defects/{id} | DELETE | 删除缺陷 | ✅ 已实现 |
+| **数据分析** | | | |
+| /api/analytics/project/{id}/efficiency | GET | 项目效率仪表盘 | ✅ 已实现 |
+| /api/analytics/team/{id}/ranking | GET | 团队效率排名 | ✅ 已实现 |
+| /api/analytics/member/{id}/workload | GET | 个人工作负载 | ✅ 已实现 |
+| /api/analytics/project/{id}/throughput | GET | 需求吞吐量 | ✅ 已实现 |
+| /api/analytics/project/{id}/forecast/requirements | GET | 需求趋势预测 | ✅ 已实现 |
+| /api/analytics/project/{id}/trend/hours | GET | 工时趋势分析 | ✅ 已实现 |
+| /api/analytics/team/{id}/velocity | GET | 团队速率 | ✅ 已实现 |
+| /api/analytics/project/{id}/risk | GET | 项目风险评估 | ✅ 已实现 |
+| /api/analytics/project/{id}/risk/delay | GET | 延期风险预警 | ✅ 已实现 |
+| /api/analytics/team/{id}/bottleneck | GET | 资源瓶颈检测 | ✅ 已实现 |
 | **系统** | | | |
 | /actuator/health | GET | 健康检查 | ✅ 已实现 |
 | /h2-console | GET | H2 控制台 | ✅ 已实现（开发用） |
@@ -244,10 +255,11 @@ frontend/          # Next.js 前端
 | v1.0 | 2026-03-07 | Phase 0 完成 | 骨架搭建 + 5张核心表 + H2数据库 |
 | v1.1 | 2026-03-07 | Phase 0 验收 | 10/12 测试通过 + 基线交叉校验 |
 | v1.2 | 2026-03-09 | Phase 1 验收 | 16/16 测试通过 + 认证/需求/任务/人员/看板/缺陷 |
+| v1.3 | 2026-03-09 | Phase 2 验收 | 10/10 测试通过 + 数据分析/效率度量/趋势预测/风险预警 |
 
 ---
 
-*版本：v1.2*
+*版本：v1.3*
 *创建：2026-03-06*
 *更新：2026-03-09*
-*下次更新时机：Phase 2 完成后*
+*下次更新时机：Phase 3 完成后*
