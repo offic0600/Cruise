@@ -110,4 +110,8 @@ export const updateRequirementTag = (id: number, data: { name?: string; color?: 
   api.put(`/requirement-tags/${id}`, data).then((r) => r.data);
 export const deleteRequirementTag = (id: number) => api.delete(`/requirement-tags/${id}`);
 
+// AI Query
+export const aiQuery = (query: string) =>
+  api.post('/ai/query', { query }).then((r) => r.data);
+
 export default api;

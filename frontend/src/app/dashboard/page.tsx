@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import AppLayout from '@/components/AppLayout';
+import AiChat from '@/components/AiChat';
 import { getRequirements, getTasks, getTeamMembers } from '@/lib/api';
 
 interface Requirement {
@@ -196,6 +197,16 @@ export default function DashboardPage() {
               <p>暂无高优先级需求</p>
             </div>
           )}
+        </div>
+
+        {/* AI 交互区域 */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            {/* 这里可以放其他内容，保持空白或放其他统计 */}
+          </div>
+          <div>
+            <AiChat />
+          </div>
         </div>
       </div>
     </AppLayout>
