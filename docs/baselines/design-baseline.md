@@ -2,7 +2,7 @@
 
 > **定位**：实现驱动，记录"我们造了什么"。每个 Phase 结束后对照实际代码更新。
 > **交叉校验**：Phase 结束时先更新本文件，再与规划基线（plan-baseline.md）交叉校验。
-> **当前版本**：v1.3（Phase 2 验收完成）
+> **当前版本**：v1.4（Phase 3 验收完成）
 
 ---
 
@@ -139,6 +139,17 @@ Cruise/
 | /api/analytics/project/{id}/risk | GET | 项目风险评估 | ✅ 已实现 |
 | /api/analytics/project/{id}/risk/delay | GET | 延期风险预警 | ✅ 已实现 |
 | /api/analytics/team/{id}/bottleneck | GET | 资源瓶颈检测 | ✅ 已实现 |
+| **系统集成** | | | |
+| /api/alm/sync/requirements | POST | ALM同步需求 | ✅ 已实现 |
+| /api/alm/push/requirement/{id} | POST | ALM推送需求 | ✅ 已实现 |
+| /api/alm/sync/status | GET | ALM同步状态 | ✅ 已实现 |
+| /api/gitlab/projects/{id}/commits | GET | GitLab提交记录 | ✅ 已实现 |
+| /api/gitlab/requirement/{id}/link | POST | 关联代码提交 | ✅ 已实现 |
+| /api/gitlab/projects/{id}/stats | GET | GitLab代码统计 | ✅ 已实现 |
+| /api/workhours/sync | POST | 工时同步 | ✅ 已实现 |
+| /api/workhours/summary | GET | 工时汇总 | ✅ 已实现 |
+| /api/integration/project/{id}/overview | GET | 项目全景视图 | ✅ 已实现 |
+| /api/integration/team/{id}/dashboard | GET | 团队综合视图 | ✅ 已实现 |
 | **系统** | | | |
 | /actuator/health | GET | 健康检查 | ✅ 已实现 |
 | /h2-console | GET | H2 控制台 | ✅ 已实现（开发用） |
@@ -256,10 +267,11 @@ frontend/          # Next.js 前端
 | v1.1 | 2026-03-07 | Phase 0 验收 | 10/12 测试通过 + 基线交叉校验 |
 | v1.2 | 2026-03-09 | Phase 1 验收 | 16/16 测试通过 + 认证/需求/任务/人员/看板/缺陷 |
 | v1.3 | 2026-03-09 | Phase 2 验收 | 10/10 测试通过 + 数据分析/效率度量/趋势预测/风险预警 |
+| v1.4 | 2026-03-09 | Phase 3 验收 | 10/10 测试通过 + ALM/GitLab/工时系统集成 + 数据聚合视图 |
 
 ---
 
-*版本：v1.3*
+*版本：v1.4*
 *创建：2026-03-06*
 *更新：2026-03-09*
-*下次更新时机：Phase 3 完成后*
+*下次更新时机：Phase 4 完成后*
