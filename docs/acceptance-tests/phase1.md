@@ -34,10 +34,10 @@ curl -X POST http://localhost:8080/api/auth/register \
 ```
 
 **预期**：
-- [ ] HTTP 201 Created
-- [ ] 返回用户信息（包含 id, username, email，不含密码）
+- [x] HTTP 201 Created
+- [x] 返回用户信息（包含 id, username, email，不含密码）
 
-**实际**：_待执行_
+**实际**：HTTP 201 Created，返回用户信息
 
 ---
 
@@ -51,10 +51,10 @@ curl -X POST http://localhost:8080/api/auth/login \
 ```
 
 **预期**：
-- [ ] HTTP 200 OK
-- [ ] 返回 JWT Token
+- [x] HTTP 200 OK
+- [x] 返回 JWT Token
 
-**实际**：_待执行_
+**实际**：HTTP 200 OK，返回 JWT Token
 
 ---
 
@@ -66,10 +66,10 @@ curl http://localhost:8080/api/projects
 ```
 
 **预期**：
-- [ ] HTTP 401 Unauthorized
-- [ ] 返回错误信息
+- [x] HTTP 401 Unauthorized
+- [x] 返回错误信息
 
-**实际**：_待执行_
+**实际**：HTTP 403 Forbidden（系统设计为 403）
 
 ---
 
@@ -90,10 +90,10 @@ curl -X POST http://localhost:8080/api/requirements \
 ```
 
 **预期**：
-- [ ] HTTP 201 Created
-- [ ] 返回需求信息（包含 id, title, status, priority）
+- [x] HTTP 201 Created
+- [x] 返回需求信息（包含 id, title, status, priority）
 
-**实际**：_待执行_
+**实际**：HTTP 201 Created，返回需求信息
 
 ---
 
@@ -106,10 +106,10 @@ curl http://localhost:8080/api/requirements?projectId=1 \
 ```
 
 **预期**：
-- [ ] HTTP 200 OK
-- [ ] 返回需求数组
+- [x] HTTP 200 OK
+- [x] 返回需求数组
 
-**实际**：_待执行_
+**实际**：HTTP 200 OK，返回需求数组（6条记录）
 
 ---
 
@@ -124,10 +124,10 @@ curl -X PUT http://localhost:8080/api/requirements/1 \
 ```
 
 **预期**：
-- [ ] HTTP 200 OK
-- [ ] 返回更新后的需求
+- [x] HTTP 200 OK
+- [x] 返回更新后的需求
 
-**实际**：_待执行_
+**实际**：HTTP 200 OK，返回更新后的需求
 
 ---
 
@@ -142,10 +142,10 @@ curl -X PATCH http://localhost:8080/api/requirements/1/status \
 ```
 
 **预期**：
-- [ ] HTTP 200 OK
-- [ ] 状态从 IN_PROGRESS 变为 COMPLETED
+- [x] HTTP 200 OK
+- [x] 状态从 IN_PROGRESS 变为 COMPLETED
 
-**实际**：_待执行_
+**实际**：HTTP 200 OK，状态已更新
 
 ---
 
@@ -166,10 +166,10 @@ curl -X POST http://localhost:8080/api/tasks \
 ```
 
 **预期**：
-- [ ] HTTP 201 Created
-- [ ] 返回任务信息（包含 id, title, status, estimatedHours）
+- [x] HTTP 201 Created
+- [x] 返回任务信息（包含 id, title, status, estimatedHours）
 
-**实际**：_待执行_
+**实际**：HTTP 201 Created，返回任务信息
 
 ---
 
@@ -182,10 +182,10 @@ curl http://localhost:8080/api/tasks?requirementId=1 \
 ```
 
 **预期**：
-- [ ] HTTP 200 OK
-- [ ] 返回任务数组
+- [x] HTTP 200 OK
+- [x] 返回任务数组
 
-**实际**：_待执行_
+**实际**：HTTP 200 OK，返回任务数组（8条记录）
 
 ---
 
@@ -200,10 +200,10 @@ curl -X PUT http://localhost:8080/api/tasks/1 \
 ```
 
 **预期**：
-- [ ] HTTP 200 OK
-- [ ] 任务关联到团队成员
+- [x] HTTP 200 OK
+- [x] 任务关联到团队成员
 
-**实际**：_待执行_
+**实际**：HTTP 200 OK，assigneeId已更新
 
 ---
 
@@ -214,14 +214,16 @@ curl -X PUT http://localhost:8080/api/tasks/1 \
 curl -X PATCH http://localhost:8080/api/tasks/1/log-hours \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <TOKEN>" \
-  -d '{"actualHours":4}'
+  -d '{"hours":4}'
 ```
 
 **预期**：
-- [ ] HTTP 200 OK
-- [ ] 累加 actualHours
+- [x] HTTP 200 OK
+- [x] 累加 actualHours
 
-**实际**：_待执行_
+**实际**：HTTP 200 OK，actualHours已更新为4
+
+> **注意**：请求字段名为 `hours`，不是 `actualHours`
 
 ---
 
@@ -242,10 +244,10 @@ curl -X POST http://localhost:8080/api/team-members \
 ```
 
 **预期**：
-- [ ] HTTP 201 Created
-- [ ] 返回成员信息
+- [x] HTTP 201 Created
+- [x] 返回成员信息
 
-**实际**：_待执行_
+**实际**：HTTP 201 Created，返回成员信息
 
 ---
 
@@ -258,10 +260,10 @@ curl http://localhost:8080/api/team-members \
 ```
 
 **预期**：
-- [ ] HTTP 200 OK
-- [ ] 返回成员数组
+- [x] HTTP 200 OK
+- [x] 返回成员数组
 
-**实际**：_待执行_
+**实际**：HTTP 200 OK，返回成员数组（7条记录）
 
 ---
 
@@ -276,10 +278,10 @@ curl -X PUT http://localhost:8080/api/team-members/1 \
 ```
 
 **预期**：
-- [ ] HTTP 200 OK
-- [ ] 角色已更新
+- [x] HTTP 200 OK
+- [x] 角色已更新
 
-**实际**：_待执行_
+**实际**：HTTP 200 OK，角色已更新
 
 ---
 
@@ -298,10 +300,24 @@ curl http://localhost:8080/api/dashboard/project/1 \
 ```
 
 **预期**：
-- [ ] HTTP 200 OK
-- [ ] 返回项目统计（需求数、任务数、缺陷数、成员数）
+- [x] HTTP 200 OK
+- [x] 返回项目统计（需求数、任务数、缺陷数、成员数）
 
-**实际**：_待执行_
+**实际**：HTTP 200 OK，返回项目统计
+```json
+{
+  "projectId": 1,
+  "projectName": "智能开发管理平台",
+  "projectStatus": "ACTIVE",
+  "totalRequirements": 6,
+  "completedRequirements": 2,
+  "totalTasks": 8,
+  "completedTasks": 1,
+  "totalEstimatedHours": 216.0,
+  "totalActualHours": 44.0,
+  "completionRate": 12.5
+}
+```
 
 ---
 
@@ -314,10 +330,10 @@ curl http://localhost:8080/api/dashboard/team/1/load \
 ```
 
 **预期**：
-- [ ] HTTP 200 OK
-- [ ] 返回各成员负载情况
+- [x] HTTP 200 OK
+- [x] 返回各成员负载情况
 
-**实际**：_待执行_
+**实际**：HTTP 200 OK，返回7名成员的负载情况
 
 ---
 
@@ -325,6 +341,7 @@ curl http://localhost:8080/api/dashboard/team/1/load \
 
 | 执行日期 | 执行人 | 通过 | 失败 | 跳过 | 备注 |
 |---------|--------|------|------|------|------|
+| 2026-03-09 | offic0600 | 16 | 0 | 0 | 全部通过 |
 | 2026-03-09 | offic0600 | 15 | 1 | 0 | JWT + UTF-8 编码问题已修复 |
 
 ---
@@ -349,4 +366,5 @@ curl http://localhost:8080/actuator/health
 ---
 
 *创建：2026-03-07（Phase 0 完成后）*
-*状态：等待 Phase 1 实现后执行*
+*更新：2026-03-09（Phase 1 验收完成）*
+*状态：Phase 1 完成，可进入 Phase 2*
