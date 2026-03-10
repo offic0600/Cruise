@@ -64,6 +64,6 @@ jwt:
   expiration: 86400000
 
 minimax:
-  api-key: ${MINIMAX_API_KEY:}
+  api-key: sk-xxxxxxxxxxxxxxxxxxxxxxxx
   model: MiniMax-M2.5
   base-url: https://api.minimax.chat/v1
