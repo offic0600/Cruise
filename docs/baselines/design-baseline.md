@@ -2,7 +2,7 @@
 
 > **定位**：实现驱动，记录"我们造了什么"。每个 Phase 结束后对照实际代码更新。
 > **交叉校验**：Phase 结束时先更新本文件，再与规划基线（plan-baseline.md）交叉校验。
-> **当前版本**：v1.4（Phase 3 验收完成）
+> **当前版本**：v2.1（Phase 4 实现完成）
 
 ---
 
@@ -18,7 +18,7 @@ Cruise/
 │   └── src/main/
 │       ├── kotlin/com/cruise/
 │       │   ├── CruiseApplication.kt   # 启动类
-│       │   ├── controller/            # 控制器 (10个)
+│       │   ├── controller/            # 控制器 (12个)
 │       │   │   ├── AuthController.kt
 │       │   │   ├── RequirementController.kt
 │       │   │   ├── TaskController.kt
@@ -29,7 +29,7 @@ Cruise/
 │       │   │   ├── SimpleAuthController.kt
 │       │   │   ├── AlmRequirementController.kt
 │       │   │   └── RequirementTagController.kt
-│       │   ├── service/               # 业务服务 (5个)
+│       │   ├── service/               # 业务服务 (8个)
 │       │   │   ├── RequirementService.kt
 │       │   │   ├── TaskService.kt
 │       │   │   ├── TeamMemberService.kt
@@ -45,6 +45,7 @@ Cruise/
 │       │   │   └── RequirementTag.kt
 │       │   ├── repository/            # 数据仓库 (7个)
 │       │   ├── security/              # 安全认证 (3个)
+│       │   ├── skill/                # Skill实现 (9个)
 │       │   │   ├── JwtTokenProvider.kt
 │       │   │   ├── JwtAuthenticationFilter.kt
 │       │   │   └── CustomUserDetailsService.kt
@@ -150,6 +151,19 @@ Cruise/
 | /api/workhours/summary | GET | 工时汇总 | ✅ 已实现 |
 | /api/integration/project/{id}/overview | GET | 项目全景视图 | ✅ 已实现 |
 | /api/integration/team/{id}/dashboard | GET | 团队综合视图 | ✅ 已实现 |
+| **SuperAgent + Skill** | | | |
+| /api/agent/session | POST | 创建会话 | ✅ 已实现 |
+| /api/agent/query | POST | Agent查询入口 | ✅ 已实现 |
+| /api/agent/session/{id}/end | POST | 结束会话 | ✅ 已实现 |
+| /api/agent/session/{id} | GET | 获取会话 | ✅ 已实现 |
+| /api/agent/session/{id}/history | GET | 获取会话历史 | ✅ 已实现 |
+| /api/agent/feedback | POST | 提交反馈 | ✅ 已实现 |
+| /api/agent/optimization | GET | 获取优化建议 | ✅ 已实现 |
+| /api/skills | GET | 获取Skill列表 | ✅ 已实现 |
+| /api/skills/{name} | GET | 获取Skill详情 | ✅ 已实现 |
+| /api/skills/category/{category} | GET | 按分类获取Skill | ✅ 已实现 |
+| /api/skills/names | GET | 获取Skill名称列表 | ✅ 已实现 |
+| /api/skills/analytics/{name} | GET | 获取Skill分析数据 | ✅ 已实现 |
 | **系统** | | | |
 | /actuator/health | GET | 健康检查 | ✅ 已实现 |
 | /h2-console | GET | H2 控制台 | ✅ 已实现（开发用） |
@@ -171,6 +185,10 @@ Cruise/
 | team_member | 团队成员 | 8 | ✅ |
 | defect | 缺陷 | 10 | ✅ |
 | requirement_tag | 需求标签 | 5 | ✅ |
+| agent_session | Agent会话 | 13 | ✅ |
+| skill_definition | Skill定义 | 17 | ✅ |
+| skill_execution_log | Skill执行日志 | 14 | ✅ |
+| user_feedback | 用户反馈 | 10 | ✅ |
 
 ### DDL（H2 兼容）
 
@@ -196,7 +214,7 @@ backend/           # Spring Boot 后端
       │   ├── DashboardController.kt # 看板
       │   ├── DefectController.kt   # 缺陷
       │   └── ...
-      ├── service/                  # 5 个服务
+      ├── service/                  # 8 个服务
       ├── entity/                   # 7 个实体
       ├── repository/               # 7 个仓库
       ├── security/                # 3 个安全组件
@@ -229,11 +247,12 @@ frontend/          # Next.js 前端
 
 | 指标 | 值 | 更新时间 |
 |------|-----|---------|
-| 文件总数 | ~50 | 2026-03-09 |
-| 代码行数 | ~2000 | 2026-03-09 |
-| API 端点数 | 30+ | 2026-03-09 |
-| 数据库表数 | 7 | 2026-03-09 |
-| 单元测试数 | 0 | 2026-03-09 |
+| 文件总数 | ~65 | 2026-03-10 |
+| 代码行数 | ~3000 | 2026-03-10 |
+| API 端点数 | 50+ | 2026-03-10 |
+| 数据库表数 | 11 | 2026-03-10 |
+| Skill 数量 | 9 | 2026-03-10 |
+| 单元测试数 | 0 | 2026-03-10 |
 | E2E 验收测试 | 16 | 2026-03-09 |
 
 ---
@@ -258,6 +277,172 @@ frontend/          # Next.js 前端
 
 ---
 
+## Phase 4 设计：SuperAgent + Skill 体系 + 持续进化环
+
+### 4.1 架构概述
+
+Phase 4 将引入智能 Agent 能力，核心设计遵循以下原则：
+
+1. **SuperAgent 优于多 Agent**：单一智能体，通过 Skill 动态切换角色
+2. **Skill 优于 Prompt**：专业知识编码为可复用、可组合的 Skill
+3. **持续进化**：收集反馈、分析性能、自动优化
+
+### 4.2 SuperAgent 架构
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        Client (前端)                        │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    SuperAgent (统一入口)                      │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
+│  │ IntentParser │─▶│ SkillRouter │─▶│ SkillExecutor      │ │
+│  │ (意图解析)   │  │ (Skill选择)  │  │ (Skill执行)        │ │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘ │
+│         │                │                    │             │
+│         ▼                ▼                    ▼             │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │              ContextManager (会话管理)                  ││
+│  │         支持多轮对话、上下文继承、session 隔离            ││
+│  └─────────────────────────────────────────────────────────┘│
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Skill Registry (Skill 注册表)            │
+│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌──────────┐ │
+│  │Requirement │ │ Task       │ │ Risk       │ │ Progress │ │
+│  │Analysis    │ │Assignment  │ │Alert       │ │Assessment│ │
+│  └────────────┘ └────────────┘ └────────────┘ └──────────┘ │
+│  ┌────────────┐ ┌────────────┐ ┌────────────────────────┐ │
+│  │ Team       │ │ Data       │ │ Evolution              │ │
+│  │Optimization│ │ Aggregation│ │ (持续进化)             │ │
+│  └────────────┘ └────────────┘ └────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 4.3 角色体系
+
+| 角色 | 视角 | 核心能力 | 关注指标 |
+|------|------|---------|---------|
+| **IT_LEAD** | 全局决策 | 战略分析、资源调配、风险预警 | 项目数量、总体进度、预算使用、风险概览 |
+| **PM** | 项目管理 | 进度跟踪、任务分配、干系人沟通 | 任务完成率、工时统计、延期风险 |
+| **DEVELOPER** | 任务执行 | 个人任务、代码协作、技术难题 | 待办任务、阻塞问题、工时记录 |
+| **TESTER** | 质量保障 | 测试进度、缺陷管理、质量评估 | 测试覆盖率、缺陷趋势、通过率 |
+| **STAKEHOLDER** | 业务价值 | 需求价值、业务目标、ROI | 需求完成度、交付价值、满意度 |
+
+### 4.4 Skill 定义
+
+| Skill 名称 | 功能 | 输入 | 输出 |
+|-----------|------|------|------|
+| **RequirementAnalysis** | 需求分析 | 需求描述 | 复杂度评估、人天估算、优先级建议 |
+| **TaskAssignment** | 任务分配 | 任务列表、团队成员 | 最优分配方案、理由说明 |
+| **RiskAlert** | 风险预警 | 项目/团队ID | 风险列表、影响程度、建议措施 |
+| **ProgressAssessment** | 进度评估 | 项目/需求ID | 当前进度、预测完成时间、偏差分析 |
+| **TeamOptimization** | 团队优化 | 团队ID | 负载分析、瓶颈识别、优化建议 |
+| **DataAggregation** | 数据聚合 | 查询条件 | 多数据源聚合结果 |
+| **Evolution** | 持续进化 | 反馈数据 | 优化建议、性能报告 |
+
+### 4.5 API 设计
+
+| 模块 | 端点 | 方法 | 说明 |
+|------|------|------|------|
+| **Agent** | `/api/agent/query` | POST | SuperAgent 统一入口 |
+| | `/api/agent/feedback` | POST | 用户反馈 |
+| | `/api/agent/optimization` | GET | 优化建议 |
+| **Skill** | `/api/skills` | GET | Skill 列表 |
+| | `/api/skills/{name}` | GET | Skill 详情 |
+| | `/api/skills/execute` | POST | 直接执行 Skill |
+| | `/api/skills/analytics/{name}` | GET | Skill 性能分析 |
+
+### 4.6 数据模型
+
+```kotlin
+// Agent Session - 会话管理
+@Entity
+class AgentSession {
+    @Id val id: String           // sessionId
+    val userId: Long              // 用户ID
+    val role: String              // 当前角色
+    val createdAt: LocalDateTime
+    val lastActiveAt: LocalDateTime
+    val context: String          // JSON 存储上下文
+}
+
+// Skill Definition - Skill 注册
+@Entity
+class SkillDefinition {
+    @Id val name: String
+    val description: String
+    val parametersSchema: String  // JSON Schema
+    val outputSchema: String
+    val category: String
+    val version: String
+    val enabled: Boolean
+}
+
+// Skill Execution Log - 执行日志
+@Entity
+class SkillExecutionLog {
+    @Id @GeneratedValue val id: Long
+    val sessionId: String
+    val skillName: String
+    val inputParams: String       // JSON
+    val outputResult: String      // JSON
+    val executionTime: Long        // ms
+    val rating: Int?              // 用户评分 1-5
+    val feedback: String?
+    val createdAt: LocalDateTime
+}
+
+// User Feedback - 用户反馈
+@Entity
+class UserFeedback {
+    @Id @GeneratedValue val id: Long
+    val queryId: String
+    val userId: Long
+    val rating: Int               // 1-5
+    val comment: String?
+    val suggestion: String?
+    val createdAt: LocalDateTime
+}
+```
+
+### 4.7 持续进化环
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                       持续进化环                               │
+│                                                              │
+│   ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌───────┐ │
+│   │ 用户反馈  │───▶│ 数据分析 │───▶│ 优化生成 │───▶│人工审核│ │
+│   │ 收集     │    │ 性能分析 │    │ 建议     │    │       │ │
+│   └──────────┘    └──────────┘    └──────────┘    └───┬───┘ │
+│        │                                           │       │
+│        │          ┌──────────┐                      │       │
+│        └────────▶│ Skill    │◀─────────────────────┘       │
+│                 │ 迭代优化  │                                │
+│                 └──────────┘                                │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**进化机制**：
+1. 每次 Skill 执行后收集用户评分和反馈
+2. 定期分析 Skill 性能（响应时间、准确率、评分）
+3. 生成优化建议（参数调整、提示词优化、新 Skill 建议）
+4. 经人工审核后应用到系统
+
+### 4.8 安全设计
+
+- 所有 Agent API 需认证
+- Skill 执行可设置超时（默认 5 秒）
+- 敏感操作（删除、修改）需二次确认
+- Skill 权限控制（部分 Skill 仅限特定角色）
+
+---
+
 ## 变更历史
 
 | 版本 | 日期 | Phase | 变更摘要 |
@@ -268,10 +453,12 @@ frontend/          # Next.js 前端
 | v1.2 | 2026-03-09 | Phase 1 验收 | 16/16 测试通过 + 认证/需求/任务/人员/看板/缺陷 |
 | v1.3 | 2026-03-09 | Phase 2 验收 | 10/10 测试通过 + 数据分析/效率度量/趋势预测/风险预警 |
 | v1.4 | 2026-03-09 | Phase 3 验收 | 10/10 测试通过 + ALM/GitLab/工时系统集成 + 数据聚合视图 |
+| v2.0 | 2026-03-10 | Phase 4 设计 | SuperAgent + Skill 体系 + 持续进化环 |
+| **v2.1** | **2026-03-10** | **Phase 4 实现** | **9个Skill实现 + Agent API + 持续进化环** |
 
 ---
 
-*版本：v1.4*
+*版本：v2.1*
 *创建：2026-03-06*
-*更新：2026-03-09*
-*下次更新时机：Phase 4 完成后*
+*更新：2026-03-10*
+*下次更新时机：Phase 4 验收完成后*

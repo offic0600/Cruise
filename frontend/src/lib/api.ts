@@ -123,4 +123,42 @@ export const updateDefectStatus = (id: number, status: string) =>
   api.patch(`/defects/${id}/status`, { status }).then((r) => r.data);
 export const deleteDefect = (id: number) => api.delete(`/defects/${id}`);
 
+// Agent
+export const createSession = (userId?: number, userName?: string) =>
+  api.post('/agent/session', { userId, userName }).then((r) => r.data);
+
+export const sendQuery = (sessionId: string, query: string) =>
+  api.post('/agent/query', { sessionId, query }).then((r) => r.data);
+
+export const endSession = (sessionId: string) =>
+  api.post(`/agent/session/${sessionId}/end`).then((r) => r.data);
+
+export const getSession = (sessionId: string) =>
+  api.get(`/agent/session/${sessionId}`).then((r) => r.data);
+
+export const getSessionHistory = (sessionId: string) =>
+  api.get(`/agent/session/${sessionId}/history`).then((r) => r.data);
+
+export const submitFeedback = (data: {
+  sessionId?: string;
+  executionLogId?: number;
+  skillName?: string;
+  userId?: number;
+  rating: number;
+  comment?: string;
+  isPositive: boolean;
+}) => api.post('/agent/feedback', data).then((r) => r.data);
+
+export const getOptimization = () =>
+  api.get('/agent/optimization').then((r) => r.data);
+
+// Skills
+export const getSkills = () => api.get('/skills').then((r) => r.data);
+export const getSkill = (name: string) => api.get(`/skills/${name}`).then((r) => r.data);
+export const getSkillsByCategory = (category: string) =>
+  api.get(`/skills/category/${category}`).then((r) => r.data);
+export const getSkillNames = () => api.get('/skills/names').then((r) => r.data);
+export const getSkillAnalytics = (name: string) =>
+  api.get(`/skills/analytics/${name}`).then((r) => r.data);
+
 export default api;

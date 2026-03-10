@@ -357,4 +357,135 @@
 
 ---
 
+## Session 6 — 2026-03-10：Phase 4 SuperAgent + Skill 体系实现
+
+**目标**：实现 SuperAgent + Skill 体系 + 持续进化环。
+
+### 6.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 新增 | `entity/AgentSession.kt` | Agent会话实体 |
+| 新增 | `entity/SkillDefinition.kt` | Skill定义实体 |
+| 新增 | `entity/SkillExecutionLog.kt` | Skill执行日志实体 |
+| 新增 | `entity/UserFeedback.kt` | 用户反馈实体 |
+| 新增 | `repository/AgentSessionRepository.kt` | 会话仓库 |
+| 新增 | `repository/SkillDefinitionRepository.kt` | Skill定义仓库 |
+| 新增 | `repository/SkillExecutionLogRepository.kt` | 执行日志仓库 |
+| 新增 | `repository/UserFeedbackRepository.kt` | 反馈仓库 |
+| 新增 | `service/SuperAgentService.kt` | Agent核心服务 |
+| 新增 | `service/SkillService.kt` | Skill管理服务 |
+| 新增 | `service/EvolutionService.kt` | 持续进化服务 |
+| 新增 | `controller/AgentController.kt` | Agent API |
+| 新增 | `controller/SkillController.kt` | Skill API |
+| 新增 | `skill/BaseSkill.kt` | Skill基类 |
+| 新增 | `skill/RequirementAnalysisSkill.kt` | 需求分析Skill |
+| 新增 | `skill/TaskAssignmentSkill.kt` | 任务分配Skill |
+| 新增 | `skill/RiskAlertSkill.kt` | 风险预警Skill |
+| 新增 | `skill/ProgressAssessmentSkill.kt` | 进度评估Skill |
+| 新增 | `skill/TeamOptimizationSkill.kt` | 团队优化Skill |
+| 新增 | `skill/DataAggregationSkill.kt` | 数据聚合Skill |
+| 新增 | `skill/EvolutionSkill.kt` | 进化Skill |
+| 新增 | `skill/HelpSkill.kt` | 帮助Skill |
+| 新增 | `skill/GeneralQuerySkill.kt` | 通用查询Skill |
+| 新增 | `frontend/src/app/agent/page.tsx` | Agent对话页面 |
+| 新增 | `frontend/src/app/skills/page.tsx` | Skill管理页面 |
+| 修改 | `frontend/src/lib/api.ts` | 添加Agent/Skill API |
+| 修改 | `frontend/src/components/AppLayout.tsx` | 添加导航入口 |
+| 修改 | `docs/baselines/design-baseline.md` | 更新到 v2.1 |
+
+### 6.2 API 验证结果
+
+| 测试 | 结果 |
+|------|------|
+| POST /api/agent/session | ✅ 创建会话成功 |
+| POST /api/agent/query | ✅ Agent查询正常返回 |
+| GET /api/skills | ✅ 返回9个Skill |
+| GET /api/skills/names | ✅ Skill名称列表 |
+
+### 6.3 Bug 记录
+
+**Bug 1：Kotlin val 不可重新赋值**
+- 症状：JPA 实体属性不可直接修改
+- 修复：创建新的实体实例替代
+- 状态：✅ 已修复
+
+**Bug 2：循环依赖**
+- 症状：HelpSkill 依赖 SkillService，SkillService 依赖所有 Skill
+- 修复：移除 HelpSkill 的 SkillService 依赖，改为静态帮助文本
+- 状态：✅ 已修复
+
+**Bug 3：lateinit 未初始化**
+- 症状：SpringContext 在 @PostConstruct 时未初始化
+- 修复：改用构造函数注入依赖
+- 状态：✅ 已修复
+
+### 6.4 经验沉淀
+
+- Spring 构造函数注入优于字段注入
+- 使用 `List<BaseSkill>` 自动注入所有 Skill Bean
+- 避免 Skill 与 SkillService 之间的循环依赖
+
+### 6.5 统计快照
+
+| 指标 | 值 |
+|------|-----|
+| 新增 Kotlin 文件 | 20+ |
+| 新增前端文件 | 3 |
+| 新增 API 端点 | 12 |
+| Skill 数量 | 9 |
+| 数据库表新增 | 4 |
+
+### 6.6 Git Commit
+
+待提交
+
+---
+
+## Session 7 — 2026-03-10：Phase 4 验证 + 整体可用确认
+
+**目标**：验证 Phase 4 功能，确认整体项目可用。
+
+### 7.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 验证 | 后端 API | JWT 认证 + Agent/Skill 全部可用 |
+| 验证 | 前端页面 | Next.js dev server 启动成功 |
+| 验证 | 端到端测试 | 创建会话、Agent 查询、Skill 列表全部正常 |
+
+### 7.2 API 验证结果
+
+| 测试 | 结果 |
+|------|------|
+| POST /api/auth/login | ✅ 返回 JWT Token |
+| POST /api/agent/session | ✅ 创建会话成功，返回 sessionId |
+| POST /api/agent/query | ✅ Agent 查询正常返回，支持中文 |
+| GET /api/skills | ✅ 返回 9 个 Skill |
+
+### 7.3 已知 Bug 修复确认
+
+| Bug | 状态 |
+|-----|------|
+| Bug1: Kotlin val 不可重新赋值 | ✅ 已修复 |
+| Bug2: 循环依赖 | ✅ 已修复 |
+| Bug3: lateinit 未初始化 | ✅ 已修复 |
+| Session not found (错误使用 sessionId) | ✅ 正确实现，需使用返回的 sessionId |
+
+### 7.4 统计快照
+
+| 指标 | 值 |
+|------|-----|
+| 后端健康检查 | ✅ UP |
+| 后端启动时间 | ~5 秒 |
+| Agent API | ✅ 正常 |
+| Skills 数量 | 9 |
+| 前端 Dev Server | ✅ 运行在 3000 端口 |
+
+### 7.5 Git Commit
+
+待提交
+
+---
+
 > *下次 Session 开始时，先读本文件最后一条记录恢复上下文。*

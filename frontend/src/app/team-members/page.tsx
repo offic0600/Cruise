@@ -52,10 +52,17 @@ export default function TeamMembersPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const data = {
+        name: formData.name,
+        email: formData.email || undefined,
+        role: formData.role,
+        skills: formData.skills || undefined,
+        teamId: formData.teamId != null ? formData.teamId : undefined,
+      };
       if (editingItem) {
-        await updateTeamMember(editingItem.id, formData);
+        await updateTeamMember(editingItem.id, data);
       } else {
-        await createTeamMember(formData);
+        await createTeamMember(data);
       }
       setShowModal(false);
       setEditingItem(null);

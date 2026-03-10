@@ -86,11 +86,23 @@ export default function TasksPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // 构建符合 API 类型的数据，将 null 转为 undefined
       const data = {
-        ...formData,
-        plannedStartDate: formData.plannedStartDate || null,
-        plannedEndDate: formData.plannedEndDate || null,
+        title: formData.title,
+        description: formData.description || undefined,
+        status: formData.status,
+        requirementId: formData.requirementId,
+        assigneeId: formData.assigneeId != null ? formData.assigneeId : undefined,
+        progress: formData.progress,
+        teamId: formData.teamId != null ? formData.teamId : undefined,
+        plannedStartDate: formData.plannedStartDate || undefined,
+        plannedEndDate: formData.plannedEndDate || undefined,
+        estimatedDays: formData.estimatedDays != null ? formData.estimatedDays : undefined,
+        plannedDays: formData.plannedDays != null ? formData.plannedDays : undefined,
+        remainingDays: formData.remainingDays != null ? formData.remainingDays : undefined,
+        estimatedHours: formData.estimatedHours,
       };
+
       if (editingItem) {
         await updateTask(editingItem.id, data);
       } else {
