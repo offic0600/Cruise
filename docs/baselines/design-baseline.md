@@ -2,7 +2,7 @@
 
 > **定位**：实现驱动，记录"我们造了什么"。每个 Phase 结束后对照实际代码更新。
 > **交叉校验**：Phase 结束时先更新本文件，再与规划基线（plan-baseline.md）交叉校验。
-> **当前版本**：v2.1（Phase 4 实现完成）
+> **当前版本**：v2.2（Phase 4 验收完成 + 交叉校验）
 
 ---
 
@@ -18,7 +18,7 @@ Cruise/
 │   └── src/main/
 │       ├── kotlin/com/cruise/
 │       │   ├── CruiseApplication.kt   # 启动类
-│       │   ├── controller/            # 控制器 (12个)
+│       │   ├── controller/            # 控制器 (14个)
 │       │   │   ├── AuthController.kt
 │       │   │   ├── RequirementController.kt
 │       │   │   ├── TaskController.kt
@@ -28,7 +28,9 @@ Cruise/
 │       │   │   ├── HealthController.kt
 │       │   │   ├── SimpleAuthController.kt
 │       │   │   ├── AlmRequirementController.kt
-│       │   │   └── RequirementTagController.kt
+│       │   │   ├── RequirementTagController.kt
+│       │   │   ├── AgentController.kt
+│       │   │   └── SkillController.kt
 │       │   ├── service/               # 业务服务 (8个)
 │       │   │   ├── RequirementService.kt
 │       │   │   ├── TaskService.kt
@@ -46,6 +48,17 @@ Cruise/
 │       │   ├── repository/            # 数据仓库 (7个)
 │       │   ├── security/              # 安全认证 (3个)
 │       │   ├── skill/                # Skill实现 (9个)
+│       │   │   ├── BaseSkill.kt
+│       │   │   ├── RequirementAnalysisSkill.kt
+│       │   │   ├── TaskAssignmentSkill.kt
+│       │   │   ├── RiskAlertSkill.kt
+│       │   │   ├── ProgressAssessmentSkill.kt
+│       │   │   ├── TeamOptimizationSkill.kt
+│       │   │   ├── DataAggregationSkill.kt
+│       │   │   ├── EvolutionSkill.kt
+│       │   │   ├── HelpSkill.kt
+│       │   │   └── GeneralQuerySkill.kt
+│       │   ├── security/              # 安全认证 (3个)
 │       │   │   ├── JwtTokenProvider.kt
 │       │   │   ├── JwtAuthenticationFilter.kt
 │       │   │   └── CustomUserDetailsService.kt
@@ -455,10 +468,11 @@ class UserFeedback {
 | v1.4 | 2026-03-09 | Phase 3 验收 | 10/10 测试通过 + ALM/GitLab/工时系统集成 + 数据聚合视图 |
 | v2.0 | 2026-03-10 | Phase 4 设计 | SuperAgent + Skill 体系 + 持续进化环 |
 | **v2.1** | **2026-03-10** | **Phase 4 实现** | **9个Skill实现 + Agent API + 持续进化环** |
+| **v2.2** | **2026-03-10** | **Phase 4 验收 + 交叉校验** | **更新控制器数量 + 修正 Phase 4 状态** |
 
 ---
 
-*版本：v2.1*
+*版本：v2.2*
 *创建：2026-03-06*
 *更新：2026-03-10*
-*下次更新时机：Phase 4 验收完成后*
+*下次更新时机：下个 Phase*
