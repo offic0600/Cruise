@@ -63,9 +63,7 @@ jwt:
   secret: cruise-secret-key-for-jwt-token-generation-must-be-long-enough-256-bits
   expiration: 86400000
 
-claude:
-  api-key: ${CLAUDE_API_KEY:}
-
-# 使用 Haiku 模型（最便宜最快）
-claude-model: claude-3-haiku-20240307
-claude-max-tokens: 1024
+minimax:
+  api-key: ${MINIMAX_API_KEY:}
+  model: MiniMax-M2.5
+  base-url: https://api.minimax.chat/v1

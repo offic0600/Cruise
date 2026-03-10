@@ -12,14 +12,13 @@ import org.springframework.stereotype.Service
 import java.util.concurrent.TimeUnit
 
 /**
- * LLM 服务 - 使用 Claude API
- * 使用 OkHttp 直接调用 REST API
+ * LLM 服务 - 使用 MiniMax API
  */
 @Service
 class LLMService(
-    @Value("\${claude.api-key:}") private val apiKey: String,
-    @Value("\${claude-model:claude-3-haiku-20240307}") private val model: String,
-    @Value("\${claude-max-tokens:1024}") private val maxTokens: Int
+    @Value("\${minimax.api-key:}") private val apiKey: String,
+    @Value("\${minimax.model:MiniMax-M2.5}") private val model: String,
+    @Value("\${minimax.base-url:https://api.minimax.chat/v1}") private val baseUrl: String
 ) {
     private val logger = LoggerFactory.getLogger(LLMService::class.java)
     private val client = OkHttpClient.Builder()
@@ -32,32 +31,31 @@ class LLMService(
     private val jsonMediaType = "application/json".toMediaType()
 
     /**
-     * 调用 Claude API 生成回复
-     * @param systemPrompt 系统提示词
-     * @param userPrompt 用户输入
-     * @return AI 回复内容
+     * 调用 MiniMax API 生成回复
      */
     fun generate(systemPrompt: String, userPrompt: String): String {
         if (apiKey.isBlank()) {
-            logger.warn("Claude API key 未配置，LLM 服务不可用")
-            return "⚠️ AI 服务未配置。请设置 CLAUDE_API_KEY 环境变量。"
+            logger.warn("MiniMax API key 未配置，LLM 服务不可用")
+            return "⚠️ AI 服务未配置。请设置 MINIMAX_API_KEY 环境变量。"
         }
 
+        // MiniMax API 格式
         val requestBody = buildString {
             append("{")
             append("\"model\": \"$model\",")
-            append("\"max_tokens\": $maxTokens,")
-            append("\"system\": ${toJsonString(systemPrompt)},")
             append("\"messages\": [")
+            append("{\"role\": \"system\", \"content\": ${toJsonString(systemPrompt)}},")
             append("{\"role\": \"user\", \"content\": ${toJsonString(userPrompt)}}")
-            append("]")
+            append("],")
+            append("\"max_tokens\": 1024,")
+            append("\"temperature\": 0.7")
             append("}")
         }
 
         val request = Request.Builder()
-            .url("https://api.anthropic.com/v1/messages")
-            .addHeader("x-api-key", apiKey)
-            .addHeader("anthropic-version", "2023-06-01")
+            .url("$baseUrl/text/chatcompletion_v2")
+            .addHeader("Authorization", "Bearer $apiKey")
+            .addHeader("Content-Type", "application/json")
             .post(requestBody.toRequestBody(jsonMediaType))
             .build()
 
@@ -66,12 +64,12 @@ class LLMService(
             val responseBody = response.body?.string()
 
             if (!response.isSuccessful) {
-                logger.error("Claude API 调用失败: ${response.code} - $responseBody")
+                logger.error("MiniMax API 调用失败: ${response.code} - $responseBody")
                 return "⚠️ AI 服务调用失败: ${response.code}"
             }
 
             val json = objectMapper.readTree(responseBody)
-            val content = json.path("content").firstOrNull()?.path("text")?.asText()
+            val content = json.path("choices").firstOrNull()?.path("message")?.path("content")?.asText()
 
             if (content.isNullOrBlank()) {
                 "⚠️ AI 返回了空内容"
@@ -79,7 +77,7 @@ class LLMService(
                 content
             }
         } catch (e: Exception) {
-            logger.error("Claude API 调用失败: ${e.message}", e)
+            logger.error("MiniMax API 调用失败: ${e.message}", e)
             "⚠️ AI 服务调用失败: ${e.message}"
         }
     }
@@ -89,7 +87,7 @@ class LLMService(
     }
 
     /**
-     * 简化版调用，只传入用户消息
+     * 简化版调用
      */
     fun chat(userPrompt: String): String {
         val systemPrompt = """
