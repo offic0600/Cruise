@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import AppLayout from '@/components/AppLayout';
-import { getRequirements, getTasks, getTeamMembers } from '@/lib/api';
+import { getRequirements, getTasks, getTeamMembers, createSession, sendQuery } from '@/lib/api';
 
 interface Requirement {
   id: number;
@@ -16,11 +16,26 @@ interface Task {
   status: string;
 }
 
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  skillName?: string;
+}
+
 export default function DashboardPage() {
   const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // AI 助手状态
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [aiInput, setAiInput] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadData();
@@ -40,6 +55,72 @@ export default function DashboardPage() {
       console.error('加载失败', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // AI 助手初始化
+  useEffect(() => {
+    if (aiPanelOpen && !sessionId) {
+      initAiSession();
+    }
+  }, [aiPanelOpen]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, aiPanelOpen]);
+
+  const initAiSession = async () => {
+    try {
+      const userStr = localStorage.getItem('user');
+      const user = userStr ? JSON.parse(userStr) : null;
+      const session = await createSession(user?.id, user?.username);
+      setSessionId(session.sessionId);
+      setMessages([
+        {
+          id: '1',
+          role: 'assistant',
+          content: '您好！我是 Cruise 智能助手。我可以帮您分析看板数据、识别风险、评估进度等。请直接输入您的问题。',
+        },
+      ]);
+    } catch (error) {
+      console.error('Failed to create session:', error);
+    }
+  };
+
+  const handleAiSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!aiInput.trim() || !sessionId || aiLoading) return;
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: aiInput,
+    };
+    setMessages((prev) => [...prev, userMessage]);
+    setAiInput('');
+    setAiLoading(true);
+
+    try {
+      const response = await sendQuery(sessionId, aiInput);
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: response.message,
+        skillName: response.skillName,
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error('Failed to send query:', error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: '抱歉，处理您的请求时发生错误。请稍后重试。',
+        },
+      ]);
+    } finally {
+      setAiLoading(false);
     }
   };
 
@@ -81,7 +162,100 @@ export default function DashboardPage() {
 
   return (
     <AppLayout>
-      <div className="space-y-6">
+      {/* AI 助手按钮 */}
+      <button
+        onClick={() => setAiPanelOpen(true)}
+        className="fixed right-6 bottom-6 w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full shadow-lg shadow-blue-500/40 flex items-center justify-center hover:scale-110 transition-transform z-50"
+      >
+        <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+        </svg>
+      </button>
+
+      {/* AI 助手侧边面板 */}
+      {aiPanelOpen && (
+        <div className="fixed right-0 top-0 h-full w-96 bg-white shadow-2xl z-50 flex flex-col">
+          {/* 面板头部 */}
+          <div className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-semibold">智能助手</h3>
+                <p className="text-xs text-blue-100">基于 SuperAgent</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setAiPanelOpen(false)}
+              className="w-8 h-8 rounded-lg hover:bg-white/20 flex items-center justify-center transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* 消息区域 */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-gray-50 to-white">
+            {messages.map((message) => (
+              <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[85%] rounded-2xl p-3 ${
+                  message.role === 'user'
+                    ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white'
+                    : 'bg-white border border-gray-200 text-gray-800 shadow-sm'
+                }`}>
+                  <div className="whitespace-pre-wrap text-sm">{message.content}</div>
+                  {message.role === 'assistant' && message.skillName && (
+                    <div className="mt-2 pt-2 border-t border-gray-100 text-xs text-gray-400">
+                      技能: {message.skillName.replace('Skill', '')}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            {aiLoading && (
+              <div className="flex justify-start">
+                <div className="bg-white border border-gray-200 rounded-2xl p-3 shadow-sm">
+                  <div className="flex gap-1">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* 输入区域 */}
+          <form onSubmit={handleAiSubmit} className="p-4 border-t bg-white">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={aiInput}
+                onChange={(e) => setAiInput(e.target.value)}
+                placeholder="输入您的问题..."
+                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                disabled={aiLoading}
+              />
+              <button
+                type="submit"
+                disabled={aiLoading || !aiInput.trim()}
+                className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div className="space-y-6 mr-0 transition-all duration-300">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">仪表盘</h1>
           <p className="text-slate-500 text-sm mt-1">项目概览和数据统计</p>
