@@ -43,7 +43,7 @@ export default function TeamMembersPage() {
   const loadData = async () => {
     try {
       const data = await getTeamMembers();
-      setMembers(data);
+      setMembers(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('加载失败', err);
     }

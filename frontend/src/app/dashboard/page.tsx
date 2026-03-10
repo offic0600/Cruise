@@ -48,9 +48,9 @@ export default function DashboardPage() {
         getTasks(),
         getTeamMembers(),
       ]);
-      setRequirements(reqs);
-      setTasks(tks);
-      setMembers(mems);
+      setRequirements(Array.isArray(reqs) ? reqs : []);
+      setTasks(Array.isArray(tks) ? tks : []);
+      setMembers(Array.isArray(mems) ? mems : []);
     } catch (err) {
       console.error('加载失败', err);
     } finally {

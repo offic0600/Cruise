@@ -94,9 +94,9 @@ export default function RequirementsPage() {
         getTeamMembers(),
         getRequirementTags(),
       ]);
-      setRequirements(reqs);
-      setTeamMembers(members);
-      setTags(tagsData);
+      setRequirements(Array.isArray(reqs) ? reqs : []);
+      setTeamMembers(Array.isArray(members) ? members : []);
+      setTags(Array.isArray(tagsData) ? tagsData : []);
     } catch (err) {
       console.error('加载失败', err);
     }

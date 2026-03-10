@@ -75,9 +75,9 @@ export default function TasksPage() {
         getTeamMembers(),
         getRequirements(),
       ]);
-      setTasks(tasksData);
-      setTeamMembers(membersData);
-      setRequirements(reqsData);
+      setTasks(Array.isArray(tasksData) ? tasksData : []);
+      setTeamMembers(Array.isArray(membersData) ? membersData : []);
+      setRequirements(Array.isArray(reqsData) ? reqsData : []);
     } catch (err) {
       console.error('加载失败', err);
     }

@@ -36,7 +36,7 @@ export default function DefectsPage() {
   const loadDefects = async () => {
     try {
       const data = await getDefects();
-      setDefects(data);
+      setDefects(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('加载失败', err);
     } finally {
