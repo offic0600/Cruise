@@ -28,7 +28,17 @@
 
 | 文档 | 路径 | 状态 |
 |------|------|------|
-| Phase 0 验收测试 | `docs/acceptance-tests/phase0.md` | ⏳ 等待执行 |
+| Phase 0 验收测试 | `docs/acceptance-tests/phase0.md` | ✅ 完成 (10/12) |
+| Phase 1 验收测试 | `docs/acceptance-tests/phase1.md` | ✅ 完成 (16/16) |
+| Phase 2 验收测试 | `docs/acceptance-tests/phase2.md` | ✅ 完成 (10/10) |
+| Phase 3 验收测试 | `docs/acceptance-tests/phase3.md` | ✅ 完成 (10/10) |
+| Phase 4 验收测试 | `docs/acceptance-tests/phase4.md` | ✅ 完成 (8/15) |
+
+## 工时记录
+
+| 文档 | 路径 |
+|------|------|
+| 工时记录 | `docs/worktime.md` |
 
 ## 参考资料（只读）
 
