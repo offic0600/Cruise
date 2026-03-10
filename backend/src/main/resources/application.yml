@@ -11,6 +11,8 @@ spring:
     default-property-inclusion: non_null
     parser:
       allow-non-numeric-numbers: true
+    deserialization:
+      fail-on-unknown-properties: false
   http:
     encoding:
       charset: UTF-8

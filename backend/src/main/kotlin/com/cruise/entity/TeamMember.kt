@@ -1,64 +1,39 @@
 package com.cruise.entity
 
+import com.fasterxml.jackson.annotation.JsonCreator
+import com.fasterxml.jackson.annotation.JsonProperty
 import jakarta.persistence.*
 
 @Entity
 @Table(name = "team_member")
-class TeamMember {
+class TeamMember @JsonCreator constructor(
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    var id: Long = 0
+    @JsonProperty("id")
+    var id: Long = 0,
 
     @Column(nullable = false, length = 100)
-    var name: String = ""
+    @JsonProperty("name")
+    var name: String = "",
 
     @Column(length = 100)
-    var email: String? = null
+    @JsonProperty("email")
+    var email: String? = null,
 
     @Column(length = 50)
-    var role: String = "DEVELOPER"
+    @JsonProperty("role")
+    var role: String = "DEVELOPER",
 
     @Column(length = 500)
-    var skills: String? = null
+    @JsonProperty("skills")
+    var skills: String? = null,
 
     @Column(name = "team_id")
-    var teamId: Long? = null
+    @JsonProperty("teamId")
+    var teamId: Long? = null,
 
     @Column(name = "created_at")
+    @JsonProperty("createdAt")
     var createdAt: java.time.LocalDateTime = java.time.LocalDateTime.now()
-
-    constructor()
-
-    constructor(
-        name: String,
-        email: String? = null,
-        role: String = "DEVELOPER",
-        skills: String? = null,
-        teamId: Long? = null
-    ) {
-        this.name = name
-        this.email = email
-        this.role = role
-        this.skills = skills
-        this.teamId = teamId
-    }
-
-    constructor(
-        id: Long,
-        name: String,
-        email: String? = null,
-        role: String = "DEVELOPER",
-        skills: String? = null,
-        teamId: Long? = null,
-        createdAt: java.time.LocalDateTime? = null
-    ) {
-        this.id = id
-        this.name = name
-        this.email = email
-        this.role = role
-        this.skills = skills
-        this.teamId = teamId
-        this.createdAt = createdAt ?: java.time.LocalDateTime.now()
-    }
-}
+)
