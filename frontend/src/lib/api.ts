@@ -161,4 +161,32 @@ export const getSkillNames = () => api.get('/skills/names').then((r) => r.data);
 export const getSkillAnalytics = (name: string) =>
   api.get(`/skills/analytics/${name}`).then((r) => r.data);
 
+export const createSkill = (data: {
+  name: string;
+  description: string;
+  category: string;
+  intentPatterns: string;
+  parameters?: string;
+  outputSchema?: string;
+}) => api.post('/skills', data).then((r) => r.data);
+
+export const updateSkill = (name: string, data: {
+  description?: string;
+  category?: string;
+  intentPatterns?: string;
+  parameters?: string;
+  outputSchema?: string;
+  status?: string;
+}) => api.put(`/skills/${name}`, data).then((r) => r.data);
+
+export const deleteSkill = (name: string) => api.delete(`/skills/${name}`);
+
+export const addExternalSkill = (data: {
+  name: string;
+  description: string;
+  category: string;
+  externalUrl: string;
+  apiKey?: string;
+}) => api.post('/skills/external', data).then((r) => r.data);
+
 export default api;

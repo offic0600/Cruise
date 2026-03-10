@@ -1,5 +1,8 @@
 package com.cruise.service
 
+import com.cruise.controller.AddExternalSkillRequest
+import com.cruise.controller.CreateSkillRequest
+import com.cruise.controller.UpdateSkillRequest
 import com.cruise.entity.SkillDefinition
 import com.cruise.repository.SkillDefinitionRepository
 import com.cruise.repository.SkillExecutionLogRepository
@@ -132,6 +135,121 @@ class SkillService(
 
     fun getSkillNames(): List<String> {
         return skillRegistry.keys.toList()
+    }
+
+    fun createSkill(request: CreateSkillRequest): SkillDefinition {
+        // 检查是否已存在
+        if (skillDefinitionRepository.findByName(request.name) != null) {
+            throw IllegalArgumentException("Skill already exists: ${request.name}")
+        }
+
+        // 检查是否是内置 Skill
+        if (skillRegistry.containsKey(request.name)) {
+            // 更新内置 Skill 的定义
+            val existing = skillDefinitionRepository.findByName(request.name)!!
+            val updated = SkillDefinition(
+                id = existing.id,
+                name = request.name,
+                description = request.description,
+                category = request.category,
+                intentPatterns = request.intentPatterns,
+                parameters = request.parameters,
+                outputSchema = request.outputSchema,
+                status = "ACTIVE",
+                executionCount = existing.executionCount,
+                successRate = existing.successRate,
+                avgExecutionTimeMs = existing.avgExecutionTimeMs,
+                version = existing.version,
+                createdAt = existing.createdAt,
+                updatedAt = java.time.LocalDateTime.now()
+            )
+            return skillDefinitionRepository.save(updated)
+        }
+
+        // 创建新的自定义 Skill
+        val definition = SkillDefinition(
+            name = request.name,
+            description = request.description,
+            category = request.category,
+            intentPatterns = request.intentPatterns,
+            parameters = request.parameters,
+            outputSchema = request.outputSchema,
+            status = "ACTIVE"
+        )
+        return skillDefinitionRepository.save(definition)
+    }
+
+    fun updateSkill(name: String, request: UpdateSkillRequest): SkillDefinition {
+        val existing = skillDefinitionRepository.findByName(name)
+            ?: throw IllegalArgumentException("Skill not found: $name")
+
+        val updated = SkillDefinition(
+            id = existing.id,
+            name = existing.name,
+            description = request.description ?: existing.description,
+            category = request.category ?: existing.category,
+            intentPatterns = request.intentPatterns ?: existing.intentPatterns,
+            parameters = request.parameters ?: existing.parameters,
+            outputSchema = request.outputSchema ?: existing.outputSchema,
+            status = request.status ?: existing.status,
+            executionCount = existing.executionCount,
+            successRate = existing.successRate,
+            avgExecutionTimeMs = existing.avgExecutionTimeMs,
+            version = existing.version,
+            createdAt = existing.createdAt,
+            updatedAt = java.time.LocalDateTime.now()
+        )
+        return skillDefinitionRepository.save(updated)
+    }
+
+    fun deleteSkill(name: String): Boolean {
+        val existing = skillDefinitionRepository.findByName(name)
+            ?: throw IllegalArgumentException("Skill not found: $name")
+
+        // 如果是内置 Skill，只能标记为删除，不能真正删除
+        if (skillRegistry.containsKey(name)) {
+            // 标记为 INACTIVE
+            val updated = SkillDefinition(
+                id = existing.id,
+                name = existing.name,
+                description = existing.description,
+                category = existing.category,
+                intentPatterns = existing.intentPatterns,
+                parameters = existing.parameters,
+                outputSchema = existing.outputSchema,
+                status = "INACTIVE",
+                executionCount = existing.executionCount,
+                successRate = existing.successRate,
+                avgExecutionTimeMs = existing.avgExecutionTimeMs,
+                version = existing.version,
+                createdAt = existing.createdAt,
+                updatedAt = java.time.LocalDateTime.now()
+            )
+            skillDefinitionRepository.save(updated)
+            return true
+        }
+
+        // 自定义 Skill 可以真正删除
+        skillDefinitionRepository.delete(existing)
+        return true
+    }
+
+    fun addExternalSkill(request: AddExternalSkillRequest): SkillDefinition {
+        // 检查是否已存在
+        if (skillDefinitionRepository.findByName(request.name) != null) {
+            throw IllegalArgumentException("Skill already exists: ${request.name}")
+        }
+
+        // 创建外部 Skill 定义
+        val definition = SkillDefinition(
+            name = request.name,
+            description = request.description,
+            category = request.category,
+            intentPatterns = "", // 外部 Skill 不需要意图模式
+            parameters = """{"externalUrl": "${request.externalUrl}", "apiKey": "${request.apiKey ?: ""}"}""",
+            status = "EXTERNAL"
+        )
+        return skillDefinitionRepository.save(definition)
     }
 }
 

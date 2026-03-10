@@ -45,4 +45,70 @@ class SkillController(
             ResponseEntity.notFound().build()
         }
     }
+
+    @PostMapping
+    fun createSkill(@RequestBody request: CreateSkillRequest): ResponseEntity<SkillDefinition> {
+        return try {
+            val skill = skillService.createSkill(request)
+            ResponseEntity.ok(skill)
+        } catch (e: IllegalArgumentException) {
+            ResponseEntity.badRequest().build()
+        }
+    }
+
+    @PutMapping("/{name}")
+    fun updateSkill(@PathVariable name: String, @RequestBody request: UpdateSkillRequest): ResponseEntity<SkillDefinition> {
+        return try {
+            val skill = skillService.updateSkill(name, request)
+            ResponseEntity.ok(skill)
+        } catch (e: IllegalArgumentException) {
+            ResponseEntity.notFound().build()
+        }
+    }
+
+    @DeleteMapping("/{name}")
+    fun deleteSkill(@PathVariable name: String): ResponseEntity<Void> {
+        return try {
+            skillService.deleteSkill(name)
+            ResponseEntity.ok().build()
+        } catch (e: IllegalArgumentException) {
+            ResponseEntity.notFound().build()
+        }
+    }
+
+    @PostMapping("/external")
+    fun addExternalSkill(@RequestBody request: AddExternalSkillRequest): ResponseEntity<SkillDefinition> {
+        return try {
+            val skill = skillService.addExternalSkill(request)
+            ResponseEntity.ok(skill)
+        } catch (e: Exception) {
+            ResponseEntity.badRequest().build()
+        }
+    }
 }
+
+data class CreateSkillRequest(
+    val name: String,
+    val description: String,
+    val category: String,
+    val intentPatterns: String,
+    val parameters: String? = null,
+    val outputSchema: String? = null
+)
+
+data class UpdateSkillRequest(
+    val description: String? = null,
+    val category: String? = null,
+    val intentPatterns: String? = null,
+    val parameters: String? = null,
+    val outputSchema: String? = null,
+    val status: String? = null
+)
+
+data class AddExternalSkillRequest(
+    val name: String,
+    val description: String,
+    val category: String,
+    val externalUrl: String,
+    val apiKey: String? = null
+)
