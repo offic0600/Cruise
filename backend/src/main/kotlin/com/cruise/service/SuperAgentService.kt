@@ -4,7 +4,6 @@ import com.cruise.entity.AgentSession
 import com.cruise.entity.SkillExecutionLog
 import com.cruise.repository.AgentSessionRepository
 import com.cruise.repository.SkillExecutionLogRepository
-import com.fasterxml.jackson.databind.ObjectMapper
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.LocalDateTime
@@ -14,8 +13,8 @@ import java.util.UUID
 class SuperAgentService(
     private val agentSessionRepository: AgentSessionRepository,
     private val skillExecutionLogRepository: SkillExecutionLogRepository,
-    private val skillService: SkillService,
-    private val objectMapper: ObjectMapper
+    private val llmService: LLMService,
+    private val dataCollectionService: DataCollectionService
 ) {
     private val logger = LoggerFactory.getLogger(SuperAgentService::class.java)
 
@@ -33,17 +32,13 @@ class SuperAgentService(
         val session = agentSessionRepository.findBySessionId(sessionId)
             ?: throw IllegalArgumentException("Session not found: $sessionId")
 
-        // 意图解析
-        val intent = parseIntent(query)
-        logger.info("Parsed intent: $intent for query: $query")
-
         // 更新会话状态
         val updatedSession = AgentSession(
             id = session.id,
             sessionId = session.sessionId,
             userId = session.userId,
             userName = session.userName,
-            currentIntent = intent,
+            currentIntent = "LLM_QUERY",
             context = session.context,
             status = session.status,
             messageCount = session.messageCount + 1,
@@ -53,38 +48,53 @@ class SuperAgentService(
         )
         agentSessionRepository.save(updatedSession)
 
-        // Skill 路由
-        val skillName = routeToSkill(intent, query)
-        logger.info("Routed to skill: $skillName")
-
-        // Skill 执行
+        // 直接调用 LLM 处理所有查询
         val startTime = System.currentTimeMillis()
         try {
-            val result = skillService.executeSkill(skillName, query, sessionId)
+            // 构建提示词，包含项目数据
+            val prompt = buildPrompt(query)
+            val result = llmService.chat(prompt)
             val executionTime = System.currentTimeMillis() - startTime
 
             // 记录执行日志
-            logExecution(sessionId, skillName, query, result, "SUCCESS", executionTime)
+            logExecution(sessionId, "LLM Query", query, result, "SUCCESS", executionTime)
 
             return AgentResponse(
                 sessionId = sessionId,
-                intent = intent,
-                skillName = skillName,
+                intent = "LLM_QUERY",
+                skillName = "LLM",
                 message = result,
                 status = "SUCCESS"
             )
         } catch (e: Exception) {
             val executionTime = System.currentTimeMillis() - startTime
-            logExecution(sessionId, skillName, query, null, "FAILED", executionTime, e.message)
-            logger.error("Skill execution failed: ${e.message}")
+            logExecution(sessionId, "LLM Query", query, null, "FAILED", executionTime, e.message)
+            logger.error("LLM query failed: ${e.message}")
 
             return AgentResponse(
                 sessionId = sessionId,
-                intent = intent,
-                skillName = skillName,
+                intent = "LLM_QUERY",
+                skillName = "LLM",
                 message = "处理您的请求时发生错误: ${e.message}",
                 status = "FAILED"
             )
+        }
+    }
+
+    private fun buildPrompt(userQuery: String): String {
+        return buildString {
+            appendLine("你是 Cruise AI 智能助手，一个专业的软件开发过程管理助手。")
+            appendLine("你使用的是 MiniMax M2.5 大模型。")
+            appendLine()
+            appendLine("请根据以下项目数据回答用户的问题。如果问题不需要数据支持，请直接回答。")
+            appendLine()
+            appendLine("--- 项目数据 ---")
+            appendLine(dataCollectionService.getProjectSummary())
+            appendLine()
+            appendLine("--- 用户问题 ---")
+            appendLine(userQuery)
+            appendLine()
+            appendLine("请用简洁、专业的中文回答。适当使用 Markdown 格式。")
         }
     }
 
@@ -115,36 +125,6 @@ class SuperAgentService(
 
     fun getSessionHistory(sessionId: String): List<SkillExecutionLog> {
         return skillExecutionLogRepository.findBySessionId(sessionId)
-    }
-
-    private fun parseIntent(query: String): String {
-        val lowerQuery = query.lowercase()
-
-        return when {
-            lowerQuery.contains("需求") || lowerQuery.contains("requirement") -> "ANALYZE_REQUIREMENT"
-            lowerQuery.contains("任务") || lowerQuery.contains("分配") || lowerQuery.contains("task") -> "ASSIGN_TASK"
-            lowerQuery.contains("风险") || lowerQuery.contains("alert") || lowerQuery.contains("risk") -> "RISK_ALERT"
-            lowerQuery.contains("进度") || lowerQuery.contains("progress") || lowerQuery.contains("评估") -> "ASSESS_PROGRESS"
-            lowerQuery.contains("团队") || lowerQuery.contains("成员") || lowerQuery.contains("人员") || lowerQuery.contains("优化") || lowerQuery.contains("team") -> "OPTIMIZE_TEAM"
-            lowerQuery.contains("数据") || lowerQuery.contains("统计") || lowerQuery.contains("data") || lowerQuery.contains("健康") || lowerQuery.contains("整体") -> "AGGREGATE_DATA"
-            lowerQuery.contains("进化") || lowerQuery.contains("优化建议") || lowerQuery.contains("evolution") -> "EVOLUTION"
-            lowerQuery.contains("帮助") || lowerQuery.contains("help") || lowerQuery.contains("?") -> "HELP"
-            else -> "GENERAL_QUERY"
-        }
-    }
-
-    private fun routeToSkill(intent: String, query: String): String {
-        return when (intent) {
-            "ANALYZE_REQUIREMENT" -> "RequirementAnalysisSkill"
-            "ASSIGN_TASK" -> "TaskAssignmentSkill"
-            "RISK_ALERT" -> "RiskAlertSkill"
-            "ASSESS_PROGRESS" -> "ProgressAssessmentSkill"
-            "OPTIMIZE_TEAM" -> "TeamOptimizationSkill"
-            "AGGREGATE_DATA" -> "DataAggregationSkill"
-            "EVOLUTION" -> "EvolutionSkill"
-            "HELP" -> "HelpSkill"
-            else -> "GeneralQuerySkill"
-        }
     }
 
     private fun logExecution(
