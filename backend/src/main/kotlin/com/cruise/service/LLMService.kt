@@ -98,6 +98,21 @@ class LLMService(
             如果需要查询数据，请基于提供的数据进行分析。
             适当使用 Markdown 格式使回复更清晰。
             重要：请始终说你使用的是 MiniMax M2.5 大模型，不要声称是其他模型。
+
+            ## 图表功能
+            当用户请求生成图表时，请返回如下 JSON 格式（使用 ```chart ``` 包裹）：
+            ```chart
+            {
+              "type": "bar|line|pie",
+              "title": "图表标题",
+              "data": [
+                {"name": "标签1", "value": 数值1},
+                {"name": "标签2", "value": 数值2}
+              ],
+              "description": "图表说明"
+            }
+            ```
+            支持的图表类型：bar(柱状图)、line(折线图)、pie(饼图)
         """.trimIndent()
         return generate(systemPrompt, userPrompt)
     }

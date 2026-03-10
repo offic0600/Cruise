@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import AppLayout from '@/components/AppLayout';
+import ChartRenderer from '@/components/ChartRenderer';
 import { getRequirements, getTasks, getTeamMembers, createSession, sendQuery } from '@/lib/api';
 
 interface Requirement {
@@ -16,11 +17,19 @@ interface Task {
   status: string;
 }
 
+interface ChartConfig {
+  type: 'bar' | 'line' | 'pie';
+  title: string;
+  data: { name: string; value: number }[];
+  description?: string;
+}
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   skillName?: string;
+  chartConfig?: ChartConfig;
 }
 
 export default function DashboardPage() {
@@ -47,6 +56,26 @@ export default function DashboardPage() {
   const [aiInput, setAiInput] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // 解析图表配置
+  const parseChartConfig = (content: string): ChartConfig | undefined => {
+    const chartMatch = content.match(/```chart\n([\s\S]*?)\n```/);
+    if (chartMatch) {
+      try {
+        const config = JSON.parse(chartMatch[1]) as ChartConfig;
+        // 移除 content 中的 chart 代码块
+        return config;
+      } catch (e) {
+        console.error('Failed to parse chart config:', e);
+      }
+    }
+    return undefined;
+  };
+
+  // 清理内容中的 chart 代码块
+  const cleanContent = (content: string): string => {
+    return content.replace(/```chart\n[\s\S]*?\n```/g, '').trim();
+  };
 
   // 持久化 sessionId 和 messages
   useEffect(() => {
@@ -139,11 +168,16 @@ export default function DashboardPage() {
 
     try {
       const response = await sendQuery(sessionId, aiInput);
+
+      // 解析图表数据
+      const chartConfig = parseChartConfig(response.message);
+
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: response.message,
         skillName: response.skillName,
+        chartConfig: chartConfig,
       };
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
@@ -238,19 +272,24 @@ export default function DashboardPage() {
           {/* 消息区域 */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-gray-50 to-white">
             {messages.map((message) => (
-              <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} flex-col`}>
                 <div className={`max-w-[85%] rounded-2xl p-3 ${
                   message.role === 'user'
                     ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white'
                     : 'bg-white border border-gray-200 text-gray-800 shadow-sm'
                 }`}>
-                  <div className="whitespace-pre-wrap text-sm">{message.content}</div>
+                  <div className="whitespace-pre-wrap text-sm">
+                    {message.role === 'assistant' ? cleanContent(message.content) : message.content}
+                  </div>
                   {message.role === 'assistant' && message.skillName && (
                     <div className="mt-2 pt-2 border-t border-gray-100 text-xs text-gray-400">
                       技能: {message.skillName.replace('Skill', '')}
                     </div>
                   )}
                 </div>
+                {message.role === 'assistant' && message.chartConfig && (
+                  <ChartRenderer config={message.chartConfig} />
+                )}
               </div>
             ))}
             {aiLoading && (
