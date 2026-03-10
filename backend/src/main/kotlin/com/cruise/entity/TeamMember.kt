@@ -6,7 +6,7 @@ import jakarta.persistence.*
 
 @Entity
 @Table(name = "team_member")
-class TeamMember @JsonCreator constructor(
+class TeamMember @JsonCreator @JvmOverloads constructor(
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -35,5 +35,11 @@ class TeamMember @JsonCreator constructor(
 
     @Column(name = "created_at")
     @JsonProperty("createdAt")
-    var createdAt: java.time.LocalDateTime = java.time.LocalDateTime.now()
-)
+    var createdAt: java.time.LocalDateTime? = null
+) {
+    init {
+        if (createdAt == null) {
+            createdAt = java.time.LocalDateTime.now()
+        }
+    }
+}
