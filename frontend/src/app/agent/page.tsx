@@ -17,8 +17,20 @@ interface SkillInfo {
 }
 
 export default function AgentPage() {
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  // 从 localStorage 恢复会话状态
+  const [sessionId, setSessionId] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('ai_session_id');
+    }
+    return null;
+  });
+  const [messages, setMessages] = useState<Message[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('ai_messages');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [skills, setSkills] = useState<SkillInfo[]>([]);
@@ -26,8 +38,32 @@ export default function AgentPage() {
   const [feedbackRating, setFeedbackRating] = useState(5);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // 持久化 sessionId 和 messages
   useEffect(() => {
-    initSession();
+    if (sessionId) {
+      localStorage.setItem('ai_session_id', sessionId);
+    }
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem('ai_messages', JSON.stringify(messages));
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    // 如果没有 session 或 messages，才初始化
+    if (!sessionId) {
+      initSession();
+    } else if (messages.length === 0) {
+      setMessages([
+        {
+          id: '1',
+          role: 'assistant',
+          content: '您好！我是 Cruise 智能助手。我可以帮助您分析需求、管理任务、评估进度、识别风险等。请直接输入您的问题，我会尽力为您提供帮助。',
+        },
+      ]);
+    }
     loadSkills();
   }, []);
 

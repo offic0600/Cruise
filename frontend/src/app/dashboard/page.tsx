@@ -29,13 +29,37 @@ export default function DashboardPage() {
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // AI 助手状态
+  // AI 助手状态 - 从 localStorage 恢复
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('ai_session_id');
+    }
+    return null;
+  });
+  const [messages, setMessages] = useState<Message[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('ai_messages');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
   const [aiInput, setAiInput] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // 持久化 sessionId 和 messages
+  useEffect(() => {
+    if (sessionId) {
+      localStorage.setItem('ai_session_id', sessionId);
+    }
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem('ai_messages', JSON.stringify(messages));
+    }
+  }, [messages]);
 
   useEffect(() => {
     loadData();
@@ -60,8 +84,21 @@ export default function DashboardPage() {
 
   // AI 助手初始化
   useEffect(() => {
-    if (aiPanelOpen && !sessionId) {
-      initAiSession();
+    if (aiPanelOpen) {
+      // 如果有已有 session，恢复欢迎消息（如果没有 messages）
+      if (sessionId && messages.length === 0) {
+        setMessages([
+          {
+            id: '1',
+            role: 'assistant',
+            content: '您好！我是 Cruise 智能助手。我可以帮您分析看板数据、识别风险、评估进度等。请直接输入您的问题。',
+          },
+        ]);
+      }
+      // 如果没有 session，创建新 session
+      if (!sessionId) {
+        initAiSession();
+      }
     }
   }, [aiPanelOpen]);
 
