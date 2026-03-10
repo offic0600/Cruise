@@ -50,6 +50,9 @@ dependencies {
     // JSON
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 
+    // HTTP Client (用于调用 Claude API)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
     // Testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
