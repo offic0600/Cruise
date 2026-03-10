@@ -125,7 +125,7 @@ class SuperAgentService(
             lowerQuery.contains("任务") || lowerQuery.contains("分配") || lowerQuery.contains("task") -> "ASSIGN_TASK"
             lowerQuery.contains("风险") || lowerQuery.contains("alert") || lowerQuery.contains("risk") -> "RISK_ALERT"
             lowerQuery.contains("进度") || lowerQuery.contains("progress") || lowerQuery.contains("评估") -> "ASSESS_PROGRESS"
-            lowerQuery.contains("团队") || lowerQuery.contains("优化") || lowerQuery.contains("team") -> "OPTIMIZE_TEAM"
+            lowerQuery.contains("团队") || lowerQuery.contains("成员") || lowerQuery.contains("人员") || lowerQuery.contains("优化") || lowerQuery.contains("team") -> "OPTIMIZE_TEAM"
             lowerQuery.contains("数据") || lowerQuery.contains("统计") || lowerQuery.contains("data") -> "AGGREGATE_DATA"
             lowerQuery.contains("进化") || lowerQuery.contains("优化建议") || lowerQuery.contains("evolution") -> "EVOLUTION"
             lowerQuery.contains("帮助") || lowerQuery.contains("help") || lowerQuery.contains("?") -> "HELP"
