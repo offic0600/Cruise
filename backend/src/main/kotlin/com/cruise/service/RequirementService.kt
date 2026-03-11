@@ -1,12 +1,9 @@
 package com.cruise.service
 
-import com.cruise.entity.Requirement
-import com.cruise.repository.RequirementRepository
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
-import java.time.LocalDate
-import java.time.LocalDateTime
 
 data class CreateRequirementRequest(
     val title: String,
@@ -64,7 +61,6 @@ data class StatusTransitionRequest(
     val status: String
 )
 
-// DTO for API response
 data class RequirementDto(
     val id: Long,
     val title: String,
@@ -97,198 +93,156 @@ data class RequirementDto(
 
 @Service
 class RequirementService(
-    private val requirementRepository: RequirementRepository
+    private val issueService: IssueService
 ) {
-    private fun parseDate(dateStr: String?): LocalDate? {
-        return dateStr?.let { LocalDate.parse(it) }
-    }
+    private val objectMapper = jacksonObjectMapper()
 
-    private fun Requirement.toDto(): RequirementDto {
-        // Access all fields to ensure they are loaded
-        val _id = this.id
-        val _title = this.title
-        val _desc = this.description
-        val _status = this.status
-        val _priority = this.priority
-        val _projectId = this.projectId
-        val _teamId = this.teamId
-        val _plannedStartDate = this.plannedStartDate?.toString()
-        val _expectedDeliveryDate = this.expectedDeliveryDate?.toString()
-        val _requirementOwnerId = this.requirementOwnerId
-        val _productOwnerId = this.productOwnerId
-        val _devOwnerId = this.devOwnerId
-        val _devParticipants = this.devParticipants
-        val _testOwnerId = this.testOwnerId
-        val _progress = this.progress
-        val _tags = this.tags
-        val _estimatedDays = this.estimatedDays
-        val _plannedDays = this.plannedDays
-        val _gapDays = this.gapDays
-        val _gapBudget = this.gapBudget
-        val _actualDays = this.actualDays
-        val _applicationCodes = this.applicationCodes
-        val _vendors = this.vendors
-        val _vendorStaff = this.vendorStaff
-        val _createdBy = this.createdBy
-        val _createdAt = this.createdAt.toString()
-        val _updatedAt = this.updatedAt.toString()
-
-        return RequirementDto(
-            id = _id,
-            title = _title,
-            description = _desc,
-            status = _status,
-            priority = _priority,
-            projectId = _projectId,
-            teamId = _teamId,
-            plannedStartDate = _plannedStartDate,
-            expectedDeliveryDate = _expectedDeliveryDate,
-            requirementOwnerId = _requirementOwnerId,
-            productOwnerId = _productOwnerId,
-            devOwnerId = _devOwnerId,
-            devParticipants = _devParticipants,
-            testOwnerId = _testOwnerId,
-            progress = _progress,
-            tags = _tags,
-            estimatedDays = _estimatedDays,
-            plannedDays = _plannedDays,
-            gapDays = _gapDays,
-            gapBudget = _gapBudget,
-            actualDays = _actualDays,
-            applicationCodes = _applicationCodes,
-            vendors = _vendors,
-            vendorStaff = _vendorStaff,
-            createdBy = _createdBy,
-            createdAt = _createdAt,
-            updatedAt = _updatedAt
-        )
-    }
-
-    fun findAll(): List<RequirementDto> {
-        val requirements = requirementRepository.findAll()
-        return requirements.toList().map { it.toDto() }
-    }
+    fun findAll(): List<RequirementDto> =
+        issueService.findAll(IssueQuery(type = "FEATURE")).map { issueService.toRequirementDto(issueService.getIssue(it.id)) }
 
     fun findById(id: Long): RequirementDto {
-        val requirement = requirementRepository.findById(id)
-            .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Requirement not found") }
-        return requirement.toDto()
+        val issue = issueService.getIssue(id)
+        if (issue.type != "FEATURE") {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Requirement not found")
+        }
+        return issueService.toRequirementDto(issue)
     }
 
-    fun findByProjectId(projectId: Long): List<RequirementDto> {
-        val requirements = requirementRepository.findByProjectId(projectId)
-        return requirements.toList().map { it.toDto() }
-    }
+    fun findByProjectId(projectId: Long): List<RequirementDto> =
+        issueService.findAll(IssueQuery(type = "FEATURE", projectId = projectId))
+            .map { issueService.toRequirementDto(issueService.getIssue(it.id)) }
 
     fun create(request: CreateRequirementRequest): RequirementDto {
-        val requirement = Requirement(
-            title = request.title,
-            description = request.description,
-            status = request.status,
-            priority = request.priority,
-            projectId = request.projectId,
-            teamId = request.teamId,
-            plannedStartDate = parseDate(request.plannedStartDate),
-            expectedDeliveryDate = parseDate(request.expectedDeliveryDate),
-            requirementOwnerId = request.requirementOwnerId,
-            productOwnerId = request.productOwnerId,
-            devOwnerId = request.devOwnerId,
-            devParticipants = request.devParticipants,
-            testOwnerId = request.testOwnerId,
-            progress = request.progress ?: 0,
-            tags = request.tags,
-            estimatedDays = request.estimatedDays,
-            plannedDays = request.plannedDays,
-            gapDays = request.gapDays,
-            gapBudget = request.gapBudget,
-            actualDays = request.actualDays,
-            applicationCodes = request.applicationCodes,
-            vendors = request.vendors,
-            vendorStaff = request.vendorStaff,
-            createdBy = request.createdBy
+        val issue = issueService.create(
+            CreateIssueRequest(
+                type = "FEATURE",
+                title = request.title,
+                description = request.description,
+                state = mapRequirementStatus(request.status),
+                priority = if (request.priority == "CRITICAL") "URGENT" else request.priority,
+                projectId = request.projectId,
+                teamId = request.teamId,
+                assigneeId = request.requirementOwnerId,
+                progress = request.progress,
+                plannedStartDate = request.plannedStartDate,
+                plannedEndDate = request.expectedDeliveryDate,
+                legacyPayload = buildRequirementLegacyPayload(null, request)
+            )
         )
-        val saved = requirementRepository.save(requirement)
-        saved.id
-        return saved.toDto()
+        return issueService.toRequirementDto(issueService.getIssue(issue.id))
     }
 
     fun update(id: Long, request: UpdateRequirementRequest): RequirementDto {
-        val requirement = requirementRepository.findById(id)
-            .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Requirement not found") }
+        val issue = issueService.getIssue(id)
+        if (issue.type != "FEATURE") {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Requirement not found")
+        }
 
-        val updated = Requirement(
-            id = requirement.id,
-            title = request.title ?: requirement.title,
-            description = request.description ?: requirement.description,
-            status = request.status ?: requirement.status,
-            priority = request.priority ?: requirement.priority,
-            projectId = requirement.projectId,
-            teamId = request.teamId ?: requirement.teamId,
-            plannedStartDate = parseDate(request.plannedStartDate) ?: requirement.plannedStartDate,
-            expectedDeliveryDate = parseDate(request.expectedDeliveryDate) ?: requirement.expectedDeliveryDate,
-            requirementOwnerId = request.requirementOwnerId ?: requirement.requirementOwnerId,
-            productOwnerId = request.productOwnerId ?: requirement.productOwnerId,
-            devOwnerId = request.devOwnerId ?: requirement.devOwnerId,
-            devParticipants = request.devParticipants ?: requirement.devParticipants,
-            testOwnerId = request.testOwnerId ?: requirement.testOwnerId,
-            progress = request.progress ?: requirement.progress,
-            tags = request.tags ?: requirement.tags,
-            estimatedDays = request.estimatedDays ?: requirement.estimatedDays,
-            plannedDays = request.plannedDays ?: requirement.plannedDays,
-            gapDays = request.gapDays ?: requirement.gapDays,
-            gapBudget = request.gapBudget ?: requirement.gapBudget,
-            actualDays = request.actualDays ?: requirement.actualDays,
-            applicationCodes = request.applicationCodes ?: requirement.applicationCodes,
-            vendors = request.vendors ?: requirement.vendors,
-            vendorStaff = request.vendorStaff ?: requirement.vendorStaff,
-            createdBy = requirement.createdBy,
-            createdAt = requirement.createdAt,
-            updatedAt = LocalDateTime.now()
+        issueService.update(
+            id,
+            UpdateIssueRequest(
+                title = request.title,
+                description = request.description,
+                state = request.status?.let { mapRequirementStatus(it) },
+                priority = request.priority?.let { if (it == "CRITICAL") "URGENT" else it },
+                teamId = request.teamId,
+                assigneeId = request.requirementOwnerId,
+                progress = request.progress,
+                plannedStartDate = request.plannedStartDate,
+                plannedEndDate = request.expectedDeliveryDate,
+                legacyPayload = buildRequirementLegacyPayload(issue.legacyPayload, request)
+            )
         )
-
-        return requirementRepository.save(updated).toDto()
+        return issueService.toRequirementDto(issueService.getIssue(id))
     }
 
     fun updateStatus(id: Long, request: StatusTransitionRequest): RequirementDto {
-        val requirement = requirementRepository.findById(id)
-            .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Requirement not found") }
-
-        val updated = Requirement(
-            id = requirement.id,
-            title = requirement.title,
-            description = requirement.description,
-            status = request.status,
-            priority = requirement.priority,
-            projectId = requirement.projectId,
-            teamId = requirement.teamId,
-            plannedStartDate = requirement.plannedStartDate,
-            expectedDeliveryDate = requirement.expectedDeliveryDate,
-            requirementOwnerId = requirement.requirementOwnerId,
-            productOwnerId = requirement.productOwnerId,
-            devOwnerId = requirement.devOwnerId,
-            devParticipants = requirement.devParticipants,
-            testOwnerId = requirement.testOwnerId,
-            progress = requirement.progress,
-            tags = requirement.tags,
-            estimatedDays = requirement.estimatedDays,
-            plannedDays = requirement.plannedDays,
-            gapDays = requirement.gapDays,
-            gapBudget = requirement.gapBudget,
-            actualDays = requirement.actualDays,
-            applicationCodes = requirement.applicationCodes,
-            vendors = requirement.vendors,
-            vendorStaff = requirement.vendorStaff,
-            createdBy = requirement.createdBy,
-            createdAt = requirement.createdAt,
-            updatedAt = LocalDateTime.now()
-        )
-
-        return requirementRepository.save(updated).toDto()
+        val issue = issueService.getIssue(id)
+        if (issue.type != "FEATURE") {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Requirement not found")
+        }
+        issueService.updateState(id, mapRequirementStatus(request.status))
+        return issueService.toRequirementDto(issueService.getIssue(id))
     }
 
     fun delete(id: Long) {
-        val requirement = requirementRepository.findById(id)
-            .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Requirement not found") }
-        requirementRepository.delete(requirement)
+        val issue = issueService.getIssue(id)
+        if (issue.type != "FEATURE") {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Requirement not found")
+        }
+        issueService.delete(id)
     }
+
+    private fun mapRequirementStatus(status: String): String = when (status) {
+        "NEW" -> "BACKLOG"
+        "IN_PROGRESS" -> "IN_PROGRESS"
+        "TESTING" -> "IN_REVIEW"
+        "COMPLETED" -> "DONE"
+        "CANCELLED" -> "CANCELED"
+        else -> "BACKLOG"
+    }
+
+    private fun buildRequirementLegacyPayload(existingPayload: String?, request: CreateRequirementRequest): String =
+        writeLegacyPayload(
+            parseLegacyPayload(existingPayload).apply {
+                this["productOwnerId"] = request.productOwnerId
+                this["devOwnerId"] = request.devOwnerId
+                this["devParticipants"] = request.devParticipants
+                this["testOwnerId"] = request.testOwnerId
+                this["tags"] = request.tags
+                this["estimatedDays"] = request.estimatedDays
+                this["plannedDays"] = request.plannedDays
+                this["gapDays"] = request.gapDays
+                this["gapBudget"] = request.gapBudget
+                this["actualDays"] = request.actualDays
+                this["applicationCodes"] = request.applicationCodes
+                this["vendors"] = request.vendors
+                this["vendorStaff"] = request.vendorStaff
+                this["createdBy"] = request.createdBy
+            }
+        )
+
+    private fun buildRequirementLegacyPayload(existingPayload: String?, request: UpdateRequirementRequest): String? {
+        val payload = parseLegacyPayload(existingPayload)
+        if (
+            request.productOwnerId == null &&
+            request.devOwnerId == null &&
+            request.devParticipants == null &&
+            request.testOwnerId == null &&
+            request.tags == null &&
+            request.estimatedDays == null &&
+            request.plannedDays == null &&
+            request.gapDays == null &&
+            request.gapBudget == null &&
+            request.actualDays == null &&
+            request.applicationCodes == null &&
+            request.vendors == null &&
+            request.vendorStaff == null
+        ) {
+            return if (payload.isEmpty()) null else writeLegacyPayload(payload)
+        }
+
+        request.productOwnerId?.let { payload["productOwnerId"] = it }
+        request.devOwnerId?.let { payload["devOwnerId"] = it }
+        request.devParticipants?.let { payload["devParticipants"] = it }
+        request.testOwnerId?.let { payload["testOwnerId"] = it }
+        request.tags?.let { payload["tags"] = it }
+        request.estimatedDays?.let { payload["estimatedDays"] = it }
+        request.plannedDays?.let { payload["plannedDays"] = it }
+        request.gapDays?.let { payload["gapDays"] = it }
+        request.gapBudget?.let { payload["gapBudget"] = it }
+        request.actualDays?.let { payload["actualDays"] = it }
+        request.applicationCodes?.let { payload["applicationCodes"] = it }
+        request.vendors?.let { payload["vendors"] = it }
+        request.vendorStaff?.let { payload["vendorStaff"] = it }
+        return writeLegacyPayload(payload)
+    }
+
+    private fun parseLegacyPayload(payload: String?): MutableMap<String, Any?> =
+        if (payload.isNullOrBlank()) mutableMapOf()
+        else runCatching { objectMapper.readValue(payload, MutableMap::class.java) as MutableMap<String, Any?> }
+            .getOrElse { mutableMapOf() }
+
+    private fun writeLegacyPayload(payload: Map<String, Any?>): String =
+        objectMapper.writeValueAsString(payload)
 }
