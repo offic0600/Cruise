@@ -19,6 +19,10 @@ class JwtAuthenticationFilter(
 ) : OncePerRequestFilter() {
 
     override fun shouldNotFilter(request: HttpServletRequest): Boolean {
+        // 跳过 OPTIONS 预检请求
+        if ("OPTIONS".equals(request.method, ignoreCase = true)) {
+            return true
+        }
         return request.requestURI.startsWith("/api/auth")
     }
 
