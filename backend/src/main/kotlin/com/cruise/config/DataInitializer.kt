@@ -1,10 +1,19 @@
 package com.cruise.config
 
-import com.cruise.entity.*
-import com.cruise.repository.*
+import com.cruise.entity.Issue
+import com.cruise.entity.IssueTag
+import com.cruise.entity.Project
+import com.cruise.entity.TeamMember
+import com.cruise.entity.User
+import com.cruise.repository.IssueRepository
+import com.cruise.repository.IssueTagRepository
+import com.cruise.repository.ProjectRepository
+import com.cruise.repository.TeamMemberRepository
+import com.cruise.repository.UserRepository
 import org.springframework.boot.CommandLineRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.annotation.Order
 import org.springframework.security.crypto.password.PasswordEncoder
 import java.time.LocalDate
 
@@ -12,29 +21,26 @@ import java.time.LocalDate
 open class DataInitializer {
 
     @Bean
+    @Order(10)
     open fun initData(
         projectRepository: ProjectRepository,
         userRepository: UserRepository,
         teamMemberRepository: TeamMemberRepository,
-        requirementTagRepository: RequirementTagRepository,
-        requirementRepository: RequirementRepository,
-        taskRepository: TaskRepository,
-        defectRepository: DefectRepository,
+        issueTagRepository: IssueTagRepository,
+        issueRepository: IssueRepository,
         passwordEncoder: PasswordEncoder
     ): CommandLineRunner {
         return CommandLineRunner {
-            // Init project if empty
             if (projectRepository.count() == 0L) {
                 projectRepository.save(
                     Project(
-                        name = "智能开发管理平台",
-                        description = "面向软件开发过程的智能管理平台",
+                        name = "Cruise RnD Workspace",
+                        description = "Unified work tracking and analytics workspace",
                         status = "ACTIVE"
                     )
                 )
             }
 
-            // Init admin user if empty
             if (userRepository.count() == 0L) {
                 userRepository.save(
                     User(
@@ -46,345 +52,353 @@ open class DataInitializer {
                 )
             }
 
-            // Init team members if empty
             if (teamMemberRepository.count() == 0L) {
-                val members = listOf(
-                    TeamMember(name = "张三", email = "zhangsan@cruise.com", role = "PM", skills = "项目管理,需求分析", teamId = 1),
-                    TeamMember(name = "李四", email = "lisi@cruise.com", role = "LEAD", skills = "架构设计,Kotlin,Spring Boot", teamId = 1),
-                    TeamMember(name = "王五", email = "wangwu@cruise.com", role = "DEVELOPER", skills = "React,Next.js,TypeScript", teamId = 1),
-                    TeamMember(name = "赵六", email = "zhaoliu@cruise.com", role = "DEVELOPER", skills = "Kotlin,PostgreSQL,Docker", teamId = 1),
-                    TeamMember(name = "钱七", email = "qianqi@cruise.com", role = "TESTER", skills = "自动化测试,JMeter,Selenium", teamId = 1),
-                    TeamMember(name = "孙八", email = "sunba@cruise.com", role = "ARCHITECT", skills = "系统架构,微服务,DevOps", teamId = 1)
-                )
-                members.forEach { teamMemberRepository.save(it) }
+                listOf(
+                    TeamMember(name = "Zhang San", email = "zhangsan@cruise.com", role = "PM", skills = "product,planning", teamId = 1),
+                    TeamMember(name = "Li Si", email = "lisi@cruise.com", role = "LEAD", skills = "architecture,kotlin,spring", teamId = 1),
+                    TeamMember(name = "Wang Wu", email = "wangwu@cruise.com", role = "DEVELOPER", skills = "react,nextjs,typescript", teamId = 1),
+                    TeamMember(name = "Zhao Liu", email = "zhaoliu@cruise.com", role = "DEVELOPER", skills = "kotlin,postgresql,docker", teamId = 1),
+                    TeamMember(name = "Qian Qi", email = "qianqi@cruise.com", role = "TESTER", skills = "automation,jmeter,selenium", teamId = 1),
+                    TeamMember(name = "Sun Ba", email = "sunba@cruise.com", role = "ARCHITECT", skills = "systems,devops", teamId = 1)
+                ).forEach(teamMemberRepository::save)
             }
 
-            // Init requirement tags if empty
-            if (requirementTagRepository.count() == 0L) {
-                val tags = listOf(
-                    RequirementTag(name = "功能需求", color = "#3B82F6", sortOrder = 1),
-                    RequirementTag(name = "缺陷修复", color = "#EF4444", sortOrder = 2),
-                    RequirementTag(name = "性能优化", color = "#F59E0B", sortOrder = 3),
-                    RequirementTag(name = "安全加固", color = "#8B5CF6", sortOrder = 4),
-                    RequirementTag(name = "用户体验", color = "#10B981", sortOrder = 5),
-                    RequirementTag(name = "技术债务", color = "#6B7280", sortOrder = 6)
-                )
-                tags.forEach { requirementTagRepository.save(it) }
+            if (issueTagRepository.count() == 0L) {
+                listOf(
+                    IssueTag(name = "Feature", color = "#3B82F6", sortOrder = 1),
+                    IssueTag(name = "Bugfix", color = "#EF4444", sortOrder = 2),
+                    IssueTag(name = "Performance", color = "#F59E0B", sortOrder = 3),
+                    IssueTag(name = "Security", color = "#8B5CF6", sortOrder = 4),
+                    IssueTag(name = "UX", color = "#10B981", sortOrder = 5),
+                    IssueTag(name = "Tech Debt", color = "#6B7280", sortOrder = 6)
+                ).forEach(issueTagRepository::save)
             }
 
-            // Init requirements if empty
-            if (requirementRepository.count() == 0L) {
-                val requirements = listOf(
-                    Requirement(
-                        title = "用户认证模块开发",
-                        description = "实现用户登录、注册、登出功能，支持JWT令牌认证",
-                        status = "IN_PROGRESS",
+            if (issueRepository.count() == 0L) {
+                val feature1 = issueRepository.save(
+                    Issue(
+                        identifier = "ISSUE-1",
+                        type = "FEATURE",
+                        title = "Complete authentication flow",
+                        description = "Unify login, registration, token refresh, and permission checks.",
+                        state = "IN_PROGRESS",
                         priority = "HIGH",
                         projectId = 1,
                         teamId = 1,
-                        plannedStartDate = LocalDate.of(2026, 3, 1),
-                        expectedDeliveryDate = LocalDate.of(2026, 3, 15),
-                        requirementOwnerId = 1,
-                        productOwnerId = 1,
-                        devOwnerId = 2,
-                        devParticipants = "张三,李四",
-                        testOwnerId = 5,
+                        assigneeId = 1,
                         progress = 60,
-                        tags = "功能需求",
-                        estimatedDays = 10f,
-                        plannedDays = 8f,
-                        gapDays = 0f,
-                        gapBudget = 0f,
-                        actualDays = 5f,
-                        applicationCodes = "cruise-auth",
-                        vendors = "",
-                        vendorStaff = "",
-                        createdBy = "admin"
-                    ),
-                    Requirement(
-                        title = "需求管理模块",
-                        description = "实现需求的增删改查、状态流转、优先级管理",
-                        status = "NEW",
+                        plannedStartDate = LocalDate.of(2026, 3, 1),
+                        plannedEndDate = LocalDate.of(2026, 3, 15),
+                        sourceType = "NATIVE",
+                        legacyPayload = """{"productOwnerId":1,"devOwnerId":2,"devParticipants":"Zhang San,Li Si","testOwnerId":5,"tags":"Feature","estimatedDays":10,"plannedDays":8,"gapDays":0,"gapBudget":0,"actualDays":5,"applicationCodes":"cruise-auth","vendors":"","vendorStaff":"","createdBy":"admin"}"""
+                    )
+                )
+                val feature2 = issueRepository.save(
+                    Issue(
+                        identifier = "ISSUE-2",
+                        type = "FEATURE",
+                        title = "Unify work item views",
+                        description = "Move requirements, tasks, and defects onto a single Issue source of truth.",
+                        state = "BACKLOG",
                         priority = "HIGH",
                         projectId = 1,
                         teamId = 1,
+                        assigneeId = 1,
+                        progress = 0,
                         plannedStartDate = LocalDate.of(2026, 3, 10),
-                        expectedDeliveryDate = LocalDate.of(2026, 3, 25),
-                        requirementOwnerId = 1,
-                        productOwnerId = 1,
-                        devOwnerId = 3,
-                        testOwnerId = 5,
-                        progress = 0,
-                        tags = "功能需求",
-                        estimatedDays = 12f,
-                        plannedDays = 10f,
-                        gapDays = 0f,
-                        gapBudget = 0f,
-                        actualDays = 0f,
-                        applicationCodes = "cruise-core",
-                        vendors = "",
-                        vendorStaff = "",
-                        createdBy = "admin"
-                    ),
-                    Requirement(
-                        title = "任务管理模块",
-                        description = "实现任务的拆解、分配、进度跟踪、工时记录",
-                        status = "NEW",
+                        plannedEndDate = LocalDate.of(2026, 3, 25),
+                        sourceType = "NATIVE",
+                        legacyPayload = """{"productOwnerId":1,"devOwnerId":3,"testOwnerId":5,"tags":"Feature","estimatedDays":12,"plannedDays":10,"gapDays":0,"gapBudget":0,"actualDays":0,"applicationCodes":"cruise-core","vendors":"","vendorStaff":"","createdBy":"admin"}"""
+                    )
+                )
+                issueRepository.save(
+                    Issue(
+                        identifier = "ISSUE-3",
+                        type = "FEATURE",
+                        title = "Task collaboration workspace",
+                        description = "Support task breakdown, assignment, progress tracking, and time logging.",
+                        state = "BACKLOG",
                         priority = "MEDIUM",
                         projectId = 1,
                         teamId = 1,
+                        assigneeId = 1,
+                        progress = 0,
                         plannedStartDate = LocalDate.of(2026, 3, 15),
-                        expectedDeliveryDate = LocalDate.of(2026, 3, 30),
-                        requirementOwnerId = 1,
-                        productOwnerId = 1,
-                        devOwnerId = 4,
-                        testOwnerId = 5,
-                        progress = 0,
-                        tags = "功能需求",
-                        estimatedDays = 10f,
-                        plannedDays = 8f,
-                        gapDays = 0f,
-                        gapBudget = 0f,
-                        actualDays = 0f,
-                        applicationCodes = "cruise-core",
-                        vendors = "",
-                        vendorStaff = "",
-                        createdBy = "admin"
-                    ),
-                    Requirement(
-                        title = "仪表盘看板开发",
-                        description = "实现多角色视图的仪表盘，展示项目统计、需求/任务概览",
-                        status = "COMPLETED",
+                        plannedEndDate = LocalDate.of(2026, 3, 30),
+                        sourceType = "NATIVE",
+                        legacyPayload = """{"productOwnerId":1,"devOwnerId":4,"testOwnerId":5,"tags":"Feature","estimatedDays":10,"plannedDays":8,"gapDays":0,"gapBudget":0,"actualDays":0,"applicationCodes":"cruise-core","vendors":"","vendorStaff":"","createdBy":"admin"}"""
+                    )
+                )
+                issueRepository.save(
+                    Issue(
+                        identifier = "ISSUE-4",
+                        type = "FEATURE",
+                        title = "Project dashboard",
+                        description = "Show unified issue metrics, team load, and project risk.",
+                        state = "DONE",
                         priority = "MEDIUM",
                         projectId = 1,
                         teamId = 1,
-                        plannedStartDate = LocalDate.of(2026, 2, 20),
-                        expectedDeliveryDate = LocalDate.of(2026, 3, 5),
-                        requirementOwnerId = 1,
-                        productOwnerId = 1,
-                        devOwnerId = 3,
-                        testOwnerId = 5,
+                        assigneeId = 1,
                         progress = 100,
-                        tags = "功能需求,用户体验",
-                        estimatedDays = 8f,
-                        plannedDays = 7f,
-                        gapDays = 0f,
-                        gapBudget = 0f,
-                        actualDays = 7f,
-                        applicationCodes = "cruise-frontend",
-                        vendors = "",
-                        vendorStaff = "",
-                        createdBy = "admin"
-                    ),
-                    Requirement(
-                        title = "API性能优化",
-                        description = "优化后端API响应时间，添加缓存机制",
-                        status = "NEW",
+                        plannedStartDate = LocalDate.of(2026, 2, 20),
+                        plannedEndDate = LocalDate.of(2026, 3, 5),
+                        sourceType = "NATIVE",
+                        legacyPayload = """{"productOwnerId":1,"devOwnerId":3,"testOwnerId":5,"tags":"Feature,UX","estimatedDays":8,"plannedDays":7,"gapDays":0,"gapBudget":0,"actualDays":7,"applicationCodes":"cruise-frontend","vendors":"","vendorStaff":"","createdBy":"admin"}"""
+                    )
+                )
+                issueRepository.save(
+                    Issue(
+                        identifier = "ISSUE-5",
+                        type = "FEATURE",
+                        title = "Improve API performance",
+                        description = "Identify slow endpoints and add caching where needed.",
+                        state = "BACKLOG",
                         priority = "LOW",
                         projectId = 1,
                         teamId = 1,
-                        plannedStartDate = LocalDate.of(2026, 4, 1),
-                        expectedDeliveryDate = LocalDate.of(2026, 4, 15),
-                        requirementOwnerId = 1,
-                        productOwnerId = 1,
-                        devOwnerId = 6,
-                        testOwnerId = 5,
+                        assigneeId = 1,
                         progress = 0,
-                        tags = "性能优化",
-                        estimatedDays = 5f,
-                        plannedDays = 4f,
-                        gapDays = 0f,
-                        gapBudget = 0f,
-                        actualDays = 0f,
-                        applicationCodes = "cruise-api",
-                        vendors = "",
-                        vendorStaff = "",
-                        createdBy = "admin"
+                        plannedStartDate = LocalDate.of(2026, 4, 1),
+                        plannedEndDate = LocalDate.of(2026, 4, 15),
+                        sourceType = "NATIVE",
+                        legacyPayload = """{"productOwnerId":1,"devOwnerId":6,"testOwnerId":5,"tags":"Performance","estimatedDays":5,"plannedDays":4,"gapDays":0,"gapBudget":0,"actualDays":0,"applicationCodes":"cruise-api","vendors":"","vendorStaff":"","createdBy":"admin"}"""
                     )
                 )
-                requirements.forEach { requirementRepository.save(it) }
-            }
 
-            // Init tasks if empty
-            if (taskRepository.count() == 0L) {
-                val tasks = listOf(
-                    // 用户认证相关任务
-                    Task(
-                        title = "设计数据库用户表结构",
-                        description = "设计app_user表结构，包含username, password, email, role字段",
-                        status = "COMPLETED",
-                        requirementId = 1,
+                issueRepository.save(
+                    Issue(
+                        identifier = "ISSUE-6",
+                        type = "TASK",
+                        title = "Design user table",
+                        description = "Define username, password, email, and role constraints.",
+                        state = "DONE",
+                        priority = "MEDIUM",
+                        projectId = 1,
+                        teamId = 1,
+                        parentIssueId = feature1.id,
                         assigneeId = 2,
                         progress = 100,
-                        teamId = 1,
                         plannedStartDate = LocalDate.of(2026, 3, 1),
                         plannedEndDate = LocalDate.of(2026, 3, 2),
-                        estimatedDays = 1f,
-                        plannedDays = 1f,
-                        remainingDays = 0f,
                         estimatedHours = 8f,
-                        actualHours = 8f
-                    ),
-                    Task(
-                        title = "实现JWT认证过滤器",
-                        description = "实现JwtAuthenticationFilter，处理请求token验证",
-                        status = "IN_PROGRESS",
-                        requirementId = 1,
+                        actualHours = 8f,
+                        sourceType = "NATIVE",
+                        legacyPayload = """{"estimatedDays":1,"plannedDays":1,"remainingDays":0}"""
+                    )
+                )
+                issueRepository.save(
+                    Issue(
+                        identifier = "ISSUE-7",
+                        type = "TASK",
+                        title = "Implement JWT filter",
+                        description = "Parse bearer tokens and inject authenticated user context.",
+                        state = "IN_PROGRESS",
+                        priority = "MEDIUM",
+                        projectId = 1,
+                        teamId = 1,
+                        parentIssueId = feature1.id,
                         assigneeId = 2,
                         progress = 80,
-                        teamId = 1,
                         plannedStartDate = LocalDate.of(2026, 3, 2),
                         plannedEndDate = LocalDate.of(2026, 3, 5),
-                        estimatedDays = 3f,
-                        plannedDays = 3f,
-                        remainingDays = 0.5f,
                         estimatedHours = 24f,
-                        actualHours = 20f
-                    ),
-                    Task(
-                        title = "开发登录注册API",
-                        description = "开发/api/auth/login和/api/auth/register接口",
-                        status = "IN_PROGRESS",
-                        requirementId = 1,
+                        actualHours = 20f,
+                        sourceType = "NATIVE",
+                        legacyPayload = """{"estimatedDays":3,"plannedDays":3,"remainingDays":0.5}"""
+                    )
+                )
+                val task3 = issueRepository.save(
+                    Issue(
+                        identifier = "ISSUE-8",
+                        type = "TASK",
+                        title = "Build auth endpoints",
+                        description = "Ship login and registration endpoints with consistent responses.",
+                        state = "IN_PROGRESS",
+                        priority = "MEDIUM",
+                        projectId = 1,
+                        teamId = 1,
+                        parentIssueId = feature1.id,
                         assigneeId = 4,
                         progress = 50,
-                        teamId = 1,
                         plannedStartDate = LocalDate.of(2026, 3, 5),
                         plannedEndDate = LocalDate.of(2026, 3, 8),
-                        estimatedDays = 3f,
-                        plannedDays = 2.5f,
-                        remainingDays = 1f,
                         estimatedHours = 24f,
-                        actualHours = 12f
-                    ),
-                    Task(
-                        title = "前端登录页面开发",
-                        description = "开发美观的登录页面，包含表单验证",
-                        status = "PENDING",
-                        requirementId = 1,
+                        actualHours = 12f,
+                        sourceType = "NATIVE",
+                        legacyPayload = """{"estimatedDays":3,"plannedDays":2.5,"remainingDays":1}"""
+                    )
+                )
+                issueRepository.save(
+                    Issue(
+                        identifier = "ISSUE-9",
+                        type = "TASK",
+                        title = "Build login page",
+                        description = "Complete login interactions, validation, and error states.",
+                        state = "TODO",
+                        priority = "MEDIUM",
+                        projectId = 1,
+                        teamId = 1,
+                        parentIssueId = feature1.id,
                         assigneeId = 3,
                         progress = 0,
-                        teamId = 1,
                         plannedStartDate = LocalDate.of(2026, 3, 8),
                         plannedEndDate = LocalDate.of(2026, 3, 12),
-                        estimatedDays = 4f,
-                        plannedDays = 3f,
-                        remainingDays = 3f,
                         estimatedHours = 32f,
-                        actualHours = 0f
-                    ),
-                    // 需求管理相关任务
-                    Task(
-                        title = "设计需求实体类",
-                        description = "设计Requirement实体，包含所有需求字段",
-                        status = "PENDING",
-                        requirementId = 2,
+                        actualHours = 0f,
+                        sourceType = "NATIVE",
+                        legacyPayload = """{"estimatedDays":4,"plannedDays":3,"remainingDays":3}"""
+                    )
+                )
+                issueRepository.save(
+                    Issue(
+                        identifier = "ISSUE-10",
+                        type = "TASK",
+                        title = "Design Issue entity",
+                        description = "Define common fields, hierarchy, and legacy mappings.",
+                        state = "TODO",
+                        priority = "MEDIUM",
+                        projectId = 1,
+                        teamId = 1,
+                        parentIssueId = feature2.id,
                         assigneeId = 2,
                         progress = 0,
-                        teamId = 1,
                         plannedStartDate = LocalDate.of(2026, 3, 10),
                         plannedEndDate = LocalDate.of(2026, 3, 12),
-                        estimatedDays = 2f,
-                        plannedDays = 2f,
-                        remainingDays = 2f,
                         estimatedHours = 16f,
-                        actualHours = 0f
-                    ),
-                    Task(
-                        title = "开发需求CRUD API",
-                        description = "开发需求的增删改查接口",
-                        status = "PENDING",
-                        requirementId = 2,
+                        actualHours = 0f,
+                        sourceType = "NATIVE",
+                        legacyPayload = """{"estimatedDays":2,"plannedDays":2,"remainingDays":2}"""
+                    )
+                )
+                issueRepository.save(
+                    Issue(
+                        identifier = "ISSUE-11",
+                        type = "TASK",
+                        title = "Build Issue API",
+                        description = "Support issue listing, creation, updates, and state transitions.",
+                        state = "TODO",
+                        priority = "MEDIUM",
+                        projectId = 1,
+                        teamId = 1,
+                        parentIssueId = feature2.id,
                         assigneeId = 4,
                         progress = 0,
-                        teamId = 1,
                         plannedStartDate = LocalDate.of(2026, 3, 12),
                         plannedEndDate = LocalDate.of(2026, 3, 18),
-                        estimatedDays = 5f,
-                        plannedDays = 4f,
-                        remainingDays = 4f,
                         estimatedHours = 40f,
-                        actualHours = 0f
-                    ),
-                    Task(
-                        title = "开发需求管理前端页面",
-                        description = "开发需求列表、新增、编辑页面",
-                        status = "PENDING",
-                        requirementId = 2,
+                        actualHours = 0f,
+                        sourceType = "NATIVE",
+                        legacyPayload = """{"estimatedDays":5,"plannedDays":4,"remainingDays":4}"""
+                    )
+                )
+                issueRepository.save(
+                    Issue(
+                        identifier = "ISSUE-12",
+                        type = "TASK",
+                        title = "Migrate frontend views",
+                        description = "Switch requirement, task, and defect pages to unified issue APIs.",
+                        state = "TODO",
+                        priority = "MEDIUM",
+                        projectId = 1,
+                        teamId = 1,
+                        parentIssueId = feature2.id,
                         assigneeId = 3,
                         progress = 0,
-                        teamId = 1,
                         plannedStartDate = LocalDate.of(2026, 3, 15),
                         plannedEndDate = LocalDate.of(2026, 3, 25),
-                        estimatedDays = 8f,
-                        plannedDays = 6f,
-                        remainingDays = 6f,
                         estimatedHours = 64f,
-                        actualHours = 0f
+                        actualHours = 0f,
+                        sourceType = "NATIVE",
+                        legacyPayload = """{"estimatedDays":8,"plannedDays":6,"remainingDays":6}"""
                     )
                 )
-                tasks.forEach { taskRepository.save(it) }
-            }
 
-            // Init defects if empty
-            if (defectRepository.count() == 0L) {
-                val defects = listOf(
-                    Defect(
-                        title = "用户登录页面样式错位",
-                        description = "登录页面在不同分辨率下显示错位，需要响应式布局修复",
+                issueRepository.save(
+                    Issue(
+                        identifier = "ISSUE-13",
+                        type = "BUG",
+                        title = "Login page layout breaks on small screens",
+                        description = "The form shifts on mobile and narrow-width layouts.",
+                        state = "IN_PROGRESS",
+                        priority = "HIGH",
+                        projectId = 1,
+                        parentIssueId = task3.id,
+                        reporterId = 1,
                         severity = "HIGH",
-                        status = "IN_PROGRESS",
-                        projectId = 1,
-                        taskId = 3,
-                        reporterId = 1
-                    ),
-                    Defect(
-                        title = "JWT token 过期后无提示",
-                        description = "token 过期时页面无提示，直接跳转登录页，体验不佳",
-                        severity = "MEDIUM",
-                        status = "OPEN",
-                        projectId = 1,
-                        taskId = null,
-                        reporterId = 1
-                    ),
-                    Defect(
-                        title = "任务列表加载缓慢",
-                        description = "任务列表数据量超过100条时加载超过5秒，需要分页或虚拟滚动",
-                        severity = "HIGH",
-                        status = "OPEN",
-                        projectId = 1,
-                        taskId = null,
-                        reporterId = 5
-                    ),
-                    Defect(
-                        title = "需求删除确认框文案错误",
-                        description = "删除需求时确认框显示的是「任务」，需要修正",
-                        severity = "LOW",
-                        status = "RESOLVED",
-                        projectId = 1,
-                        taskId = null,
-                        reporterId = 2
-                    ),
-                    Defect(
-                        title = "团队成员头像显示为中文首字母",
-                        description = "头像使用用户名首字母时，中文名字显示不正确",
-                        severity = "LOW",
-                        status = "CLOSED",
-                        projectId = 1,
-                        taskId = null,
-                        reporterId = 3
-                    ),
-                    Defect(
-                        title = "API 返回数据缺少 null 值处理",
-                        description = "某些 API 返回的 null 值在前端显示为「null」字符串",
-                        severity = "MEDIUM",
-                        status = "REOPENED",
-                        projectId = 1,
-                        taskId = null,
-                        reporterId = 5
+                        sourceType = "NATIVE"
                     )
                 )
-                defects.forEach { defectRepository.save(it) }
+                issueRepository.save(
+                    Issue(
+                        identifier = "ISSUE-14",
+                        type = "BUG",
+                        title = "Expired token has no user feedback",
+                        description = "The session expires and redirects without a visible message.",
+                        state = "TODO",
+                        priority = "MEDIUM",
+                        projectId = 1,
+                        reporterId = 1,
+                        severity = "MEDIUM",
+                        sourceType = "NATIVE"
+                    )
+                )
+                issueRepository.save(
+                    Issue(
+                        identifier = "ISSUE-15",
+                        type = "BUG",
+                        title = "Task list becomes slow at scale",
+                        description = "Rendering degrades as the number of tasks increases.",
+                        state = "TODO",
+                        priority = "HIGH",
+                        projectId = 1,
+                        reporterId = 5,
+                        severity = "HIGH",
+                        sourceType = "NATIVE"
+                    )
+                )
+                issueRepository.save(
+                    Issue(
+                        identifier = "ISSUE-16",
+                        type = "BUG",
+                        title = "Delete confirmation text is incorrect",
+                        description = "Deleting a feature still shows task-related confirmation copy.",
+                        state = "IN_REVIEW",
+                        priority = "LOW",
+                        projectId = 1,
+                        reporterId = 2,
+                        severity = "LOW",
+                        sourceType = "NATIVE"
+                    )
+                )
+                issueRepository.save(
+                    Issue(
+                        identifier = "ISSUE-17",
+                        type = "BUG",
+                        title = "Avatar initials fail for CJK names",
+                        description = "Initial extraction is inconsistent for non-Latin names.",
+                        state = "DONE",
+                        priority = "LOW",
+                        projectId = 1,
+                        reporterId = 3,
+                        severity = "LOW",
+                        sourceType = "NATIVE"
+                    )
+                )
+                issueRepository.save(
+                    Issue(
+                        identifier = "ISSUE-18",
+                        type = "BUG",
+                        title = "Null values render as literal text",
+                        description = "The UI still shows raw null strings in some fields.",
+                        state = "TODO",
+                        priority = "MEDIUM",
+                        projectId = 1,
+                        reporterId = 5,
+                        severity = "MEDIUM",
+                        sourceType = "NATIVE"
+                    )
+                )
             }
 
             println("=== Test data initialized successfully ===")

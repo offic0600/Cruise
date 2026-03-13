@@ -1,44 +1,43 @@
 package com.cruise.service
 
-import com.cruise.entity.RequirementTag
-import com.cruise.repository.RequirementTagRepository
+import com.cruise.entity.IssueTag
+import com.cruise.repository.IssueTagRepository
 import org.springframework.stereotype.Service
 
-data class CreateRequirementTagRequest(
+data class CreateIssueTagRequest(
     val name: String,
     val color: String = "#3B82F6",
     val sortOrder: Int = 0
 )
 
-data class UpdateRequirementTagRequest(
+data class UpdateIssueTagRequest(
     val name: String?,
     val color: String?,
     val sortOrder: Int?
 )
 
 @Service
-class RequirementTagService(
-    private val repository: RequirementTagRepository
+class IssueTagService(
+    private val repository: IssueTagRepository
 ) {
-    fun findAll(): List<RequirementTag> = repository.findAll()
+    fun findAll(): List<IssueTag> = repository.findByOrderBySortOrderAsc()
 
-    fun findById(id: Long): RequirementTag = repository.findById(id)
+    fun findById(id: Long): IssueTag = repository.findById(id)
         .orElseThrow { RuntimeException("Tag not found: $id") }
 
-    fun create(request: CreateRequirementTagRequest): RequirementTag {
-        return repository.save(
-            RequirementTag(
+    fun create(request: CreateIssueTagRequest): IssueTag =
+        repository.save(
+            IssueTag(
                 name = request.name,
                 color = request.color,
                 sortOrder = request.sortOrder
             )
         )
-    }
 
-    fun update(id: Long, request: UpdateRequirementTagRequest): RequirementTag {
+    fun update(id: Long, request: UpdateIssueTagRequest): IssueTag {
         val tag = findById(id)
         return repository.save(
-            RequirementTag(
+            IssueTag(
                 id = tag.id,
                 name = request.name ?: tag.name,
                 color = request.color ?: tag.color,

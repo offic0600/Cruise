@@ -1,47 +1,50 @@
 package com.cruise.controller
 
-import com.cruise.adapter.*
-import com.cruise.repository.RequirementRepository
-import org.springframework.web.bind.annotation.*
+import com.cruise.adapter.GitCommit
+import com.cruise.adapter.GitLabAdapter
+import com.cruise.adapter.ProjectStats
+import com.cruise.adapter.WorkHoursAdapter
+import com.cruise.adapter.WorkHoursSummary
+import com.cruise.service.IssueQuery
+import com.cruise.service.IssueService
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
+import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/api")
 class IntegrationController(
     private val gitLabAdapter: GitLabAdapter,
     private val workHoursAdapter: WorkHoursAdapter,
-    private val requirementRepository: RequirementRepository
+    private val issueService: IssueService
 ) {
-    // ========== GitLab 集成 ==========
-
     @GetMapping("/gitlab/projects/{projectId}/commits")
     fun getProjectCommits(@PathVariable projectId: Long): List<GitCommit> =
         gitLabAdapter.getCommits(projectId)
+
+    @PostMapping("/gitlab/issues/{issueId}/link")
+    fun linkIssueToCommit(
+        @PathVariable issueId: Long,
+        @RequestBody request: LinkCommitRequest
+    ): Map<String, Any> = linkCommit(issueId, request)
 
     @PostMapping("/gitlab/requirement/{requirementId}/link")
     fun linkRequirementToCommit(
         @PathVariable requirementId: Long,
         @RequestBody request: LinkCommitRequest
-    ): Map<String, Any> {
-        val success = gitLabAdapter.linkRequirement(requirementId, request.commitHash)
-
-        return mapOf(
-            "success" to success,
-            "requirementId" to requirementId,
-            "commitHash" to request.commitHash,
-            "message" to if (success) "关联成功" else "关联失败"
-        )
-    }
+    ): Map<String, Any> = linkCommit(requirementId, request)
 
     @GetMapping("/gitlab/projects/{projectId}/stats")
     fun getProjectStats(@PathVariable projectId: Long): ProjectStats =
         gitLabAdapter.getProjectStats(projectId)
 
-    // ========== 工时系统 ==========
-
     @PostMapping("/workhours/sync")
     fun syncWorkHours(@RequestParam projectId: Long = 1): Map<String, Any> {
         val result = workHoursAdapter.syncWorkHours(projectId)
-
         return mapOf(
             "success" to result.success,
             "syncedCount" to result.syncedCount,
@@ -54,20 +57,18 @@ class IntegrationController(
     fun getWorkHoursSummary(@RequestParam projectId: Long): WorkHoursSummary =
         workHoursAdapter.getWorkHoursSummary(projectId)
 
-    // ========== 数据聚合视图 ==========
-
     @GetMapping("/integration/project/{projectId}/overview")
     fun getProjectOverview(@PathVariable projectId: Long): Map<String, Any> {
         val stats = gitLabAdapter.getProjectStats(projectId)
         val workHours = workHoursAdapter.getWorkHoursSummary(projectId)
-        val requirements = requirementRepository.findByProjectId(projectId)
+        val features = issueService.findAll(IssueQuery(type = "FEATURE", projectId = projectId))
 
         return mapOf(
             "projectId" to projectId,
-            "requirements" to mapOf(
-                "total" to requirements.size,
-                "completed" to requirements.count { it.status == "COMPLETED" },
-                "inProgress" to requirements.count { it.status == "IN_PROGRESS" }
+            "issues" to mapOf(
+                "totalFeatures" to features.size,
+                "completedFeatures" to features.count { it.state == "DONE" },
+                "inProgressFeatures" to features.count { it.state == "IN_PROGRESS" }
             ),
             "code" to mapOf(
                 "totalCommits" to stats.totalCommits,
@@ -100,6 +101,17 @@ class IntegrationController(
                 "memberDistribution" to workHours.memberHours
             ),
             "status" to "HEALTHY"
+        )
+    }
+
+    private fun linkCommit(issueId: Long, request: LinkCommitRequest): Map<String, Any> {
+        val success = gitLabAdapter.linkIssue(issueId, request.commitHash)
+        return mapOf(
+            "success" to success,
+            "issueId" to issueId,
+            "requirementId" to issueId,
+            "commitHash" to request.commitHash,
+            "message" to if (success) "Link created successfully" else "Failed to create link"
         )
     }
 }

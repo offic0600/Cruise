@@ -1,13 +1,8 @@
 package com.cruise.service
 
-import com.cruise.entity.Project
-import com.cruise.entity.Requirement
-import com.cruise.entity.Task
-import com.cruise.entity.TeamMember
 import com.cruise.repository.ProjectRepository
 import com.cruise.repository.TeamMemberRepository
 import org.springframework.stereotype.Service
-import java.time.LocalDateTime
 
 data class ProjectOverview(
     val projectId: Long,

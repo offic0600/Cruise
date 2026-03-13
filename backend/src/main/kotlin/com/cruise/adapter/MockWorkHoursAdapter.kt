@@ -1,21 +1,17 @@
 package com.cruise.adapter
 
-import com.cruise.repository.TaskRepository
+import com.cruise.service.IssueQuery
+import com.cruise.service.IssueService
 import org.springframework.stereotype.Component
 
-/**
- * 工时系统模拟适配器（用于开发和测试）
- */
 @Component
 class MockWorkHoursAdapter(
-    private val taskRepository: TaskRepository
+    private val issueService: IssueService
 ) : WorkHoursAdapter {
 
     override fun syncWorkHours(projectId: Long): SyncResult {
-        // 模拟从工时系统同步数据
-        val tasks = taskRepository.findAll().filter { it.teamId == projectId }
+        val tasks = issueService.findAll(IssueQuery(type = "TASK", projectId = projectId))
         val syncedCount = tasks.count { it.actualHours > 0 }
-
         return SyncResult(
             success = true,
             syncedCount = syncedCount,
@@ -25,17 +21,13 @@ class MockWorkHoursAdapter(
     }
 
     override fun getWorkHoursSummary(projectId: Long): WorkHoursSummary {
-        val tasks = taskRepository.findAll().filter { it.teamId == projectId }
-
+        val tasks = issueService.findAll(IssueQuery(type = "TASK", projectId = projectId))
         val totalHours = tasks.sumOf { it.actualHours.toDouble() }
-
-        // 按成员汇总
         val memberHours = tasks
             .filter { it.assigneeId != null }
             .groupBy { it.assigneeId.toString() }
             .mapValues { entry -> entry.value.sumOf { it.actualHours.toDouble() } }
 
-        // 模拟按日汇总（实际应从工时系统获取）
         val dailyHours = mapOf(
             "2026-03-09" to 40.0,
             "2026-03-08" to 35.0,
