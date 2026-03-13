@@ -5,8 +5,6 @@ import com.cruise.entity.Requirement
 import com.cruise.entity.Task
 import com.cruise.entity.TeamMember
 import com.cruise.repository.ProjectRepository
-import com.cruise.repository.RequirementRepository
-import com.cruise.repository.TaskRepository
 import com.cruise.repository.TeamMemberRepository
 import org.springframework.stereotype.Service
 import java.time.LocalDateTime
@@ -38,8 +36,7 @@ data class TeamLoad(
 @Service
 class DashboardService(
     private val projectRepository: ProjectRepository,
-    private val requirementRepository: RequirementRepository,
-    private val taskRepository: TaskRepository,
+    private val issueService: IssueService,
     private val teamMemberRepository: TeamMemberRepository
 ) {
 
@@ -47,13 +44,11 @@ class DashboardService(
         val project = projectRepository.findById(projectId)
             .orElseThrow { IllegalArgumentException("Project not found") }
 
-        val requirements = requirementRepository.findByProjectId(projectId)
-        val completedRequirements = requirements.count { it.status == "COMPLETED" || it.status == "DONE" }
+        val requirements = issueService.findAll(IssueQuery(type = "FEATURE", projectId = projectId))
+        val completedRequirements = requirements.count { it.state == "DONE" }
 
-        val allTasks = requirements.flatMap { req ->
-            taskRepository.findByRequirementId(req.id)
-        }
-        val completedTasks = allTasks.count { it.status == "COMPLETED" || it.status == "DONE" }
+        val allTasks = issueService.findAll(IssueQuery(type = "TASK", projectId = projectId))
+        val completedTasks = allTasks.count { it.state == "DONE" }
 
         val totalEstimatedHours = allTasks.sumOf { it.estimatedHours.toDouble() }.toFloat()
         val totalActualHours = allTasks.sumOf { it.actualHours.toDouble() }.toFloat()
@@ -82,8 +77,8 @@ class DashboardService(
         val teamMembers = teamMemberRepository.findByTeamId(teamId)
 
         return teamMembers.map { member ->
-            val assignedTasks = taskRepository.findByAssigneeId(member.id)
-            val completedTasks = assignedTasks.count { it.status == "COMPLETED" || it.status == "DONE" }
+            val assignedTasks = issueService.findAll(IssueQuery(type = "TASK", assigneeId = member.id))
+            val completedTasks = assignedTasks.count { it.state == "DONE" }
 
             val totalEstimatedHours = assignedTasks.sumOf { it.estimatedHours.toDouble() }.toFloat()
             val totalActualHours = assignedTasks.sumOf { it.actualHours.toDouble() }.toFloat()

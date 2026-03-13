@@ -51,6 +51,61 @@ export const updateRequirement = (id: number, data: { title?: string; descriptio
   api.put(`/requirements/${id}`, data).then((r) => r.data);
 export const deleteRequirement = (id: number) => api.delete(`/requirements/${id}`);
 
+// Issues
+export const getIssues = (params?: {
+  type?: string;
+  projectId?: number;
+  assigneeId?: number;
+  parentIssueId?: number;
+  state?: string;
+  q?: string;
+}) => api.get('/issues', { params }).then((r) => r.data);
+
+export const getIssue = (id: number) => api.get(`/issues/${id}`).then((r) => r.data);
+
+export const createIssue = (data: {
+  type: string;
+  title: string;
+  description?: string;
+  state?: string;
+  priority?: string;
+  projectId: number;
+  teamId?: number;
+  parentIssueId?: number;
+  assigneeId?: number;
+  reporterId?: number;
+  estimatePoints?: number;
+  progress?: number;
+  plannedStartDate?: string;
+  plannedEndDate?: string;
+  estimatedHours?: number;
+  actualHours?: number;
+  severity?: string;
+}) => api.post('/issues', data).then((r) => r.data);
+
+export const updateIssue = (id: number, data: {
+  title?: string;
+  description?: string;
+  state?: string;
+  priority?: string;
+  teamId?: number;
+  parentIssueId?: number;
+  assigneeId?: number;
+  reporterId?: number;
+  estimatePoints?: number;
+  progress?: number;
+  plannedStartDate?: string;
+  plannedEndDate?: string;
+  estimatedHours?: number;
+  actualHours?: number;
+  severity?: string;
+}) => api.put(`/issues/${id}`, data).then((r) => r.data);
+
+export const updateIssueState = (id: number, state: string) =>
+  api.patch(`/issues/${id}/state`, { state }).then((r) => r.data);
+
+export const deleteIssue = (id: number) => api.delete(`/issues/${id}`);
+
 // Tasks
 export const getTasks = () => api.get('/tasks').then((r) => r.data);
 export const getTask = (id: number) => api.get(`/tasks/${id}`).then((r) => r.data);

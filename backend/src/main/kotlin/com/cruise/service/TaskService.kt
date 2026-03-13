@@ -1,12 +1,10 @@
 package com.cruise.service
 
 import com.cruise.entity.Task
-import com.cruise.repository.TaskRepository
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
-import java.time.LocalDate
-import java.time.LocalDateTime
 
 data class CreateTaskRequest(
     val title: String,
@@ -45,96 +43,126 @@ data class LogHoursRequest(
 
 @Service
 class TaskService(
-    private val taskRepository: TaskRepository
+    private val issueService: IssueService
 ) {
-    private fun parseDate(dateStr: String?): LocalDate? {
-        return dateStr?.let { LocalDate.parse(it) }
+    private val objectMapper = jacksonObjectMapper()
+
+    fun findAll(): List<Task> =
+        issueService.findAll(IssueQuery(type = "TASK")).map { issueService.toTask(issueService.getIssue(it.id)) }
+
+    fun findById(id: Long): Task {
+        val issue = issueService.getIssue(id)
+        if (issue.type != "TASK") {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found")
+        }
+        return issueService.toTask(issue)
     }
 
-    fun findAll(): List<Task> = taskRepository.findAll()
-
-    fun findById(id: Long): Task = taskRepository.findById(id)
-        .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found") }
-
     fun findByRequirementId(requirementId: Long): List<Task> =
-        taskRepository.findByRequirementId(requirementId)
+        issueService.findAll(IssueQuery(type = "TASK", parentIssueId = requirementId))
+            .map { issueService.toTask(issueService.getIssue(it.id)) }
 
     fun findByAssigneeId(assigneeId: Long): List<Task> =
-        taskRepository.findByAssigneeId(assigneeId)
+        issueService.findAll(IssueQuery(type = "TASK", assigneeId = assigneeId))
+            .map { issueService.toTask(issueService.getIssue(it.id)) }
 
     fun create(request: CreateTaskRequest): Task {
-        val task = Task(
-            title = request.title,
-            description = request.description,
-            status = request.status,
-            requirementId = request.requirementId,
-            assigneeId = request.assigneeId,
-            progress = request.progress ?: 0,
-            teamId = request.teamId,
-            plannedStartDate = parseDate(request.plannedStartDate),
-            plannedEndDate = parseDate(request.plannedEndDate),
-            estimatedDays = request.estimatedDays,
-            plannedDays = request.plannedDays,
-            remainingDays = request.remainingDays,
-            estimatedHours = request.estimatedHours
+        val parentIssue = issueService.getIssue(request.requirementId)
+        val issue = issueService.create(
+            CreateIssueRequest(
+                type = "TASK",
+                title = request.title,
+                description = request.description,
+                state = mapTaskStatus(request.status),
+                projectId = parentIssue.projectId,
+                teamId = request.teamId,
+                parentIssueId = request.requirementId,
+                assigneeId = request.assigneeId,
+                progress = request.progress,
+                plannedStartDate = request.plannedStartDate,
+                plannedEndDate = request.plannedEndDate,
+                estimatedHours = request.estimatedHours,
+                legacyPayload = buildTaskLegacyPayload(null, request)
+            )
         )
-        return taskRepository.save(task)
+        return issueService.toTask(issueService.getIssue(issue.id))
     }
 
     fun update(id: Long, request: UpdateTaskRequest): Task {
-        val task = findById(id)
+        val issue = issueService.getIssue(id)
+        if (issue.type != "TASK") {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found")
+        }
 
-        val updated = Task(
-            id = task.id,
-            title = request.title ?: task.title,
-            description = request.description ?: task.description,
-            status = request.status ?: task.status,
-            requirementId = task.requirementId,
-            assigneeId = request.assigneeId ?: task.assigneeId,
-            progress = request.progress ?: task.progress,
-            teamId = request.teamId ?: task.teamId,
-            plannedStartDate = parseDate(request.plannedStartDate) ?: task.plannedStartDate,
-            plannedEndDate = parseDate(request.plannedEndDate) ?: task.plannedEndDate,
-            estimatedDays = request.estimatedDays ?: task.estimatedDays,
-            plannedDays = request.plannedDays ?: task.plannedDays,
-            remainingDays = request.remainingDays ?: task.remainingDays,
-            estimatedHours = request.estimatedHours ?: task.estimatedHours,
-            actualHours = task.actualHours,
-            createdAt = task.createdAt,
-            updatedAt = LocalDateTime.now()
+        issueService.update(
+            id,
+            UpdateIssueRequest(
+                title = request.title,
+                description = request.description,
+                state = request.status?.let { mapTaskStatus(it) },
+                assigneeId = request.assigneeId,
+                progress = request.progress,
+                teamId = request.teamId,
+                plannedStartDate = request.plannedStartDate,
+                plannedEndDate = request.plannedEndDate,
+                estimatedHours = request.estimatedHours,
+                legacyPayload = buildTaskLegacyPayload(issue.legacyPayload, request)
+            )
         )
-
-        return taskRepository.save(updated)
+        return issueService.toTask(issueService.getIssue(id))
     }
 
     fun logHours(id: Long, request: LogHoursRequest): Task {
-        val task = findById(id)
-
-        val updated = Task(
-            id = task.id,
-            title = task.title,
-            description = task.description,
-            status = task.status,
-            requirementId = task.requirementId,
-            assigneeId = task.assigneeId,
-            progress = task.progress,
-            teamId = task.teamId,
-            plannedStartDate = task.plannedStartDate,
-            plannedEndDate = task.plannedEndDate,
-            estimatedDays = task.estimatedDays,
-            plannedDays = task.plannedDays,
-            remainingDays = task.remainingDays,
-            estimatedHours = task.estimatedHours,
-            actualHours = task.actualHours + request.hours,
-            createdAt = task.createdAt,
-            updatedAt = LocalDateTime.now()
-        )
-
-        return taskRepository.save(updated)
+        val issue = issueService.getIssue(id)
+        if (issue.type != "TASK") {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found")
+        }
+        issueService.update(id, UpdateIssueRequest(actualHours = issue.actualHours + request.hours))
+        return issueService.toTask(issueService.getIssue(id))
     }
 
     fun delete(id: Long) {
-        val task = findById(id)
-        taskRepository.delete(task)
+        val issue = issueService.getIssue(id)
+        if (issue.type != "TASK") {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found")
+        }
+        issueService.delete(id)
     }
+
+    private fun mapTaskStatus(status: String): String = when (status) {
+        "PENDING" -> "TODO"
+        "IN_PROGRESS" -> "IN_PROGRESS"
+        "COMPLETED" -> "DONE"
+        "CANCELLED" -> "CANCELED"
+        else -> "TODO"
+    }
+
+    private fun buildTaskLegacyPayload(existingPayload: String?, request: CreateTaskRequest): String =
+        writeLegacyPayload(
+            parseLegacyPayload(existingPayload).apply {
+                this["estimatedDays"] = request.estimatedDays
+                this["plannedDays"] = request.plannedDays
+                this["remainingDays"] = request.remainingDays
+            }
+        )
+
+    private fun buildTaskLegacyPayload(existingPayload: String?, request: UpdateTaskRequest): String? {
+        val payload = parseLegacyPayload(existingPayload)
+        if (request.estimatedDays == null && request.plannedDays == null && request.remainingDays == null) {
+            return if (payload.isEmpty()) null else writeLegacyPayload(payload)
+        }
+
+        request.estimatedDays?.let { payload["estimatedDays"] = it }
+        request.plannedDays?.let { payload["plannedDays"] = it }
+        request.remainingDays?.let { payload["remainingDays"] = it }
+        return writeLegacyPayload(payload)
+    }
+
+    private fun parseLegacyPayload(payload: String?): MutableMap<String, Any?> =
+        if (payload.isNullOrBlank()) mutableMapOf()
+        else runCatching { objectMapper.readValue(payload, MutableMap::class.java) as MutableMap<String, Any?> }
+            .getOrElse { mutableMapOf() }
+
+    private fun writeLegacyPayload(payload: Map<String, Any?>): String =
+        objectMapper.writeValueAsString(payload)
 }

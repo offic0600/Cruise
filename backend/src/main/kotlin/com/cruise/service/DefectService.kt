@@ -1,74 +1,87 @@
 package com.cruise.service
 
 import com.cruise.entity.Defect
-import com.cruise.repository.DefectRepository
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
-import java.time.LocalDateTime
+import org.springframework.web.server.ResponseStatusException
 
 @Service
 class DefectService(
-    private val defectRepository: DefectRepository
+    private val issueService: IssueService
 ) {
     fun create(data: CreateDefectRequest): Defect {
-        val defect = Defect(
-            title = data.title,
-            description = data.description,
-            severity = data.severity ?: "MEDIUM",
-            status = "OPEN",
-            projectId = data.projectId,
-            taskId = data.taskId,
-            reporterId = data.reporterId
+        val issue = issueService.create(
+            CreateIssueRequest(
+                type = "BUG",
+                title = data.title,
+                description = data.description,
+                state = "TODO",
+                priority = when (data.severity) {
+                    "CRITICAL" -> "URGENT"
+                    "HIGH" -> "HIGH"
+                    "LOW" -> "LOW"
+                    else -> "MEDIUM"
+                },
+                projectId = data.projectId,
+                parentIssueId = data.taskId,
+                reporterId = data.reporterId,
+                severity = data.severity ?: "MEDIUM"
+            )
         )
-        return defectRepository.save(defect)
+        return issueService.toDefect(issueService.getIssue(issue.id))
     }
 
-    fun getAll(): List<Defect> = defectRepository.findAll()
+    fun getAll(): List<Defect> =
+        issueService.findAll(IssueQuery(type = "BUG")).map { issueService.toDefect(issueService.getIssue(it.id)) }
 
-    fun getById(id: Long): Defect = defectRepository.findById(id)
-        .orElseThrow { IllegalArgumentException("Defect not found: $id") }
+    fun getById(id: Long): Defect {
+        val issue = issueService.getIssue(id)
+        if (issue.type != "BUG") {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Defect not found")
+        }
+        return issueService.toDefect(issue)
+    }
 
     fun getByProjectId(projectId: Long): List<Defect> =
-        defectRepository.findByProjectId(projectId)
+        issueService.findAll(IssueQuery(type = "BUG", projectId = projectId))
+            .map { issueService.toDefect(issueService.getIssue(it.id)) }
 
     fun getByTaskId(taskId: Long): List<Defect> =
-        defectRepository.findByTaskId(taskId)
+        issueService.findAll(IssueQuery(type = "BUG", parentIssueId = taskId))
+            .map { issueService.toDefect(issueService.getIssue(it.id)) }
 
     fun update(id: Long, data: UpdateDefectRequest): Defect {
-        val defect = getById(id)
-        val updated = Defect(
-            id = defect.id,
-            title = data.title ?: defect.title,
-            description = data.description ?: defect.description,
-            severity = data.severity ?: defect.severity,
-            status = data.status ?: defect.status,
-            projectId = defect.projectId,
-            taskId = defect.taskId,
-            reporterId = defect.reporterId,
-            createdAt = defect.createdAt,
-            updatedAt = LocalDateTime.now()
+        val issue = issueService.getIssue(id)
+        if (issue.type != "BUG") {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Defect not found")
+        }
+        issueService.update(
+            id,
+            UpdateIssueRequest(
+                title = data.title,
+                description = data.description,
+                severity = data.severity ?: issue.severity,
+                state = data.status?.let { mapDefectStatus(it) }
+            )
         )
-        return defectRepository.save(updated)
+        return issueService.toDefect(issueService.getIssue(id))
     }
 
     fun updateStatus(id: Long, status: String): Defect {
-        val defect = getById(id)
-        val updated = Defect(
-            id = defect.id,
-            title = defect.title,
-            description = defect.description,
-            severity = defect.severity,
-            status = status,
-            projectId = defect.projectId,
-            taskId = defect.taskId,
-            reporterId = defect.reporterId,
-            createdAt = defect.createdAt,
-            updatedAt = LocalDateTime.now()
-        )
-        return defectRepository.save(updated)
+        val issue = issueService.getIssue(id)
+        if (issue.type != "BUG") {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Defect not found")
+        }
+        issueService.updateState(id, mapDefectStatus(status))
+        return issueService.toDefect(issueService.getIssue(id))
     }
 
     fun delete(id: Long) {
-        defectRepository.deleteById(id)
+        val issue = issueService.getIssue(id)
+        if (issue.type != "BUG") {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Defect not found")
+        }
+        issueService.delete(id)
     }
 }
 
@@ -87,3 +100,11 @@ data class UpdateDefectRequest(
     val severity: String? = null,
     val status: String? = null
 )
+
+private fun mapDefectStatus(status: String): String = when (status) {
+    "OPEN", "REOPENED" -> "TODO"
+    "IN_PROGRESS" -> "IN_PROGRESS"
+    "RESOLVED" -> "IN_REVIEW"
+    "CLOSED" -> "DONE"
+    else -> "TODO"
+}
