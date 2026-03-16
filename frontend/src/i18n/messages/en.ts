@@ -408,6 +408,25 @@ const enMessages = {
     title: "Projects",
     subtitle: "Projects organize delivery context. Issues, sprints, docs, and activity stay inside the project container.",
     searchPlaceholder: "Search projects",
+    actions: {
+      new: "New project",
+      edit: "Edit project",
+    },
+    fields: {
+      key: "Project key",
+      name: "Project name",
+      description: "Description",
+      status: "Status",
+      startDate: "Start date",
+      targetDate: "Target date",
+    },
+    status: {
+      PLANNED: "Planned",
+      ACTIVE: "Active",
+      PAUSED: "Paused",
+      COMPLETED: "Completed",
+      ARCHIVED: "Archived",
+    },
     metrics: {
       issues: "Issues",
       epics: "Epics",

@@ -279,6 +279,25 @@ const zhCNMessages: typeof enMessages = {
     title: '项目',
     subtitle: '项目用于组织交付上下文，事项、Sprint、文档和活动都沉淀在项目容器内。',
     searchPlaceholder: '搜索项目',
+    actions: {
+      new: '新建项目',
+      edit: '编辑项目',
+    },
+    fields: {
+      key: '项目标识',
+      name: '项目名称',
+      description: '描述',
+      status: '状态',
+      startDate: '开始日期',
+      targetDate: '目标日期',
+    },
+    status: {
+      PLANNED: '规划中',
+      ACTIVE: '进行中',
+      PAUSED: '暂停',
+      COMPLETED: '已完成',
+      ARCHIVED: '已归档',
+    },
     metrics: {
       issues: '事项',
       epics: 'Epic',

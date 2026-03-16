@@ -10,4 +10,10 @@ export const queryKeys = {
   comments: (filters?: Record<string, unknown>) => ['comments', filters ?? {}] as const,
   activity: (filters?: Record<string, unknown>) => ['activity', filters ?? {}] as const,
   relations: (issueId: number) => ['issues', issueId, 'relations'] as const,
+  dashboard: ['dashboard'] as const,
+  dashboardAgent: ['dashboard', 'agent'] as const,
+  teamMembers: ['team-members'] as const,
+  skills: ['skills'] as const,
+  skillAnalytics: (name: string) => ['skills', name, 'analytics'] as const,
+  views: ['views'] as const,
 } as const;
