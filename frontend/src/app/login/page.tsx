@@ -3,9 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import LocaleSwitcher from '@/components/LocaleSwitcher';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { localizePath } from '@/i18n/config';
 import { useI18n } from '@/i18n/useI18n';
 import { login } from '@/lib/api';
+import { storeSession } from '@/lib/auth';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,15 +25,15 @@ export default function LoginPage() {
 
     try {
       const response = await login(username, password);
-      localStorage.setItem('token', response.token);
-      localStorage.setItem(
-        'user',
-        JSON.stringify({
+      storeSession({
+        token: response.token,
+        user: {
+          id: response.userId,
           username: response.username,
           email: response.email,
           role: response.role,
-        })
-      );
+        },
+      });
       router.push(localizePath(locale, '/issues'));
     } catch (err: any) {
       setError(err.response?.data?.error || t('login.error'));
@@ -67,11 +70,11 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="mb-2 block text-sm font-medium text-blue-100/80">{t('login.username')}</label>
-              <input
+              <Input
                 type="text"
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
-                className="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-white placeholder-blue-100/50 backdrop-blur-sm transition-all focus:border-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-300/30"
+                className="border-white/20 bg-white/10 text-white placeholder:text-blue-100/50"
                 placeholder={t('login.usernamePlaceholder')}
                 required
               />
@@ -79,11 +82,11 @@ export default function LoginPage() {
 
             <div>
               <label className="mb-2 block text-sm font-medium text-blue-100/80">{t('login.password')}</label>
-              <input
+              <Input
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-white placeholder-blue-100/50 backdrop-blur-sm transition-all focus:border-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-300/30"
+                className="border-white/20 bg-white/10 text-white placeholder:text-blue-100/50"
                 placeholder={t('login.passwordPlaceholder')}
                 required
               />
@@ -95,13 +98,13 @@ export default function LoginPage() {
               </div>
             )}
 
-            <button
+            <Button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl bg-brand-gradient px-4 py-3 font-medium text-white shadow-brand transition-all hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-cyan-300/40 disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full"
             >
               {loading ? t('login.submitting') : t('login.submit')}
-            </button>
+            </Button>
           </form>
 
           <div className="mt-8 text-center text-sm text-blue-200/60">

@@ -52,4 +52,36 @@
   .meta-label {
     @apply text-xs uppercase tracking-[0.18em] text-ink-400;
   }
+
+  .metric-card {
+    @apply panel-card p-5;
+  }
+
+  .data-table {
+    @apply w-full border-collapse text-sm;
+  }
+
+  .data-table thead {
+    @apply bg-surface-soft text-left text-ink-700;
+  }
+
+  .data-table th {
+    @apply px-5 py-4 text-sm font-medium;
+  }
+
+  .data-table td {
+    @apply px-5 py-4 align-top;
+  }
+
+  .section-panel {
+    @apply panel-card p-5;
+  }
+
+  .drawer-panel {
+    @apply rounded-card border border-border-soft bg-white p-4;
+  }
+
+  .filter-bar {
+    @apply panel-card p-5;
+  }
 }

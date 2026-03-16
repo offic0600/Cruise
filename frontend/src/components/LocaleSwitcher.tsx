@@ -1,6 +1,14 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { defaultLocale, localizePath, locales, type Locale } from "@/i18n/config";
 import { useI18n } from "@/i18n/useI18n";
 
@@ -18,19 +26,21 @@ export default function LocaleSwitcher() {
   };
 
   return (
-    <label className="flex items-center gap-2 text-sm text-slate-600">
-      <span>{t("common.language")}</span>
-      <select
-        value={locale}
-        onChange={(event) => changeLocale(event.target.value as Locale)}
-        className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm text-slate-700"
-      >
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="secondary" size="sm" className="gap-2">
+          <span>{t("common.language")}</span>
+          <span className="text-ink-400">{locale === "zh-CN" ? "简中" : "EN"}</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
         {locales.map((item) => (
-          <option key={item} value={item}>
-            {item === "zh-CN" ? t("common.zhCN") : t("common.en")}
-          </option>
+          <DropdownMenuItem key={item} onClick={() => changeLocale(item as Locale)} className="justify-between gap-4">
+            <span>{item === "zh-CN" ? t("common.zhCN") : t("common.en")}</span>
+            {item === locale && <Check className="h-4 w-4 text-brand-600" />}
+          </DropdownMenuItem>
         ))}
-      </select>
-    </label>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

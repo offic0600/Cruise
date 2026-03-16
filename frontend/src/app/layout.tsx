@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
+import { QueryProvider } from '@/components/providers/QueryProvider';
 import { I18nProvider } from '@/i18n/I18nProvider';
 import { defaultLocale, isValidLocale } from '@/i18n/config';
 import { getMessages } from '@/i18n/getMessages';
@@ -23,9 +24,11 @@ export default async function RootLayout({
   return (
     <html lang={locale}>
       <body>
-        <I18nProvider locale={locale} messages={messages}>
-          {children}
-        </I18nProvider>
+        <QueryProvider>
+          <I18nProvider locale={locale} messages={messages}>
+            {children}
+          </I18nProvider>
+        </QueryProvider>
       </body>
     </html>
   );

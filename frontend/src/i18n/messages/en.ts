@@ -330,6 +330,8 @@ const enMessages = {
       project: "Project",
       epic: "Epic",
       sprint: "Sprint",
+      reset: "Reset filters",
+      searchPlaceholder: "Search by title or identifier",
       state: "State",
       priority: "Priority",
       allTypes: "All types",
@@ -349,6 +351,52 @@ const enMessages = {
       priority: "Priority",
       team: "Team",
     },
+    actions: {
+      new: "New issue",
+      edit: "Edit issue",
+    },
+    bulk: {
+      selected: "{count} selected",
+    },
+    errors: {
+      load: "Failed to load issues workspace",
+    },
+    tabs: {
+      overview: "Overview",
+      comments: "Comments",
+      activity: "Activity",
+      docs: "Docs",
+      relations: "Relations",
+    },
+    detail: {
+      estimate: "Estimated hours",
+      actual: "Actual hours",
+      progress: "Progress",
+      plannedRange: "Planned range",
+      addComment: "Add comment",
+      commentPlaceholder: "Record context, decisions, or follow-ups",
+      linkDoc: "Link document",
+      docTitle: "Document title",
+      docSlug: "Slug",
+      docContent: "Summary or notes",
+      addRelation: "Create relation",
+      relationTarget: "Target issue ID",
+      relationType: "Relation type",
+    },
+    emptyStates: {
+      comments: "No comments yet",
+      activity: "No activity recorded yet",
+      docs: "No docs linked yet",
+      relations: "No relations linked yet",
+    },
+    relationType: {
+      BLOCKS: "Blocks",
+      BLOCKED_BY: "Blocked by",
+      RELATES_TO: "Relates to",
+      DUPLICATES: "Duplicates",
+      CAUSED_BY: "Caused by",
+      SPLIT_FROM: "Split from",
+    },
     type: {
       FEATURE: "Feature",
       TASK: "Task",
@@ -359,6 +407,7 @@ const enMessages = {
   projects: {
     title: "Projects",
     subtitle: "Projects organize delivery context. Issues, sprints, docs, and activity stay inside the project container.",
+    searchPlaceholder: "Search projects",
     metrics: {
       issues: "Issues",
       epics: "Epics",
@@ -382,6 +431,7 @@ const enMessages = {
   views: {
     title: "Views",
     subtitle: "Views are reusable contexts on top of the same work item graph, not separate modules.",
+    searchPlaceholder: "Search this view",
     empty: "No issues in this view",
     presets: {
       myWork: {
@@ -402,6 +452,6 @@ const enMessages = {
       },
     },
   },
-} as const;
+};
 
 export default enMessages;

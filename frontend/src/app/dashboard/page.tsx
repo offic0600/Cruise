@@ -3,8 +3,12 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import AppLayout from '@/components/AppLayout';
 import ChartRenderer from '@/components/ChartRenderer';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useI18n } from '@/i18n/useI18n';
 import { Issue, createSession, getIssues, getTeamMembers, sendQuery } from '@/lib/api';
+import { getStoredUser } from '@/lib/auth';
 
 interface ChartConfig {
   type: 'bar' | 'line' | 'pie';
@@ -80,8 +84,7 @@ export default function DashboardPage() {
 
   const initAiSession = async () => {
     try {
-      const userStr = localStorage.getItem('user');
-      const user = userStr ? JSON.parse(userStr) : null;
+      const user = getStoredUser();
       const session = await createSession(user?.id, user?.username);
       setSessionId(session.sessionId);
     } catch (error) {
@@ -174,12 +177,11 @@ export default function DashboardPage() {
             <h1 className="text-3xl font-bold text-ink-900">{t('dashboard.title')}</h1>
             <p className="mt-2 text-ink-700">{t('dashboard.subtitle')}</p>
           </div>
-          <button
+          <Button
             onClick={() => setAiPanelOpen((value) => !value)}
-            className="rounded-xl bg-brand-gradient px-4 py-2.5 text-sm font-medium text-white shadow-brand"
           >
             {t('nav.agent')}
-          </button>
+          </Button>
         </div>
 
         <div className="grid gap-4 md:grid-cols-4">
@@ -223,7 +225,8 @@ export default function DashboardPage() {
               <h2 className="font-semibold text-ink-900">{t('nav.agent')}</h2>
             </div>
             <div className="flex h-[460px] flex-col">
-              <div className="flex-1 space-y-3 overflow-y-auto p-4">
+              <ScrollArea className="flex-1 p-4">
+                <div className="space-y-3">
                 {messages.map((message) => (
                   <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-[85%] rounded-card px-4 py-3 text-sm ${message.role === 'user' ? 'bg-brand-600 text-white shadow-brand' : 'bg-surface-soft text-ink-700'}`}>
@@ -239,22 +242,22 @@ export default function DashboardPage() {
                 ))}
                 {aiLoading && <div className="text-sm text-ink-400">{t('common.loading')}</div>}
                 <div ref={messagesEndRef} />
-              </div>
+                </div>
+              </ScrollArea>
               <form onSubmit={handleAiSubmit} className="border-t border-border-subtle p-4">
                 <div className="flex gap-2">
-                  <input
+                  <Input
                     value={aiInput}
                     onChange={(event) => setAiInput(event.target.value)}
                     placeholder={t('dashboard.inputPlaceholder')}
-                    className="control-surface flex-1 px-4 py-2.5"
+                    className="flex-1"
                   />
-                  <button
+                  <Button
                     type="submit"
                     disabled={aiLoading || !aiInput.trim()}
-                    className="rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white shadow-brand disabled:opacity-50"
                   >
                     {t('agent.send')}
-                  </button>
+                  </Button>
                 </div>
               </form>
             </div>

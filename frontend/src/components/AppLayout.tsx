@@ -1,17 +1,22 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { Bell, ChevronDown, Menu } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import LocaleSwitcher from '@/components/LocaleSwitcher';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { localizePath } from '@/i18n/config';
 import { useI18n } from '@/i18n/useI18n';
-
-interface User {
-  username: string;
-  email: string;
-  role: string;
-}
+import { clearSession, getStoredUser, type StoredUser } from '@/lib/auth';
 
 interface NavItem {
   href: string;
@@ -23,7 +28,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { locale, t } = useI18n();
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<StoredUser | null>(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const navItems = useMemo<NavItem[]>(
     () => [
@@ -39,20 +45,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   );
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const userStr = localStorage.getItem('user');
-    if (!token) {
+    const storedUser = getStoredUser();
+    if (!storedUser) {
       router.replace(localizePath(locale, '/login'));
       return;
     }
-    if (userStr) {
-      setUser(JSON.parse(userStr));
-    }
+    setUser(storedUser);
   }, [locale, router]);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    clearSession();
     router.push(localizePath(locale, '/login'));
   };
 
@@ -62,7 +64,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="app-shell">
-      <aside className="glass-sidebar fixed inset-y-0 left-0 hidden w-72 xl:block">
+      <aside className={`glass-sidebar fixed inset-y-0 left-0 z-30 w-72 transition-transform xl:translate-x-0 ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full'} xl:block`}>
         <div className="flex h-full flex-col">
           <div className="border-b border-border-subtle px-6 py-6">
             <div className="flex items-center gap-3">
@@ -103,12 +105,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <div className="mt-1 text-xs text-ink-700">{user.role}</div>
               <div className="mt-4 flex items-center justify-between gap-3">
                 <LocaleSwitcher />
-                <button
-                  onClick={handleLogout}
-                  className="rounded-xl border border-border-soft px-3 py-2 text-xs font-medium text-ink-700 hover:bg-white"
-                >
+                <Button onClick={handleLogout} variant="secondary" size="sm">
                   {t('nav.logout')}
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -118,17 +117,51 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="xl:ml-72">
         <header className="glass-header sticky top-0 z-20">
           <div className="flex items-center justify-between px-5 py-4 sm:px-8">
-            <div>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="secondary"
+                size="icon"
+                className="xl:hidden"
+                onClick={() => setMobileNavOpen((current) => !current)}
+                aria-label="Toggle navigation"
+              >
+                <Menu className="h-4 w-4" />
+              </Button>
+              <div>
               <div className="text-xs uppercase tracking-[0.2em] text-ink-400">{t('common.workspace')}</div>
               <h1 className="text-lg font-semibold text-ink-900">{activeItem?.label ?? 'Cruise'}</h1>
+              </div>
             </div>
             <div className="flex items-center gap-3">
+              <Button variant="secondary" size="icon" className="hidden md:inline-flex">
+                <Bell className="h-4 w-4" />
+              </Button>
               <div className="hidden rounded-card border border-border-soft bg-white px-3 py-2 text-sm text-ink-700 sm:block">
                 {user.email}
               </div>
-              <div className="brand-badge flex h-10 w-10 items-center justify-center rounded-card text-sm font-semibold">
-                {user.username.charAt(0).toUpperCase()}
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="brand-badge flex h-10 items-center gap-2 rounded-card px-3 text-sm font-semibold">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/20">
+                      {user.username.charAt(0).toUpperCase()}
+                    </span>
+                    <span className="hidden sm:inline">{user.username}</span>
+                    <ChevronDown className="hidden h-4 w-4 sm:inline" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>{user.email}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => router.push(localizePath(locale, '/issues'))}>
+                    {t('nav.issues')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => router.push(localizePath(locale, '/projects'))}>
+                    {t('nav.projects')}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout}>{t('nav.logout')}</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </header>
