@@ -49,3 +49,6 @@ dist/
 # Environment
 .env
 .env.local
+
+
+.playwright-cli

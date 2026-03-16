@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { defaultLocale, getLocaleFromPathname, localizePath } from '@/i18n/config';
 
 const API_BASE = 'http://localhost:8080/api';
 
@@ -25,7 +26,8 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && typeof window !== 'undefined') {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      const locale = getLocaleFromPathname(window.location.pathname) ?? defaultLocale;
+      window.location.href = localizePath(locale, '/login');
     }
     return Promise.reject(error);
   }
@@ -33,6 +35,9 @@ api.interceptors.response.use(
 
 export interface Issue {
   id: number;
+  organizationId: number;
+  epicId: number | null;
+  sprintId: number | null;
   identifier: string;
   type: 'FEATURE' | 'TASK' | 'BUG' | 'TECH_DEBT';
   title: string;
@@ -101,6 +106,9 @@ export const register = (username: string, password: string, email: string, role
 
 export const getIssues = (params?: {
   type?: string;
+  organizationId?: number;
+  epicId?: number;
+  sprintId?: number;
   projectId?: number;
   assigneeId?: number;
   parentIssueId?: number;
@@ -111,6 +119,9 @@ export const getIssues = (params?: {
 export const getIssue = (id: number) => api.get<Issue>(`/issues/${id}`).then((r) => r.data);
 
 export const createIssue = (data: {
+  organizationId?: number;
+  epicId?: number | null;
+  sprintId?: number | null;
   type: string;
   title: string;
   description?: string;
@@ -132,6 +143,9 @@ export const createIssue = (data: {
 }) => api.post<Issue>('/issues', data).then((r) => r.data);
 
 export const updateIssue = (id: number, data: {
+  organizationId?: number;
+  epicId?: number | null;
+  sprintId?: number | null;
   title?: string;
   description?: string;
   state?: string;
@@ -465,6 +479,499 @@ export const updateBugIssue = (
 
 export const updateBugIssueStatus = (id: number, status: string) =>
   updateIssueState(id, status).then(mapBugIssue);
+
+export interface Project {
+  id: number;
+  organizationId: number;
+  teamId: number | null;
+  key: string | null;
+  name: string;
+  description: string | null;
+  status: 'PLANNED' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'ARCHIVED' | string;
+  ownerId: number | null;
+  startDate: string | null;
+  targetDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Team {
+  id: number;
+  organizationId: number;
+  key: string;
+  name: string;
+  description: string | null;
+  defaultWorkflowId: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Membership {
+  id: number;
+  organizationId: number;
+  teamId: number;
+  userId: number;
+  role: 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER' | string;
+  title: string | null;
+  joinedAt: string;
+  active: boolean;
+}
+
+export interface WorkflowState {
+  id: number;
+  key: string;
+  label: string;
+  category: 'BACKLOG' | 'ACTIVE' | 'REVIEW' | 'COMPLETED' | 'CANCELED' | string;
+  sortOrder: number;
+}
+
+export interface WorkflowTransition {
+  id: number;
+  fromStateKey: string;
+  toStateKey: string;
+}
+
+export interface Workflow {
+  id: number;
+  teamId: number;
+  name: string;
+  appliesToType: 'FEATURE' | 'TASK' | 'BUG' | 'ALL' | string;
+  isDefault: boolean;
+  createdAt: string;
+  states: WorkflowState[];
+  transitions: WorkflowTransition[];
+}
+
+export interface Epic {
+  id: number;
+  organizationId: number;
+  teamId: number;
+  projectId: number | null;
+  identifier: string;
+  title: string;
+  description: string | null;
+  state: 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE' | 'CANCELED' | string;
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT' | string;
+  ownerId: number | null;
+  reporterId: number | null;
+  startDate: string | null;
+  targetDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Sprint {
+  id: number;
+  teamId: number;
+  projectId: number | null;
+  name: string;
+  goal: string | null;
+  sequenceNumber: number;
+  status: 'PLANNED' | 'ACTIVE' | 'CLOSED' | 'CANCELED' | string;
+  startDate: string;
+  endDate: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IssueRelation {
+  id: number;
+  fromIssueId: number;
+  toIssueId: number;
+  relationType: 'BLOCKS' | 'BLOCKED_BY' | 'RELATES_TO' | 'DUPLICATES' | 'CAUSED_BY' | 'SPLIT_FROM' | string;
+  createdAt: string;
+}
+
+export interface DocRevision {
+  id: number;
+  docId: number;
+  versionNumber: number;
+  content: string;
+  authorId: number;
+  createdAt: string;
+}
+
+export interface Doc {
+  id: number;
+  organizationId: number;
+  teamId: number | null;
+  projectId: number | null;
+  epicId: number | null;
+  issueId: number | null;
+  title: string;
+  slug: string;
+  status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | string;
+  authorId: number;
+  currentRevisionId: number | null;
+  createdAt: string;
+  updatedAt: string;
+  currentRevision: DocRevision | null;
+  revisions: DocRevision[];
+}
+
+export interface Comment {
+  id: number;
+  issueId: number | null;
+  epicId: number | null;
+  docId: number | null;
+  parentCommentId: number | null;
+  authorId: number;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ActivityEvent {
+  id: number;
+  actorId: number | null;
+  entityType: 'ISSUE' | 'EPIC' | 'SPRINT' | 'DOC' | 'COMMENT' | string;
+  entityId: number;
+  actionType: string;
+  summary: string;
+  payloadJson: string | null;
+  createdAt: string;
+}
+
+export interface Notification {
+  id: number;
+  userId: number;
+  eventId: number;
+  type: 'ASSIGNMENT' | 'MENTION' | 'COMMENT' | 'STATE_CHANGE' | 'SYSTEM' | string;
+  title: string;
+  body: string;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export const getProjects = (params?: {
+  organizationId?: number;
+  teamId?: number;
+  status?: string;
+  q?: string;
+}) => api.get<Project[]>('/projects', { params }).then((r) => r.data);
+
+export const getProject = (id: number) => api.get<Project>(`/projects/${id}`).then((r) => r.data);
+
+export const createProject = (data: {
+  organizationId?: number;
+  teamId?: number | null;
+  key?: string | null;
+  name: string;
+  description?: string | null;
+  status?: string;
+  ownerId?: number | null;
+  startDate?: string | null;
+  targetDate?: string | null;
+}) => api.post<Project>('/projects', data).then((r) => r.data);
+
+export const updateProject = (id: number, data: {
+  teamId?: number | null;
+  key?: string | null;
+  name?: string;
+  description?: string | null;
+  status?: string;
+  ownerId?: number | null;
+  startDate?: string | null;
+  targetDate?: string | null;
+}) => api.put<Project>(`/projects/${id}`, data).then((r) => r.data);
+
+export const deleteProject = (id: number) => api.delete(`/projects/${id}`);
+
+export const getTeams = (params?: {
+  organizationId?: number;
+  q?: string;
+}) => api.get<Team[]>('/teams', { params }).then((r) => r.data);
+
+export const getTeam = (id: number) => api.get<Team>(`/teams/${id}`).then((r) => r.data);
+
+export const createTeam = (data: {
+  organizationId?: number;
+  key: string;
+  name: string;
+  description?: string | null;
+  defaultWorkflowId?: number | null;
+}) => api.post<Team>('/teams', data).then((r) => r.data);
+
+export const updateTeam = (id: number, data: {
+  name?: string;
+  description?: string | null;
+  defaultWorkflowId?: number | null;
+}) => api.put<Team>(`/teams/${id}`, data).then((r) => r.data);
+
+export const deleteTeam = (id: number) => api.delete(`/teams/${id}`);
+
+export const getMemberships = (params?: {
+  organizationId?: number;
+  teamId?: number;
+  userId?: number;
+  active?: boolean;
+}) => api.get<Membership[]>('/memberships', { params }).then((r) => r.data);
+
+export const getMembership = (id: number) =>
+  api.get<Membership>(`/memberships/${id}`).then((r) => r.data);
+
+export const createMembership = (data: {
+  organizationId?: number;
+  teamId: number;
+  userId: number;
+  role?: string;
+  title?: string | null;
+  active?: boolean;
+}) => api.post<Membership>('/memberships', data).then((r) => r.data);
+
+export const updateMembership = (id: number, data: {
+  role?: string;
+  title?: string | null;
+  active?: boolean;
+}) => api.put<Membership>(`/memberships/${id}`, data).then((r) => r.data);
+
+export const deleteMembership = (id: number) => api.delete(`/memberships/${id}`);
+
+export const getWorkflows = (params?: {
+  teamId?: number;
+  appliesToType?: string;
+}) => api.get<Workflow[]>('/workflows', { params }).then((r) => r.data);
+
+export const getWorkflow = (id: number) =>
+  api.get<Workflow>(`/workflows/${id}`).then((r) => r.data);
+
+export const createWorkflow = (data: {
+  teamId: number;
+  name: string;
+  appliesToType?: string;
+  isDefault?: boolean;
+  states?: Array<{ key: string; label: string; category: string; sortOrder: number }>;
+  transitions?: Array<{ fromStateKey: string; toStateKey: string }>;
+}) => api.post<Workflow>('/workflows', data).then((r) => r.data);
+
+export const updateWorkflow = (id: number, data: {
+  name?: string;
+  appliesToType?: string;
+  isDefault?: boolean;
+  states?: Array<{ key: string; label: string; category: string; sortOrder: number }>;
+  transitions?: Array<{ fromStateKey: string; toStateKey: string }>;
+}) => api.put<Workflow>(`/workflows/${id}`, data).then((r) => r.data);
+
+export const deleteWorkflow = (id: number) => api.delete(`/workflows/${id}`);
+
+export const getEpics = (params?: {
+  organizationId?: number;
+  teamId?: number;
+  projectId?: number;
+  state?: string;
+  q?: string;
+}) => api.get<Epic[]>('/epics', { params }).then((r) => r.data);
+
+export const getEpic = (id: number) => api.get<Epic>(`/epics/${id}`).then((r) => r.data);
+
+export const createEpic = (data: {
+  organizationId?: number;
+  teamId: number;
+  projectId?: number | null;
+  title: string;
+  description?: string | null;
+  state?: string;
+  priority?: string;
+  ownerId?: number | null;
+  reporterId?: number | null;
+  startDate?: string | null;
+  targetDate?: string | null;
+}) => api.post<Epic>('/epics', data).then((r) => r.data);
+
+export const updateEpic = (id: number, data: {
+  projectId?: number | null;
+  title?: string;
+  description?: string | null;
+  state?: string;
+  priority?: string;
+  ownerId?: number | null;
+  reporterId?: number | null;
+  startDate?: string | null;
+  targetDate?: string | null;
+}) => api.put<Epic>(`/epics/${id}`, data).then((r) => r.data);
+
+export const deleteEpic = (id: number) => api.delete(`/epics/${id}`);
+
+export const getSprints = (params?: {
+  teamId?: number;
+  projectId?: number;
+  status?: string;
+  q?: string;
+}) => api.get<Sprint[]>('/sprints', { params }).then((r) => r.data);
+
+export const getSprint = (id: number) => api.get<Sprint>(`/sprints/${id}`).then((r) => r.data);
+
+export const createSprint = (data: {
+  teamId: number;
+  projectId?: number | null;
+  name: string;
+  goal?: string | null;
+  sequenceNumber?: number;
+  status?: string;
+  startDate: string;
+  endDate: string;
+}) => api.post<Sprint>('/sprints', data).then((r) => r.data);
+
+export const updateSprint = (id: number, data: {
+  projectId?: number | null;
+  name?: string;
+  goal?: string | null;
+  sequenceNumber?: number;
+  status?: string;
+  startDate?: string;
+  endDate?: string;
+}) => api.put<Sprint>(`/sprints/${id}`, data).then((r) => r.data);
+
+export const deleteSprint = (id: number) => api.delete(`/sprints/${id}`);
+
+export const getIssueRelations = (issueId: number) =>
+  api.get<IssueRelation[]>(`/issues/${issueId}/relations`).then((r) => r.data);
+
+export const createIssueRelation = (
+  issueId: number,
+  data: {
+    fromIssueId?: number;
+    toIssueId: number;
+    relationType: string;
+  }
+) =>
+  api
+    .post<IssueRelation>(`/issues/${issueId}/relations`, {
+      fromIssueId: data.fromIssueId ?? issueId,
+      toIssueId: data.toIssueId,
+      relationType: data.relationType,
+    })
+    .then((r) => r.data);
+
+export const updateIssueRelation = (
+  issueId: number,
+  relationId: number,
+  data: {
+    toIssueId?: number;
+    relationType?: string;
+  }
+) => api.put<IssueRelation>(`/issues/${issueId}/relations/${relationId}`, data).then((r) => r.data);
+
+export const deleteIssueRelation = (issueId: number, relationId: number) =>
+  api.delete(`/issues/${issueId}/relations/${relationId}`);
+
+export const getDocs = (params?: {
+  organizationId?: number;
+  teamId?: number;
+  projectId?: number;
+  epicId?: number;
+  issueId?: number;
+  status?: string;
+  q?: string;
+}) => api.get<Doc[]>('/docs', { params }).then((r) => r.data);
+
+export const getDoc = (id: number) => api.get<Doc>(`/docs/${id}`).then((r) => r.data);
+
+export const createDoc = (data: {
+  organizationId?: number;
+  teamId?: number | null;
+  projectId?: number | null;
+  epicId?: number | null;
+  issueId?: number | null;
+  title: string;
+  slug?: string | null;
+  status?: string;
+  authorId: number;
+  content: string;
+}) => api.post<Doc>('/docs', data).then((r) => r.data);
+
+export const updateDoc = (id: number, data: {
+  teamId?: number | null;
+  projectId?: number | null;
+  epicId?: number | null;
+  issueId?: number | null;
+  title?: string;
+  slug?: string | null;
+  status?: string;
+  authorId?: number | null;
+  content?: string;
+}) => api.put<Doc>(`/docs/${id}`, data).then((r) => r.data);
+
+export const deleteDoc = (id: number) => api.delete(`/docs/${id}`);
+
+export const getComments = (params?: {
+  issueId?: number;
+  epicId?: number;
+  docId?: number;
+  authorId?: number;
+}) => api.get<Comment[]>('/comments', { params }).then((r) => r.data);
+
+export const getComment = (id: number) =>
+  api.get<Comment>(`/comments/${id}`).then((r) => r.data);
+
+export const createComment = (data: {
+  issueId?: number | null;
+  epicId?: number | null;
+  docId?: number | null;
+  parentCommentId?: number | null;
+  authorId: number;
+  body: string;
+}) => api.post<Comment>('/comments', data).then((r) => r.data);
+
+export const updateComment = (id: number, data: { body: string }) =>
+  api.put<Comment>(`/comments/${id}`, data).then((r) => r.data);
+
+export const deleteComment = (id: number) => api.delete(`/comments/${id}`);
+
+export const getActivityEvents = (params?: {
+  actorId?: number;
+  entityType?: string;
+  entityId?: number;
+  actionType?: string;
+}) => api.get<ActivityEvent[]>('/activity', { params }).then((r) => r.data);
+
+export const getActivityEvent = (id: number) =>
+  api.get<ActivityEvent>(`/activity/${id}`).then((r) => r.data);
+
+export const createActivityEvent = (data: {
+  actorId?: number | null;
+  entityType: string;
+  entityId: number;
+  actionType: string;
+  summary: string;
+  payloadJson?: string | null;
+}) => api.post<ActivityEvent>('/activity', data).then((r) => r.data);
+
+export const updateActivityEvent = (id: number, data: {
+  summary?: string;
+  payloadJson?: string | null;
+}) => api.put<ActivityEvent>(`/activity/${id}`, data).then((r) => r.data);
+
+export const deleteActivityEvent = (id: number) => api.delete(`/activity/${id}`);
+
+export const getNotifications = (params?: {
+  userId?: number;
+  unreadOnly?: boolean;
+  type?: string;
+}) => api.get<Notification[]>('/notifications', { params }).then((r) => r.data);
+
+export const getNotification = (id: number) =>
+  api.get<Notification>(`/notifications/${id}`).then((r) => r.data);
+
+export const createNotification = (data: {
+  userId: number;
+  eventId: number;
+  type?: string;
+  title: string;
+  body: string;
+  readAt?: string | null;
+}) => api.post<Notification>('/notifications', data).then((r) => r.data);
+
+export const updateNotification = (id: number, data: {
+  title?: string;
+  body?: string;
+  readAt?: string | null;
+}) => api.put<Notification>(`/notifications/${id}`, data).then((r) => r.data);
+
+export const markNotificationRead = (id: number) =>
+  api.patch<Notification>(`/notifications/${id}/read`).then((r) => r.data);
+
+export const deleteNotification = (id: number) => api.delete(`/notifications/${id}`);
 
 export const getTeamMembers = () => api.get('/team-members').then((r) => r.data);
 export const getTeamMember = (id: number) => api.get(`/team-members/${id}`).then((r) => r.data);

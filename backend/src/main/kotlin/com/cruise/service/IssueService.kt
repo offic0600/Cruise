@@ -10,6 +10,9 @@ import java.time.LocalDateTime
 
 data class IssueDto(
     val id: Long,
+    val organizationId: Long,
+    val epicId: Long?,
+    val sprintId: Long?,
     val identifier: String,
     val type: String,
     val title: String,
@@ -37,6 +40,9 @@ data class IssueDto(
 
 data class IssueQuery(
     val type: String? = null,
+    val organizationId: Long? = null,
+    val epicId: Long? = null,
+    val sprintId: Long? = null,
     val projectId: Long? = null,
     val assigneeId: Long? = null,
     val parentIssueId: Long? = null,
@@ -45,6 +51,9 @@ data class IssueQuery(
 )
 
 data class CreateIssueRequest(
+    val organizationId: Long? = null,
+    val epicId: Long? = null,
+    val sprintId: Long? = null,
     val type: String,
     val title: String,
     val description: String? = null,
@@ -68,6 +77,9 @@ data class CreateIssueRequest(
 )
 
 data class UpdateIssueRequest(
+    val organizationId: Long? = null,
+    val epicId: Long? = null,
+    val sprintId: Long? = null,
     val title: String? = null,
     val description: String? = null,
     val state: String? = null,
@@ -94,6 +106,9 @@ class IssueService(
         issueRepository.findAll()
             .asSequence()
             .filter { query.type == null || it.type == query.type }
+            .filter { query.organizationId == null || it.organizationId == query.organizationId }
+            .filter { query.epicId == null || it.epicId == query.epicId }
+            .filter { query.sprintId == null || it.sprintId == query.sprintId }
             .filter { query.projectId == null || it.projectId == query.projectId }
             .filter { query.assigneeId == null || it.assigneeId == query.assigneeId }
             .filter { query.parentIssueId == null || it.parentIssueId == query.parentIssueId }
@@ -115,6 +130,9 @@ class IssueService(
         validateParent(request.parentIssueId, request.projectId)
         val saved = issueRepository.save(
             Issue(
+                organizationId = request.organizationId ?: 1L,
+                epicId = request.epicId,
+                sprintId = request.sprintId,
                 identifier = nextIdentifier(),
                 type = request.type,
                 title = request.title,
@@ -146,6 +164,9 @@ class IssueService(
         validateParent(request.parentIssueId, issue.projectId)
         val updated = Issue(
             id = issue.id,
+            organizationId = request.organizationId ?: issue.organizationId,
+            epicId = request.epicId ?: issue.epicId,
+            sprintId = request.sprintId ?: issue.sprintId,
             identifier = issue.identifier,
             type = issue.type,
             title = request.title ?: issue.title,
@@ -178,6 +199,9 @@ class IssueService(
         return issueRepository.save(
             Issue(
                 id = issue.id,
+                organizationId = issue.organizationId,
+                epicId = issue.epicId,
+                sprintId = issue.sprintId,
                 identifier = issue.identifier,
                 type = issue.type,
                 title = issue.title,
@@ -219,6 +243,9 @@ class IssueService(
 
     private fun Issue.toDto(): IssueDto = IssueDto(
         id = id,
+        organizationId = organizationId,
+        epicId = epicId,
+        sprintId = sprintId,
         identifier = identifier,
         type = type,
         title = title,

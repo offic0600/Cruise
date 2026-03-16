@@ -18,11 +18,23 @@ class User(
     @Column(nullable = false, length = 100)
     val email: String,
 
+    @Column(name = "display_name", length = 100)
+    val displayName: String? = null,
+
+    @Column(name = "avatar_url", length = 500)
+    val avatarUrl: String? = null,
+
     @Column(length = 50)
     val role: String = "USER",
 
+    @Column(length = 30)
+    val status: String = "ACTIVE",
+
     @Column(name = "created_at")
-    val createdAt: java.time.LocalDateTime = java.time.LocalDateTime.now()
+    val createdAt: java.time.LocalDateTime = java.time.LocalDateTime.now(),
+
+    @Column(name = "updated_at")
+    val updatedAt: java.time.LocalDateTime = java.time.LocalDateTime.now()
 ) {
     // Required by JPA - no-arg constructor
     constructor() : this(
@@ -30,7 +42,11 @@ class User(
         username = "",
         password = "",
         email = "",
+        displayName = null,
+        avatarUrl = null,
         role = "USER",
-        createdAt = java.time.LocalDateTime.now()
+        status = "ACTIVE",
+        createdAt = java.time.LocalDateTime.now(),
+        updatedAt = java.time.LocalDateTime.now()
     )
 }
