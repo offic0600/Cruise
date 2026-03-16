@@ -22,16 +22,23 @@ class JwtTokenProvider {
         return Keys.hmacShaKeyFor(jwtSecret.toByteArray(StandardCharsets.UTF_8))
     }
 
-    fun generateToken(userDetails: UserDetails): String {
+    fun generateToken(
+        userDetails: UserDetails,
+        userId: Long? = null,
+        organizationId: Long? = null,
+        role: String? = null
+    ): String {
         val now = Date()
         val expiryDate = Date(now.time + jwtExpiration)
 
-        return Jwts.builder()
+        val builder = Jwts.builder()
             .subject(userDetails.username)
             .issuedAt(now)
             .expiration(expiryDate)
-            .signWith(getSigningKey())
-            .compact()
+        if (userId != null) builder.claim("userId", userId)
+        if (organizationId != null) builder.claim("organizationId", organizationId)
+        if (!role.isNullOrBlank()) builder.claim("role", role)
+        return builder.signWith(getSigningKey()).compact()
     }
 
     fun getUsernameFromToken(token: String): String {

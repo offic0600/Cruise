@@ -1,6 +1,7 @@
 package com.cruise.controller
 
 import com.cruise.entity.User
+import com.cruise.repository.MembershipRepository
 import com.cruise.repository.UserRepository
 import com.cruise.security.CustomUserDetailsService
 import com.cruise.security.JwtTokenProvider
@@ -28,15 +29,18 @@ data class RegisterRequest(
 
 data class AuthResponse(
     val token: String,
+    val userId: Long,
     val username: String,
     val email: String,
-    val role: String
+    val role: String,
+    val organizationId: Long?
 )
 
 @RestController
 @RequestMapping("/api/auth", produces = [MediaType.APPLICATION_JSON_VALUE])
 class AuthController(
     private val userRepository: UserRepository,
+    private val membershipRepository: MembershipRepository,
     private val passwordEncoder: PasswordEncoder,
     private val jwtTokenProvider: JwtTokenProvider,
     private val customUserDetailsService: CustomUserDetailsService
@@ -93,14 +97,17 @@ class AuthController(
 
         // Generate JWT token
         val userDetails = customUserDetailsService.loadUserByUsername(user.username)
-        val token = jwtTokenProvider.generateToken(userDetails)
+        val organizationId = membershipRepository.findFirstByUserIdAndActiveTrue(user.id)?.organizationId
+        val token = jwtTokenProvider.generateToken(userDetails, user.id, organizationId, user.role)
         logger.info("Generated token: $token")
 
         val response = AuthResponse(
             token = token,
+            userId = user.id,
             username = user.username,
             email = user.email,
-            role = user.role
+            role = user.role,
+            organizationId = organizationId
         )
 
         logger.info("Returning response: token=${response.token.take(20)}..., username=${response.username}")
