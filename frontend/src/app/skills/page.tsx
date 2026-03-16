@@ -1,7 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { getSkills, getSkillAnalytics, createSkill, updateSkill, deleteSkill, addExternalSkill } from '@/lib/api';
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import { Plus } from 'lucide-react';
+import { z } from 'zod';
+import AppLayout from '@/components/AppLayout';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Sheet, SheetContent, SheetDismissButton, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Textarea } from '@/components/ui/textarea';
+import { useI18n } from '@/i18n/useI18n';
+import { addExternalSkill, createSkill, deleteSkill, getSkillAnalytics, getSkills, updateSkill } from '@/lib/api';
 
 interface Skill {
   id: number;
@@ -18,501 +33,240 @@ interface Skill {
   version?: string;
 }
 
-interface Analytics {
-  name: string;
-  executionCount: number;
-  successRate: number;
-  avgExecutionTimeMs: number;
-  totalExecutions: number;
-  successCount: number;
-}
-
-const CATEGORIES = [
-  { value: 'ANALYSIS', label: '数据分析' },
-  { value: 'TASK_MANAGEMENT', label: '任务管理' },
-  { value: 'RISK_MANAGEMENT', label: '风险管理' },
-  { value: 'TEAM_MANAGEMENT', label: '团队管理' },
-  { value: 'EVOLUTION', label: '持续进化' },
-  { value: 'VISUALIZATION', label: '可视化' },
-  { value: 'HELPER', label: '助手' },
-  { value: 'GENERAL', label: '通用' },
-  { value: 'EXTERNAL', label: '外部' },
-];
-
-const STATUS_OPTIONS = [
-  { value: 'ACTIVE', label: '启用' },
-  { value: 'INACTIVE', label: '禁用' },
-];
+const categories = ['ANALYSIS', 'TASK_MANAGEMENT', 'RISK_MANAGEMENT', 'TEAM_MANAGEMENT', 'EVOLUTION', 'VISUALIZATION', 'HELPER', 'GENERAL', 'EXTERNAL'] as const;
+const skillSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().min(1),
+  category: z.enum(categories),
+  intentPatterns: z.string().optional(),
+  parameters: z.string().optional(),
+  outputSchema: z.string().optional(),
+  externalUrl: z.string().optional(),
+  apiKey: z.string().optional(),
+});
+type SkillValues = z.infer<typeof skillSchema>;
 
 export default function SkillsPage() {
-  const [skills, setSkills] = useState<Skill[]>([]);
+  const { t } = useI18n();
+  const queryClient = useQueryClient();
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
-  const [analytics, setAnalytics] = useState<Analytics | null>(null);
-  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState<'create' | 'edit' | 'external' | null>(null);
-  const [modalLoading, setModalLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
 
-  // 表单状态
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    category: 'GENERAL',
-    intentPatterns: '',
-    parameters: '',
-    outputSchema: '',
-    externalUrl: '',
-    apiKey: '',
+  const skillsQuery = useQuery({ queryKey: ['skills'], queryFn: () => getSkills() });
+  const analyticsQuery = useQuery({
+    queryKey: ['skills', selectedSkill?.name, 'analytics'],
+    queryFn: () => getSkillAnalytics(selectedSkill!.name),
+    enabled: !!selectedSkill,
   });
 
-  useEffect(() => {
-    loadSkills();
-  }, []);
+  const skills = useMemo(() => {
+    const list = Array.isArray(skillsQuery.data) ? (skillsQuery.data as Skill[]) : [];
+    if (!search) return list;
+    const q = search.toLowerCase();
+    return list.filter((skill) => skill.name.toLowerCase().includes(q) || skill.description.toLowerCase().includes(q));
+  }, [search, skillsQuery.data]);
 
-  const loadSkills = async () => {
-    try {
-      const data = await getSkills();
-      setSkills(data);
-    } catch (err) {
-      console.error('Failed to load skills:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const form = useForm<SkillValues>({
+    resolver: zodResolver(skillSchema),
+    values: showModal === 'edit' && selectedSkill
+      ? {
+          name: selectedSkill.name,
+          description: selectedSkill.description,
+          category: selectedSkill.category as SkillValues['category'],
+          intentPatterns: selectedSkill.intentPatterns ?? '',
+          parameters: selectedSkill.parameters ?? '',
+          outputSchema: selectedSkill.outputSchema ?? '',
+          externalUrl: '',
+          apiKey: '',
+        }
+      : {
+          name: '',
+          description: '',
+          category: showModal === 'external' ? 'EXTERNAL' : 'GENERAL',
+          intentPatterns: '',
+          parameters: '',
+          outputSchema: '',
+          externalUrl: '',
+          apiKey: '',
+        },
+  });
 
-  const handleSkillClick = async (skill: Skill) => {
-    setSelectedSkill(skill);
-    try {
-      const data = await getSkillAnalytics(skill.name);
-      setAnalytics(data);
-    } catch (err) {
-      console.error('Failed to load analytics:', err);
-      setAnalytics(null);
-    }
-  };
-
-  const openCreateModal = () => {
-    setFormData({
-      name: '',
-      description: '',
-      category: 'GENERAL',
-      intentPatterns: '',
-      parameters: '',
-      outputSchema: '',
-      externalUrl: '',
-      apiKey: '',
-    });
-    setError('');
-    setShowModal('create');
-  };
-
-  const openEditModal = () => {
-    if (!selectedSkill) return;
-    setFormData({
-      name: selectedSkill.name,
-      description: selectedSkill.description || '',
-      category: selectedSkill.category || 'GENERAL',
-      intentPatterns: selectedSkill.intentPatterns || '',
-      parameters: selectedSkill.parameters || '',
-      outputSchema: selectedSkill.outputSchema || '',
-      externalUrl: '',
-      apiKey: '',
-    });
-    setError('');
-    setShowModal('edit');
-  };
-
-  const openExternalModal = () => {
-    setFormData({
-      name: '',
-      description: '',
-      category: 'EXTERNAL',
-      intentPatterns: '',
-      parameters: '',
-      outputSchema: '',
-      externalUrl: '',
-      apiKey: '',
-    });
-    setError('');
-    setShowModal('external');
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setModalLoading(true);
-    setError('');
-
-    try {
-      if (showModal === 'create') {
-        await createSkill({
-          name: formData.name,
-          description: formData.description,
-          category: formData.category,
-          intentPatterns: formData.intentPatterns,
-          parameters: formData.parameters || undefined,
-          outputSchema: formData.outputSchema || undefined,
-        });
-      } else if (showModal === 'edit' && selectedSkill) {
-        await updateSkill(selectedSkill.name, {
-          description: formData.description,
-          category: formData.category,
-          intentPatterns: formData.intentPatterns,
-          parameters: formData.parameters || undefined,
-          outputSchema: formData.outputSchema || undefined,
-        });
-      } else if (showModal === 'external') {
-        await addExternalSkill({
-          name: formData.name,
-          description: formData.description,
-          category: formData.category,
-          externalUrl: formData.externalUrl,
-          apiKey: formData.apiKey || undefined,
+  const saveMutation = useMutation({
+    mutationFn: async (values: SkillValues) => {
+      if (showModal === 'external') {
+        return addExternalSkill({
+          name: values.name,
+          description: values.description,
+          category: values.category,
+          externalUrl: values.externalUrl || '',
+          apiKey: values.apiKey || undefined,
         });
       }
-      await loadSkills();
+      if (showModal === 'edit' && selectedSkill) {
+        return updateSkill(selectedSkill.name, {
+          description: values.description,
+          category: values.category,
+          intentPatterns: values.intentPatterns || '',
+          parameters: values.parameters || undefined,
+          outputSchema: values.outputSchema || undefined,
+        });
+      }
+      return createSkill({
+        name: values.name,
+        description: values.description,
+        category: values.category,
+        intentPatterns: values.intentPatterns || '',
+        parameters: values.parameters || undefined,
+        outputSchema: values.outputSchema || undefined,
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['skills'] });
+      if (selectedSkill) {
+        await queryClient.invalidateQueries({ queryKey: ['skills', selectedSkill.name, 'analytics'] });
+      }
       setShowModal(null);
-    } catch (err: any) {
-      setError(err.response?.data?.message || '操作失败');
-    } finally {
-      setModalLoading(false);
-    }
-  };
+    },
+  });
 
-  const handleDelete = async () => {
-    if (!selectedSkill || !confirm(`确定要删除技能 "${selectedSkill.name}" 吗？`)) return;
-
-    try {
-      await deleteSkill(selectedSkill.name);
-      await loadSkills();
+  const deleteMutation = useMutation({
+    mutationFn: (name: string) => deleteSkill(name),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['skills'] });
       setSelectedSkill(null);
-      setAnalytics(null);
-    } catch (err) {
-      alert('删除失败');
-    }
-  };
+    },
+  });
 
-  const getCategoryColor = (category: string): string => {
-    const colors: Record<string, string> = {
-      ANALYSIS: 'bg-blue-100 text-blue-800',
-      TASK_MANAGEMENT: 'bg-green-100 text-green-800',
-      RISK_MANAGEMENT: 'bg-red-100 text-red-800',
-      TEAM_MANAGEMENT: 'bg-purple-100 text-purple-800',
-      EVOLUTION: 'bg-yellow-100 text-yellow-800',
-      VISUALIZATION: 'bg-cyan-100 text-cyan-800',
-      HELPER: 'bg-gray-100 text-gray-800',
-      GENERAL: 'bg-gray-100 text-gray-800',
-      EXTERNAL: 'bg-orange-100 text-orange-800',
-    };
-    return colors[category] || 'bg-gray-100 text-gray-800';
-  };
-
-  const getStatusColor = (status: string): string => {
-    return status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-500">加载中...</div>
-      </div>
-    );
-  }
+  const submit = form.handleSubmit(async (values) => {
+    await saveMutation.mutateAsync(values);
+  });
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">技能管理</h1>
-          <div className="flex gap-2">
-            <button
-              onClick={openExternalModal}
-              className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
-            >
-              添加外部技能
-            </button>
-            <button
-              onClick={openCreateModal}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-            >
-              添加自定义技能
-            </button>
+    <AppLayout>
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <h1 className="text-3xl font-semibold text-ink-900">{t('skills.title')}</h1>
+          <div className="flex gap-3">
+            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('common.search')} className="w-72" />
+            <Button variant="secondary" onClick={() => setShowModal('external')}>{t('skills.addExternal')}</Button>
+            <Button className="gap-2" onClick={() => setShowModal('create')}><Plus className="h-4 w-4" />{t('skills.addCustom')}</Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Skills List */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-lg font-semibold mb-4">可用技能 ({skills.length})</h2>
-            <div className="space-y-3 max-h-[600px] overflow-y-auto">
-              {skills.map((skill) => (
-                <div
-                  key={skill.id}
-                  onClick={() => handleSkillClick(skill)}
-                  className={`p-4 border rounded-lg cursor-pointer transition-all hover:shadow-md ${
-                    selectedSkill?.id === skill.id
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <h3 className="font-medium text-gray-800">{skill.name}</h3>
-                      <p className="text-sm text-gray-500 mt-1 line-clamp-2">{skill.description}</p>
-                    </div>
-                  </div>
-                  <div className="mt-2 flex gap-2">
-                    <span className={`px-2 py-0.5 text-xs rounded ${getCategoryColor(skill.category || '')}`}>
-                      {skill.category}
-                    </span>
-                    <span className={`px-2 py-0.5 text-xs rounded ${getStatusColor(skill.status)}`}>
-                      {skill.status}
-                    </span>
-                  </div>
+        <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+          <Card className="section-panel">
+            <CardHeader className="p-0 pb-4"><CardTitle>{t('skills.available', { count: skills.length })}</CardTitle></CardHeader>
+            <CardContent className="p-0">
+              <ScrollArea className="h-[620px] pr-3">
+                <div className="space-y-3">
+                  {skills.map((skill) => (
+                    <button
+                      key={skill.id}
+                      onClick={() => setSelectedSkill(skill)}
+                      className={`w-full rounded-card border p-4 text-left transition ${selectedSkill?.id === skill.id ? 'border-brand-600 bg-brand-600/5' : 'border-border-soft bg-white hover:bg-slate-50'}`}
+                    >
+                      <div className="font-medium text-ink-900">{skill.name}</div>
+                      <div className="mt-1 text-sm text-ink-700">{skill.description}</div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Badge>{t(`skills.categories.${skill.category}`)}</Badge>
+                        <Badge variant={skill.status === 'ACTIVE' ? 'success' : 'neutral'}>{t(`skills.statuses.${skill.status}`)}</Badge>
+                      </div>
+                    </button>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
 
-          {/* Skill Details */}
-          <div className="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
+          <Card className="section-panel">
             {selectedSkill ? (
               <>
-                <div className="flex justify-between items-start mb-4">
+                <CardHeader className="flex flex-row items-start justify-between gap-4 p-0 pb-4">
                   <div>
-                    <h2 className="text-xl font-semibold">{selectedSkill.name}</h2>
-                    <p className="text-gray-500 mt-1">{selectedSkill.description}</p>
+                    <CardTitle>{selectedSkill.name}</CardTitle>
+                    <div className="mt-2 text-sm text-ink-700">{selectedSkill.description}</div>
                   </div>
                   <div className="flex gap-2">
-                    <button
-                      onClick={openEditModal}
-                      className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
-                    >
-                      编辑
-                    </button>
-                    <button
-                      onClick={handleDelete}
-                      className="px-3 py-1.5 text-sm bg-red-500 text-white rounded hover:bg-red-600"
-                    >
-                      删除
-                    </button>
+                    <Button variant="secondary" size="sm" onClick={() => setShowModal('edit')}>{t('common.edit')}</Button>
+                    <Button variant="ghost" size="sm" onClick={() => deleteMutation.mutate(selectedSkill.name)}>{t('common.delete')}</Button>
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">分类</label>
-                    <p className="text-gray-800">{selectedSkill.category}</p>
+                </CardHeader>
+                <CardContent className="space-y-6 p-0">
+                  <div className="grid gap-4 md:grid-cols-4">
+                    <Metric label={t('skills.fields.category')} value={t(`skills.categories.${selectedSkill.category}`)} />
+                    <Metric label={t('skills.fields.status')} value={t(`skills.statuses.${selectedSkill.status}`)} />
+                    <Metric label={t('skills.fields.version')} value={selectedSkill.version || '1.0.0'} />
+                    <Metric label={t('skills.fields.executions')} value={String(selectedSkill.executionCount)} />
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">状态</label>
-                    <p className="text-gray-800">{selectedSkill.status}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">版本</label>
-                    <p className="text-gray-800">{selectedSkill.version || '1.0.0'}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">执行次数</label>
-                    <p className="text-gray-800">{selectedSkill.executionCount}</p>
-                  </div>
-                </div>
-
-                {/* 详细信息 */}
-                <div className="space-y-4 border-t pt-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">意图模式</label>
-                    <pre className="mt-1 p-2 bg-gray-50 rounded text-sm text-gray-700 overflow-x-auto">
-                      {selectedSkill.intentPatterns || '无'}
-                    </pre>
-                  </div>
-                  {selectedSkill.parameters && (
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">参数</label>
-                      <pre className="mt-1 p-2 bg-gray-50 rounded text-sm text-gray-700 overflow-x-auto">
-                        {selectedSkill.parameters}
-                      </pre>
+                  <FieldBlock label={t('skills.fields.intentPatterns')} value={selectedSkill.intentPatterns || '-'} />
+                  {selectedSkill.parameters && <FieldBlock label={t('skills.fields.parameters')} value={selectedSkill.parameters} />}
+                  {selectedSkill.outputSchema && <FieldBlock label={t('skills.fields.outputSchema')} value={selectedSkill.outputSchema} />}
+                  {analyticsQuery.data && (
+                    <div className="grid gap-4 md:grid-cols-4">
+                      <Metric label={t('skills.analytics.totalExecutions')} value={String(analyticsQuery.data.executionCount)} />
+                      <Metric label={t('skills.analytics.successRate')} value={`${(analyticsQuery.data.successRate * 100).toFixed(0)}%`} />
+                      <Metric label={t('skills.analytics.avgExecutionTime')} value={`${analyticsQuery.data.avgExecutionTimeMs}ms`} />
+                      <Metric label={t('skills.analytics.successCount')} value={String(analyticsQuery.data.successCount)} />
                     </div>
                   )}
-                  {selectedSkill.outputSchema && (
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">输出模式</label>
-                      <pre className="mt-1 p-2 bg-gray-50 rounded text-sm text-gray-700 overflow-x-auto">
-                        {selectedSkill.outputSchema}
-                      </pre>
-                    </div>
-                  )}
-                </div>
-
-                {/* 执行统计 */}
-                {analytics && (
-                  <div className="border-t pt-4 mt-6">
-                    <h3 className="font-medium mb-3">执行统计</h3>
-                    <div className="grid grid-cols-4 gap-4">
-                      <div className="bg-gray-50 p-3 rounded">
-                        <div className="text-2xl font-bold text-blue-600">{analytics.executionCount}</div>
-                        <div className="text-sm text-gray-500">总执行次数</div>
-                      </div>
-                      <div className="bg-gray-50 p-3 rounded">
-                        <div className="text-2xl font-bold text-green-600">{(analytics.successRate * 100).toFixed(0)}%</div>
-                        <div className="text-sm text-gray-500">成功率</div>
-                      </div>
-                      <div className="bg-gray-50 p-3 rounded">
-                        <div className="text-2xl font-bold text-purple-600">{analytics.avgExecutionTimeMs}ms</div>
-                        <div className="text-sm text-gray-500">平均执行时间</div>
-                      </div>
-                      <div className="bg-gray-50 p-3 rounded">
-                        <div className="text-2xl font-bold text-orange-600">{analytics.successCount}</div>
-                        <div className="text-sm text-gray-500">成功次数</div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                </CardContent>
               </>
             ) : (
-              <div className="text-center text-gray-500 py-12">
-                点击左侧技能查看详情
-              </div>
+              <CardContent className="p-10 text-center text-ink-400">{t('skills.emptySelection')}</CardContent>
             )}
-          </div>
+          </Card>
         </div>
       </div>
 
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4">
-              {showModal === 'create' && '添加自定义技能'}
-              {showModal === 'edit' && '编辑技能'}
-              {showModal === 'external' && '添加外部技能'}
-            </h3>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {showModal !== 'edit' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">技能名称</label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                    required
-                    disabled={!!showModal && showModal !== 'create' && showModal !== 'external'}
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">描述</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                  rows={3}
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">分类</label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  {CATEGORIES.map((cat) => (
-                    <option key={cat.value} value={cat.value}>{cat.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              {showModal !== 'external' && (
+      <Sheet open={showModal !== null} onOpenChange={(open) => !open && setShowModal(null)}>
+        <SheetContent className="max-w-xl">
+          <SheetHeader>
+            <div className="flex items-start justify-between gap-4">
+              <div><SheetTitle>{showModal ? t(`skills.modal.${showModal}`) : ''}</SheetTitle></div>
+              <SheetDismissButton aria-label={t('common.cancel')} />
+            </div>
+          </SheetHeader>
+          <ScrollArea className="h-[calc(100vh-120px)]">
+            <form className="space-y-4 px-6 py-6" onSubmit={submit}>
+              {showModal !== 'edit' && <Field label={t('skills.fields.name')}><Input {...form.register('name')} /></Field>}
+              <Field label={t('skills.fields.description')}><Textarea {...form.register('description')} /></Field>
+              <Field label={t('skills.fields.category')}>
+                <Select value={form.watch('category')} onValueChange={(value) => form.setValue('category', value as SkillValues['category'])}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{categories.map((category) => <SelectItem key={category} value={category}>{t(`skills.categories.${category}`)}</SelectItem>)}</SelectContent>
+                </Select>
+              </Field>
+              {showModal === 'external' ? (
                 <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">意图模式 (逗号分隔)</label>
-                    <input
-                      type="text"
-                      value={formData.intentPatterns}
-                      onChange={(e) => setFormData({ ...formData, intentPatterns: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="查询,搜索,query"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">参数 (JSON)</label>
-                    <textarea
-                      value={formData.parameters}
-                      onChange={(e) => setFormData({ ...formData, parameters: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-                      rows={3}
-                      placeholder='{"param1": "type"}'
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">输出模式 (JSON)</label>
-                    <textarea
-                      value={formData.outputSchema}
-                      onChange={(e) => setFormData({ ...formData, outputSchema: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-                      rows={3}
-                      placeholder='{"output": "type"}'
-                    />
-                  </div>
+                  <Field label={t('skills.fields.externalUrl')}><Input {...form.register('externalUrl')} /></Field>
+                  <Field label={t('skills.fields.apiKey')}><Input type="password" {...form.register('apiKey')} placeholder={t('skills.fields.apiKeyPlaceholder')} /></Field>
+                </>
+              ) : (
+                <>
+                  <Field label={t('skills.fields.intentPatterns')}><Input {...form.register('intentPatterns')} placeholder={t('skills.fields.intentPatternsPlaceholder')} /></Field>
+                  <Field label={t('skills.fields.parameters')}><Textarea {...form.register('parameters')} /></Field>
+                  <Field label={t('skills.fields.outputSchema')}><Textarea {...form.register('outputSchema')} /></Field>
                 </>
               )}
-
-              {showModal === 'external' && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">外部 API URL</label>
-                    <input
-                      type="url"
-                      value={formData.externalUrl}
-                      onChange={(e) => setFormData({ ...formData, externalUrl: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="https://api.example.com/skill"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">API Key (可选)</label>
-                    <input
-                      type="password"
-                      value={formData.apiKey}
-                      onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="可选"
-                    />
-                  </div>
-                </>
-              )}
-
-              {error && (
-                <div className="text-red-500 text-sm">{error}</div>
-              )}
-
-              <div className="flex justify-end gap-2 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(null)}
-                  className="px-4 py-2 border rounded-lg hover:bg-gray-50"
-                >
-                  取消
-                </button>
-                <button
-                  type="submit"
-                  disabled={modalLoading}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
-                >
-                  {modalLoading ? '提交中...' : '提交'}
-                </button>
+              <div className="flex justify-end gap-3">
+                <Button type="button" variant="secondary" onClick={() => setShowModal(null)}>{t('common.cancel')}</Button>
+                <Button type="submit" disabled={saveMutation.isPending}>{saveMutation.isPending ? t('skills.modal.submitting') : t('common.submit')}</Button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-    </div>
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
+    </AppLayout>
   );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return <label className="block"><div className="mb-1.5 text-sm font-medium text-ink-700">{label}</div>{children}</label>;
+}
+function Metric({ label, value }: { label: string; value: string }) {
+  return <Card className="drawer-panel"><div className="meta-label">{label}</div><div className="mt-2 text-sm font-medium text-ink-900">{value}</div></Card>;
+}
+function FieldBlock({ label, value }: { label: string; value: string }) {
+  return <div><div className="text-sm font-medium text-ink-700">{label}</div><pre className="mt-2 whitespace-pre-wrap rounded-card border border-border-soft bg-surface-soft p-4 text-sm text-ink-700">{value}</pre></div>;
 }

@@ -1,69 +1,21 @@
 package com.cruise.adapter
 
 import org.springframework.stereotype.Component
-import java.time.LocalDateTime
 
-/**
- * GitLab 模拟适配器（用于开发和测试）
- */
 @Component
 class MockGitLabAdapter : GitLabAdapter {
-
     private val commitLinks = mutableMapOf<Long, MutableList<String>>()
 
-    override fun getCommits(projectId: Long): List<GitCommit> {
-        // 模拟 GitLab 提交记录
-        return listOf(
-            GitCommit(
-                hash = "a1b2c3d4e5f6g7h8i9j0",
-                shortHash = "a1b2c3d4",
-                message = "feat: 实现用户登录功能",
-                author = "zhangsan",
-                date = "2026-03-09T10:30:00",
-                additions = 150,
-                deletions = 20
-            ),
-            GitCommit(
-                hash = "b2c3d4e5f6g7h8i9j0k1",
-                shortHash = "b2c3d4e5",
-                message = "feat: 添加 JWT 认证",
-                author = "lisi",
-                date = "2026-03-08T15:20:00",
-                additions = 200,
-                deletions = 50
-            ),
-            GitCommit(
-                hash = "c3d4e5f6g7h8i9j0k1l2",
-                shortHash = "c3d4e5f6",
-                message = "fix: 修复登录页面样式问题",
-                author = "wangwu",
-                date = "2026-03-07T09:15:00",
-                additions = 30,
-                deletions = 10
-            ),
-            GitCommit(
-                hash = "d4e5f6g7h8i9j0k1l2m3",
-                shortHash = "d4e5f6g7",
-                message = "docs: 更新 API 文档",
-                author = "zhaoliu",
-                date = "2026-03-06T14:00:00",
-                additions = 100,
-                deletions = 5
-            ),
-            GitCommit(
-                hash = "e5f6g7h8i9j0k1l2m3n4",
-                shortHash = "e5f6g7h8",
-                message = "test: 添加单元测试",
-                author = "qianqi",
-                date = "2026-03-05T11:30:00",
-                additions = 300,
-                deletions = 0
-            )
-        )
-    }
+    override fun getCommits(projectId: Long): List<GitCommit> = listOf(
+        GitCommit("a1b2c3d4e5f6", "a1b2c3d4", "feat: 完成 Issue 统一真源", "zhangsan", "2026-03-12T10:30:00", 150, 20),
+        GitCommit("b2c3d4e5f6g7", "b2c3d4e5", "feat: 新增统一工作项 API", "lisi", "2026-03-11T15:20:00", 200, 50),
+        GitCommit("c3d4e5f6g7h8", "c3d4e5f6", "fix: 修复缺陷视图状态切换", "wangwu", "2026-03-10T09:15:00", 30, 10),
+        GitCommit("d4e5f6g7h8i9", "d4e5f6g7", "docs: 更新统一模型设计文档", "zhaoliu", "2026-03-09T14:00:00", 100, 5),
+        GitCommit("e5f6g7h8i9j0", "e5f6g7h8", "test: 补充统一工作项构建验证", "qianqi", "2026-03-08T11:30:00", 300, 0)
+    )
 
-    override fun linkRequirement(requirementId: Long, commitHash: String): Boolean {
-        commitLinks.getOrPut(requirementId) { mutableListOf() }.add(commitHash)
+    override fun linkIssue(issueId: Long, commitHash: String): Boolean {
+        commitLinks.getOrPut(issueId) { mutableListOf() }.add(commitHash)
         return true
     }
 

@@ -1,49 +1,22 @@
 package com.cruise.adapter
 
-import com.cruise.entity.Requirement
+import com.cruise.service.IssueDto
 import org.springframework.stereotype.Component
 import java.time.LocalDateTime
 
-/**
- * ALM 模拟适配器（用于开发和测试）
- */
 @Component
 class MockAlmAdapter : AlmAdapter {
-
     private val syncHistory = mutableListOf<SyncStatus>()
 
-    override fun syncRequirements(): List<AlmRequirement> {
-        // 模拟从 ALM 系统拉取的需求
-        return listOf(
-            AlmRequirement(
-                externalId = "JIRA-101",
-                title = "用户登录功能",
-                description = "实现用户登录功能",
-                status = "In Progress",
-                priority = "High",
-                projectKey = "CRUISE"
-            ),
-            AlmRequirement(
-                externalId = "JIRA-102",
-                title = "用户注册功能",
-                description = "实现用户注册功能",
-                status = "To Do",
-                priority = "High",
-                projectKey = "CRUISE"
-            ),
-            AlmRequirement(
-                externalId = "JIRA-103",
-                title = "密码找回功能",
-                description = "实现密码找回功能",
-                status = "To Do",
-                priority = "Medium",
-                projectKey = "CRUISE"
-            )
+    override fun syncIssues(): List<AlmIssue> =
+        listOf(
+            AlmIssue("ALM-101", "统一登录流程", "补齐认证和权限校验流程", "IN_PROGRESS", "HIGH", "CRUISE"),
+            AlmIssue("ALM-102", "Issue 统一看板", "将需求任务缺陷统一投影为 Issue 视图", "TODO", "HIGH", "CRUISE"),
+            AlmIssue("ALM-103", "团队迭代统计", "新增统一工作项统计与趋势分析", "TODO", "MEDIUM", "CRUISE")
         ).also {
-            // 记录同步状态
             syncHistory.add(
                 SyncStatus(
-                    entityType = "REQUIREMENT",
+                    entityType = "ISSUE",
                     entityId = 0,
                     externalId = "BATCH-${System.currentTimeMillis()}",
                     lastSyncTime = LocalDateTime.now().toString(),
@@ -51,15 +24,13 @@ class MockAlmAdapter : AlmAdapter {
                 )
             )
         }
-    }
 
-    override fun pushRequirement(requirement: Requirement): Boolean {
-        // 模拟推送成功
+    override fun pushIssue(issue: IssueDto): Boolean {
         syncHistory.add(
             SyncStatus(
-                entityType = "REQUIREMENT",
-                entityId = requirement.id,
-                externalId = "JIRA-${1000 + requirement.id}",
+                entityType = "ISSUE",
+                entityId = issue.id,
+                externalId = "ALM-${1000 + issue.id}",
                 lastSyncTime = LocalDateTime.now().toString(),
                 status = "SUCCESS"
             )

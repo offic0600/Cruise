@@ -1,23 +1,12 @@
 package com.cruise.skill
 
-import com.cruise.service.DefectService
-import com.cruise.service.RequirementService
-import com.cruise.service.TaskService
 import org.springframework.stereotype.Component
 
 @Component
-class RiskAlertSkill(
-    private val requirementService: RequirementService,
-    private val taskService: TaskService,
-    private val defectService: DefectService
-) : BaseSkill() {
-
+class RiskAlertSkill : BaseSkill() {
     override fun getName(): String = "RiskAlertSkill"
-
-    override fun getDescription(): String = "风险预警技能，识别项目中的潜在风险并提供预警"
-
+    override fun getDescription(): String = "风险预警技能，识别统一工作项中的延期、阻塞和质量风险。"
     override fun getCategory(): String = "RISK_MANAGEMENT"
-
     override fun getIntentPatterns(): List<String> = listOf(
         "风险预警",
         "风险提示",

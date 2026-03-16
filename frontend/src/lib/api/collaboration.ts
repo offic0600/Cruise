@@ -1,0 +1,107 @@
+import apiClient from './client';
+import { ActivityEvent, Comment, Doc, Notification } from './types';
+
+export const getDocs = (params?: {
+  organizationId?: number;
+  teamId?: number;
+  projectId?: number;
+  epicId?: number;
+  issueId?: number;
+  status?: string;
+  q?: string;
+}) => apiClient.get<Doc[]>('/docs', { params }).then((r) => r.data);
+
+export const getDoc = (id: number) => apiClient.get<Doc>(`/docs/${id}`).then((r) => r.data);
+
+export const createDoc = (data: {
+  organizationId?: number;
+  teamId?: number | null;
+  projectId?: number | null;
+  epicId?: number | null;
+  issueId?: number | null;
+  title: string;
+  slug?: string | null;
+  status?: string;
+  authorId: number;
+  content: string;
+}) => apiClient.post<Doc>('/docs', data).then((r) => r.data);
+
+export const updateDoc = (id: number, data: {
+  teamId?: number | null;
+  projectId?: number | null;
+  epicId?: number | null;
+  issueId?: number | null;
+  title?: string;
+  slug?: string | null;
+  status?: string;
+  authorId?: number | null;
+  content?: string;
+}) => apiClient.put<Doc>(`/docs/${id}`, data).then((r) => r.data);
+
+export const deleteDoc = (id: number) => apiClient.delete(`/docs/${id}`);
+
+export const getComments = (params?: { issueId?: number; epicId?: number; docId?: number; authorId?: number }) =>
+  apiClient.get<Comment[]>('/comments', { params }).then((r) => r.data);
+
+export const getComment = (id: number) => apiClient.get<Comment>(`/comments/${id}`).then((r) => r.data);
+
+export const createComment = (data: {
+  issueId?: number | null;
+  epicId?: number | null;
+  docId?: number | null;
+  parentCommentId?: number | null;
+  authorId: number;
+  body: string;
+}) => apiClient.post<Comment>('/comments', data).then((r) => r.data);
+
+export const updateComment = (id: number, data: { body: string }) =>
+  apiClient.put<Comment>(`/comments/${id}`, data).then((r) => r.data);
+
+export const deleteComment = (id: number) => apiClient.delete(`/comments/${id}`);
+
+export const getActivityEvents = (params?: {
+  actorId?: number;
+  entityType?: string;
+  entityId?: number;
+  actionType?: string;
+}) => apiClient.get<ActivityEvent[]>('/activity', { params }).then((r) => r.data);
+
+export const getActivityEvent = (id: number) =>
+  apiClient.get<ActivityEvent>(`/activity/${id}`).then((r) => r.data);
+
+export const createActivityEvent = (data: {
+  actorId?: number | null;
+  entityType: string;
+  entityId: number;
+  actionType: string;
+  summary: string;
+  payloadJson?: string | null;
+}) => apiClient.post<ActivityEvent>('/activity', data).then((r) => r.data);
+
+export const updateActivityEvent = (id: number, data: { summary?: string; payloadJson?: string | null }) =>
+  apiClient.put<ActivityEvent>(`/activity/${id}`, data).then((r) => r.data);
+
+export const deleteActivityEvent = (id: number) => apiClient.delete(`/activity/${id}`);
+
+export const getNotifications = (params?: { userId?: number; unreadOnly?: boolean; type?: string }) =>
+  apiClient.get<Notification[]>('/notifications', { params }).then((r) => r.data);
+
+export const getNotification = (id: number) =>
+  apiClient.get<Notification>(`/notifications/${id}`).then((r) => r.data);
+
+export const createNotification = (data: {
+  userId: number;
+  eventId: number;
+  type?: string;
+  title: string;
+  body: string;
+  readAt?: string | null;
+}) => apiClient.post<Notification>('/notifications', data).then((r) => r.data);
+
+export const updateNotification = (id: number, data: { title?: string; body?: string; readAt?: string | null }) =>
+  apiClient.put<Notification>(`/notifications/${id}`, data).then((r) => r.data);
+
+export const markNotificationRead = (id: number) =>
+  apiClient.patch<Notification>(`/notifications/${id}/read`).then((r) => r.data);
+
+export const deleteNotification = (id: number) => apiClient.delete(`/notifications/${id}`);

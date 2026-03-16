@@ -2,18 +2,86 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  body {
+    @apply bg-page-glow text-ink-900 antialiased;
+  }
 }
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+@layer components {
+  .app-shell {
+    @apply min-h-screen bg-page-glow text-ink-900;
+  }
+
+  .glass-sidebar {
+    @apply border-r border-border-subtle bg-surface-glass backdrop-blur-glass;
+  }
+
+  .glass-header {
+    @apply border-b border-border-subtle bg-surface-glass backdrop-blur-glass;
+  }
+
+  .panel-card {
+    @apply rounded-panel border border-border-subtle bg-surface-raised shadow-card;
+  }
+
+  .subtle-card {
+    @apply rounded-card border border-border-soft bg-surface-soft;
+  }
+
+  .control-surface {
+    @apply rounded-control border border-border-soft bg-white text-ink-700 outline-none transition focus:border-brand-600;
+  }
+
+  .nav-item {
+    @apply flex items-center gap-3 rounded-card px-4 py-3 text-sm font-medium text-ink-700 transition hover:bg-slate-100 hover:text-ink-900;
+  }
+
+  .nav-item-active {
+    @apply bg-ink-900 text-white shadow-nav hover:bg-ink-900 hover:text-white;
+  }
+
+  .brand-badge {
+    @apply bg-brand-gradient text-white shadow-brand;
+  }
+
+  .meta-label {
+    @apply text-xs uppercase tracking-[0.18em] text-ink-400;
+  }
+
+  .metric-card {
+    @apply panel-card p-5;
+  }
+
+  .data-table {
+    @apply w-full border-collapse text-sm;
+  }
+
+  .data-table thead {
+    @apply bg-surface-soft text-left text-ink-700;
+  }
+
+  .data-table th {
+    @apply px-5 py-4 text-sm font-medium;
+  }
+
+  .data-table td {
+    @apply px-5 py-4 align-top;
+  }
+
+  .section-panel {
+    @apply panel-card p-5;
+  }
+
+  .drawer-panel {
+    @apply rounded-card border border-border-soft bg-white p-4;
+  }
+
+  .filter-bar {
+    @apply panel-card p-5;
+  }
 }

@@ -1,8 +1,22 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import { Plus } from 'lucide-react';
+import { z } from 'zod';
 import AppLayout from '@/components/AppLayout';
-import { getTeamMembers, createTeamMember, updateTeamMember, deleteTeamMember } from '@/lib/api';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Sheet, SheetContent, SheetDismissButton, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Textarea } from '@/components/ui/textarea';
+import { useI18n } from '@/i18n/useI18n';
+import { createTeamMember, deleteTeamMember, getTeamMembers, updateTeamMember } from '@/lib/api';
 
 interface TeamMember {
   id: number;
@@ -14,240 +28,204 @@ interface TeamMember {
   createdAt: string;
 }
 
-const roleOptions = ['DEVELOPER', 'TESTER', 'PM', 'LEAD', 'ARCHITECT'];
+const roleOptions = ['DEVELOPER', 'TESTER', 'PM', 'LEAD', 'ARCHITECT'] as const;
+const memberSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email().or(z.literal('')),
+  role: z.enum(roleOptions),
+  skills: z.string().optional(),
+  teamId: z.number().nullable(),
+});
 
-const roleColors: Record<string, string> = {
-  DEVELOPER: 'from-blue-500 to-blue-600',
-  TESTER: 'from-emerald-500 to-emerald-600',
-  PM: 'from-purple-500 to-purple-600',
-  LEAD: 'from-amber-500 to-amber-600',
-  ARCHITECT: 'from-rose-500 to-rose-600',
-};
+type MemberValues = z.infer<typeof memberSchema>;
 
 export default function TeamMembersPage() {
-  const [members, setMembers] = useState<TeamMember[]>([]);
-  const [showModal, setShowModal] = useState(false);
+  const { t } = useI18n();
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState('');
+  const [editorOpen, setEditorOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<TeamMember | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    role: 'DEVELOPER',
-    skills: '',
-    teamId: null as number | null,
+
+  const membersQuery = useQuery({
+    queryKey: ['team-members'],
+    queryFn: () => getTeamMembers(),
   });
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  const members = useMemo(() => {
+    const data = Array.isArray(membersQuery.data) ? (membersQuery.data as TeamMember[]) : [];
+    if (!search) return data;
+    const q = search.toLowerCase();
+    return data.filter((item) =>
+      item.name.toLowerCase().includes(q) ||
+      item.email?.toLowerCase().includes(q) ||
+      item.role.toLowerCase().includes(q) ||
+      item.skills?.toLowerCase().includes(q)
+    );
+  }, [membersQuery.data, search]);
 
-  const loadData = async () => {
-    try {
-      const data = await getTeamMembers();
-      setMembers(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error('加载失败', err);
-    }
-  };
+  const form = useForm<MemberValues>({
+    resolver: zodResolver(memberSchema),
+    values: editingItem
+      ? {
+          name: editingItem.name,
+          email: editingItem.email ?? '',
+          role: editingItem.role as MemberValues['role'],
+          skills: editingItem.skills ?? '',
+          teamId: editingItem.teamId,
+        }
+      : {
+          name: '',
+          email: '',
+          role: 'DEVELOPER',
+          skills: '',
+          teamId: null,
+        },
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const data = {
-        name: formData.name,
-        email: formData.email || undefined,
-        role: formData.role,
-        skills: formData.skills || undefined,
-        teamId: formData.teamId != null ? formData.teamId : undefined,
+  const saveMutation = useMutation({
+    mutationFn: async (values: MemberValues) => {
+      const payload = {
+        name: values.name,
+        email: values.email || undefined,
+        role: values.role,
+        skills: values.skills || undefined,
+        teamId: values.teamId ?? undefined,
       };
-      if (editingItem) {
-        await updateTeamMember(editingItem.id, data);
-      } else {
-        await createTeamMember(data);
-      }
-      setShowModal(false);
+      return editingItem ? updateTeamMember(editingItem.id, payload) : createTeamMember(payload);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['team-members'] });
+      setEditorOpen(false);
       setEditingItem(null);
-      setFormData({ name: '', email: '', role: 'DEVELOPER', skills: '', teamId: null });
-      loadData();
-    } catch (err) {
-      console.error('操作失败', err);
-    }
-  };
+    },
+  });
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('确认删除？')) return;
-    try {
-      await deleteTeamMember(id);
-      loadData();
-    } catch (err) {
-      console.error('删除失败', err);
-    }
-  };
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteTeamMember(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['team-members'] });
+    },
+  });
 
-  const openEdit = (item: TeamMember) => {
-    setEditingItem(item);
-    setFormData({
-      name: item.name,
-      email: item.email || '',
-      role: item.role,
-      skills: item.skills || '',
-      teamId: item.teamId,
-    });
-    setShowModal(true);
-  };
-
-  const getRoleGradient = (role: string) => roleColors[role] || roleColors.DEVELOPER;
+  const submit = form.handleSubmit(async (values) => {
+    await saveMutation.mutateAsync(values);
+  });
 
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">人员管理</h1>
-            <p className="text-slate-500 text-sm mt-1">管理团队成员和角色</p>
+            <h1 className="text-3xl font-semibold text-ink-900">{t('teamMembers.title')}</h1>
+            <p className="mt-2 text-sm text-ink-700">{t('teamMembers.subtitle')}</p>
           </div>
-          <button
-            onClick={() => {
-              setEditingItem(null);
-              setFormData({ name: '', email: '', role: 'DEVELOPER', skills: '', teamId: null });
-              setShowModal(true);
-            }}
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-5 py-2.5 rounded-xl hover:from-blue-600 hover:to-cyan-600 shadow-lg shadow-blue-500/30 transition-all"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-            </svg>
-            新建成员
-          </button>
+          <div className="flex gap-3">
+            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('common.search')} className="w-72" />
+            <Button onClick={() => { setEditingItem(null); setEditorOpen(true); }} className="gap-2">
+              <Plus className="h-4 w-4" />
+              {t('teamMembers.newItem')}
+            </Button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {members.map((item) => (
-            <div key={item.id} className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-lg border border-slate-200/50 p-5 hover:shadow-xl transition-all group">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${getRoleGradient(item.role)} flex items-center justify-center text-white text-lg font-bold shadow-lg`}>
-                    {item.name.charAt(0).toUpperCase()}
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {membersQuery.isLoading ? (
+            <Card className="section-panel md:col-span-2 xl:col-span-3"><CardContent className="p-10 text-center text-ink-400">{t('common.loading')}</CardContent></Card>
+          ) : members.length ? (
+            members.map((item) => (
+              <Card key={item.id} className="section-panel">
+                <CardContent className="p-0">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className="brand-badge flex h-12 w-12 items-center justify-center rounded-card text-lg font-semibold">
+                        {item.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="text-base font-semibold text-ink-900">{item.name}</div>
+                        <div className="mt-1 text-sm text-ink-700">{item.email ?? t('common.notSet')}</div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <Badge>{t(`teamMembers.roleLabel.${item.role}`)}</Badge>
+                          {item.teamId != null && <Badge variant="brand">#{item.teamId}</Badge>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => { setEditingItem(item); setEditorOpen(true); }}>
+                        {t('common.edit')}
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => deleteMutation.mutate(item.id)}>
+                        {t('common.delete')}
+                      </Button>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-slate-800">{item.name}</h3>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-gradient-to-r ${getRoleGradient(item.role)} text-white`}>
-                      {item.role}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => openEdit(item)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
-                  <button onClick={() => handleDelete(item.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              {item.email && (
-                <div className="flex items-center gap-2 text-sm text-slate-500 mb-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  {item.email}
-                </div>
-              )}
-              {item.skills && (
-                <div className="flex flex-wrap gap-1.5 mt-3">
-                  {item.skills.split(',').map((skill, idx) => (
-                    <span key={idx} className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-xs">
-                      {skill.trim()}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-          {members.length === 0 && (
-            <div className="col-span-full">
-              <div className="bg-white/50 backdrop-blur-xl rounded-2xl border-2 border-dashed border-slate-200 p-12 text-center">
-                <div className="text-slate-400">
-                  <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                  <p className="text-lg">暂无团队成员</p>
-                  <p className="text-sm mt-1">点击上方按钮添加第一个成员</p>
-                </div>
-              </div>
-            </div>
+                  {item.skills && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {item.skills.split(',').map((skill, index) => (
+                        <Badge key={`${skill}-${index}`} variant="neutral">{skill.trim()}</Badge>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <Card className="section-panel md:col-span-2 xl:col-span-3">
+              <CardContent className="p-10 text-center">
+                <div className="text-lg text-ink-700">{t('teamMembers.empty')}</div>
+                <div className="mt-2 text-sm text-ink-400">{t('teamMembers.emptyHint')}</div>
+              </CardContent>
+            </Card>
           )}
         </div>
       </div>
 
-      {/* 弹窗 */}
-      {showModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-500 to-cyan-500 px-6 py-4">
-              <h2 className="text-xl font-bold text-white">{editingItem ? '编辑成员' : '新建成员'}</h2>
+      <Sheet open={editorOpen} onOpenChange={(open) => { setEditorOpen(open); if (!open) setEditingItem(null); }}>
+        <SheetContent className="max-w-xl">
+          <SheetHeader>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-xs uppercase tracking-[0.18em] text-ink-400">{editingItem?.name ?? t('teamMembers.newItem')}</div>
+                <SheetTitle className="mt-2">{editingItem ? t('teamMembers.editItem') : t('teamMembers.newItem')}</SheetTitle>
+              </div>
+              <SheetDismissButton aria-label={t('common.cancel')} />
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">姓名</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">邮箱</label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">角色</label>
-                <select
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                >
-                  {roleOptions.map((r) => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">技能</label>
-                <input
-                  type="text"
-                  value={formData.skills}
-                  onChange={(e) => setFormData({ ...formData, skills: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="如：Kotlin, React, PostgreSQL"
-                />
-              </div>
-              <div className="flex justify-end gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-5 py-2.5 border border-slate-200 rounded-xl text-slate-700 hover:bg-slate-50 transition-colors font-medium"
-                >
-                  取消
-                </button>
-                <button type="submit" className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl hover:from-blue-600 hover:to-cyan-600 transition-all font-medium shadow-lg shadow-blue-500/30">
-                  保存
-                </button>
+          </SheetHeader>
+          <ScrollArea className="h-[calc(100vh-120px)]">
+            <form className="space-y-4 px-6 py-6" onSubmit={submit}>
+              <Field label={t('teamMembers.fields.name')}>
+                <Input {...form.register('name')} />
+              </Field>
+              <Field label={t('teamMembers.fields.email')}>
+                <Input type="email" {...form.register('email')} />
+              </Field>
+              <Field label={t('teamMembers.fields.role')}>
+                <Select value={form.watch('role')} onValueChange={(value) => form.setValue('role', value as MemberValues['role'])}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {roleOptions.map((role) => <SelectItem key={role} value={role}>{t(`teamMembers.roleLabel.${role}`)}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label={t('teamMembers.fields.skills')}>
+                <Textarea {...form.register('skills')} placeholder={t('teamMembers.fields.skillsPlaceholder')} />
+              </Field>
+              <div className="flex justify-end gap-3">
+                <Button type="button" variant="secondary" onClick={() => setEditorOpen(false)}>{t('common.cancel')}</Button>
+                <Button type="submit" disabled={saveMutation.isPending}>{t('common.save')}</Button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
     </AppLayout>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <div className="mb-1.5 text-sm font-medium text-ink-700">{label}</div>
+      {children}
+    </label>
   );
 }

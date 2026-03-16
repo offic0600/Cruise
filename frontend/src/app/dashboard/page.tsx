@@ -1,21 +1,14 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import AppLayout from '@/components/AppLayout';
 import ChartRenderer from '@/components/ChartRenderer';
-import { getRequirements, getTasks, getTeamMembers, createSession, sendQuery } from '@/lib/api';
-
-interface Requirement {
-  id: number;
-  title: string;
-  status: string;
-  priority: string;
-}
-
-interface Task {
-  id: number;
-  status: string;
-}
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useI18n } from '@/i18n/useI18n';
+import { Issue, createSession, getIssues, getTeamMembers, sendQuery } from '@/lib/api';
+import { getStoredUser } from '@/lib/auth';
 
 interface ChartConfig {
   type: 'bar' | 'line' | 'pie';
@@ -33,51 +26,27 @@ interface Message {
 }
 
 export default function DashboardPage() {
-  const [requirements, setRequirements] = useState<Requirement[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const { t } = useI18n();
+  const [issues, setIssues] = useState<Issue[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // AI 助手状态 - 从 localStorage 恢复
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('ai_session_id');
-    }
-    return null;
-  });
+  const [sessionId, setSessionId] = useState<string | null>(() =>
+    typeof window === 'undefined' ? null : localStorage.getItem('ai_session_id')
+  );
   const [messages, setMessages] = useState<Message[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ai_messages');
-      return saved ? JSON.parse(saved) : [];
-    }
-    return [];
+    if (typeof window === 'undefined') return [];
+    const saved = localStorage.getItem('ai_messages');
+    return saved ? JSON.parse(saved) : [];
   });
   const [aiInput, setAiInput] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 解析图表配置
-  const parseChartConfig = (content: string): ChartConfig | undefined => {
-    const chartMatch = content.match(/```chart\n([\s\S]*?)\n```/);
-    if (chartMatch) {
-      try {
-        const config = JSON.parse(chartMatch[1]) as ChartConfig;
-        // 移除 content 中的 chart 代码块
-        return config;
-      } catch (e) {
-        console.error('Failed to parse chart config:', e);
-      }
-    }
-    return undefined;
-  };
+  useEffect(() => {
+    void loadData();
+  }, []);
 
-  // 清理内容中的 chart 代码块
-  const cleanContent = (content: string): string => {
-    return content.replace(/```chart\n[\s\S]*?\n```/g, '').trim();
-  };
-
-  // 持久化 sessionId 和 messages
   useEffect(() => {
     if (sessionId) {
       localStorage.setItem('ai_session_id', sessionId);
@@ -85,109 +54,87 @@ export default function DashboardPage() {
   }, [sessionId]);
 
   useEffect(() => {
-    if (messages.length > 0) {
-      localStorage.setItem('ai_messages', JSON.stringify(messages));
-    }
+    localStorage.setItem('ai_messages', JSON.stringify(messages));
   }, [messages]);
 
   useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    try {
-      const [reqs, tks, mems] = await Promise.all([
-        getRequirements(),
-        getTasks(),
-        getTeamMembers(),
-      ]);
-      setRequirements(Array.isArray(reqs) ? reqs : []);
-      setTasks(Array.isArray(tks) ? tks : []);
-      setMembers(Array.isArray(mems) ? mems : []);
-    } catch (err) {
-      console.error('加载失败', err);
-    } finally {
-      setLoading(false);
+    if (aiPanelOpen && messages.length === 0) {
+      setMessages([{ id: 'welcome', role: 'assistant', content: t('dashboard.aiWelcome') }]);
     }
-  };
-
-  // AI 助手初始化
-  useEffect(() => {
-    if (aiPanelOpen) {
-      // 如果有已有 session，恢复欢迎消息（如果没有 messages）
-      if (sessionId && messages.length === 0) {
-        setMessages([
-          {
-            id: '1',
-            role: 'assistant',
-            content: '您好！我是 Cruise 智能助手。我可以帮您分析看板数据、识别风险、评估进度等。请直接输入您的问题。',
-          },
-        ]);
-      }
-      // 如果没有 session，创建新 session
-      if (!sessionId) {
-        initAiSession();
-      }
+    if (aiPanelOpen && !sessionId) {
+      void initAiSession();
     }
-  }, [aiPanelOpen]);
+  }, [aiPanelOpen, messages.length, sessionId, t]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, aiPanelOpen]);
 
-  const initAiSession = async () => {
+  const loadData = async () => {
     try {
-      const userStr = localStorage.getItem('user');
-      const user = userStr ? JSON.parse(userStr) : null;
-      const session = await createSession(user?.id, user?.username);
-      setSessionId(session.sessionId);
-      setMessages([
-        {
-          id: '1',
-          role: 'assistant',
-          content: '您好！我是 Cruise 智能助手。我可以帮您分析看板数据、识别风险、评估进度等。请直接输入您的问题。',
-        },
-      ]);
+      const [issueList, memberList] = await Promise.all([getIssues(), getTeamMembers()]);
+      setIssues(Array.isArray(issueList) ? issueList : []);
+      setMembers(Array.isArray(memberList) ? memberList : []);
     } catch (error) {
-      console.error('Failed to create session:', error);
+      console.error(t('dashboard.loadError'), error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleAiSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!aiInput.trim() || !sessionId || aiLoading) return;
+  const initAiSession = async () => {
+    try {
+      const user = getStoredUser();
+      const session = await createSession(user?.id, user?.username);
+      setSessionId(session.sessionId);
+    } catch (error) {
+      console.error(t('dashboard.sessionError'), error);
+    }
+  };
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: aiInput,
-    };
-    setMessages((prev) => [...prev, userMessage]);
+  const parseChartConfig = (content: string): ChartConfig | undefined => {
+    const chartMatch = content.match(/```chart\n([\s\S]*?)\n```/);
+    if (!chartMatch) return undefined;
+    try {
+      return JSON.parse(chartMatch[1]) as ChartConfig;
+    } catch {
+      return undefined;
+    }
+  };
+
+  const cleanContent = (content: string) => content.replace(/```chart\n[\s\S]*?\n```/g, '').trim();
+
+  const handleAiSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!sessionId || !aiInput.trim() || aiLoading) return;
+
+    const userMessage: Message = { id: Date.now().toString(), role: 'user', content: aiInput };
+    setMessages((current) => [...current, userMessage]);
+    const query = aiInput;
     setAiInput('');
     setAiLoading(true);
 
     try {
-      const response = await sendQuery(sessionId, aiInput);
-
-      // 解析图表数据
-      const chartConfig = parseChartConfig(response.message);
-
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: response.message,
-        skillName: response.skillName,
-        chartConfig: chartConfig,
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
-    } catch (error) {
-      console.error('Failed to send query:', error);
-      setMessages((prev) => [
-        ...prev,
+      const response = await sendQuery(sessionId, query);
+      const chartConfig = parseChartConfig(response.message || '');
+      setMessages((current) => [
+        ...current,
         {
-          id: (Date.now() + 1).toString(),
+          id: `${Date.now()}-assistant`,
           role: 'assistant',
-          content: '抱歉，处理您的请求时发生错误。请稍后重试。',
+          content: cleanContent(response.message || ''),
+          skillName: response.skillName,
+          chartConfig,
+        },
+      ]);
+    } catch (error) {
+      console.error(t('dashboard.queryError'), error);
+      setMessages((current) => [
+        ...current,
+        {
+          id: `${Date.now()}-assistant`,
+          role: 'assistant',
+          content: t('dashboard.queryError'),
         },
       ]);
     } finally {
@@ -195,259 +142,145 @@ export default function DashboardPage() {
     }
   };
 
-  const getStatusCount = (items: any[], status: string) =>
-    items.filter((i) => i.status === status).length;
+  const features = useMemo(() => issues.filter((item) => item.type === 'FEATURE'), [issues]);
+  const tasks = useMemo(() => issues.filter((item) => item.type === 'TASK'), [issues]);
+  const bugs = useMemo(() => issues.filter((item) => item.type === 'BUG'), [issues]);
 
-  // 需求统计
-  const reqNew = getStatusCount(requirements, 'NEW');
-  const reqInProgress = getStatusCount(requirements, 'IN_PROGRESS');
-  const reqTesting = getStatusCount(requirements, 'TESTING');
-  const reqCompleted = getStatusCount(requirements, 'COMPLETED');
+  const featureStateCounts = countStates(features);
+  const taskStateCounts = countStates(tasks);
 
-  // 任务统计
-  const taskPending = getStatusCount(tasks, 'PENDING');
-  const taskInProgress = getStatusCount(tasks, 'IN_PROGRESS');
-  const taskCompleted = getStatusCount(tasks, 'COMPLETED');
-
-  // 高优先级需求
-  const highPriorityReqs = requirements.filter(
-    (r) => r.priority === 'HIGH' || r.priority === 'CRITICAL'
-  );
-
-  const statCards = [
-    { title: '总需求', value: requirements.length, color: 'from-blue-500 to-blue-600', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', shadow: 'shadow-blue-500/30' },
-    { title: '总任务', value: tasks.length, color: 'from-emerald-500 to-emerald-600', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', shadow: 'shadow-emerald-500/30' },
-    { title: '团队成员', value: members.length, color: 'from-purple-500 to-purple-600', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z', shadow: 'shadow-purple-500/30' },
-    { title: '已完成需求', value: reqCompleted, color: 'from-amber-500 to-amber-600', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z', shadow: 'shadow-amber-500/30' },
+  const metrics = [
+    { title: t('dashboard.totalRequirements'), value: features.length, color: 'from-blue-500 to-blue-600', shadow: 'shadow-blue-500/30' },
+    { title: t('dashboard.totalTasks'), value: tasks.length, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-500/30' },
+    { title: t('dashboard.teamMembers'), value: members.length, color: 'from-cyan-500 to-sky-500', shadow: 'shadow-cyan-500/30' },
+    {
+      title: t('dashboard.openDefects'),
+      value: bugs.filter((item) => item.state !== 'DONE' && item.state !== 'CANCELED').length,
+      color: 'from-rose-500 to-orange-500',
+      shadow: 'shadow-rose-500/30',
+    },
   ];
 
   if (loading) {
     return (
       <AppLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-slate-500">加载中...</div>
-        </div>
+        <div className="flex h-64 items-center justify-center text-ink-700">{t('common.loading')}</div>
       </AppLayout>
     );
   }
 
   return (
     <AppLayout>
-      {/* AI 助手按钮 */}
-      <button
-        onClick={() => setAiPanelOpen(true)}
-        className="fixed right-6 bottom-6 w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full shadow-lg shadow-blue-500/40 flex items-center justify-center hover:scale-110 transition-transform z-50"
-      >
-        <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-        </svg>
-      </button>
-
-      {/* AI 助手侧边面板 */}
-      {aiPanelOpen && (
-        <div className="fixed right-0 top-0 h-full w-96 bg-white shadow-2xl z-50 flex flex-col">
-          {/* 面板头部 */}
-          <div className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-semibold">智能助手</h3>
-                <p className="text-xs text-blue-100">基于 SuperAgent</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setAiPanelOpen(false)}
-              className="w-8 h-8 rounded-lg hover:bg-white/20 flex items-center justify-center transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+      <div className="space-y-8">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-ink-900">{t('dashboard.title')}</h1>
+            <p className="mt-2 text-ink-700">{t('dashboard.subtitle')}</p>
           </div>
-
-          {/* 消息区域 */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-gray-50 to-white">
-            {messages.map((message) => (
-              <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} flex-col`}>
-                <div className={`max-w-[85%] rounded-2xl p-3 ${
-                  message.role === 'user'
-                    ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white'
-                    : 'bg-white border border-gray-200 text-gray-800 shadow-sm'
-                }`}>
-                  <div className="whitespace-pre-wrap text-sm">
-                    {message.role === 'assistant' ? cleanContent(message.content) : message.content}
-                  </div>
-                  {message.role === 'assistant' && message.skillName && (
-                    <div className="mt-2 pt-2 border-t border-gray-100 text-xs text-gray-400">
-                      技能: {message.skillName.replace('Skill', '')}
-                    </div>
-                  )}
-                </div>
-                {message.role === 'assistant' && message.chartConfig && (
-                  <ChartRenderer config={message.chartConfig} />
-                )}
-              </div>
-            ))}
-            {aiLoading && (
-              <div className="flex justify-start">
-                <div className="bg-white border border-gray-200 rounded-2xl p-3 shadow-sm">
-                  <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                  </div>
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* 输入区域 */}
-          <form onSubmit={handleAiSubmit} className="p-4 border-t bg-white">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={aiInput}
-                onChange={(e) => setAiInput(e.target.value)}
-                placeholder="输入您的问题..."
-                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                disabled={aiLoading}
-              />
-              <button
-                type="submit"
-                disabled={aiLoading || !aiInput.trim()}
-                className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      <div className="space-y-6 mr-0 transition-all duration-300">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">仪表盘</h1>
-          <p className="text-slate-500 text-sm mt-1">项目概览和数据统计</p>
+          <Button
+            onClick={() => setAiPanelOpen((value) => !value)}
+          >
+            {t('nav.agent')}
+          </Button>
         </div>
 
-        {/* 统计卡片 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {statCards.map((card, idx) => (
-            <div key={idx} className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-lg border border-slate-200/50 p-5 hover:shadow-xl transition-all">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-500 font-medium">{card.title}</p>
-                  <p className="text-3xl font-bold text-slate-800 mt-1">{card.value}</p>
-                </div>
-                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${card.color} flex items-center justify-center shadow-lg ${card.shadow}`}>
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={card.icon} />
-                  </svg>
-                </div>
-              </div>
+        <div className="grid gap-4 md:grid-cols-4">
+          {metrics.map((metric) => (
+            <div key={metric.title} className={`rounded-card bg-gradient-to-br ${metric.color} p-5 text-white shadow-xl ${metric.shadow}`}>
+              <div className="text-sm opacity-80">{metric.title}</div>
+              <div className="mt-2 text-3xl font-bold">{metric.value}</div>
             </div>
           ))}
         </div>
 
-        {/* 需求和任务状态 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* 需求状态分布 */}
-          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-lg border border-slate-200/50 p-6">
-            <h2 className="text-lg font-semibold text-slate-800 mb-5">需求状态分布</h2>
-            <div className="space-y-4">
-              {[
-                { label: '新建', count: reqNew, color: 'bg-slate-500', total: requirements.length },
-                { label: '进行中', count: reqInProgress, color: 'bg-blue-500', total: requirements.length },
-                { label: '测试中', count: reqTesting, color: 'bg-amber-500', total: requirements.length },
-                { label: '已完成', count: reqCompleted, color: 'bg-emerald-500', total: requirements.length },
-              ].map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${item.color}`}></div>
-                    <span className="text-slate-600">{item.label}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-32 bg-slate-100 rounded-full h-2">
-                      <div
-                        className={`${item.color} h-2 rounded-full transition-all duration-500`}
-                        style={{ width: `${item.total ? (item.count / item.total) * 100 : 0}%` }}
-                      />
-                    </div>
-                    <span className="text-sm font-semibold text-slate-700 w-6 text-right">{item.count}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <ChartRenderer
+              config={{
+                type: 'pie',
+                title: t('dashboard.requirementStatus'),
+                data: [
+                  { name: t('common.status.BACKLOG'), value: featureStateCounts.BACKLOG },
+                  { name: t('common.status.IN_PROGRESS'), value: featureStateCounts.IN_PROGRESS },
+                  { name: t('common.status.IN_REVIEW'), value: featureStateCounts.IN_REVIEW },
+                  { name: t('common.status.DONE'), value: featureStateCounts.DONE },
+                ],
+              }}
+            />
+            <ChartRenderer
+              config={{
+                type: 'bar',
+                title: t('dashboard.taskStatus'),
+                data: [
+                  { name: t('common.status.TODO'), value: taskStateCounts.TODO },
+                  { name: t('common.status.IN_PROGRESS'), value: taskStateCounts.IN_PROGRESS },
+                  { name: t('common.status.DONE'), value: taskStateCounts.DONE },
+                ],
+              }}
+            />
           </div>
 
-          {/* 任务状态分布 */}
-          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-lg border border-slate-200/50 p-6">
-            <h2 className="text-lg font-semibold text-slate-800 mb-5">任务状态分布</h2>
-            <div className="space-y-4">
-              {[
-                { label: '待处理', count: taskPending, color: 'bg-slate-500', total: tasks.length },
-                { label: '进行中', count: taskInProgress, color: 'bg-blue-500', total: tasks.length },
-                { label: '已完成', count: taskCompleted, color: 'bg-emerald-500', total: tasks.length },
-              ].map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${item.color}`}></div>
-                    <span className="text-slate-600">{item.label}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-32 bg-slate-100 rounded-full h-2">
-                      <div
-                        className={`${item.color} h-2 rounded-full transition-all duration-500`}
-                        style={{ width: `${item.total ? (item.count / item.total) * 100 : 0}%` }}
-                      />
+          <div className="panel-card overflow-hidden">
+            <div className="border-b border-border-subtle px-5 py-4">
+              <h2 className="font-semibold text-ink-900">{t('nav.agent')}</h2>
+            </div>
+            <div className="flex h-[460px] flex-col">
+              <ScrollArea className="flex-1 p-4">
+                <div className="space-y-3">
+                {messages.map((message) => (
+                  <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[85%] rounded-card px-4 py-3 text-sm ${message.role === 'user' ? 'bg-brand-600 text-white shadow-brand' : 'bg-surface-soft text-ink-700'}`}>
+                      <div className="whitespace-pre-wrap">{message.content}</div>
+                      {message.chartConfig && <ChartRenderer config={message.chartConfig} />}
+                      {message.skillName && message.role === 'assistant' && (
+                        <div className="mt-2 text-xs text-ink-400">
+                          {t('agent.skillLabel')}: {message.skillName}
+                        </div>
+                      )}
                     </div>
-                    <span className="text-sm font-semibold text-slate-700 w-6 text-right">{item.count}</span>
                   </div>
+                ))}
+                {aiLoading && <div className="text-sm text-ink-400">{t('common.loading')}</div>}
+                <div ref={messagesEndRef} />
                 </div>
-              ))}
+              </ScrollArea>
+              <form onSubmit={handleAiSubmit} className="border-t border-border-subtle p-4">
+                <div className="flex gap-2">
+                  <Input
+                    value={aiInput}
+                    onChange={(event) => setAiInput(event.target.value)}
+                    placeholder={t('dashboard.inputPlaceholder')}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="submit"
+                    disabled={aiLoading || !aiInput.trim()}
+                  >
+                    {t('agent.send')}
+                  </Button>
+                </div>
+              </form>
             </div>
           </div>
-        </div>
-
-        {/* 高优先级需求 */}
-        <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-lg border border-slate-200/50 p-6">
-          <div className="flex items-center gap-2 mb-5">
-            <div className="w-2 h-6 bg-amber-500 rounded-full"></div>
-            <h2 className="text-lg font-semibold text-slate-800">高优先级需求</h2>
-          </div>
-          {highPriorityReqs.length > 0 ? (
-            <div className="grid gap-3">
-              {highPriorityReqs.map((req) => (
-                <div key={req.id} className="flex items-center justify-between p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-100/50">
-                  <div className="flex items-center gap-3">
-                    <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${
-                      req.priority === 'CRITICAL' ? 'bg-rose-100 text-rose-700' : 'bg-orange-100 text-orange-700'
-                    }`}>
-                      {req.priority}
-                    </span>
-                    <span className="font-medium text-slate-800">{req.title || `需求 #${req.id}`}</span>
-                  </div>
-                  <span className="text-sm text-slate-500 bg-white px-3 py-1 rounded-lg">{req.status}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-slate-400">
-              <svg className="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p>暂无高优先级需求</p>
-            </div>
-          )}
         </div>
       </div>
     </AppLayout>
+  );
+}
+
+function countStates(items: Issue[]) {
+  return items.reduce(
+    (accumulator, item) => {
+      accumulator[item.state] = (accumulator[item.state] ?? 0) + 1;
+      return accumulator;
+    },
+    {
+      BACKLOG: 0,
+      TODO: 0,
+      IN_PROGRESS: 0,
+      IN_REVIEW: 0,
+      DONE: 0,
+      CANCELED: 0,
+    } as Record<Issue['state'], number>
   );
 }

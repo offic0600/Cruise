@@ -1,0 +1,325 @@
+import apiClient from './client';
+import {
+  Issue,
+  mapBugIssue,
+  mapFeatureIssue,
+  mapTaskIssue,
+  parseLegacyPayload,
+  stringifyLegacyPayload,
+} from './types';
+
+export const getIssues = (params?: {
+  type?: string;
+  organizationId?: number;
+  epicId?: number;
+  sprintId?: number;
+  projectId?: number;
+  assigneeId?: number;
+  parentIssueId?: number;
+  state?: string;
+  q?: string;
+}) => apiClient.get<Issue[]>('/issues', { params }).then((r) => r.data);
+
+export const getIssue = (id: number) => apiClient.get<Issue>(`/issues/${id}`).then((r) => r.data);
+
+export const createIssue = (data: {
+  organizationId?: number;
+  epicId?: number | null;
+  sprintId?: number | null;
+  type: string;
+  title: string;
+  description?: string;
+  state?: string;
+  priority?: string;
+  projectId: number;
+  teamId?: number | null;
+  parentIssueId?: number | null;
+  assigneeId?: number | null;
+  reporterId?: number | null;
+  estimatePoints?: number | null;
+  progress?: number;
+  plannedStartDate?: string | null;
+  plannedEndDate?: string | null;
+  estimatedHours?: number;
+  actualHours?: number;
+  severity?: string | null;
+  legacyPayload?: string | null;
+}) => apiClient.post<Issue>('/issues', data).then((r) => r.data);
+
+export const updateIssue = (
+  id: number,
+  data: {
+    organizationId?: number;
+    epicId?: number | null;
+    sprintId?: number | null;
+    title?: string;
+    description?: string;
+    state?: string;
+    priority?: string;
+    projectId?: number;
+    teamId?: number | null;
+    parentIssueId?: number | null;
+    assigneeId?: number | null;
+    reporterId?: number | null;
+    estimatePoints?: number | null;
+    progress?: number;
+    plannedStartDate?: string | null;
+    plannedEndDate?: string | null;
+    estimatedHours?: number;
+    actualHours?: number;
+    severity?: string | null;
+    legacyPayload?: string | null;
+  }
+) => apiClient.put<Issue>(`/issues/${id}`, data).then((r) => r.data);
+
+export const updateIssueState = (id: number, state: string) =>
+  apiClient.patch<Issue>(`/issues/${id}/state`, { state }).then((r) => r.data);
+
+export const deleteIssue = (id: number) => apiClient.delete(`/issues/${id}`);
+
+export const getFeatureIssues = () =>
+  getIssues({ type: 'FEATURE' }).then((issues) => issues.map(mapFeatureIssue));
+
+export const createFeatureIssue = (data: {
+  title: string;
+  description?: string;
+  status?: string;
+  priority?: string;
+  projectId: number;
+  teamId?: number | null;
+  plannedStartDate?: string | null;
+  expectedDeliveryDate?: string | null;
+  requirementOwnerId?: number | null;
+  productOwnerId?: number | null;
+  devOwnerId?: number | null;
+  devParticipants?: string | null;
+  testOwnerId?: number | null;
+  progress?: number;
+  tags?: string | null;
+  estimatedDays?: number | null;
+  plannedDays?: number | null;
+  gapDays?: number | null;
+  gapBudget?: number | null;
+  actualDays?: number | null;
+  applicationCodes?: string | null;
+  vendors?: string | null;
+  vendorStaff?: string | null;
+  createdBy?: string | null;
+}) =>
+  createIssue({
+    type: 'FEATURE',
+    title: data.title,
+    description: data.description,
+    state: data.status,
+    priority: data.priority === 'CRITICAL' ? 'URGENT' : data.priority,
+    projectId: data.projectId,
+    teamId: data.teamId,
+    assigneeId: data.requirementOwnerId,
+    progress: data.progress ?? 0,
+    plannedStartDate: data.plannedStartDate,
+    plannedEndDate: data.expectedDeliveryDate,
+    legacyPayload: stringifyLegacyPayload({
+      productOwnerId: data.productOwnerId ?? null,
+      devOwnerId: data.devOwnerId ?? null,
+      devParticipants: data.devParticipants ?? null,
+      testOwnerId: data.testOwnerId ?? null,
+      tags: data.tags ?? null,
+      estimatedDays: data.estimatedDays ?? null,
+      plannedDays: data.plannedDays ?? null,
+      gapDays: data.gapDays ?? null,
+      gapBudget: data.gapBudget ?? null,
+      actualDays: data.actualDays ?? null,
+      applicationCodes: data.applicationCodes ?? null,
+      vendors: data.vendors ?? null,
+      vendorStaff: data.vendorStaff ?? null,
+      createdBy: data.createdBy ?? null,
+    }),
+  }).then(mapFeatureIssue);
+
+export const updateFeatureIssue = (
+  id: number,
+  data: {
+    title?: string;
+    description?: string;
+    status?: string;
+    priority?: string;
+    teamId?: number | null;
+    plannedStartDate?: string | null;
+    expectedDeliveryDate?: string | null;
+    requirementOwnerId?: number | null;
+    productOwnerId?: number | null;
+    devOwnerId?: number | null;
+    devParticipants?: string | null;
+    testOwnerId?: number | null;
+    progress?: number;
+    tags?: string | null;
+    estimatedDays?: number | null;
+    plannedDays?: number | null;
+    gapDays?: number | null;
+    gapBudget?: number | null;
+    actualDays?: number | null;
+    applicationCodes?: string | null;
+    vendors?: string | null;
+    vendorStaff?: string | null;
+    createdBy?: string | null;
+  }
+) =>
+  getIssue(id).then((issue) =>
+    updateIssue(id, {
+      title: data.title,
+      description: data.description,
+      state: data.status,
+      priority: data.priority === 'CRITICAL' ? 'URGENT' : data.priority,
+      teamId: data.teamId,
+      assigneeId: data.requirementOwnerId,
+      progress: data.progress,
+      plannedStartDate: data.plannedStartDate,
+      plannedEndDate: data.expectedDeliveryDate,
+      legacyPayload: stringifyLegacyPayload({
+        ...parseLegacyPayload(issue.legacyPayload),
+        productOwnerId: data.productOwnerId,
+        devOwnerId: data.devOwnerId,
+        devParticipants: data.devParticipants,
+        testOwnerId: data.testOwnerId,
+        tags: data.tags,
+        estimatedDays: data.estimatedDays,
+        plannedDays: data.plannedDays,
+        gapDays: data.gapDays,
+        gapBudget: data.gapBudget,
+        actualDays: data.actualDays,
+        applicationCodes: data.applicationCodes,
+        vendors: data.vendors,
+        vendorStaff: data.vendorStaff,
+        createdBy: data.createdBy,
+      }),
+    }).then(mapFeatureIssue)
+  );
+
+export const getTaskIssues = () =>
+  getIssues({ type: 'TASK' }).then((issues) => issues.map(mapTaskIssue));
+
+export const createTaskIssue = (data: {
+  title: string;
+  description?: string;
+  status?: string;
+  requirementId: number;
+  assigneeId?: number | null;
+  progress?: number;
+  teamId?: number | null;
+  plannedStartDate?: string | null;
+  plannedEndDate?: string | null;
+  estimatedDays?: number | null;
+  plannedDays?: number | null;
+  remainingDays?: number | null;
+  estimatedHours?: number;
+}) =>
+  getIssue(data.requirementId).then((parentIssue) =>
+    createIssue({
+      type: 'TASK',
+      title: data.title,
+      description: data.description,
+      state: data.status,
+      projectId: parentIssue.projectId,
+      teamId: data.teamId,
+      parentIssueId: data.requirementId,
+      assigneeId: data.assigneeId,
+      progress: data.progress ?? 0,
+      plannedStartDate: data.plannedStartDate,
+      plannedEndDate: data.plannedEndDate,
+      estimatedHours: data.estimatedHours ?? 0,
+      legacyPayload: stringifyLegacyPayload({
+        estimatedDays: data.estimatedDays ?? null,
+        plannedDays: data.plannedDays ?? null,
+        remainingDays: data.remainingDays ?? null,
+      }),
+    }).then(mapTaskIssue)
+  );
+
+export const updateTaskIssue = (
+  id: number,
+  data: {
+    title?: string;
+    description?: string;
+    status?: string;
+    assigneeId?: number | null;
+    progress?: number;
+    teamId?: number | null;
+    plannedStartDate?: string | null;
+    plannedEndDate?: string | null;
+    estimatedDays?: number | null;
+    plannedDays?: number | null;
+    remainingDays?: number | null;
+    estimatedHours?: number;
+  }
+) =>
+  getIssue(id).then((issue) =>
+    updateIssue(id, {
+      title: data.title,
+      description: data.description,
+      state: data.status,
+      assigneeId: data.assigneeId,
+      progress: data.progress,
+      teamId: data.teamId,
+      plannedStartDate: data.plannedStartDate,
+      plannedEndDate: data.plannedEndDate,
+      estimatedHours: data.estimatedHours,
+      legacyPayload: stringifyLegacyPayload({
+        ...parseLegacyPayload(issue.legacyPayload),
+        estimatedDays: data.estimatedDays,
+        plannedDays: data.plannedDays,
+        remainingDays: data.remainingDays,
+      }),
+    }).then(mapTaskIssue)
+  );
+
+export const logTaskIssueHours = (id: number, hours: number) =>
+  getIssue(id).then((issue) =>
+    updateIssue(id, {
+      actualHours: (issue.actualHours ?? 0) + hours,
+    }).then(mapTaskIssue)
+  );
+
+export const getBugIssues = () =>
+  getIssues({ type: 'BUG' }).then((issues) => issues.map(mapBugIssue));
+
+export const createBugIssue = (data: {
+  title: string;
+  description?: string;
+  severity?: string;
+  projectId: number;
+  taskId?: number | null;
+  reporterId?: number | null;
+}) =>
+  createIssue({
+    type: 'BUG',
+    title: data.title,
+    description: data.description,
+    state: 'TODO',
+    priority: data.severity === 'CRITICAL' ? 'URGENT' : data.severity ?? 'MEDIUM',
+    projectId: data.projectId,
+    parentIssueId: data.taskId,
+    reporterId: data.reporterId,
+    severity: data.severity ?? 'MEDIUM',
+  }).then(mapBugIssue);
+
+export const updateBugIssue = (
+  id: number,
+  data: {
+    title?: string;
+    description?: string;
+    severity?: string;
+    status?: string;
+    taskId?: number | null;
+  }
+) =>
+  updateIssue(id, {
+    title: data.title,
+    description: data.description,
+    state: data.status,
+    priority: data.severity === 'CRITICAL' ? 'URGENT' : data.severity,
+    severity: data.severity,
+    parentIssueId: data.taskId,
+  }).then(mapBugIssue);
+
+export const updateBugIssueStatus = (id: number, status: string) =>
+  updateIssueState(id, status).then(mapBugIssue);

@@ -12,6 +12,15 @@ class Issue(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long = 0,
 
+    @Column(name = "organization_id", nullable = false)
+    var organizationId: Long = 1,
+
+    @Column(name = "epic_id")
+    var epicId: Long? = null,
+
+    @Column(name = "sprint_id")
+    var sprintId: Long? = null,
+
     @Column(nullable = false, length = 50, unique = true)
     var identifier: String = "",
 

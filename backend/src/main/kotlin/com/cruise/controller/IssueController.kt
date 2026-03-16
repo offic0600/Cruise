@@ -17,13 +17,26 @@ class IssueController(
     @GetMapping
     fun getAll(
         @RequestParam(required = false) type: String?,
+        @RequestParam(required = false) organizationId: Long?,
+        @RequestParam(required = false) epicId: Long?,
+        @RequestParam(required = false) sprintId: Long?,
         @RequestParam(required = false) projectId: Long?,
         @RequestParam(required = false) assigneeId: Long?,
         @RequestParam(required = false) parentIssueId: Long?,
         @RequestParam(required = false) state: String?,
         @RequestParam(required = false) q: String?
     ): List<IssueDto> = issueService.findAll(
-        IssueQuery(type = type, projectId = projectId, assigneeId = assigneeId, parentIssueId = parentIssueId, state = state, q = q)
+        IssueQuery(
+            type = type,
+            organizationId = organizationId,
+            epicId = epicId,
+            sprintId = sprintId,
+            projectId = projectId,
+            assigneeId = assigneeId,
+            parentIssueId = parentIssueId,
+            state = state,
+            q = q
+        )
     )
 
     @GetMapping("/{id}")
