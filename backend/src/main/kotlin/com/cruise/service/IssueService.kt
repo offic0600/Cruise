@@ -2,8 +2,11 @@ package com.cruise.service
 
 import com.cruise.entity.Issue
 import com.cruise.repository.IssueRepository
+import com.fasterxml.jackson.core.type.TypeReference
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.server.ResponseStatusException
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -34,6 +37,8 @@ data class IssueDto(
     val sourceType: String,
     val sourceId: Long?,
     val legacyPayload: String?,
+    val customFields: Map<String, Any?>,
+    val customFieldDefinitions: List<CustomFieldDefinitionDto>? = null,
     val createdAt: String,
     val updatedAt: String
 )
@@ -47,7 +52,9 @@ data class IssueQuery(
     val assigneeId: Long? = null,
     val parentIssueId: Long? = null,
     val state: String? = null,
-    val q: String? = null
+    val priority: String? = null,
+    val q: String? = null,
+    val customFieldFilters: Map<String, Any?> = emptyMap()
 )
 
 data class CreateIssueRequest(
@@ -73,13 +80,15 @@ data class CreateIssueRequest(
     val severity: String? = null,
     val sourceType: String? = null,
     val sourceId: Long? = null,
-    val legacyPayload: String? = null
+    val legacyPayload: String? = null,
+    val customFields: Map<String, Any?>? = null
 )
 
 data class UpdateIssueRequest(
     val organizationId: Long? = null,
     val epicId: Long? = null,
     val sprintId: Long? = null,
+    val projectId: Long? = null,
     val title: String? = null,
     val description: String? = null,
     val state: String? = null,
@@ -95,12 +104,16 @@ data class UpdateIssueRequest(
     val estimatedHours: Float? = null,
     val actualHours: Float? = null,
     val severity: String? = null,
-    val legacyPayload: String? = null
+    val legacyPayload: String? = null,
+    val customFields: Map<String, Any?>? = null
 )
 
 @Service
-class IssueService(
-    private val issueRepository: IssueRepository
+@Transactional
+open class IssueService(
+    private val issueRepository: IssueRepository,
+    private val issueCustomFieldService: IssueCustomFieldService,
+    private val objectMapper: ObjectMapper
 ) {
     fun findAll(query: IssueQuery = IssueQuery()): List<IssueDto> =
         issueRepository.findAll()
@@ -113,19 +126,38 @@ class IssueService(
             .filter { query.assigneeId == null || it.assigneeId == query.assigneeId }
             .filter { query.parentIssueId == null || it.parentIssueId == query.parentIssueId }
             .filter { query.state == null || it.state == query.state }
+            .filter { query.priority == null || it.priority == query.priority }
             .filter {
                 query.q.isNullOrBlank() || listOfNotNull(it.title, it.description)
                     .any { text -> text.contains(query.q, ignoreCase = true) }
             }
             .sortedBy { it.id }
-            .map { it.toDto() }
+            .toList()
+            .let { issues ->
+                val customValues = issueCustomFieldService.getValuesForIssues(issues)
+                issues
+                    .filter { issue ->
+                        query.customFieldFilters.isEmpty() || issueCustomFieldService.matchesFilters(
+                            customValues[issue.id].orEmpty(),
+                            query.customFieldFilters
+                        )
+                    }
+                    .map { issue -> issue.toDto(customValues[issue.id].orEmpty()) }
+            }
             .toList()
 
-    fun findById(id: Long): IssueDto = getIssue(id).toDto()
+    fun findById(id: Long): IssueDto {
+        val issue = getIssue(id)
+        return issue.toDto(
+            customFields = issueCustomFieldService.getValuesForIssue(issue),
+            customFieldDefinitions = issueCustomFieldService.getDefinitionsForIssue(issue)
+        )
+    }
 
     fun getIssue(id: Long): Issue = issueRepository.findById(id)
         .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Issue not found") }
 
+    @Transactional
     fun create(request: CreateIssueRequest): IssueDto {
         validateParent(request.parentIssueId, request.projectId)
         val saved = issueRepository.save(
@@ -156,12 +188,15 @@ class IssueService(
                 legacyPayload = request.legacyPayload
             )
         )
-        return saved.toDto()
+        issueCustomFieldService.replaceIssueValues(saved, request.customFields)
+        return findById(saved.id)
     }
 
+    @Transactional
     fun update(id: Long, request: UpdateIssueRequest): IssueDto {
         val issue = getIssue(id)
-        validateParent(request.parentIssueId, issue.projectId)
+        val nextProjectId = request.projectId ?: issue.projectId
+        validateParent(request.parentIssueId, nextProjectId)
         val updated = Issue(
             id = issue.id,
             organizationId = request.organizationId ?: issue.organizationId,
@@ -173,7 +208,7 @@ class IssueService(
             description = request.description ?: issue.description,
             state = request.state ?: issue.state,
             priority = request.priority ?: issue.priority,
-            projectId = issue.projectId,
+            projectId = nextProjectId,
             teamId = request.teamId ?: issue.teamId,
             parentIssueId = request.parentIssueId ?: issue.parentIssueId,
             assigneeId = request.assigneeId ?: issue.assigneeId,
@@ -191,12 +226,14 @@ class IssueService(
             createdAt = issue.createdAt,
             updatedAt = LocalDateTime.now()
         )
-        return issueRepository.save(updated).toDto()
+        val saved = issueRepository.save(updated)
+        issueCustomFieldService.replaceIssueValues(saved, request.customFields ?: issueCustomFieldService.getValuesForIssue(issue))
+        return findById(saved.id)
     }
 
     fun updateState(id: Long, state: String): IssueDto {
         val issue = getIssue(id)
-        return issueRepository.save(
+        val saved = issueRepository.save(
             Issue(
                 id = issue.id,
                 organizationId = issue.organizationId,
@@ -226,11 +263,15 @@ class IssueService(
                 createdAt = issue.createdAt,
                 updatedAt = LocalDateTime.now()
             )
-        ).toDto()
+        )
+        return saved.toDto(issueCustomFieldService.getValuesForIssue(saved))
     }
 
+    @Transactional
     fun delete(id: Long) {
-        issueRepository.delete(getIssue(id))
+        val issue = getIssue(id)
+        issueCustomFieldService.deleteIssueValues(issue.id)
+        issueRepository.delete(issue)
     }
 
     private fun validateParent(parentIssueId: Long?, projectId: Long) {
@@ -241,7 +282,10 @@ class IssueService(
         }
     }
 
-    private fun Issue.toDto(): IssueDto = IssueDto(
+    private fun Issue.toDto(
+        customFields: Map<String, Any?> = emptyMap(),
+        customFieldDefinitions: List<CustomFieldDefinitionDto>? = null
+    ): IssueDto = IssueDto(
         id = id,
         organizationId = organizationId,
         epicId = epicId,
@@ -267,6 +311,8 @@ class IssueService(
         sourceType = sourceType,
         sourceId = sourceId,
         legacyPayload = legacyPayload,
+        customFields = customFields,
+        customFieldDefinitions = customFieldDefinitions,
         createdAt = createdAt.toString(),
         updatedAt = updatedAt.toString()
     )
@@ -284,4 +330,11 @@ class IssueService(
 
     private fun normalizeSeverity(type: String, severity: String?): String? =
         if (type == "BUG") severity ?: "MEDIUM" else null
+
+    fun parseCustomFieldFilters(raw: String?): Map<String, Any?> {
+        if (raw.isNullOrBlank()) return emptyMap()
+        return runCatching {
+            objectMapper.readValue(raw, object : TypeReference<Map<String, Any?>>() {})
+        }.getOrElse { emptyMap() }
+    }
 }

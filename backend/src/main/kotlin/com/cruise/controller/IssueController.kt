@@ -24,7 +24,9 @@ class IssueController(
         @RequestParam(required = false) assigneeId: Long?,
         @RequestParam(required = false) parentIssueId: Long?,
         @RequestParam(required = false) state: String?,
-        @RequestParam(required = false) q: String?
+        @RequestParam(required = false) priority: String?,
+        @RequestParam(required = false) q: String?,
+        @RequestParam(required = false) customFieldFilters: String?
     ): List<IssueDto> = issueService.findAll(
         IssueQuery(
             type = type,
@@ -35,7 +37,9 @@ class IssueController(
             assigneeId = assigneeId,
             parentIssueId = parentIssueId,
             state = state,
-            q = q
+            priority = priority,
+            q = q,
+            customFieldFilters = issueService.parseCustomFieldFilters(customFieldFilters)
         )
     )
 

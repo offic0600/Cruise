@@ -1,5 +1,5 @@
 import apiClient from './client';
-import { ActivityEvent, Comment, Doc, Notification } from './types';
+import { ActivityEvent, Comment, Doc, IssueAttachment, Notification } from './types';
 
 export const getDocs = (params?: {
   organizationId?: number;
@@ -105,3 +105,34 @@ export const markNotificationRead = (id: number) =>
   apiClient.patch<Notification>(`/notifications/${id}/read`).then((r) => r.data);
 
 export const deleteNotification = (id: number) => apiClient.delete(`/notifications/${id}`);
+
+export const getIssueAttachments = (issueId: number) =>
+  apiClient.get<IssueAttachment[]>(`/issues/${issueId}/attachments`).then((r) => r.data);
+
+export const uploadIssueAttachment = (issueId: number, data: { file: File; uploadedBy?: number | null }) => {
+  const formData = new FormData();
+  formData.append('file', data.file);
+  if (data.uploadedBy != null) {
+    formData.append('uploadedBy', String(data.uploadedBy));
+  }
+  return apiClient.post<IssueAttachment>(`/issues/${issueId}/attachments`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then((r) => r.data);
+};
+
+export const deleteIssueAttachment = (issueId: number, attachmentId: number) =>
+  apiClient.delete(`/issues/${issueId}/attachments/${attachmentId}`);
+
+export const downloadIssueAttachment = async (issueId: number, attachmentId: number, filename: string) => {
+  const response = await apiClient.get<Blob>(`/issues/${issueId}/attachments/${attachmentId}/download`, {
+    responseType: 'blob',
+  });
+  const blobUrl = window.URL.createObjectURL(response.data);
+  const link = document.createElement('a');
+  link.href = blobUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(blobUrl);
+};

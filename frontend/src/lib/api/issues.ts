@@ -18,7 +18,14 @@ export const getIssues = (params?: {
   parentIssueId?: number;
   state?: string;
   q?: string;
-}) => apiClient.get<Issue[]>('/issues', { params }).then((r) => r.data);
+  priority?: string;
+  customFieldFilters?: Record<string, unknown>;
+}) => apiClient.get<Issue[]>('/issues', {
+  params: {
+    ...params,
+    customFieldFilters: params?.customFieldFilters ? JSON.stringify(params.customFieldFilters) : undefined,
+  },
+}).then((r) => r.data);
 
 export const getIssue = (id: number) => apiClient.get<Issue>(`/issues/${id}`).then((r) => r.data);
 
@@ -44,6 +51,7 @@ export const createIssue = (data: {
   actualHours?: number;
   severity?: string | null;
   legacyPayload?: string | null;
+  customFields?: Record<string, unknown>;
 }) => apiClient.post<Issue>('/issues', data).then((r) => r.data);
 
 export const updateIssue = (
@@ -69,6 +77,7 @@ export const updateIssue = (
     actualHours?: number;
     severity?: string | null;
     legacyPayload?: string | null;
+    customFields?: Record<string, unknown>;
   }
 ) => apiClient.put<Issue>(`/issues/${id}`, data).then((r) => r.data);
 

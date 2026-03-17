@@ -100,6 +100,8 @@ cruise:
       display-name: Enterprise SSO
       scopes: openid profile email
       is-default: false
+  storage:
+    attachments-root: storage
 
 minimax:
   api-key: sk-cp-EQCCFxfVKNv4mVcruv_PRd5YPKOEBOugbUGfhbyIIh9O161hLWOyXsglcRySfy4v_H_Peda8FVQ1EKlYtYBByKBS4zwQLNMazIgvrTr1xdd4VcAg_vEG1Xw

@@ -2,9 +2,13 @@ package com.cruise.config
 
 import com.cruise.entity.ActivityEvent
 import com.cruise.entity.Comment
+import com.cruise.entity.CustomFieldDefinition
+import com.cruise.entity.CustomFieldOption
+import com.cruise.entity.CustomFieldValue
 import com.cruise.entity.Doc
 import com.cruise.entity.DocRevision
 import com.cruise.entity.Epic
+import com.cruise.entity.ImportFieldMappingTemplate
 import com.cruise.entity.Issue
 import com.cruise.entity.IssueApplicationLink
 import com.cruise.entity.IssueDeliveryPlan
@@ -26,9 +30,13 @@ import com.cruise.entity.WorkflowState
 import com.cruise.entity.WorkflowTransition
 import com.cruise.repository.ActivityEventRepository
 import com.cruise.repository.CommentRepository
+import com.cruise.repository.CustomFieldDefinitionRepository
+import com.cruise.repository.CustomFieldOptionRepository
+import com.cruise.repository.CustomFieldValueRepository
 import com.cruise.repository.DocRepository
 import com.cruise.repository.DocRevisionRepository
 import com.cruise.repository.EpicRepository
+import com.cruise.repository.ImportFieldMappingTemplateRepository
 import com.cruise.repository.IssueApplicationLinkRepository
 import com.cruise.repository.IssueDeliveryPlanRepository
 import com.cruise.repository.IssueExtensionPayloadRepository
@@ -71,6 +79,10 @@ open class DataInitializer {
         sprintRepository: SprintRepository,
         userRepository: UserRepository,
         teamMemberRepository: TeamMemberRepository,
+        customFieldDefinitionRepository: CustomFieldDefinitionRepository,
+        customFieldOptionRepository: CustomFieldOptionRepository,
+        customFieldValueRepository: CustomFieldValueRepository,
+        importFieldMappingTemplateRepository: ImportFieldMappingTemplateRepository,
         issueTagRepository: IssueTagRepository,
         issueRepository: IssueRepository,
         issueFeatureExtensionRepository: IssueFeatureExtensionRepository,
@@ -277,6 +289,101 @@ open class DataInitializer {
                 IssueTag(name = "platform", color = "#2563EB", sortOrder = 1, createdAt = now),
                 IssueTag(name = "auth", color = "#0F766E", sortOrder = 2, createdAt = now),
                 IssueTag(name = "migration", color = "#EA580C", sortOrder = 3, createdAt = now)
+            )
+        )
+
+        val aiDeliveryTypeField = customFieldDefinitionRepository.save(
+            CustomFieldDefinition(
+                organizationId = organization.id,
+                entityType = "ISSUE",
+                scopeType = "GLOBAL",
+                key = "ai_delivery_type",
+                name = "AI Delivery Type",
+                description = "How AI contributes to the delivery of this work item.",
+                dataType = "SINGLE_SELECT",
+                isFilterable = true,
+                showOnCreate = true,
+                showOnDetail = true,
+                showOnList = true,
+                sortOrder = 1,
+                configJson = """{"placeholder":"Select delivery type"}""",
+                createdAt = now,
+                updatedAt = now
+            )
+        )
+        customFieldOptionRepository.saveAll(
+            listOf(
+                CustomFieldOption(fieldDefinitionId = aiDeliveryTypeField.id, value = "COPILOT", label = "Copilot", color = "#2563EB", sortOrder = 0),
+                CustomFieldOption(fieldDefinitionId = aiDeliveryTypeField.id, value = "AUTOMATION", label = "Automation", color = "#0891B2", sortOrder = 1),
+                CustomFieldOption(fieldDefinitionId = aiDeliveryTypeField.id, value = "MANUAL", label = "Manual", color = "#475569", sortOrder = 2)
+            )
+        )
+
+        val deliveryModeField = customFieldDefinitionRepository.save(
+            CustomFieldDefinition(
+                organizationId = organization.id,
+                entityType = "ISSUE",
+                scopeType = "PROJECT",
+                scopeId = project.id,
+                key = "delivery_mode",
+                name = "Delivery Mode",
+                description = "The execution mode for this work item.",
+                dataType = "SINGLE_SELECT",
+                isFilterable = true,
+                showOnCreate = true,
+                showOnDetail = true,
+                showOnList = true,
+                sortOrder = 2,
+                configJson = """{"placeholder":"Select delivery mode"}""",
+                createdAt = now,
+                updatedAt = now
+            )
+        )
+        customFieldOptionRepository.saveAll(
+            listOf(
+                CustomFieldOption(fieldDefinitionId = deliveryModeField.id, value = "SELF_DELIVERY", label = "Self Delivery", color = "#10B981", sortOrder = 0),
+                CustomFieldOption(fieldDefinitionId = deliveryModeField.id, value = "CO_DELIVERY", label = "Co-delivery", color = "#8B5CF6", sortOrder = 1),
+                CustomFieldOption(fieldDefinitionId = deliveryModeField.id, value = "OUTSOURCED", label = "Outsourced", color = "#F97316", sortOrder = 2)
+            )
+        )
+
+        val riskSummaryField = customFieldDefinitionRepository.save(
+            CustomFieldDefinition(
+                organizationId = organization.id,
+                entityType = "ISSUE",
+                scopeType = "GLOBAL",
+                key = "risk_summary",
+                name = "Risk Summary",
+                description = "Key delivery risk for this work item.",
+                dataType = "TEXTAREA",
+                isFilterable = true,
+                showOnCreate = true,
+                showOnDetail = true,
+                showOnList = false,
+                sortOrder = 3,
+                configJson = """{"placeholder":"Capture the main risk"}""",
+                createdAt = now,
+                updatedAt = now
+            )
+        )
+
+        val rolloutReadyField = customFieldDefinitionRepository.save(
+            CustomFieldDefinition(
+                organizationId = organization.id,
+                entityType = "ISSUE",
+                scopeType = "TEAM",
+                scopeId = team.id,
+                key = "rollout_ready",
+                name = "Rollout Ready",
+                description = "Whether the item is ready for rollout communication.",
+                dataType = "BOOLEAN",
+                isFilterable = true,
+                showOnCreate = true,
+                showOnDetail = true,
+                showOnList = false,
+                sortOrder = 4,
+                createdAt = now,
+                updatedAt = now
             )
         )
 
@@ -489,6 +596,75 @@ open class DataInitializer {
                 schemaVersion = 1,
                 payloadJson = """{"legacyTracker":"legacy-workbench","importBatch":"2026-03-16","notes":"Seeded from unified model initializer"}""",
                 updatedAt = now
+            )
+        )
+
+        customFieldValueRepository.saveAll(
+            listOf(
+                CustomFieldValue(
+                    fieldDefinitionId = aiDeliveryTypeField.id,
+                    entityType = "ISSUE",
+                    entityId = featureAuth.id,
+                    valueText = "COPILOT",
+                    createdAt = now.minusDays(5),
+                    updatedAt = now.minusDays(1)
+                ),
+                CustomFieldValue(
+                    fieldDefinitionId = aiDeliveryTypeField.id,
+                    entityType = "ISSUE",
+                    entityId = featureWork.id,
+                    valueText = "AUTOMATION",
+                    createdAt = now.minusDays(5),
+                    updatedAt = now.minusHours(8)
+                ),
+                CustomFieldValue(
+                    fieldDefinitionId = deliveryModeField.id,
+                    entityType = "ISSUE",
+                    entityId = featureWork.id,
+                    valueText = "CO_DELIVERY",
+                    createdAt = now.minusDays(5),
+                    updatedAt = now.minusHours(8)
+                ),
+                CustomFieldValue(
+                    fieldDefinitionId = riskSummaryField.id,
+                    entityType = "ISSUE",
+                    entityId = bugLogin.id,
+                    valueText = "Token refresh behavior still breaks after hydration when the tab wakes from sleep.",
+                    createdAt = now.minusDays(3),
+                    updatedAt = now.minusHours(6)
+                ),
+                CustomFieldValue(
+                    fieldDefinitionId = rolloutReadyField.id,
+                    entityType = "ISSUE",
+                    entityId = taskSeed.id,
+                    valueBoolean = true,
+                    createdAt = now.minusDays(3),
+                    updatedAt = now.minusDays(2)
+                )
+            )
+        )
+
+        importFieldMappingTemplateRepository.save(
+            ImportFieldMappingTemplate(
+                organizationId = organization.id,
+                entityType = "ISSUE",
+                name = "Default Excel issue import",
+                sourceType = "EXCEL",
+                mappingJson = """{
+                  "需求描述":{"target":"title"},
+                  "任务描述":{"target":"description"},
+                  "状态":{"target":"state"},
+                  "开发负责人":{"target":"assigneeId"},
+                  "所属团队":{"target":"teamId"},
+                  "计划开始时间":{"target":"plannedStartDate"},
+                  "计划完成时间":{"target":"plannedEndDate"},
+                  "开发进度":{"target":"progress"},
+                  "需求所属AI交付类型":{"target":"customField","key":"ai_delivery_type"},
+                  "需求所属交付模式":{"target":"customField","key":"delivery_mode"},
+                  "风险":{"target":"customField","key":"risk_summary"}
+                }""".trimIndent(),
+                isDefault = true,
+                createdAt = now
             )
         )
 
