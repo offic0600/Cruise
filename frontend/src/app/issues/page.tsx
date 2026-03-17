@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { ArrowUpRight, CheckCircle2, CircleDot, FilterX, Plus, Search, SlidersHorizontal } from 'lucide-react';
+import { ArrowUpRight, CheckCircle2, CircleDot, FilterX, Maximize2, Paperclip, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -100,6 +100,7 @@ export default function IssuesPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [quickCreateState, setQuickCreateState] = useState<string | null>(null);
+  const [createMore, setCreateMore] = useState(false);
   const [updatingCell, setUpdatingCell] = useState<string | null>(null);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [draftFilters, setDraftFilters] = useState<FilterDraft>(() => readFilterDraft(searchParams, []));
@@ -227,8 +228,12 @@ export default function IssuesPage() {
         sprintId: toNullableNumber(createDraft.sprintId),
         customFields: serializeCreateCustomFields(createDraft.customFields, createDefinitions),
       });
-      setCreateOpen(false);
-      setQuickCreateState(null);
+      if (createMore) {
+        setCreateDraft(buildCreateDraft(projects, quickCreateState, customFieldDefinitions));
+      } else {
+        setCreateOpen(false);
+        setQuickCreateState(null);
+      }
     } catch {
       setWorkspaceError(isZh ? '创建事项失败，请稍后重试。' : 'Failed to create issue. Please try again.');
     }
@@ -365,7 +370,7 @@ export default function IssuesPage() {
         onApply={applyFilterDraft}
       />
 
-      <CreateIssueSheet
+      <CreateIssueDialog
         open={createOpen}
         setOpen={setCreateOpen}
         isZh={isZh}
@@ -378,6 +383,8 @@ export default function IssuesPage() {
         members={members}
         createDefinitions={createDefinitions}
         createPending={createIssueMutation.isPending}
+        createMore={createMore}
+        setCreateMore={setCreateMore}
         onSubmit={handleCreateIssue}
       />
     </AppLayout>
@@ -492,7 +499,7 @@ function FilterSheet({
   );
 }
 
-function CreateIssueSheet({
+function CreateIssueDialog({
   open,
   setOpen,
   isZh,
@@ -505,6 +512,8 @@ function CreateIssueSheet({
   members,
   createDefinitions,
   createPending,
+  createMore,
+  setCreateMore,
   onSubmit,
 }: {
   open: boolean;
@@ -519,85 +528,114 @@ function CreateIssueSheet({
   members: TeamMember[];
   createDefinitions: CustomFieldDefinition[];
   createPending: boolean;
+  createMore: boolean;
+  setCreateMore: (value: boolean) => void;
   onSubmit: () => Promise<void>;
 }) {
+  if (!open) return null;
+
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetContent className="max-w-2xl">
-        <SheetHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="text-xs uppercase tracking-[0.18em] text-ink-400">Issues</div>
-              <SheetTitle className="mt-2">{isZh ? '新建事项' : 'Create issue'}</SheetTitle>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/16 px-6 py-10 backdrop-blur-[2px]" onClick={() => setOpen(false)}>
+      <div
+        className="flex w-full max-w-[760px] flex-col overflow-hidden rounded-[28px] border border-black/6 bg-white shadow-[0_28px_80px_rgba(15,23,42,0.18)]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 pt-5">
+          <div className="flex items-center gap-2 text-sm text-ink-400">
+            <div className="flex h-5 items-center rounded-md border border-border-soft px-1.5 text-[12px] font-medium text-brand-600">
+              {projects.find((project) => String(project.id) === draft.projectId)?.key ?? 'ISS'}
             </div>
-            <SheetDismissButton aria-label={isZh ? '取消' : 'Cancel'} />
+            <span>{'>'}</span>
+            <span>{isZh ? '新建事项' : 'New issue'}</span>
           </div>
-        </SheetHeader>
-        <ScrollArea className="h-[calc(100vh-120px)]">
-          <div className="space-y-5 px-6 py-6">
-            <FilterField label={isZh ? '标题' : 'Title'}>
-              <Input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} placeholder={isZh ? '输入事项标题' : 'Write an issue title'} />
-            </FilterField>
-            <FilterField label={isZh ? '描述' : 'Description'}>
-              <Textarea value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} className="min-h-32" />
-            </FilterField>
-            <div className="grid gap-4 md:grid-cols-2">
-              <FilterField label={isZh ? '类型' : 'Type'}>
-                <SimpleSelect value={draft.type} onValueChange={(value) => setDraft((current) => ({ ...current, type: value }))}>
-                  {TYPE_OPTIONS.map((value) => <SelectItem key={value} value={value}>{labelForType(value, isZh)}</SelectItem>)}
-                </SimpleSelect>
-              </FilterField>
-              <LookupField label={isZh ? '项目' : 'Project'} items={projects} value={draft.projectId} emptyLabel={isZh ? '选择项目' : 'Select project'} onChange={(value) => setDraft((current) => ({ ...current, projectId: value }))} />
-              <FilterField label={isZh ? '状态' : 'State'}>
-                <SimpleSelect value={draft.state} onValueChange={(value) => setDraft((current) => ({ ...current, state: value }))}>
-                  {GROUP_ORDER.filter((value) => value !== 'CANCELED').map((value) => <SelectItem key={value} value={value}>{labelForState(value, isZh)}</SelectItem>)}
-                </SimpleSelect>
-              </FilterField>
-              <FilterField label={isZh ? '优先级' : 'Priority'}>
-                <SimpleSelect value={draft.priority} onValueChange={(value) => setDraft((current) => ({ ...current, priority: value }))}>
-                  {PRIORITY_OPTIONS.map((value) => <SelectItem key={value} value={value}>{labelForPriority(value, isZh)}</SelectItem>)}
-                </SimpleSelect>
-              </FilterField>
-              <LookupField label={isZh ? '团队' : 'Team'} items={teams} value={draft.teamId} emptyLabel={isZh ? '未设置' : 'Not set'} onChange={(value) => setDraft((current) => ({ ...current, teamId: value }))} />
-              <LookupField label="Epic" items={epics} value={draft.epicId} emptyLabel={isZh ? '未设置' : 'Not set'} onChange={(value) => setDraft((current) => ({ ...current, epicId: value }))} />
-              <LookupField label="Sprint" items={sprints} value={draft.sprintId} emptyLabel={isZh ? '未设置' : 'Not set'} onChange={(value) => setDraft((current) => ({ ...current, sprintId: value }))} />
-            </div>
-
-            {createDefinitions.length ? (
-              <>
-                <Separator />
-                <div className="space-y-4">
-                  <div className="text-sm font-medium text-ink-900">{isZh ? '创建时字段' : 'Create fields'}</div>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {createDefinitions.map((field) => (
-                      <CustomFieldCreateControl
-                        key={field.id}
-                        field={field}
-                        isZh={isZh}
-                        members={members}
-                        teams={teams}
-                        value={draft.customFields[field.key]}
-                        onChange={(value) => setDraft((current) => ({
-                          ...current,
-                          customFields: { ...current.customFields, [field.key]: value },
-                        }))}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </>
-            ) : null}
-
-            <div className="flex justify-end gap-3">
-              <Button variant="secondary" onClick={() => setOpen(false)}>{isZh ? '取消' : 'Cancel'}</Button>
-              <Button onClick={onSubmit} disabled={!draft.title.trim() || !draft.projectId || createPending}>
-                {createPending ? (isZh ? '创建中...' : 'Creating...') : (isZh ? '创建事项' : 'Create issue')}
-              </Button>
-            </div>
+          <div className="flex items-center gap-2">
+            <button className="rounded-full p-2 text-ink-400 transition hover:bg-slate-100 hover:text-ink-700" type="button">
+              <Maximize2 className="h-4 w-4" />
+            </button>
+            <button className="rounded-full p-2 text-ink-400 transition hover:bg-slate-100 hover:text-ink-700" type="button" onClick={() => setOpen(false)}>
+              <X className="h-4 w-4" />
+            </button>
           </div>
-        </ScrollArea>
-      </SheetContent>
-    </Sheet>
+        </div>
+
+        <div className="space-y-5 px-5 pb-5 pt-4">
+          <input
+            value={draft.title}
+            onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
+            placeholder={isZh ? 'Issue 标题' : 'Issue title'}
+            className="w-full border-0 bg-transparent p-0 text-[34px] font-semibold tracking-[-0.03em] text-ink-900 outline-none placeholder:text-ink-300"
+          />
+
+          <textarea
+            value={draft.description}
+            onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
+            placeholder={isZh ? '添加描述...' : 'Add description...'}
+            className="min-h-[72px] w-full resize-none border-0 bg-transparent p-0 text-[17px] leading-7 text-ink-700 outline-none placeholder:text-ink-300"
+          />
+
+          <div className="flex flex-wrap items-center gap-2">
+            <ModalPillSelect value={draft.state} onValueChange={(value) => setDraft((current) => ({ ...current, state: value }))}>
+              {GROUP_ORDER.filter((value) => value !== 'CANCELED').map((value) => <SelectItem key={value} value={value}>{labelForState(value, isZh)}</SelectItem>)}
+            </ModalPillSelect>
+            <ModalPillSelect value={draft.priority} onValueChange={(value) => setDraft((current) => ({ ...current, priority: value }))}>
+              {PRIORITY_OPTIONS.map((value) => <SelectItem key={value} value={value}>{labelForPriority(value, isZh)}</SelectItem>)}
+            </ModalPillSelect>
+            <ModalPillSelect value={draft.teamId || EMPTY} onValueChange={(value) => setDraft((current) => ({ ...current, teamId: value === EMPTY ? '' : value }))}>
+              <SelectItem value={EMPTY}>{isZh ? '团队' : 'Team'}</SelectItem>
+              {teams.map((team) => <SelectItem key={team.id} value={String(team.id)}>{team.name}</SelectItem>)}
+            </ModalPillSelect>
+            <ModalPillSelect value={draft.projectId || EMPTY} onValueChange={(value) => setDraft((current) => ({ ...current, projectId: value === EMPTY ? '' : value }))}>
+              <SelectItem value={EMPTY}>{isZh ? '项目' : 'Project'}</SelectItem>
+              {projects.map((project) => <SelectItem key={project.id} value={String(project.id)}>{project.name}</SelectItem>)}
+            </ModalPillSelect>
+            <ModalPillSelect value={draft.epicId || EMPTY} onValueChange={(value) => setDraft((current) => ({ ...current, epicId: value === EMPTY ? '' : value }))}>
+              <SelectItem value={EMPTY}>Epic</SelectItem>
+              {epics.map((epic) => <SelectItem key={epic.id} value={String(epic.id)}>{epic.title}</SelectItem>)}
+            </ModalPillSelect>
+            <ModalPillSelect value={draft.sprintId || EMPTY} onValueChange={(value) => setDraft((current) => ({ ...current, sprintId: value === EMPTY ? '' : value }))}>
+              <SelectItem value={EMPTY}>Sprint</SelectItem>
+              {sprints.map((sprint) => <SelectItem key={sprint.id} value={String(sprint.id)}>{sprint.name}</SelectItem>)}
+            </ModalPillSelect>
+            {createDefinitions.slice(0, 2).map((field) => (
+              <ModalCustomFieldPill
+                key={field.id}
+                field={field}
+                isZh={isZh}
+                value={draft.customFields[field.key]}
+                members={members}
+                teams={teams}
+                onChange={(value) => setDraft((current) => ({
+                  ...current,
+                  customFields: { ...current.customFields, [field.key]: value },
+                }))}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between border-t border-border-soft px-5 py-4">
+          <button type="button" className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border-soft text-ink-500 transition hover:bg-slate-50 hover:text-ink-900">
+            <Paperclip className="h-4 w-4" />
+          </button>
+          <div className="flex items-center gap-4">
+            <label className="inline-flex items-center gap-2 text-sm text-ink-500">
+              <button
+                type="button"
+                aria-pressed={createMore}
+                onClick={() => setCreateMore(!createMore)}
+                className={`relative h-5 w-9 rounded-full transition ${createMore ? 'bg-brand-600' : 'bg-slate-200'}`}
+              >
+                <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${createMore ? 'left-[18px]' : 'left-0.5'}`} />
+              </button>
+              <span>{isZh ? '连续创建' : 'Create more'}</span>
+            </label>
+            <Button onClick={onSubmit} disabled={!draft.title.trim() || !draft.projectId || createPending} className="rounded-full px-5">
+              {createPending ? (isZh ? '创建中...' : 'Creating...') : (isZh ? '创建事项' : 'Create issue')}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -875,6 +913,84 @@ function CustomFieldCreateControl({
     <FilterField label={field.name}>
       <Input value={String(value ?? '')} onChange={(event) => onChange(event.target.value)} />
     </FilterField>
+  );
+}
+
+function ModalPillSelect({
+  value,
+  onValueChange,
+  children,
+}: {
+  value: string;
+  onValueChange: (value: string) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Select value={value} onValueChange={onValueChange}>
+      <SelectTrigger className="h-10 w-auto min-w-0 rounded-full border-border-soft bg-white px-3 py-0 text-sm text-ink-700 shadow-none">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>{children}</SelectContent>
+    </Select>
+  );
+}
+
+function ModalCustomFieldPill({
+  field,
+  isZh,
+  value,
+  members,
+  teams,
+  onChange,
+}: {
+  field: CustomFieldDefinition;
+  isZh: boolean;
+  value: unknown;
+  members: TeamMember[];
+  teams: Team[];
+  onChange: (value: unknown) => void;
+}) {
+  if (field.dataType === 'SINGLE_SELECT' || field.dataType === 'MULTI_SELECT') {
+    return (
+      <ModalPillSelect value={String(value ?? EMPTY)} onValueChange={(next) => onChange(next === EMPTY ? undefined : next)}>
+        <SelectItem value={EMPTY}>{field.name}</SelectItem>
+        {field.options.map((option) => <SelectItem key={option.id} value={option.value}>{option.label}</SelectItem>)}
+      </ModalPillSelect>
+    );
+  }
+
+  if (field.dataType === 'BOOLEAN') {
+    return (
+      <ModalPillSelect value={String(value ?? EMPTY)} onValueChange={(next) => onChange(next === EMPTY ? undefined : next === 'true')}>
+        <SelectItem value={EMPTY}>{field.name}</SelectItem>
+        <SelectItem value="true">{isZh ? '是' : 'True'}</SelectItem>
+        <SelectItem value="false">{isZh ? '否' : 'False'}</SelectItem>
+      </ModalPillSelect>
+    );
+  }
+
+  if (field.dataType === 'USER') {
+    return (
+      <ModalPillSelect value={String(value ?? EMPTY)} onValueChange={(next) => onChange(next === EMPTY ? undefined : Number(next))}>
+        <SelectItem value={EMPTY}>{field.name}</SelectItem>
+        {members.map((member) => <SelectItem key={member.id} value={String(member.id)}>{member.name}</SelectItem>)}
+      </ModalPillSelect>
+    );
+  }
+
+  if (field.dataType === 'TEAM') {
+    return (
+      <ModalPillSelect value={String(value ?? EMPTY)} onValueChange={(next) => onChange(next === EMPTY ? undefined : Number(next))}>
+        <SelectItem value={EMPTY}>{field.name}</SelectItem>
+        {teams.map((team) => <SelectItem key={team.id} value={String(team.id)}>{team.name}</SelectItem>)}
+      </ModalPillSelect>
+    );
+  }
+
+  return (
+    <div className="inline-flex h-10 items-center rounded-full border border-border-soft px-3 text-sm text-ink-400">
+      {field.name}
+    </div>
   );
 }
 
