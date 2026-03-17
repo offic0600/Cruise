@@ -5,6 +5,8 @@ export interface AuthProvider {
   providerType: string;
   displayName: string;
   loginUrl?: string | null;
+  configured: boolean;
+  disabledReason?: string | null;
 }
 
 export interface AuthProvidersResponse {

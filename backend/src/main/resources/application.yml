@@ -84,7 +84,7 @@ cruise:
       callback-path: /login/callback
       from-address: noreply@cruise.local
     google:
-      enabled: false
+      enabled: true
       provider-key: google
       provider-type: GOOGLE_OIDC
       display-name: Google
@@ -93,6 +93,7 @@ cruise:
       userinfo-url: https://openidconnect.googleapis.com/v1/userinfo
       scopes: openid profile email
       is-default: false
+      # Set client-id and client-secret in deployment env/config before enabling real sign-in.
     enterprise:
       enabled: false
       provider-key: enterprise

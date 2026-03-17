@@ -5,6 +5,7 @@ import com.cruise.entity.*
 import com.cruise.repository.*
 import com.cruise.security.CustomUserDetailsService
 import com.cruise.security.JwtTokenProvider
+import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
@@ -25,7 +26,9 @@ data class AuthProviderView(
     val providerKey: String,
     val providerType: String,
     val displayName: String,
-    val loginUrl: String? = null
+    val loginUrl: String? = null,
+    val configured: Boolean = true,
+    val disabledReason: String? = null
 )
 
 data class AuthProvidersResponse(
@@ -75,17 +78,29 @@ class AuthProviderService(
     private val authProviderConfigRepository: AuthProviderConfigRepository,
     private val authProperties: AuthProperties
 ) {
+    private fun isOidcConfigured(provider: AuthProviderConfig): Boolean =
+        !provider.clientId.isNullOrBlank() &&
+            !provider.authorizationUrl.isNullOrBlank() &&
+            !provider.tokenUrl.isNullOrBlank() &&
+            !provider.userinfoUrl.isNullOrBlank()
+
     fun getEnabledProviders(): AuthProvidersResponse {
         val providers = authProviderConfigRepository.findAllByEnabledTrueOrderByIsDefaultDescDisplayNameAsc()
             .map {
+                val configured = when (it.providerType) {
+                    "GOOGLE_OIDC", "ENTERPRISE_OIDC" -> isOidcConfigured(it)
+                    else -> true
+                }
                 AuthProviderView(
                     providerKey = it.providerKey,
                     providerType = it.providerType,
                     displayName = it.displayName,
                     loginUrl = when (it.providerType) {
-                        "GOOGLE_OIDC", "ENTERPRISE_OIDC" -> "/api/auth/oauth/${it.providerKey}/start"
+                        "GOOGLE_OIDC", "ENTERPRISE_OIDC" -> if (configured) "/api/auth/oauth/${it.providerKey}/start" else null
                         else -> null
-                    }
+                    },
+                    configured = configured,
+                    disabledReason = if (configured) null else "Provider configuration incomplete"
                 )
             }
 
@@ -259,6 +274,7 @@ class OidcAuthService(
     private val objectMapper: ObjectMapper
 ) {
     private val client = OkHttpClient()
+    private val mapTypeReference = object : TypeReference<Map<String, Any?>>() {}
 
     fun createAuthorizationUrl(providerKey: String): String {
         val provider = authProviderService.getProvider(providerKey)
@@ -335,7 +351,7 @@ class OidcAuthService(
             if (!response.isSuccessful) {
                 throw IllegalStateException("OIDC token exchange failed: ${response.code}")
             }
-            return objectMapper.readValue(body, Map::class.java) as Map<String, Any?>
+            return objectMapper.readValue(body, mapTypeReference)
         }
     }
 
@@ -351,7 +367,7 @@ class OidcAuthService(
             if (!response.isSuccessful) {
                 throw IllegalStateException("OIDC userinfo request failed: ${response.code}")
             }
-            val claims = objectMapper.readValue(body, Map::class.java) as Map<String, Any?>
+            val claims = objectMapper.readValue(body, mapTypeReference)
             return ExternalIdentityProfile(
                 subject = claims["sub"]?.toString() ?: throw IllegalStateException("Missing subject"),
                 email = claims["email"]?.toString(),
@@ -368,7 +384,7 @@ class OidcAuthService(
         val parts = idToken.split(".")
         if (parts.size < 2) return
         val payloadJson = String(Base64.getUrlDecoder().decode(parts[1]), StandardCharsets.UTF_8)
-        val payload = objectMapper.readValue(payloadJson, Map::class.java) as Map<String, Any?>
+        val payload = objectMapper.readValue(payloadJson, mapTypeReference)
         val actualNonce = payload["nonce"]?.toString()
         if (!actualNonce.isNullOrBlank() && actualNonce != expectedNonce) {
             throw IllegalStateException("Invalid nonce")
