@@ -29,6 +29,10 @@ export function useIssueWorkspace(filters?: Parameters<typeof getIssues>[0]) {
     queryKey: queryKeys.teams,
     queryFn: () => getTeams(),
   });
+  const membersQuery = useQuery({
+    queryKey: queryKeys.teamMembers,
+    queryFn: () => getTeamMembers(),
+  });
 
   return {
     issuesQuery,
@@ -37,6 +41,7 @@ export function useIssueWorkspace(filters?: Parameters<typeof getIssues>[0]) {
     epicsQuery,
     sprintsQuery,
     teamsQuery,
+    membersQuery,
   };
 }
 

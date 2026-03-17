@@ -1,19 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Bell, ChevronDown, Menu } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import LocaleSwitcher from '@/components/LocaleSwitcher';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { localizePath } from '@/i18n/config';
 import { useI18n } from '@/i18n/useI18n';
 import { clearSession, getStoredUser, type StoredUser } from '@/lib/auth';
@@ -61,8 +53,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (!user) return null;
 
-  const activeItem = navItems.find((item) => pathname === localizePath(locale, item.href));
-
   return (
     <div className="app-shell">
       <aside className={`glass-sidebar fixed inset-y-0 left-0 z-30 w-72 transition-transform xl:translate-x-0 ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full'} xl:block`}>
@@ -104,9 +94,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="subtle-card p-4">
               <div className="text-sm font-medium text-ink-900">{user.username}</div>
               <div className="mt-1 text-xs text-ink-700">{user.role}</div>
-              <div className="mt-4 flex items-center justify-between gap-3">
-                <LocaleSwitcher />
-                <Button onClick={handleLogout} variant="secondary" size="sm">
+              <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                <div className="min-w-0">
+                  <LocaleSwitcher />
+                </div>
+                <Button onClick={handleLogout} variant="secondary" size="sm" className="shrink-0 whitespace-nowrap">
                   {t('nav.logout')}
                 </Button>
               </div>
@@ -116,61 +108,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="xl:ml-72">
-        <header className="glass-header sticky top-0 z-20">
-          <div className="flex items-center justify-between px-5 py-4 sm:px-8">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="secondary"
-                size="icon"
-                className="xl:hidden"
-                onClick={() => setMobileNavOpen((current) => !current)}
-                aria-label="Toggle navigation"
-              >
-                <Menu className="h-4 w-4" />
-              </Button>
-              <div>
-              <div className="text-xs uppercase tracking-[0.2em] text-ink-400">{t('common.workspace')}</div>
-              <h1 className="text-lg font-semibold text-ink-900">{activeItem?.label ?? 'Cruise'}</h1>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Button variant="secondary" size="icon" className="hidden md:inline-flex">
-                <Bell className="h-4 w-4" />
-              </Button>
-              <div className="hidden rounded-card border border-border-soft bg-white px-3 py-2 text-sm text-ink-700 sm:block">
-                {user.email}
-              </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="brand-badge flex h-10 items-center gap-2 rounded-card px-3 text-sm font-semibold">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/20">
-                      {user.username.charAt(0).toUpperCase()}
-                    </span>
-                    <span className="hidden sm:inline">{user.username}</span>
-                    <ChevronDown className="hidden h-4 w-4 sm:inline" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>{user.email}</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => router.push(localizePath(locale, '/issues'))}>
-                    {t('nav.issues')}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => router.push(localizePath(locale, '/projects'))}>
-                    {t('nav.projects')}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => router.push(localizePath(locale, '/custom-fields'))}>
-                    {t('nav.customFields')}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout}>{t('nav.logout')}</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+        <main className="px-5 py-6 sm:px-8">
+          <div className="mb-4 xl:hidden">
+            <Button
+              variant="secondary"
+              size="icon"
+              onClick={() => setMobileNavOpen((current) => !current)}
+              aria-label="Toggle navigation"
+            >
+              <Menu className="h-4 w-4" />
+            </Button>
           </div>
-        </header>
-
-        <main className="px-5 py-6 sm:px-8">{children}</main>
+          {children}
+        </main>
       </div>
     </div>
   );

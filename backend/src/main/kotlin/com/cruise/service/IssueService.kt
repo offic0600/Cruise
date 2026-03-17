@@ -200,8 +200,8 @@ open class IssueService(
         val updated = Issue(
             id = issue.id,
             organizationId = request.organizationId ?: issue.organizationId,
-            epicId = request.epicId ?: issue.epicId,
-            sprintId = request.sprintId ?: issue.sprintId,
+            epicId = normalizeNullableReference(request.epicId, issue.epicId),
+            sprintId = normalizeNullableReference(request.sprintId, issue.sprintId),
             identifier = issue.identifier,
             type = issue.type,
             title = request.title ?: issue.title,
@@ -209,9 +209,9 @@ open class IssueService(
             state = request.state ?: issue.state,
             priority = request.priority ?: issue.priority,
             projectId = nextProjectId,
-            teamId = request.teamId ?: issue.teamId,
-            parentIssueId = request.parentIssueId ?: issue.parentIssueId,
-            assigneeId = request.assigneeId ?: issue.assigneeId,
+            teamId = normalizeNullableReference(request.teamId, issue.teamId),
+            parentIssueId = normalizeNullableReference(request.parentIssueId, issue.parentIssueId),
+            assigneeId = normalizeNullableReference(request.assigneeId, issue.assigneeId),
             reporterId = request.reporterId ?: issue.reporterId,
             estimatePoints = request.estimatePoints ?: issue.estimatePoints,
             progress = request.progress ?: issue.progress,
@@ -330,6 +330,13 @@ open class IssueService(
 
     private fun normalizeSeverity(type: String, severity: String?): String? =
         if (type == "BUG") severity ?: "MEDIUM" else null
+
+    private fun normalizeNullableReference(requestValue: Long?, currentValue: Long?): Long? =
+        when {
+            requestValue == null -> currentValue
+            requestValue <= 0 -> null
+            else -> requestValue
+        }
 
     fun parseCustomFieldFilters(raw: String?): Map<String, Any?> {
         if (raw.isNullOrBlank()) return emptyMap()

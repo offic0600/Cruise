@@ -84,4 +84,9 @@
   .filter-bar {
     @apply panel-card p-5;
   }
+
+  .editable-surface:empty::before {
+    content: attr(data-placeholder);
+    @apply text-ink-400;
+  }
 }

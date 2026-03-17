@@ -1,16 +1,23 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Download, Link2, Paperclip, Plus, Save, Trash2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  ChevronRight,
+  Download,
+  Link2,
+  MessageSquare,
+  Paperclip,
+  Plus,
+  Trash2,
+} from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import MarkdownEditor from '@/components/issues/MarkdownEditor';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { localizePath } from '@/i18n/config';
 import { useI18n } from '@/i18n/useI18n';
@@ -97,44 +104,62 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   const [docContent, setDocContent] = useState('');
   const [relationTargetId, setRelationTargetId] = useState('');
   const [relationType, setRelationType] = useState<(typeof RELATION_TYPES)[number]>('RELATES_TO');
+  const [bodyMode, setBodyMode] = useState<'read' | 'edit'>('read');
+  const [activeProperty, setActiveProperty] = useState<string | null>(null);
+  const [isAddingChild, setIsAddingChild] = useState(false);
 
   useEffect(() => {
     if (!issue) return;
     setDraftIssue(createDraft(issue));
+    setBodyMode('read');
+    setActiveProperty(null);
   }, [issue]);
 
   const initialSnapshot = useMemo(() => (issue ? normalizeDraft(createDraft(issue)) : ''), [issue]);
   const currentSnapshot = useMemo(() => (draftIssue ? normalizeDraft(draftIssue) : ''), [draftIssue]);
-  const isDirty = !!issue && !!draftIssue && initialSnapshot !== currentSnapshot;
 
-  const save = async () => {
+  useEffect(() => {
     if (!issue || !draftIssue) return;
-    await updateIssueMutation.mutateAsync({
-      id: issue.id,
-      data: {
-        title: draftIssue.title,
-        description: draftIssue.description,
-        state: draftIssue.state,
-        priority: draftIssue.priority,
-        assigneeId: draftIssue.assigneeId,
-        projectId: draftIssue.projectId,
-        epicId: draftIssue.epicId,
-        sprintId: draftIssue.sprintId,
-        teamId: draftIssue.teamId,
-        parentIssueId: draftIssue.parentIssueId,
-        estimatedHours: draftIssue.estimatedHours,
-        actualHours: draftIssue.actualHours,
-        plannedStartDate: draftIssue.plannedStartDate,
-        plannedEndDate: draftIssue.plannedEndDate,
-        customFields: sanitizeCustomFields(draftIssue.customFields),
-      },
-    });
-  };
+    if (currentSnapshot === initialSnapshot) return;
+    const handle = window.setTimeout(() => {
+      void updateIssueMutation.mutateAsync({
+        id: issue.id,
+        data: {
+          title: draftIssue.title,
+          description: draftIssue.description,
+          state: draftIssue.state,
+          priority: draftIssue.priority,
+          assigneeId: toNullableForeignKeyPayload(draftIssue.assigneeId),
+          projectId: draftIssue.projectId,
+          epicId: toNullableForeignKeyPayload(draftIssue.epicId),
+          sprintId: toNullableForeignKeyPayload(draftIssue.sprintId),
+          teamId: toNullableForeignKeyPayload(draftIssue.teamId),
+          parentIssueId: toNullableForeignKeyPayload(draftIssue.parentIssueId),
+          estimatedHours: draftIssue.estimatedHours,
+          actualHours: draftIssue.actualHours,
+          plannedStartDate: draftIssue.plannedStartDate,
+          plannedEndDate: draftIssue.plannedEndDate,
+          customFields: sanitizeCustomFields(draftIssue.customFields),
+        },
+      });
+    }, 350);
+    return () => window.clearTimeout(handle);
+  }, [currentSnapshot, initialSnapshot, draftIssue, issue, updateIssueMutation]);
 
-  const reset = () => {
-    if (!issue) return;
-    setDraftIssue(createDraft(issue));
-  };
+  const projectMap = useMemo(() => new Map(projects.map((project) => [project.id, project.name])), [projects]);
+  const epicMap = useMemo(() => new Map(epics.map((epic) => [epic.id, epic.title])), [epics]);
+  const sprintMap = useMemo(() => new Map(sprints.map((sprint) => [sprint.id, sprint.name])), [sprints]);
+  const teamMap = useMemo(() => new Map(teams.map((team) => [team.id, team.name])), [teams]);
+  const memberMap = useMemo(() => new Map(members.map((member) => [member.id, member.name])), [members]);
+  const childMap = useMemo(() => new Map(childIssues.map((child) => [child.id, child.title])), [childIssues]);
+
+  const visibleCustomFields = useMemo(
+    () =>
+      customFieldDefinitions
+        .filter((field) => field.showOnDetail && field.isVisible && field.isActive)
+        .sort((left, right) => left.sortOrder - right.sortOrder),
+    [customFieldDefinitions]
+  );
 
   const createChildIssue = async () => {
     if (!issue || !childTitle.trim()) return;
@@ -151,6 +176,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
       priority: 'MEDIUM',
     });
     setChildTitle('');
+    setIsAddingChild(false);
   };
 
   const addComment = async () => {
@@ -189,173 +215,1077 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   };
 
   if (issueQuery.isLoading || !draftIssue) {
-    return <AppLayout><Card className="section-panel"><CardContent className="p-10 text-center text-ink-400">{t('common.loading')}</CardContent></Card></AppLayout>;
+    return (
+      <AppLayout>
+        <div className="py-16 text-center text-ink-400">{t('common.loading')}</div>
+      </AppLayout>
+    );
   }
 
   if (!issue) {
-    return <AppLayout><Card className="section-panel"><CardContent className="p-10 text-center text-ink-400">{t('common.empty')}</CardContent></Card></AppLayout>;
+    return (
+      <AppLayout>
+        <div className="py-16 text-center text-ink-400">{t('common.empty')}</div>
+      </AppLayout>
+    );
   }
 
   return (
     <AppLayout>
-      <div className="space-y-6">
-        <div className="flex flex-col gap-4 border-b border-border-subtle pb-5 xl:flex-row xl:items-start xl:justify-between">
-          <div className="space-y-3">
-            <Link href={localizePath(locale, '/issues')} className="inline-flex items-center gap-2 text-sm text-ink-700">
-              <ArrowLeft className="h-4 w-4" />
-              {t('issues.detailPage.backToIssues')}
-            </Link>
-            <div className="space-y-2">
-              <div className="text-xs uppercase tracking-[0.18em] text-ink-400">{issue.identifier}</div>
-              <Input value={draftIssue.title} onChange={(event) => setDraftIssue((current) => current ? { ...current, title: event.target.value } : current)} className="h-auto border-0 bg-transparent px-0 text-4xl font-semibold shadow-none focus-visible:ring-0" />
+      <div className="mx-auto max-w-[1280px]">
+        <div className="flex flex-col gap-8 pb-10">
+          <header className="flex flex-col gap-6 border-b border-border-soft/80 pb-7">
+            <div className="min-w-0 space-y-4">
+              <div className="flex items-center gap-2 text-sm text-ink-500">
+                <Link
+                  href={localizePath(locale, '/issues')}
+                  className="inline-flex items-center gap-1.5 transition hover:text-ink-900"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  {t('issues.detailPage.backToIssues')}
+                </Link>
+                <ChevronRight className="h-4 w-4 text-ink-300" />
+                <span className="truncate text-ink-700">{issue.identifier}</span>
+              </div>
+              <EditableTitle
+                value={draftIssue.title}
+                onChange={(value) => setDraftIssue((current) => (current ? { ...current, title: value } : current))}
+              />
             </div>
+          </header>
+
+          <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_292px]">
+            <main className="min-w-0 space-y-8">
+              <section className="pb-2">
+                <MarkdownEditor
+                  value={draftIssue.description}
+                  onChange={(value) => setDraftIssue((current) => (current ? { ...current, description: value } : current))}
+                  mode={bodyMode}
+                  onEnterEdit={() => setBodyMode('edit')}
+                  onCancelEdit={() => setBodyMode('read')}
+                />
+              </section>
+
+              <DetailSection
+                title={t('issues.detailPage.subIssues')}
+                action={
+                  <div className="flex items-center gap-2 text-sm text-ink-400">
+                    <Plus className="h-4 w-4" />
+                    <span>{t('issues.detailPage.newSubIssue')}</span>
+                  </div>
+                }
+              >
+                {isAddingChild ? (
+                  <div className="flex items-center gap-3 border-b border-border-soft/80 pb-3">
+                    <Input
+                      value={childTitle}
+                      onChange={(event) => setChildTitle(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          void createChildIssue();
+                        }
+                        if (event.key === 'Escape') {
+                          setChildTitle('');
+                          setIsAddingChild(false);
+                        }
+                      }}
+                      placeholder={t('issues.detailPage.newSubIssue')}
+                      className="h-9 rounded-none border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+                    />
+                    <Button variant="ghost" size="sm" onClick={() => void createChildIssue()}>
+                      {t('common.create')}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setChildTitle('');
+                        setIsAddingChild(false);
+                      }}
+                    >
+                      {t('common.cancel')}
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingChild(true)}
+                    className="flex items-center gap-2 py-1 text-sm text-ink-400 transition hover:text-ink-700"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>{t('issues.detailPage.newSubIssue')}</span>
+                  </button>
+                )}
+                <div className="divide-y divide-border-soft">
+                  {childIssues.length ? (
+                    childIssues.map((child) => (
+                      <Link
+                        key={child.id}
+                        href={localizePath(locale, `/issues/${child.id}`)}
+                        className="flex items-center justify-between gap-4 py-3 transition hover:bg-slate-50/60"
+                      >
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium text-ink-900">{child.title}</div>
+                          <div className="mt-1 text-xs tracking-[0.18em] text-ink-400">{child.identifier}</div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <IssueStateBadge state={child.state} t={t} />
+                          <ChevronRight className="h-4 w-4 text-ink-300" />
+                        </div>
+                      </Link>
+                    ))
+                  ) : (
+                    <EmptyState label={t('issues.emptyStates.subIssues')} />
+                  )}
+                </div>
+              </DetailSection>
+
+              <DetailSection
+                id="resources"
+                title={t('issues.detailPage.resources')}
+                action={
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      onChange={(event) => uploadAttachment(event.target.files?.[0] ?? null)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center gap-2 py-1 text-sm text-ink-400 transition hover:text-ink-700"
+                    >
+                      <Paperclip className="h-4 w-4" />
+                      <span>{t('issues.detailPage.uploadAttachment')}</span>
+                    </button>
+                  </div>
+                }
+              >
+                <div className="divide-y divide-border-soft">
+                  {attachments.length ? (
+                    attachments.map((attachment) => (
+                      <div key={attachment.id} className="flex items-center justify-between gap-4 py-3">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium text-ink-900">{attachment.filename}</div>
+                          <div className="mt-1 text-xs text-ink-400">
+                            {formatSize(attachment.size)} · {formatDate(attachment.createdAt, locale)}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => downloadIssueAttachment(issue.id, attachment.id, attachment.filename)}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => deleteAttachmentMutation.mutate({ issueId: issue.id, attachmentId: attachment.id })}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <EmptyState label={t('issues.emptyStates.attachments')} />
+                  )}
+                </div>
+              </DetailSection>
+
+              <DetailSection title={t('issues.detailPage.linkedDocs')}>
+                <div className="grid gap-3">
+                  <Input
+                    value={docTitle}
+                    onChange={(event) => setDocTitle(event.target.value)}
+                    placeholder={t('issues.detail.docTitle')}
+                    className="h-10 rounded-xl border-border-soft/70 bg-transparent"
+                  />
+                  <EditableSurface
+                    value={docContent}
+                    onChange={setDocContent}
+                    placeholder={t('issues.detail.docContent')}
+                    minHeight={92}
+                  />
+                  <div className="flex justify-end">
+                    <Button variant="ghost" onClick={createLinkedDoc}>
+                      {t('common.create')}
+                    </Button>
+                  </div>
+                </div>
+                <div className="divide-y divide-border-soft">
+                  {docs.length ? (
+                    docs.map((doc) => (
+                      <div key={doc.id} className="flex items-center justify-between gap-4 py-3">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium text-ink-900">{doc.title}</div>
+                          <div className="mt-1 text-xs text-ink-400">{doc.slug}</div>
+                        </div>
+                        <Badge variant="neutral">{doc.status}</Badge>
+                      </div>
+                    ))
+                  ) : (
+                    <EmptyState label={t('issues.emptyStates.docs')} />
+                  )}
+                </div>
+              </DetailSection>
+
+              <DetailSection id="relations" title={t('issues.tabs.relations')}>
+                <div className="grid gap-3 md:grid-cols-[1fr_220px_auto]">
+                  <Input
+                    value={relationTargetId}
+                    onChange={(event) => setRelationTargetId(event.target.value)}
+                    placeholder={t('issues.detail.relationTarget')}
+                    className="h-11 rounded-2xl border-border-soft bg-transparent"
+                  />
+                  <Select value={relationType} onValueChange={(value) => setRelationType(value as (typeof RELATION_TYPES)[number])}>
+                    <SelectTrigger className="h-11 rounded-2xl border-border-soft bg-transparent">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {RELATION_TYPES.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {t(`issues.relationType.${option}`)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button variant="ghost" onClick={addRelation}>
+                    <Link2 className="mr-2 h-4 w-4" />
+                    {t('common.create')}
+                  </Button>
+                </div>
+                <div className="divide-y divide-border-soft">
+                  {relations.length ? (
+                    relations.map((relation) => (
+                      <div key={relation.id} className="flex items-center justify-between gap-4 py-3">
+                        <div>
+                          <div className="text-sm font-medium text-ink-900">{t(`issues.relationType.${relation.relationType}`)}</div>
+                          <div className="mt-1 text-xs text-ink-400">
+                            {relation.fromIssueId} → {relation.toIssueId}
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteRelationMutation.mutate({ issueId: issue.id, relationId: relation.id })}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))
+                  ) : (
+                    <EmptyState label={t('issues.emptyStates.relations')} />
+                  )}
+                </div>
+              </DetailSection>
+
+              <DetailSection id="activity" title={t('issues.tabs.activity')}>
+                <div className="space-y-6">
+                  <div className="border-b border-border-soft pb-6">
+                    <div className="mb-3 text-xs uppercase tracking-[0.18em] text-ink-400">{t('issues.tabs.comments')}</div>
+                  <div className="flex items-start gap-3">
+                      <div className="mt-1 flex h-8 w-8 items-center justify-center rounded-full bg-brand-600/12 text-brand-600">
+                        <MessageSquare className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1 space-y-3">
+                        <EditableSurface
+                          value={commentBody}
+                          onChange={setCommentBody}
+                          placeholder={t('issues.detail.commentPlaceholder')}
+                          minHeight={96}
+                        />
+                        <div className="flex justify-end">
+                          <Button variant="ghost" onClick={addComment}>
+                            {t('issues.detail.addComment')}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-6 divide-y divide-border-soft">
+                      {comments.length ? (
+                        comments.map((comment) => (
+                          <div key={comment.id} className="py-3">
+                            <div className="text-sm leading-6 text-ink-900">{comment.body}</div>
+                            <div className="mt-2 text-xs text-ink-400">
+                              #{comment.authorId} · {formatDate(comment.createdAt, locale)}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <EmptyState label={t('issues.emptyStates.comments')} />
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="mb-3 text-xs uppercase tracking-[0.18em] text-ink-400">Changes</div>
+                    <div className="divide-y divide-border-soft">
+                      {activity.length ? (
+                        activity.map((event) => (
+                          <div key={event.id} className="py-3">
+                            <div className="text-sm font-medium text-ink-900">{event.summary}</div>
+                            <div className="mt-1 text-xs text-ink-400">
+                              {event.actionType} · {formatDate(event.createdAt, locale)}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <EmptyState label={t('issues.emptyStates.activity')} />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </DetailSection>
+            </main>
+
+            <aside className="space-y-5 xl:sticky xl:top-24 xl:self-start">
+              <PropertyPanel title={t('issues.detailPage.properties')}>
+                <PropertyGroup title="Properties">
+                  <InlineSelectRow
+                    label={t('issues.columns.state')}
+                    editor={
+                      <Select
+                        value={draftIssue.state}
+                        onValueChange={(value) => {
+                          setDraftIssue((current) => (current ? { ...current, state: value as Issue['state'] } : current));
+                          setActiveProperty(null);
+                        }}
+                      >
+                        <SelectTrigger className="h-auto min-h-0 rounded-none border-0 bg-transparent px-0 py-0 text-sm text-ink-900 shadow-none hover:bg-transparent focus:ring-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ISSUE_STATES.map((value) => (
+                            <SelectItem key={value} value={value}>
+                              {t(`common.status.${value}`)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    }
+                  />
+                  <InlineSelectRow
+                    label={t('issues.columns.priority')}
+                    editor={
+                      <Select
+                        value={draftIssue.priority}
+                        onValueChange={(value) => {
+                          setDraftIssue((current) => (current ? { ...current, priority: value as Issue['priority'] } : current));
+                          setActiveProperty(null);
+                        }}
+                      >
+                        <SelectTrigger className="h-auto min-h-0 rounded-none border-0 bg-transparent px-0 py-0 text-sm text-ink-900 shadow-none hover:bg-transparent focus:ring-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ISSUE_PRIORITIES.map((value) => (
+                            <SelectItem key={value} value={value}>
+                              {t(`common.priority.${value}`)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    }
+                  />
+                  <InlineSelectRow
+                    label={t('issues.detailPage.assignee')}
+                    editor={
+                      <Select
+                        value={stringValue(draftIssue.assigneeId)}
+                        onValueChange={(value) => {
+                          setDraftIssue((current) => (current ? { ...current, assigneeId: parseNullableNumber(value) } : current));
+                          setActiveProperty(null);
+                        }}
+                      >
+                        <SelectTrigger className="h-auto min-h-0 rounded-none border-0 bg-transparent px-0 py-0 text-sm text-ink-900 shadow-none hover:bg-transparent focus:ring-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={EMPTY}>{t('common.notSet')}</SelectItem>
+                          {members.map((member) => (
+                            <SelectItem key={member.id} value={String(member.id)}>
+                              {member.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    }
+                  />
+                </PropertyGroup>
+
+                <PropertyGroup title="Planning">
+                  <InlineSelectRow
+                    label={t('issues.columns.project')}
+                    editor={
+                      <Select
+                        value={stringValue(draftIssue.projectId)}
+                        onValueChange={(value) => {
+                          setDraftIssue((current) => (current ? { ...current, projectId: Number(value) } : current));
+                          setActiveProperty(null);
+                        }}
+                      >
+                        <SelectTrigger className="h-auto min-h-0 rounded-none border-0 bg-transparent px-0 py-0 text-sm text-ink-900 shadow-none hover:bg-transparent focus:ring-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {projects.map((project) => (
+                            <SelectItem key={project.id} value={String(project.id)}>
+                              {project.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    }
+                  />
+                  <InlineSelectRow
+                    label={t('issues.detailPage.epic')}
+                    editor={
+                      <Select
+                        value={stringValue(draftIssue.epicId)}
+                        onValueChange={(value) => {
+                          setDraftIssue((current) => (current ? { ...current, epicId: parseNullableNumber(value) } : current));
+                          setActiveProperty(null);
+                        }}
+                      >
+                        <SelectTrigger className="h-auto min-h-0 rounded-none border-0 bg-transparent px-0 py-0 text-sm text-ink-900 shadow-none hover:bg-transparent focus:ring-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={EMPTY}>{t('common.notSet')}</SelectItem>
+                          {epics.map((epic) => (
+                            <SelectItem key={epic.id} value={String(epic.id)}>
+                              {epic.title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    }
+                  />
+                  <InlineSelectRow
+                    label={t('issues.detailPage.sprint')}
+                    editor={
+                      <Select
+                        value={stringValue(draftIssue.sprintId)}
+                        onValueChange={(value) => {
+                          setDraftIssue((current) => (current ? { ...current, sprintId: parseNullableNumber(value) } : current));
+                          setActiveProperty(null);
+                        }}
+                      >
+                        <SelectTrigger className="h-auto min-h-0 rounded-none border-0 bg-transparent px-0 py-0 text-sm text-ink-900 shadow-none hover:bg-transparent focus:ring-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={EMPTY}>{t('common.notSet')}</SelectItem>
+                          {sprints.map((sprint) => (
+                            <SelectItem key={sprint.id} value={String(sprint.id)}>
+                              {sprint.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    }
+                  />
+                  <InlineSelectRow
+                    label={t('issues.detailPage.team')}
+                    editor={
+                      <Select
+                        value={stringValue(draftIssue.teamId)}
+                        onValueChange={(value) => {
+                          setDraftIssue((current) => (current ? { ...current, teamId: parseNullableNumber(value) } : current));
+                          setActiveProperty(null);
+                        }}
+                      >
+                        <SelectTrigger className="h-auto min-h-0 rounded-none border-0 bg-transparent px-0 py-0 text-sm text-ink-900 shadow-none hover:bg-transparent focus:ring-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={EMPTY}>{t('common.notSet')}</SelectItem>
+                          {teams.map((team) => (
+                            <SelectItem key={team.id} value={String(team.id)}>
+                              {team.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    }
+                  />
+                  <InlineSelectRow
+                    label={t('issues.detailPage.parentIssue')}
+                    editor={
+                      <Select
+                        value={stringValue(draftIssue.parentIssueId)}
+                        onValueChange={(value) => {
+                          setDraftIssue((current) => (current ? { ...current, parentIssueId: parseNullableNumber(value) } : current));
+                          setActiveProperty(null);
+                        }}
+                      >
+                        <SelectTrigger className="h-auto min-h-0 rounded-none border-0 bg-transparent px-0 py-0 text-sm text-ink-900 shadow-none hover:bg-transparent focus:ring-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={EMPTY}>{t('common.notSet')}</SelectItem>
+                          {childIssues.map((child) => (
+                            <SelectItem key={child.id} value={String(child.id)}>
+                              {child.title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    }
+                  />
+                </PropertyGroup>
+
+                <PropertyGroup title="Estimates">
+                  <InlineInputRow
+                    label={t('issues.detailPage.estimatedHours')}
+                    valueLabel={draftIssue.estimatedHours ? `${draftIssue.estimatedHours}h` : t('common.notSet')}
+                    isEditing={activeProperty === 'estimatedHours'}
+                    onActivate={() => setActiveProperty('estimatedHours')}
+                    editor={
+                      <Input
+                        type="number"
+                        value={draftIssue.estimatedHours}
+                        onChange={(event) =>
+                          setDraftIssue((current) =>
+                            current ? { ...current, estimatedHours: Number(event.target.value) || 0 } : current
+                          )
+                        }
+                        onBlur={() => setActiveProperty(null)}
+                        className="h-9 rounded-xl border-border-soft bg-transparent"
+                      />
+                    }
+                  />
+                  <InlineInputRow
+                    label={t('issues.detailPage.actualHours')}
+                    valueLabel={draftIssue.actualHours ? `${draftIssue.actualHours}h` : t('common.notSet')}
+                    isEditing={activeProperty === 'actualHours'}
+                    onActivate={() => setActiveProperty('actualHours')}
+                    editor={
+                      <Input
+                        type="number"
+                        value={draftIssue.actualHours}
+                        onChange={(event) =>
+                          setDraftIssue((current) =>
+                            current ? { ...current, actualHours: Number(event.target.value) || 0 } : current
+                          )
+                        }
+                        onBlur={() => setActiveProperty(null)}
+                        className="h-9 rounded-xl border-border-soft bg-transparent"
+                      />
+                    }
+                  />
+                  <InlineInputRow
+                    label={t('issues.detailPage.plannedStart')}
+                    valueLabel={draftIssue.plannedStartDate || t('common.notSet')}
+                    isEditing={activeProperty === 'plannedStart'}
+                    onActivate={() => setActiveProperty('plannedStart')}
+                    editor={
+                      <Input
+                        type="date"
+                        value={draftIssue.plannedStartDate ?? ''}
+                        onChange={(event) =>
+                          setDraftIssue((current) =>
+                            current ? { ...current, plannedStartDate: event.target.value || null } : current
+                          )
+                        }
+                        onBlur={() => setActiveProperty(null)}
+                        className="h-9 rounded-xl border-border-soft bg-transparent"
+                      />
+                    }
+                  />
+                  <InlineInputRow
+                    label={t('issues.detailPage.plannedEnd')}
+                    valueLabel={draftIssue.plannedEndDate || t('common.notSet')}
+                    isEditing={activeProperty === 'plannedEnd'}
+                    onActivate={() => setActiveProperty('plannedEnd')}
+                    editor={
+                      <Input
+                        type="date"
+                        value={draftIssue.plannedEndDate ?? ''}
+                        onChange={(event) =>
+                          setDraftIssue((current) =>
+                            current ? { ...current, plannedEndDate: event.target.value || null } : current
+                          )
+                        }
+                        onBlur={() => setActiveProperty(null)}
+                        className="h-9 rounded-xl border-border-soft bg-transparent"
+                      />
+                    }
+                  />
+                </PropertyGroup>
+              </PropertyPanel>
+
+              <PropertyPanel title="Custom fields">
+                {visibleCustomFields.length ? (
+                  <div className="space-y-0">
+                    {visibleCustomFields.map((field) => (
+                      <InlineCustomFieldRow
+                        key={field.id}
+                        field={field}
+                        value={draftIssue.customFields[field.key]}
+                        isEditing={activeProperty === `custom:${field.key}`}
+                        onActivate={() => setActiveProperty(`custom:${field.key}`)}
+                        onDone={() => setActiveProperty(null)}
+                        onChange={(value) =>
+                          setDraftIssue((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  customFields: {
+                                    ...current.customFields,
+                                    [field.key]: value,
+                                  },
+                                }
+                              : current
+                          )
+                        }
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState label={t('issues.emptyStates.customFields')} compact />
+                )}
+              </PropertyPanel>
+
+              <PropertyPanel title="Links">
+                <div className="space-y-1">
+                  <QuickLink href="#relations" label={t('issues.tabs.relations')} count={relations.length} />
+                  <QuickLink href="#resources" label={t('issues.detailPage.resources')} count={attachments.length} />
+                  <QuickLink href="#activity" label={t('issues.tabs.activity')} count={activity.length + comments.length} />
+                </div>
+              </PropertyPanel>
+            </aside>
           </div>
-          <div className="flex items-center gap-3">
-            <Button variant="secondary" onClick={reset} disabled={!isDirty}>{t('common.cancel')}</Button>
-            <Button onClick={save} disabled={!isDirty || updateIssueMutation.isPending}><Save className="mr-2 h-4 w-4" />{t('common.save')}</Button>
-          </div>
-        </div>
-
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-          <div className="space-y-6">
-            <Card className="section-panel">
-              <CardHeader className="p-0 pb-4"><CardTitle>{t('issues.detailPage.description')}</CardTitle></CardHeader>
-              <CardContent className="p-0"><MarkdownEditor value={draftIssue.description} onChange={(value) => setDraftIssue((current) => current ? { ...current, description: value } : current)} /></CardContent>
-            </Card>
-
-            <Card className="section-panel">
-              <CardHeader className="flex-row items-center justify-between p-0 pb-4"><CardTitle>{t('issues.detailPage.subIssues')}</CardTitle><Badge variant="neutral">{childIssues.length}</Badge></CardHeader>
-              <CardContent className="space-y-4 p-0">
-                <div className="flex gap-3"><Input value={childTitle} onChange={(event) => setChildTitle(event.target.value)} placeholder={t('issues.detailPage.newSubIssue')} /><Button onClick={createChildIssue}><Plus className="mr-2 h-4 w-4" />{t('common.create')}</Button></div>
-                {childIssues.length ? childIssues.map((child) => <Link key={child.id} href={localizePath(locale, `/issues/${child.id}`)} className="drawer-panel block"><div className="flex items-center justify-between gap-3"><div><div className="text-sm font-medium text-ink-900">{child.title}</div><div className="mt-1 text-xs text-ink-400">{child.identifier}</div></div><Badge variant={child.state === 'DONE' ? 'success' : child.state === 'IN_PROGRESS' ? 'brand' : 'neutral'}>{t(`common.status.${child.state}`)}</Badge></div></Link>) : <EmptyState label={t('issues.emptyStates.subIssues')} />}
-              </CardContent>
-            </Card>
-
-            <Card id="resources" className="section-panel">
-              <CardHeader className="flex-row items-center justify-between p-0 pb-4"><CardTitle>{t('issues.detailPage.resources')}</CardTitle><div className="flex items-center gap-2"><input ref={fileInputRef} type="file" className="hidden" onChange={(event) => uploadAttachment(event.target.files?.[0] ?? null)} /><Button variant="secondary" onClick={() => fileInputRef.current?.click()}><Paperclip className="mr-2 h-4 w-4" />{t('issues.detailPage.uploadAttachment')}</Button></div></CardHeader>
-              <CardContent className="space-y-3 p-0">
-                {attachments.length ? attachments.map((attachment) => <div key={attachment.id} className="drawer-panel flex items-center justify-between gap-4"><div><div className="text-sm font-medium text-ink-900">{attachment.filename}</div><div className="mt-1 text-xs text-ink-400">{formatSize(attachment.size)} · {formatDate(attachment.createdAt, locale)}</div></div><div className="flex items-center gap-2"><Button variant="ghost" size="icon" onClick={() => downloadIssueAttachment(issue.id, attachment.id, attachment.filename)}><Download className="h-4 w-4" /></Button><Button variant="ghost" size="icon" onClick={() => deleteAttachmentMutation.mutate({ issueId: issue.id, attachmentId: attachment.id })}><Trash2 className="h-4 w-4" /></Button></div></div>) : <EmptyState label={t('issues.emptyStates.attachments')} />}
-              </CardContent>
-            </Card>
-
-            <Card className="section-panel">
-              <CardHeader className="p-0 pb-4"><CardTitle>{t('issues.detailPage.linkedDocs')}</CardTitle></CardHeader>
-              <CardContent className="space-y-4 p-0">
-                <div className="grid gap-3"><Input value={docTitle} onChange={(event) => setDocTitle(event.target.value)} placeholder={t('issues.detail.docTitle')} /><Textarea value={docContent} onChange={(event) => setDocContent(event.target.value)} placeholder={t('issues.detail.docContent')} /><div className="flex justify-end"><Button onClick={createLinkedDoc}>{t('common.create')}</Button></div></div>
-                {docs.length ? docs.map((doc) => <div key={doc.id} className="drawer-panel"><div className="text-sm font-medium text-ink-900">{doc.title}</div><div className="mt-1 text-xs text-ink-400">{doc.slug}</div></div>) : <EmptyState label={t('issues.emptyStates.docs')} />}
-              </CardContent>
-            </Card>
-
-            <Card id="comments" className="section-panel">
-              <CardHeader className="p-0 pb-4"><CardTitle>{t('issues.tabs.comments')}</CardTitle></CardHeader>
-              <CardContent className="space-y-4 p-0">
-                <Textarea value={commentBody} onChange={(event) => setCommentBody(event.target.value)} placeholder={t('issues.detail.commentPlaceholder')} />
-                <div className="flex justify-end"><Button onClick={addComment}>{t('issues.detail.addComment')}</Button></div>
-                <Separator />
-                {comments.length ? comments.map((comment) => <div key={comment.id} className="drawer-panel"><div className="text-sm text-ink-900">{comment.body}</div><div className="mt-2 text-xs text-ink-400">#{comment.authorId} · {formatDate(comment.createdAt, locale)}</div></div>) : <EmptyState label={t('issues.emptyStates.comments')} />}
-              </CardContent>
-            </Card>
-
-            <Card id="relations" className="section-panel">
-              <CardHeader className="p-0 pb-4"><CardTitle>{t('issues.tabs.relations')}</CardTitle></CardHeader>
-              <CardContent className="space-y-4 p-0">
-                <div className="grid gap-3 md:grid-cols-[1fr_220px_auto]"><Input value={relationTargetId} onChange={(event) => setRelationTargetId(event.target.value)} placeholder={t('issues.detail.relationTarget')} /><Select value={relationType} onValueChange={(value) => setRelationType(value as (typeof RELATION_TYPES)[number])}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{RELATION_TYPES.map((option) => <SelectItem key={option} value={option}>{t(`issues.relationType.${option}`)}</SelectItem>)}</SelectContent></Select><Button onClick={addRelation}><Link2 className="mr-2 h-4 w-4" />{t('common.create')}</Button></div>
-                {relations.length ? relations.map((relation) => <div key={relation.id} className="drawer-panel flex items-center justify-between gap-4"><div><div className="text-sm font-medium text-ink-900">{t(`issues.relationType.${relation.relationType}`)}</div><div className="mt-1 text-xs text-ink-400">{relation.fromIssueId} → {relation.toIssueId}</div></div><Button variant="ghost" size="icon" onClick={() => deleteRelationMutation.mutate({ issueId: issue.id, relationId: relation.id })}><Trash2 className="h-4 w-4" /></Button></div>) : <EmptyState label={t('issues.emptyStates.relations')} />}
-              </CardContent>
-            </Card>
-
-            <Card id="activity" className="section-panel">
-              <CardHeader className="p-0 pb-4"><CardTitle>{t('issues.tabs.activity')}</CardTitle></CardHeader>
-              <CardContent className="space-y-3 p-0">{activity.length ? activity.map((event) => <div key={event.id} className="drawer-panel"><div className="text-sm font-medium text-ink-900">{event.summary}</div><div className="mt-1 text-xs text-ink-400">{event.actionType} · {formatDate(event.createdAt, locale)}</div></div>) : <EmptyState label={t('issues.emptyStates.activity')} />}</CardContent>
-            </Card>
-          </div>
-
-          <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
-            <Card className="section-panel">
-              <CardHeader className="p-0 pb-4"><CardTitle>{t('issues.detailPage.properties')}</CardTitle></CardHeader>
-              <CardContent className="space-y-4 p-0">
-                <PropertySelect label={t('issues.columns.state')} value={draftIssue.state} onChange={(value) => setDraftIssue((current) => current ? { ...current, state: value as Issue['state'] } : current)} options={ISSUE_STATES.map((value) => [value, t(`common.status.${value}`)])} />
-                <PropertySelect label={t('issues.columns.priority')} value={draftIssue.priority} onChange={(value) => setDraftIssue((current) => current ? { ...current, priority: value as Issue['priority'] } : current)} options={ISSUE_PRIORITIES.map((value) => [value, t(`common.priority.${value}`)])} />
-                <PropertySelect label={t('issues.detailPage.assignee')} value={stringValue(draftIssue.assigneeId)} onChange={(value) => setDraftIssue((current) => current ? { ...current, assigneeId: parseNullableNumber(value) } : current)} options={[[EMPTY, t('common.notSet')], ...members.map((member) => [String(member.id), member.name])]} />
-                <PropertySelect label={t('issues.columns.project')} value={String(draftIssue.projectId)} onChange={(value) => setDraftIssue((current) => current ? { ...current, projectId: Number(value) } : current)} options={projects.map((project) => [String(project.id), project.name])} />
-                <PropertySelect label={t('issues.columns.epic')} value={stringValue(draftIssue.epicId)} onChange={(value) => setDraftIssue((current) => current ? { ...current, epicId: parseNullableNumber(value) } : current)} options={[[EMPTY, t('common.notSet')], ...epics.map((epic) => [String(epic.id), epic.title])]} />
-                <PropertySelect label={t('issues.columns.sprint')} value={stringValue(draftIssue.sprintId)} onChange={(value) => setDraftIssue((current) => current ? { ...current, sprintId: parseNullableNumber(value) } : current)} options={[[EMPTY, t('common.notSet')], ...sprints.map((sprint) => [String(sprint.id), sprint.name])]} />
-                <PropertySelect label={t('issues.columns.team')} value={stringValue(draftIssue.teamId)} onChange={(value) => setDraftIssue((current) => current ? { ...current, teamId: parseNullableNumber(value) } : current)} options={[[EMPTY, t('common.notSet')], ...teams.map((team) => [String(team.id), team.name])]} />
-                <PropertySelect label={t('issues.detailPage.parentIssue')} value={stringValue(draftIssue.parentIssueId)} onChange={(value) => setDraftIssue((current) => current ? { ...current, parentIssueId: parseNullableNumber(value) } : current)} options={[[EMPTY, t('common.notSet')], ...childIssues.map((child) => [String(child.id), child.title])]} />
-                <PropertyInput label={t('issues.detail.estimate')} value={String(draftIssue.estimatedHours)} onChange={(value) => setDraftIssue((current) => current ? { ...current, estimatedHours: Number(value) || 0 } : current)} type="number" />
-                <PropertyInput label={t('issues.detail.actual')} value={String(draftIssue.actualHours)} onChange={(value) => setDraftIssue((current) => current ? { ...current, actualHours: Number(value) || 0 } : current)} type="number" />
-                <PropertyInput label={t('issues.detailPage.plannedStart')} value={draftIssue.plannedStartDate ?? ''} onChange={(value) => setDraftIssue((current) => current ? { ...current, plannedStartDate: value || null } : current)} type="date" />
-                <PropertyInput label={t('issues.detailPage.plannedEnd')} value={draftIssue.plannedEndDate ?? ''} onChange={(value) => setDraftIssue((current) => current ? { ...current, plannedEndDate: value || null } : current)} type="date" />
-              </CardContent>
-            </Card>
-
-            <Card className="section-panel">
-              <CardHeader className="p-0 pb-4"><CardTitle>{t('issues.customFields.detailTitle')}</CardTitle></CardHeader>
-              <CardContent className="space-y-4 p-0">
-                {customFieldDefinitions.filter((field) => field.showOnDetail).length ? customFieldDefinitions.filter((field) => field.showOnDetail).map((field) => <PropertyField key={field.id} label={field.name}><CustomFieldInput definition={field} teams={teams} members={members} value={draftIssue.customFields[field.key]} onChange={(value) => setDraftIssue((current) => current ? { ...current, customFields: { ...current.customFields, [field.key]: value } } : current)} /></PropertyField>) : <EmptyState label={t('common.empty')} compact />}
-              </CardContent>
-            </Card>
-
-            <Card className="section-panel">
-              <CardHeader className="p-0 pb-4"><CardTitle>{t('issues.detailPage.summary')}</CardTitle></CardHeader>
-              <CardContent className="space-y-3 p-0 text-sm text-ink-700">
-                <SummaryRow label={t('issues.tabs.relations')} value={String(relations.length)} action="#relations" />
-                <SummaryRow label={t('issues.detailPage.resources')} value={String(attachments.length)} action="#resources" />
-                <SummaryRow label={t('issues.tabs.comments')} value={String(comments.length)} action="#comments" />
-                <SummaryRow label={t('issues.tabs.activity')} value={String(activity.length)} action="#activity" />
-              </CardContent>
-            </Card>
-          </aside>
         </div>
       </div>
     </AppLayout>
   );
 }
 
+function DetailSection({
+  id,
+  title,
+  action,
+  children,
+}: {
+  id?: string;
+  title: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section id={id} className="space-y-4 border-t border-border-soft/80 pt-6 first:border-t-0 first:pt-0">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[18px] font-semibold tracking-tight text-ink-900">{title}</h2>
+        {action}
+      </div>
+      <div className="space-y-3">{children}</div>
+    </section>
+  );
+}
+
+function PropertyPanel({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="border-t border-border-soft/70 px-1 pt-4 first:border-t-0 first:pt-0">
+      <div className="mb-3 text-[12px] font-medium text-ink-700">{title}</div>
+      <div className="space-y-4">{children}</div>
+    </section>
+  );
+}
+
+function PropertyGroup({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <div className="mb-1 text-[11px] uppercase tracking-[0.18em] text-ink-400">{title}</div>
+      <div className="divide-y divide-border-soft/70">{children}</div>
+    </div>
+  );
+}
+
+function InlineSelectRow({
+  label,
+  editor,
+}: {
+  label: string;
+  editor: ReactNode;
+}) {
+  return (
+    <div className="py-2">
+      <div className="mb-1 text-[11px] uppercase tracking-[0.18em] text-ink-400">{label}</div>
+      <div className="rounded-xl bg-white/40 p-1">{editor}</div>
+    </div>
+  );
+}
+
+function InlineInputRow({
+  label,
+  valueLabel,
+  isEditing,
+  onActivate,
+  editor,
+}: {
+  label: string;
+  valueLabel: string;
+  isEditing: boolean;
+  onActivate: () => void;
+  editor: ReactNode;
+}) {
+  return (
+    <div className="py-2">
+      <div className="mb-1 text-[11px] uppercase tracking-[0.18em] text-ink-400">{label}</div>
+      {isEditing ? (
+        <div className="space-y-2 rounded-xl bg-white/50 p-1.5">{editor}</div>
+      ) : (
+        <button
+          type="button"
+          onClick={onActivate}
+          className="group flex w-full items-center justify-between py-1.5 text-left text-sm text-ink-900 transition hover:text-brand-600"
+        >
+          <span className="truncate">{valueLabel}</span>
+          <ChevronRight className="h-4 w-4 text-ink-300 opacity-0 transition group-hover:opacity-100" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function InlineCustomFieldRow({
+  field,
+  value,
+  isEditing,
+  onActivate,
+  onDone,
+  onChange,
+}: {
+  field: CustomFieldDefinition;
+  value: unknown;
+  isEditing: boolean;
+  onActivate: () => void;
+  onDone?: () => void;
+  onChange: (value: unknown) => void;
+}) {
+  return (
+    <div className="border-t border-border-soft/70 first:border-t-0 py-2">
+      <div className="mb-1 text-[11px] uppercase tracking-[0.18em] text-ink-400">{field.name}</div>
+      {isEditing ? (
+        <div className="space-y-2 rounded-xl bg-white/50 p-1.5">
+          <CustomFieldInput field={field} value={value} onChange={onChange} onDone={onDone} />
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={onActivate}
+          className="group flex w-full items-center justify-between py-1.5 text-left text-sm text-ink-900 transition hover:text-brand-600"
+        >
+          <span className="truncate">{formatCustomFieldValue(field, value)}</span>
+          <ChevronRight className="h-4 w-4 text-ink-300 opacity-0 transition group-hover:opacity-100" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function QuickLink({ href, label, count }: { href: string; label: string; count: number }) {
+  return (
+    <a href={href} className="flex items-center justify-between py-1.5 text-sm text-ink-700 transition hover:text-ink-900">
+      <span>{label}</span>
+      <span className="text-ink-400">{count}</span>
+    </a>
+  );
+}
+
+function IssueStateBadge({
+  state,
+  t,
+}: {
+  state: Issue['state'];
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}) {
+  if (state === 'DONE') return <Badge variant="success">{t(`common.status.${state}`)}</Badge>;
+  if (state === 'IN_PROGRESS' || state === 'IN_REVIEW') return <Badge variant="brand">{t(`common.status.${state}`)}</Badge>;
+  if (state === 'CANCELED') return <Badge variant="danger">{t(`common.status.${state}`)}</Badge>;
+  return <Badge variant="neutral">{t(`common.status.${state}`)}</Badge>;
+}
+
+function EmptyState({ label, compact = false }: { label: string; compact?: boolean }) {
+  return <div className={compact ? 'py-2 text-sm text-ink-400' : 'py-4 text-sm text-ink-400'}>{label}</div>;
+}
+
+function EditableTitle({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div
+      contentEditable
+      suppressContentEditableWarning
+      onInput={(event) => onChange(event.currentTarget.textContent ?? '')}
+      className="min-h-[1.2em] cursor-text text-[40px] font-semibold leading-[1.08] tracking-[-0.03em] text-ink-900 outline-none lg:text-[46px]"
+    >
+      {value}
+    </div>
+  );
+}
+
+function EditableSurface({
+  value,
+  onChange,
+  placeholder,
+  minHeight = 88,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  minHeight?: number;
+}) {
+  return (
+    <div className="rounded-2xl border border-border-soft/70 bg-white/48 px-4 py-3 transition focus-within:border-border-soft focus-within:bg-white/70">
+      <div
+        contentEditable
+        suppressContentEditableWarning
+        data-placeholder={placeholder}
+        onInput={(event) => onChange(event.currentTarget.textContent ?? '')}
+        className="editable-surface min-h-[var(--editable-min-height)] text-sm leading-7 text-ink-900 outline-none"
+        style={{ ['--editable-min-height' as string]: `${minHeight}px` }}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
 function createDraft(issue: Issue): DraftIssue {
-  return { title: issue.title, description: issue.description ?? '', state: issue.state, priority: issue.priority, assigneeId: issue.assigneeId, projectId: issue.projectId, epicId: issue.epicId, sprintId: issue.sprintId, teamId: issue.teamId, parentIssueId: issue.parentIssueId, estimatedHours: issue.estimatedHours, actualHours: issue.actualHours, plannedStartDate: issue.plannedStartDate, plannedEndDate: issue.plannedEndDate, customFields: { ...(issue.customFields ?? {}) } };
+  return {
+    title: issue.title,
+    description: issue.description ?? '',
+    state: issue.state,
+    priority: issue.priority,
+    assigneeId: issue.assigneeId,
+    projectId: issue.projectId,
+    epicId: issue.epicId,
+    sprintId: issue.sprintId,
+    teamId: issue.teamId,
+    parentIssueId: issue.parentIssueId,
+    estimatedHours: issue.estimatedHours,
+    actualHours: issue.actualHours,
+    plannedStartDate: issue.plannedStartDate,
+    plannedEndDate: issue.plannedEndDate,
+    customFields: issue.customFields ?? {},
+  };
 }
 
-function normalizeDraft(draft: DraftIssue) { return JSON.stringify({ ...draft, customFields: sanitizeCustomFields(draft.customFields) }); }
-
-function sanitizeCustomFields(values: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(Object.entries(values).map(([key, value]) => [key, normalizeCustomFieldValue(value)] as const).filter(([, value]) => value !== '' && value != null && !(Array.isArray(value) && value.length === 0)));
+function normalizeDraft(draft: DraftIssue) {
+  return JSON.stringify({
+    ...draft,
+    customFields: sanitizeCustomFields(draft.customFields),
+  });
 }
 
-function normalizeCustomFieldValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.filter(Boolean);
-  if (typeof value !== 'string') return value;
-  const trimmed = value.trim();
-  if (!trimmed) return '';
-  if (trimmed === 'true' || trimmed === 'false') return trimmed === 'true';
-  if (trimmed.includes(',') && !Number.isFinite(Number(trimmed))) return trimmed.split(',').map((item) => item.trim()).filter(Boolean);
-  return trimmed;
+function sanitizeCustomFields(customFields: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(customFields).map(([key, value]) => [key, sanitizeCustomFieldValue(value)])
+  );
 }
 
-function CustomFieldInput({ definition, value, onChange, teams, members }: { definition: CustomFieldDefinition; value: unknown; onChange: (value: unknown) => void; teams: Array<{ id: number; name?: string }>; members: Array<{ id: number; name: string }> }) {
-  switch (definition.dataType) {
-    case 'TEXTAREA': return <Textarea value={String(value ?? '')} onChange={(event) => onChange(event.target.value)} />;
-    case 'NUMBER': return <Input type="number" value={String(value ?? '')} onChange={(event) => onChange(event.target.value)} />;
-    case 'DATE': return <Input type="date" value={String(value ?? '')} onChange={(event) => onChange(event.target.value)} />;
-    case 'DATETIME': return <Input type="datetime-local" value={String(value ?? '')} onChange={(event) => onChange(event.target.value)} />;
-    case 'BOOLEAN': return <PropertySelect value={stringValue(typeof value === 'boolean' ? String(value) : value)} onChange={(next) => onChange(next === EMPTY ? '' : next)} options={[[EMPTY, ''], ['true', 'True'], ['false', 'False']]} compact />;
-    case 'SINGLE_SELECT': return <PropertySelect value={stringValue(value)} onChange={(next) => onChange(next === EMPTY ? '' : next)} options={[[EMPTY, ''], ...definition.options.filter((option) => option.isActive).map((option) => [option.value, option.label])]} compact />;
-    case 'MULTI_SELECT': return <Input value={Array.isArray(value) ? value.join(', ') : String(value ?? '')} onChange={(event) => onChange(event.target.value)} placeholder="a, b, c" />;
-    case 'TEAM': return <PropertySelect value={stringValue(value)} onChange={(next) => onChange(parseNullableNumber(next))} options={[[EMPTY, ''], ...teams.map((team) => [String(team.id), team.name ?? `#${team.id}`])]} compact />;
-    case 'USER': return <PropertySelect value={stringValue(value)} onChange={(next) => onChange(parseNullableNumber(next))} options={[[EMPTY, ''], ...members.map((member) => [String(member.id), member.name])]} compact />;
-    default: return <Input value={String(value ?? '')} onChange={(event) => onChange(event.target.value)} />;
+function sanitizeCustomFieldValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map((item) => sanitizeCustomFieldValue(item));
+  if (value === '') return null;
+  if (value && typeof value === 'object') return value;
+  return value;
+}
+
+function CustomFieldInput({
+  field,
+  value,
+  onChange,
+  onDone,
+}: {
+  field: CustomFieldDefinition;
+  value: unknown;
+  onChange: (value: unknown) => void;
+  onDone?: () => void;
+}) {
+  switch (field.dataType) {
+    case 'TEXTAREA':
+      return (
+        <Textarea
+          value={String(value ?? '')}
+          onChange={(event) => onChange(event.target.value)}
+          onBlur={onDone}
+          className="min-h-[92px] rounded-xl border-border-soft bg-transparent"
+        />
+      );
+    case 'NUMBER':
+      return (
+        <Input
+          type="number"
+          value={String(value ?? '')}
+          onChange={(event) => onChange(event.target.value === '' ? null : Number(event.target.value))}
+          onBlur={onDone}
+          className="h-9 rounded-xl border-border-soft bg-transparent"
+        />
+      );
+    case 'DATE':
+      return (
+        <Input
+          type="date"
+          value={String(value ?? '')}
+          onChange={(event) => onChange(event.target.value || null)}
+          onBlur={onDone}
+          className="h-9 rounded-xl border-border-soft bg-transparent"
+        />
+      );
+    case 'DATETIME':
+      return (
+        <Input
+          type="datetime-local"
+          value={String(value ?? '')}
+          onChange={(event) => onChange(event.target.value || null)}
+          onBlur={onDone}
+          className="h-9 rounded-xl border-border-soft bg-transparent"
+        />
+      );
+    case 'BOOLEAN':
+      return (
+        <Select
+          value={String(Boolean(value))}
+          onValueChange={(next) => {
+            onChange(next === 'true');
+            onDone?.();
+          }}
+        >
+          <SelectTrigger className="h-auto min-h-0 rounded-none border-0 bg-transparent px-0 py-0 text-sm text-ink-900 shadow-none hover:bg-transparent focus:ring-0">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="true">True</SelectItem>
+            <SelectItem value="false">False</SelectItem>
+          </SelectContent>
+        </Select>
+      );
+    case 'SINGLE_SELECT':
+      return (
+        <Select
+          value={String(value ?? EMPTY)}
+          onValueChange={(next) => {
+            onChange(next === EMPTY ? null : next);
+            onDone?.();
+          }}
+        >
+          <SelectTrigger className="h-auto min-h-0 rounded-none border-0 bg-transparent px-0 py-0 text-sm text-ink-900 shadow-none hover:bg-transparent focus:ring-0">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={EMPTY}>Not set</SelectItem>
+            {field.options.map((option) => (
+              <SelectItem key={option.id} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    case 'MULTI_SELECT': {
+      const current = Array.isArray(value) ? value.map(String) : [];
+      return (
+        <div
+          className="flex flex-wrap gap-2 rounded-xl border border-border-soft px-3 py-3"
+          tabIndex={0}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+              onDone?.();
+            }
+          }}
+        >
+          {field.options.map((option) => {
+            const selected = current.includes(option.value);
+            return (
+              <button
+                type="button"
+                key={option.id}
+                onClick={() =>
+                  onChange(
+                    selected ? current.filter((item) => item !== option.value) : [...current, option.value]
+                  )
+                }
+                className={
+                  selected
+                    ? 'rounded-full bg-brand-600/12 px-3 py-1 text-xs font-medium text-brand-600'
+                    : 'rounded-full bg-surface-soft px-3 py-1 text-xs font-medium text-ink-700'
+                }
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      );
+    }
+    case 'TEXT':
+    case 'URL':
+    case 'USER':
+    case 'TEAM':
+    default:
+      return (
+        <Input
+          value={String(value ?? '')}
+          onChange={(event) => onChange(event.target.value)}
+          onBlur={onDone}
+          className="h-9 rounded-xl border-border-soft bg-transparent"
+        />
+      );
   }
 }
 
-function SummaryRow({ label, value, action }: { label: string; value: string; action: string }) { return <a href={action} className="drawer-panel flex items-center justify-between gap-3"><span>{label}</span><span className="font-medium text-ink-900">{value}</span></a>; }
-function PropertyField({ label, children }: { label: string; children: React.ReactNode }) { return <label className="block"><div className="mb-1.5 text-xs uppercase tracking-[0.16em] text-ink-400">{label}</div>{children}</label>; }
-function PropertySelect({ label, value, onChange, options, compact = false }: { label?: string; value: string; onChange: (value: string) => void; options: string[][]; compact?: boolean }) {
-  const content = <Select value={value} onValueChange={onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{options.map(([optionValue, optionLabel]) => <SelectItem key={`${optionValue}-${optionLabel}`} value={optionValue}>{optionLabel || ' '}</SelectItem>)}</SelectContent></Select>;
-  return compact || !label ? content : <PropertyField label={label}>{content}</PropertyField>;
+function stringValue(value: number | null) {
+  return value == null ? EMPTY : String(value);
 }
-function PropertyInput({ label, value, onChange, type = 'text' }: { label: string; value: string; onChange: (value: string) => void; type?: string }) { return <PropertyField label={label}><Input type={type} value={value} onChange={(event) => onChange(event.target.value)} /></PropertyField>; }
-function EmptyState({ label, compact = false }: { label: string; compact?: boolean }) { return <div className={`${compact ? 'text-sm' : 'rounded-card border border-dashed border-border-soft px-4 py-6 text-sm'} text-ink-400`}>{label}</div>; }
-function stringValue(value: unknown): string { return value == null || value === '' ? EMPTY : String(value); }
-function parseNullableNumber(value: string): number | null { return value === EMPTY ? null : Number(value); }
-function formatSize(size: number): string { if (size < 1024) return `${size} B`; if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`; return `${(size / (1024 * 1024)).toFixed(1)} MB`; }
-function formatDate(value: string, locale: string): string { return new Date(value).toLocaleString(locale === 'en' ? 'en-US' : 'zh-CN'); }
+
+function parseNullableNumber(value: string) {
+  return value === EMPTY ? null : Number(value);
+}
+
+function toNullableForeignKeyPayload(value: number | null) {
+  return value == null ? 0 : value;
+}
+
+function valueFromMap(map: Map<number, string>, key: number | null, fallback: string) {
+  return key == null ? fallback : map.get(key) ?? fallback;
+}
+
+function formatCustomFieldValue(field: CustomFieldDefinition, value: unknown) {
+  if (value == null || value === '' || (Array.isArray(value) && value.length === 0)) return 'Not set';
+  if (field.dataType === 'MULTI_SELECT' && Array.isArray(value)) {
+    const labelMap = new Map(field.options.map((option) => [option.value, option.label]));
+    return value.map((item) => labelMap.get(String(item)) ?? String(item)).join(', ');
+  }
+  if (field.dataType === 'SINGLE_SELECT') {
+    return field.options.find((option) => option.value === value)?.label ?? String(value);
+  }
+  if (field.dataType === 'BOOLEAN') return value ? 'True' : 'False';
+  return String(value);
+}
+
+function formatSize(size: number) {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatDate(value: string | null, locale: string) {
+  if (!value) return '';
+  return new Intl.DateTimeFormat(locale === 'zh-CN' ? 'zh-CN' : 'en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
