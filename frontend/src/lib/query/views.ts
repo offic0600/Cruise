@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { getIssues, getProjects, getSprints } from '@/lib/api';
+import { getIssues, getProjects } from '@/lib/api';
+import { getViews } from '@/lib/api/views';
 import { queryKeys } from './keys';
 
 export function useViewsWorkspace() {
@@ -12,9 +13,9 @@ export function useViewsWorkspace() {
       queryKey: [...queryKeys.views, 'projects'],
       queryFn: () => getProjects(),
     }),
-    sprintsQuery: useQuery({
-      queryKey: [...queryKeys.views, 'sprints'],
-      queryFn: () => getSprints(),
+    viewsQuery: useQuery({
+      queryKey: queryKeys.views,
+      queryFn: () => getViews(),
     }),
   };
 }

@@ -10,7 +10,6 @@ import java.time.LocalDateTime
 data class CommentDto(
     val id: Long,
     val issueId: Long?,
-    val epicId: Long?,
     val docId: Long?,
     val parentCommentId: Long?,
     val authorId: Long,
@@ -21,14 +20,12 @@ data class CommentDto(
 
 data class CommentQuery(
     val issueId: Long? = null,
-    val epicId: Long? = null,
     val docId: Long? = null,
     val authorId: Long? = null
 )
 
 data class CreateCommentRequest(
     val issueId: Long? = null,
-    val epicId: Long? = null,
     val docId: Long? = null,
     val parentCommentId: Long? = null,
     val authorId: Long,
@@ -47,7 +44,6 @@ class CommentService(
         commentRepository.findAll()
             .asSequence()
             .filter { query.issueId == null || it.issueId == query.issueId }
-            .filter { query.epicId == null || it.epicId == query.epicId }
             .filter { query.docId == null || it.docId == query.docId }
             .filter { query.authorId == null || it.authorId == query.authorId }
             .sortedBy { it.id }
@@ -57,11 +53,10 @@ class CommentService(
     fun findById(id: Long): CommentDto = getComment(id).toDto()
 
     fun create(request: CreateCommentRequest): CommentDto {
-        validateAttachment(request.issueId, request.epicId, request.docId)
+        validateAttachment(request.issueId, request.docId)
         return commentRepository.save(
             Comment(
                 issueId = request.issueId,
-                epicId = request.epicId,
                 docId = request.docId,
                 parentCommentId = request.parentCommentId,
                 authorId = request.authorId,
@@ -76,7 +71,6 @@ class CommentService(
             Comment(
                 id = comment.id,
                 issueId = comment.issueId,
-                epicId = comment.epicId,
                 docId = comment.docId,
                 parentCommentId = comment.parentCommentId,
                 authorId = comment.authorId,
@@ -94,8 +88,8 @@ class CommentService(
     private fun getComment(id: Long): Comment = commentRepository.findById(id)
         .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Comment not found") }
 
-    private fun validateAttachment(issueId: Long?, epicId: Long?, docId: Long?) {
-        if (listOf(issueId, epicId, docId).count { it != null } != 1) {
+    private fun validateAttachment(issueId: Long?, docId: Long?) {
+        if (listOf(issueId, docId).count { it != null } != 1) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Comment must target exactly one resource")
         }
     }
@@ -103,7 +97,6 @@ class CommentService(
     private fun Comment.toDto(): CommentDto = CommentDto(
         id = id,
         issueId = issueId,
-        epicId = epicId,
         docId = docId,
         parentCommentId = parentCommentId,
         authorId = authorId,

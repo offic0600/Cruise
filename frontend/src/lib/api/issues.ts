@@ -11,8 +11,6 @@ import {
 export const getIssues = (params?: {
   type?: string;
   organizationId?: number;
-  epicId?: number;
-  sprintId?: number;
   projectId?: number;
   assigneeId?: number;
   parentIssueId?: number;
@@ -31,12 +29,11 @@ export const getIssue = (id: number) => apiClient.get<Issue>(`/issues/${id}`).th
 
 export const createIssue = (data: {
   organizationId?: number;
-  epicId?: number | null;
-  sprintId?: number | null;
   type: string;
   title: string;
   description?: string;
   state?: string;
+  resolution?: string | null;
   priority?: string;
   projectId: number;
   teamId?: number | null;
@@ -58,11 +55,10 @@ export const updateIssue = (
   id: number,
   data: {
     organizationId?: number;
-    epicId?: number | null;
-    sprintId?: number | null;
     title?: string;
     description?: string;
     state?: string;
+    resolution?: string | null;
     priority?: string;
     projectId?: number;
     teamId?: number | null;
@@ -81,8 +77,8 @@ export const updateIssue = (
   }
 ) => apiClient.put<Issue>(`/issues/${id}`, data).then((r) => r.data);
 
-export const updateIssueState = (id: number, state: string) =>
-  apiClient.patch<Issue>(`/issues/${id}/state`, { state }).then((r) => r.data);
+export const updateIssueState = (id: number, state: string, resolution?: string | null) =>
+  apiClient.patch<Issue>(`/issues/${id}/state`, { state, resolution }).then((r) => r.data);
 
 export const deleteIssue = (id: number) => apiClient.delete(`/issues/${id}`);
 

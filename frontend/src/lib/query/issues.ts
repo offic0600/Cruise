@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createComment, createDoc, createIssue, createIssueRelation, deleteIssueAttachment, deleteIssueRelation, getActivityEvents, getComments, getDocs, getEpics, getIssue, getIssueAttachments, getIssueRelations, getIssues, getProjects, getSprints, getTeamMembers, getTeams, updateIssue, updateIssueState, uploadIssueAttachment } from '@/lib/api';
+import { createComment, createDoc, createIssue, createIssueRelation, deleteIssueAttachment, deleteIssueRelation, getActivityEvents, getComments, getDocs, getIssue, getIssueAttachments, getIssueRelations, getIssues, getProjects, getTeamMembers, getTeams, updateIssue, updateIssueState, uploadIssueAttachment } from '@/lib/api';
 import { getCustomFieldDefinitions } from '@/lib/api/custom-fields';
 import type { CustomFieldDefinition, Issue } from '@/lib/api';
 import { queryKeys } from './keys';
@@ -17,14 +17,6 @@ export function useIssueWorkspace(filters?: Parameters<typeof getIssues>[0]) {
     queryKey: queryKeys.projects,
     queryFn: () => getProjects(),
   });
-  const epicsQuery = useQuery({
-    queryKey: queryKeys.epics,
-    queryFn: () => getEpics(),
-  });
-  const sprintsQuery = useQuery({
-    queryKey: queryKeys.sprints,
-    queryFn: () => getSprints(),
-  });
   const teamsQuery = useQuery({
     queryKey: queryKeys.teams,
     queryFn: () => getTeams(),
@@ -38,8 +30,6 @@ export function useIssueWorkspace(filters?: Parameters<typeof getIssues>[0]) {
     issuesQuery,
     customFieldDefinitionsQuery,
     projectsQuery,
-    epicsQuery,
-    sprintsQuery,
     teamsQuery,
     membersQuery,
   };
@@ -119,14 +109,6 @@ export function useIssueDetailWorkspace(issueId: number, organizationId: number)
       queryKey: queryKeys.projects,
       queryFn: () => getProjects({ organizationId }),
     }),
-    epicsQuery: useQuery({
-      queryKey: queryKeys.epics,
-      queryFn: () => getEpics({ organizationId }),
-    }),
-    sprintsQuery: useQuery({
-      queryKey: queryKeys.sprints,
-      queryFn: () => getSprints(),
-    }),
     teamsQuery: useQuery({
       queryKey: queryKeys.teams,
       queryFn: () => getTeams({ organizationId }),
@@ -151,8 +133,6 @@ export function useIssueMutations(activeFilters?: Parameters<typeof getIssues>[0
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['issues'] }),
       queryClient.invalidateQueries({ queryKey: queryKeys.projects }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.epics }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.sprints }),
       queryClient.invalidateQueries({ queryKey: ['activity'] }),
       queryClient.invalidateQueries({ queryKey: ['docs'] }),
       queryClient.invalidateQueries({ queryKey: ['comments'] }),
@@ -179,7 +159,8 @@ export function useIssueMutations(activeFilters?: Parameters<typeof getIssues>[0
   });
 
   const updateIssueStateMutation = useMutation({
-    mutationFn: ({ id, state }: { id: number; state: string }) => updateIssueState(id, state),
+    mutationFn: ({ id, state, resolution }: { id: number; state: string; resolution?: string | null }) =>
+      updateIssueState(id, state, resolution),
     onSuccess: async (updated) => {
       queryClient.setQueriesData<Issue[]>({ queryKey: ['issues'] }, (current) => updateIssueInCache(current, updated));
       queryClient.setQueryData(queryKeys.issueDetail(updated.id), updated);

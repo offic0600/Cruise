@@ -18,8 +18,6 @@ class IssueController(
     fun getAll(
         @RequestParam(required = false) type: String?,
         @RequestParam(required = false) organizationId: Long?,
-        @RequestParam(required = false) epicId: Long?,
-        @RequestParam(required = false) sprintId: Long?,
         @RequestParam(required = false) projectId: Long?,
         @RequestParam(required = false) assigneeId: Long?,
         @RequestParam(required = false) parentIssueId: Long?,
@@ -31,8 +29,6 @@ class IssueController(
         IssueQuery(
             type = type,
             organizationId = organizationId,
-            epicId = epicId,
-            sprintId = sprintId,
             projectId = projectId,
             assigneeId = assigneeId,
             parentIssueId = parentIssueId,
@@ -56,7 +52,11 @@ class IssueController(
 
     @PatchMapping("/{id}/state")
     fun updateState(@PathVariable id: Long, @RequestBody request: Map<String, String>): IssueDto =
-        issueService.updateState(id, request["state"] ?: throw IllegalArgumentException("State is required"))
+        issueService.updateState(
+            id,
+            request["state"] ?: throw IllegalArgumentException("State is required"),
+            request["resolution"]
+        )
 
     @DeleteMapping("/{id}")
     fun delete(@PathVariable id: Long): ResponseEntity<Void> {

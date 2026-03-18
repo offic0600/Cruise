@@ -1,8 +1,8 @@
-'use client';
+﻿'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { ArrowUpRight, CheckCircle2, CircleDot, FilterX, Maximize2, Paperclip, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
+import { Ban, CheckCircle2, ChevronDown, ChevronRight, Circle, CircleDashed, CircleEllipsis, FilterX, LoaderCircle, Maximize2, Paperclip, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetDismissButton, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { useI18n } from '@/i18n/useI18n';
-import type { CustomFieldDefinition, Epic, Issue, Project, Sprint, Team } from '@/lib/api';
+import type { CustomFieldDefinition, Issue, Project, Team } from '@/lib/api';
 import { getStoredUser } from '@/lib/auth';
 import { useIssueMutations, useIssueWorkspace } from '@/lib/query/issues';
 
@@ -34,8 +34,6 @@ type FilterDraft = {
   priority: string;
   assigneeId: string;
   projectId: string;
-  epicId: string;
-  sprintId: string;
   teamId: string;
   customFieldFilters: Record<string, string>;
 };
@@ -48,14 +46,12 @@ type CreateDraft = {
   state: string;
   priority: string;
   teamId: string;
-  epicId: string;
-  sprintId: string;
   customFields: Record<string, unknown>;
 };
 
 const EMPTY = '__empty__';
-const ACTIVE_STATES = ['TODO', 'IN_PROGRESS', 'IN_REVIEW'] as const;
 const GROUP_ORDER = ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELED'] as const;
+const STATE_CATEGORIES = ['BACKLOG', 'ACTIVE', 'REVIEW', 'COMPLETED', 'CANCELED'] as const;
 const TYPE_OPTIONS = ['FEATURE', 'TASK', 'BUG', 'TECH_DEBT'] as const;
 const PRIORITY_OPTIONS = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const;
 
@@ -69,6 +65,8 @@ export default function IssuesPage() {
   const isZh = locale.startsWith('zh');
   const currentView = normalizeView(searchParams.get('view'));
   const searchParamsKey = searchParams.toString();
+  const collapsedStates = useMemo(() => readCollapsedStates(searchParams), [searchParamsKey]);
+  const collapseInitRef = useRef(new Set<string>());
 
   const apiFilters = useMemo(
     () => buildIssueFilters(searchParams, organizationId),
@@ -78,12 +76,10 @@ export default function IssuesPage() {
     issuesQuery,
     customFieldDefinitionsQuery,
     projectsQuery,
-    epicsQuery,
-    sprintsQuery,
     teamsQuery,
     membersQuery,
   } = useIssueWorkspace(apiFilters);
-  const { createIssueMutation, updateIssueMutation } = useIssueMutations(apiFilters);
+  const { createIssueMutation } = useIssueMutations(apiFilters);
 
   const issues = useMemo(() => issuesQuery.data ?? [], [issuesQuery.data]);
   const customFieldDefinitions = useMemo(
@@ -91,8 +87,6 @@ export default function IssuesPage() {
     [customFieldDefinitionsQuery.data]
   );
   const projects = useMemo(() => projectsQuery.data ?? [], [projectsQuery.data]);
-  const epics = useMemo(() => epicsQuery.data ?? [], [epicsQuery.data]);
-  const sprints = useMemo(() => sprintsQuery.data ?? [], [sprintsQuery.data]);
   const teams = useMemo(() => (teamsQuery.data ?? []) as Team[], [teamsQuery.data]);
   const members = useMemo(() => (membersQuery.data ?? []) as TeamMember[], [membersQuery.data]);
 
@@ -101,7 +95,6 @@ export default function IssuesPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [quickCreateState, setQuickCreateState] = useState<string | null>(null);
   const [createMore, setCreateMore] = useState(false);
-  const [updatingCell, setUpdatingCell] = useState<string | null>(null);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [draftFilters, setDraftFilters] = useState<FilterDraft>(() => readFilterDraft(searchParams, []));
   const [createDraft, setCreateDraft] = useState<CreateDraft>(() => buildCreateDraft([], null, []));
@@ -114,7 +107,7 @@ export default function IssuesPage() {
   useEffect(() => {
     if (issuesQuery.isError) {
       setWorkspaceError(
-        isZh ? '无法加载事项数据，请确认 8080 端口上的后端服务可访问。' : 'Unable to load issues. Confirm the backend on port 8080 is reachable.'
+        isZh ? 'Unable to load issues. Confirm the backend on port 8080 is reachable.' : 'Unable to load issues. Confirm the backend on port 8080 is reachable.'
       );
     } else {
       setWorkspaceError(null);
@@ -129,9 +122,9 @@ export default function IssuesPage() {
   const viewCounts = useMemo(
     () => ({
       all: issues.length,
-      active: issues.filter((issue) => ACTIVE_STATES.includes(issue.state as (typeof ACTIVE_STATES)[number])).length,
-      backlog: issues.filter((issue) => issue.state === 'BACKLOG').length,
-      done: issues.filter((issue) => issue.state === 'DONE').length,
+      active: issues.filter((issue) => issue.stateCategory === 'ACTIVE' || issue.stateCategory === 'REVIEW').length,
+      backlog: issues.filter((issue) => issue.stateCategory === 'BACKLOG').length,
+      done: issues.filter((issue) => issue.stateCategory === 'COMPLETED').length,
     }),
     [issues]
   );
@@ -153,10 +146,25 @@ export default function IssuesPage() {
         issues: (map.get(state) ?? []).sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)),
       }));
   }, [currentView, issues]);
+  useEffect(() => {
+    const initKey = collapseInitializationKey(searchParams);
+    if (collapseInitRef.current.has(initKey)) return;
+    const missingEmptyStates = groupedIssues.filter((group) => group.issues.length === 0 && !collapsedStates.has(group.state)).map((group) => group.state);
+    collapseInitRef.current.add(initKey);
+    if (!missingEmptyStates.length) return;
+    updateQuery({ collapsed: serializeCollapsedStates(new Set([...collapsedStates, ...missingEmptyStates])) });
+  }, [collapsedStates, groupedIssues, searchParams]);
+  const effectiveCollapsedStates = useMemo(() => {
+    const next = new Set(collapsedStates);
+    for (const group of groupedIssues) {
+      if (group.issues.length === 0) next.add(group.state);
+    }
+    return next;
+  }, [collapsedStates, groupedIssues]);
 
   const filterSummary = useMemo(
-    () => buildFilterSummary(draftFilters, projects, epics, sprints, teams, members, customFieldDefinitions, isZh),
-    [customFieldDefinitions, draftFilters, epics, isZh, members, projects, sprints, teams]
+    () => buildFilterSummary(draftFilters, projects, teams, members, customFieldDefinitions, isZh),
+    [customFieldDefinitions, draftFilters, isZh, members, projects, teams]
   );
   const createDefinitions = useMemo(
     () => customFieldDefinitions.filter((field) => field.showOnCreate).sort((a, b) => a.sortOrder - b.sortOrder),
@@ -179,8 +187,6 @@ export default function IssuesPage() {
     writeValue(params, 'priority', normalizeEmpty(draftFilters.priority));
     writeValue(params, 'assigneeId', normalizeEmpty(draftFilters.assigneeId));
     writeValue(params, 'projectId', normalizeEmpty(draftFilters.projectId));
-    writeValue(params, 'epicId', normalizeEmpty(draftFilters.epicId));
-    writeValue(params, 'sprintId', normalizeEmpty(draftFilters.sprintId));
     writeValue(params, 'teamId', normalizeEmpty(draftFilters.teamId));
     Object.entries(draftFilters.customFieldFilters).forEach(([key, value]) => writeValue(params, `cf_${key}`, value));
     const next = params.toString();
@@ -190,7 +196,7 @@ export default function IssuesPage() {
 
   const clearFilters = () => {
     const params = new URLSearchParams(searchParams.toString());
-    ['q', 'type', 'state', 'priority', 'assigneeId', 'projectId', 'epicId', 'sprintId', 'teamId'].forEach((key) => params.delete(key));
+    ['q', 'type', 'state', 'priority', 'assigneeId', 'projectId', 'teamId'].forEach((key) => params.delete(key));
     clearCustomFieldParams(params);
     const next = params.toString();
     router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
@@ -224,8 +230,6 @@ export default function IssuesPage() {
         state: createDraft.state,
         priority: createDraft.priority,
         teamId: toNullableNumber(createDraft.teamId),
-        epicId: toNullableNumber(createDraft.epicId),
-        sprintId: toNullableNumber(createDraft.sprintId),
         customFields: serializeCreateCustomFields(createDraft.customFields, createDefinitions),
       });
       if (createMore) {
@@ -235,76 +239,75 @@ export default function IssuesPage() {
         setQuickCreateState(null);
       }
     } catch {
-      setWorkspaceError(isZh ? '创建事项失败，请稍后重试。' : 'Failed to create issue. Please try again.');
+      setWorkspaceError(isZh ? 'Failed to create issue. Please try again.' : 'Failed to create issue. Please try again.');
     }
   };
 
-  const handleQuickUpdate = async (issueId: number, data: { state?: string; priority?: string; assigneeId?: number | null }) => {
-    try {
-      setUpdatingCell(`${issueId}:${Object.keys(data)[0]}`);
-      await updateIssueMutation.mutateAsync({ id: issueId, data });
-    } catch {
-      setWorkspaceError(isZh ? '更新事项失败，请稍后重试。' : 'Failed to update issue. Please try again.');
-    } finally {
-      setUpdatingCell(null);
+  const toggleGroupCollapsed = (state: string) => {
+    const nextCollapsed = new Set(collapsedStates);
+    if (nextCollapsed.has(state)) {
+      nextCollapsed.delete(state);
+    } else {
+      nextCollapsed.add(state);
     }
+    updateQuery({ collapsed: serializeCollapsedStates(nextCollapsed) });
   };
 
   return (
     <AppLayout>
-      <div className="space-y-5 px-8 py-6">
+      <div className="space-y-4 px-8 py-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             {([
-              ['all', isZh ? '全部事项' : 'All issues'],
-              ['active', isZh ? '进行中' : 'Active'],
-              ['backlog', 'Backlog'],
-              ['done', isZh ? '已完成' : 'Done'],
+              ['all', isZh ? 'All issues' : 'All issues'],
+              ['active', isZh ? 'Active' : 'Active'],
+              ['backlog', isZh ? 'Backlog' : 'Backlog'],
+              ['done', isZh ? 'Done' : 'Done'],
             ] as const).map(([view, label]) => (
               <button
                 key={view}
                 onClick={() => updateQuery({ view })}
-                className={`rounded-full px-3 py-1.5 text-sm transition ${
+                className={`rounded-full px-3 py-1.5 text-[13px] transition ${
                   currentView === view ? 'bg-slate-900 text-white' : 'bg-white text-ink-700 hover:bg-slate-100'
                 }`}
               >
-                {label}
+                {view === 'done' ? (isZh ? 'Completed' : 'Completed') : label}
                 <span className="ml-2 text-xs opacity-70">{viewCounts[view]}</span>
               </button>
             ))}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <form onSubmit={handleSearchSubmit} className="relative min-w-[260px]">
+            <form onSubmit={handleSearchSubmit} className="relative min-w-[240px]">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
               <Input
                 value={searchValue}
                 onChange={(event) => setSearchValue(event.target.value)}
-                placeholder={isZh ? '搜索标题或编号' : 'Search title or identifier'}
-                className="h-10 rounded-full pl-9 pr-3"
+                placeholder={isZh ? 'Search title or identifier' : 'Search title or identifier'}
+                className="h-9 rounded-full pl-9 pr-3 text-[13px]"
               />
             </form>
-            <Button variant="secondary" size="sm" className="rounded-full" onClick={() => setFilterOpen(true)}>
+            <Button variant="secondary" size="sm" className="h-9 rounded-full px-3 text-[13px]" onClick={() => setFilterOpen(true)}>
               <SlidersHorizontal className="mr-2 h-4 w-4" />
-              {isZh ? '高级筛选' : 'Advanced filter'}
+              {isZh ? 'Advanced filter' : 'Advanced filter'}
             </Button>
-            <Button size="sm" className="rounded-full" onClick={() => openCreateSheet()}>
+            <Button size="sm" className="h-9 rounded-full px-3 text-[13px]" onClick={() => openCreateSheet()}>
               <Plus className="mr-2 h-4 w-4" />
-              {isZh ? '新建事项' : 'New issue'}
+              {isZh ? 'New issue' : 'New issue'}
             </Button>
           </div>
         </div>
 
         {filterSummary.length ? (
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             {filterSummary.map((item) => (
-              <Badge key={item} variant="neutral" className="gap-1.5 px-3 py-1.5">
+              <Badge key={item} variant="neutral" className="gap-1 px-2.5 py-1 text-[11px] font-medium text-ink-500">
                 {item}
               </Badge>
             ))}
-            <button onClick={clearFilters} className="inline-flex items-center gap-1 text-xs text-ink-400 transition hover:text-ink-700">
+            <button onClick={clearFilters} className="inline-flex items-center gap-1 text-[11px] text-ink-400 transition hover:text-ink-700">
               <FilterX className="h-3.5 w-3.5" />
-              {isZh ? '清空筛选' : 'Clear filters'}
+              {isZh ? 'Clear filters' : 'Clear filters'}
             </button>
           </div>
         ) : null}
@@ -313,22 +316,28 @@ export default function IssuesPage() {
           <div className="rounded-3xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{workspaceError}</div>
         ) : null}
 
-        <div className="space-y-4">
+        <div className="space-y-1">
           {groupedIssues.map((group) => (
-            <section key={group.state} className="overflow-hidden rounded-3xl border border-border-subtle bg-white/85">
-              <div className="flex items-center justify-between border-b border-border-soft px-4 py-3">
+            <section key={group.state} className="border-b border-border-soft last:border-b-0">
+              <button
+                type="button"
+                onClick={() => toggleGroupCollapsed(group.state)}
+                aria-expanded={!effectiveCollapsedStates.has(group.state)}
+                className="flex w-full items-center px-3 py-2.5 text-left transition hover:bg-slate-50/40"
+              >
                 <div className="flex items-center gap-2 text-sm font-medium text-ink-900">
+                  {effectiveCollapsedStates.has(group.state) ? (
+                    <ChevronRight className="h-4 w-4 text-ink-400" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-ink-400" />
+                  )}
                   <StateIcon state={group.state} />
                   <span>{labelForState(group.state, isZh)}</span>
                   <span className="text-ink-400">{group.issues.length}</span>
                 </div>
-                <button onClick={() => openCreateSheet(group.state)} className="inline-flex items-center gap-1 text-sm text-ink-400 transition hover:text-ink-900">
-                  <Plus className="h-4 w-4" />
-                  {isZh ? '新增' : 'Add'}
-                </button>
-              </div>
+              </button>
 
-              {group.issues.length ? (
+              {!effectiveCollapsedStates.has(group.state) ? group.issues.length ? (
                 <div>
                   {group.issues.map((issue, index) => (
                     <IssueRow
@@ -339,16 +348,13 @@ export default function IssuesPage() {
                       isZh={isZh}
                       members={members}
                       projects={projects}
-                      epics={epics}
-                      updatingCell={updatingCell}
                       onOpen={() => router.push(`/${locale}/issues/${issue.id}`)}
-                      onQuickUpdate={handleQuickUpdate}
                     />
                   ))}
                 </div>
               ) : (
-                <div className="px-4 py-6 text-sm text-ink-400">{isZh ? '当前分组没有事项。' : 'No issues in this group.'}</div>
-              )}
+                <div className="px-9 py-2 text-[11px] text-ink-300">{isZh ? 'No issues in this group.' : 'No issues in this group.'}</div>
+              ) : null}
             </section>
           ))}
         </div>
@@ -363,8 +369,6 @@ export default function IssuesPage() {
         customFieldDefinitions={customFieldDefinitions}
         members={members}
         projects={projects}
-        epics={epics}
-        sprints={sprints}
         teams={teams}
         onClear={clearFilters}
         onApply={applyFilterDraft}
@@ -377,8 +381,6 @@ export default function IssuesPage() {
         draft={createDraft}
         setDraft={setCreateDraft}
         projects={projects}
-        epics={epics}
-        sprints={sprints}
         teams={teams}
         members={members}
         createDefinitions={createDefinitions}
@@ -400,8 +402,6 @@ function FilterSheet({
   customFieldDefinitions,
   members,
   projects,
-  epics,
-  sprints,
   teams,
   onClear,
   onApply,
@@ -414,8 +414,6 @@ function FilterSheet({
   customFieldDefinitions: CustomFieldDefinition[];
   members: TeamMember[];
   projects: Project[];
-  epics: Epic[];
-  sprints: Sprint[];
   teams: Team[];
   onClear: () => void;
   onApply: () => void;
@@ -427,47 +425,45 @@ function FilterSheet({
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="text-xs uppercase tracking-[0.18em] text-ink-400">Issues</div>
-              <SheetTitle className="mt-2">{isZh ? '高级筛选' : 'Advanced filter'}</SheetTitle>
+              <SheetTitle className="mt-2">{isZh ? 'Advanced filter' : 'Advanced filter'}</SheetTitle>
             </div>
-            <SheetDismissButton aria-label={isZh ? '取消' : 'Cancel'} />
+            <SheetDismissButton aria-label={isZh ? 'Cancel' : 'Cancel'} />
           </div>
         </SheetHeader>
         <ScrollArea className="h-[calc(100vh-120px)]">
           <div className="space-y-5 px-6 py-6">
             <div className="grid gap-4 md:grid-cols-2">
-              <FilterField label={isZh ? '搜索词' : 'Search'}>
+              <FilterField label={isZh ? 'Search' : 'Search'}>
                 <Input value={draftFilters.q} onChange={(event) => setDraftFilters((current) => ({ ...current, q: event.target.value }))} />
               </FilterField>
-              <FilterField label={isZh ? '类型' : 'Type'}>
+              <FilterField label={isZh ? 'Type' : 'Type'}>
                 <SimpleSelect value={draftFilters.type || EMPTY} onValueChange={(value) => setDraftFilters((current) => ({ ...current, type: value === EMPTY ? '' : value }))}>
-                  <SelectItem value={EMPTY}>{isZh ? '全部类型' : 'All types'}</SelectItem>
+                  <SelectItem value={EMPTY}>{isZh ? 'All types' : 'All types'}</SelectItem>
                   {TYPE_OPTIONS.map((value) => <SelectItem key={value} value={value}>{labelForType(value, isZh)}</SelectItem>)}
                 </SimpleSelect>
               </FilterField>
-              <FilterField label={isZh ? '状态' : 'State'}>
+              <FilterField label={isZh ? 'State' : 'State'}>
                 <SimpleSelect value={draftFilters.state || EMPTY} onValueChange={(value) => setDraftFilters((current) => ({ ...current, state: value === EMPTY ? '' : value }))}>
-                  <SelectItem value={EMPTY}>{isZh ? '全部状态' : 'All states'}</SelectItem>
+                  <SelectItem value={EMPTY}>{isZh ? 'All states' : 'All states'}</SelectItem>
                   {GROUP_ORDER.map((value) => <SelectItem key={value} value={value}>{labelForState(value, isZh)}</SelectItem>)}
                 </SimpleSelect>
               </FilterField>
-              <FilterField label={isZh ? '优先级' : 'Priority'}>
+              <FilterField label={isZh ? 'Priority' : 'Priority'}>
                 <SimpleSelect value={draftFilters.priority || EMPTY} onValueChange={(value) => setDraftFilters((current) => ({ ...current, priority: value === EMPTY ? '' : value }))}>
-                  <SelectItem value={EMPTY}>{isZh ? '全部优先级' : 'All priorities'}</SelectItem>
+                  <SelectItem value={EMPTY}>{isZh ? 'All priorities' : 'All priorities'}</SelectItem>
                   {PRIORITY_OPTIONS.map((value) => <SelectItem key={value} value={value}>{labelForPriority(value, isZh)}</SelectItem>)}
                 </SimpleSelect>
               </FilterField>
-              <LookupField label={isZh ? '负责人' : 'Assignee'} items={members} value={draftFilters.assigneeId} emptyLabel={isZh ? '全部成员' : 'All members'} onChange={(value) => setDraftFilters((current) => ({ ...current, assigneeId: value }))} />
-              <LookupField label={isZh ? '项目' : 'Project'} items={projects} value={draftFilters.projectId} emptyLabel={isZh ? '全部项目' : 'All projects'} onChange={(value) => setDraftFilters((current) => ({ ...current, projectId: value }))} />
-              <LookupField label="Epic" items={epics} value={draftFilters.epicId} emptyLabel={isZh ? '全部 Epic' : 'All epics'} onChange={(value) => setDraftFilters((current) => ({ ...current, epicId: value }))} />
-              <LookupField label="Sprint" items={sprints} value={draftFilters.sprintId} emptyLabel={isZh ? '全部 Sprint' : 'All sprints'} onChange={(value) => setDraftFilters((current) => ({ ...current, sprintId: value }))} />
-              <LookupField label={isZh ? '团队' : 'Team'} items={teams} value={draftFilters.teamId} emptyLabel={isZh ? '全部团队' : 'All teams'} onChange={(value) => setDraftFilters((current) => ({ ...current, teamId: value }))} />
+              <LookupField label={isZh ? 'Assignee' : 'Assignee'} items={members} value={draftFilters.assigneeId} emptyLabel={isZh ? 'All members' : 'All members'} onChange={(value) => setDraftFilters((current) => ({ ...current, assigneeId: value }))} />
+        <LookupField label={isZh ? 'Project' : 'Project'} items={projects} value={draftFilters.projectId} emptyLabel={isZh ? 'All projects' : 'All projects'} onChange={(value) => setDraftFilters((current) => ({ ...current, projectId: value }))} />
+        <LookupField label={isZh ? 'Team' : 'Team'} items={teams} value={draftFilters.teamId} emptyLabel={isZh ? 'All teams' : 'All teams'} onChange={(value) => setDraftFilters((current) => ({ ...current, teamId: value }))} />
             </div>
 
             {customFieldDefinitions.filter((field) => field.isFilterable).length ? (
               <>
                 <Separator />
                 <div className="space-y-4">
-                  <div className="text-sm font-medium text-ink-900">{isZh ? '自定义字段' : 'Custom fields'}</div>
+                  <div className="text-sm font-medium text-ink-900">{isZh ? 'Custom fields' : 'Custom fields'}</div>
                   <div className="grid gap-4 md:grid-cols-2">
                     {customFieldDefinitions.filter((field) => field.isFilterable).map((field) => (
                       <CustomFieldFilterControl
@@ -489,8 +485,8 @@ function FilterSheet({
             ) : null}
 
             <div className="flex justify-end gap-3">
-              <Button variant="secondary" onClick={onClear}>{isZh ? '清空筛选' : 'Clear filters'}</Button>
-              <Button onClick={onApply}>{isZh ? '应用筛选' : 'Apply filters'}</Button>
+              <Button variant="secondary" onClick={onClear}>{isZh ? 'Clear filters' : 'Clear filters'}</Button>
+              <Button onClick={onApply}>{isZh ? 'Apply filters' : 'Apply filters'}</Button>
             </div>
           </div>
         </ScrollArea>
@@ -506,8 +502,6 @@ function CreateIssueDialog({
   draft,
   setDraft,
   projects,
-  epics,
-  sprints,
   teams,
   members,
   createDefinitions,
@@ -522,8 +516,6 @@ function CreateIssueDialog({
   draft: CreateDraft;
   setDraft: React.Dispatch<React.SetStateAction<CreateDraft>>;
   projects: Project[];
-  epics: Epic[];
-  sprints: Sprint[];
   teams: Team[];
   members: TeamMember[];
   createDefinitions: CustomFieldDefinition[];
@@ -546,7 +538,7 @@ function CreateIssueDialog({
               {projects.find((project) => String(project.id) === draft.projectId)?.key ?? 'ISS'}
             </div>
             <span>{'>'}</span>
-            <span>{isZh ? '新建事项' : 'New issue'}</span>
+            <span>{isZh ? 'New issue' : 'New issue'}</span>
           </div>
           <div className="flex items-center gap-2">
             <button className="rounded-full p-2 text-ink-400 transition hover:bg-slate-100 hover:text-ink-700" type="button">
@@ -562,14 +554,14 @@ function CreateIssueDialog({
           <input
             value={draft.title}
             onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
-            placeholder={isZh ? 'Issue 标题' : 'Issue title'}
+            placeholder={isZh ? 'Issue title' : 'Issue title'}
             className="w-full border-0 bg-transparent p-0 text-[34px] font-semibold tracking-[-0.03em] text-ink-900 outline-none placeholder:text-ink-300"
           />
 
           <textarea
             value={draft.description}
             onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
-            placeholder={isZh ? '添加描述...' : 'Add description...'}
+            placeholder={isZh ? 'Add description...' : 'Add description...'}
             className="min-h-[72px] w-full resize-none border-0 bg-transparent p-0 text-[17px] leading-7 text-ink-700 outline-none placeholder:text-ink-300"
           />
 
@@ -581,20 +573,12 @@ function CreateIssueDialog({
               {PRIORITY_OPTIONS.map((value) => <SelectItem key={value} value={value}>{labelForPriority(value, isZh)}</SelectItem>)}
             </ModalPillSelect>
             <ModalPillSelect value={draft.teamId || EMPTY} onValueChange={(value) => setDraft((current) => ({ ...current, teamId: value === EMPTY ? '' : value }))}>
-              <SelectItem value={EMPTY}>{isZh ? '团队' : 'Team'}</SelectItem>
+              <SelectItem value={EMPTY}>{isZh ? 'Team' : 'Team'}</SelectItem>
               {teams.map((team) => <SelectItem key={team.id} value={String(team.id)}>{team.name}</SelectItem>)}
             </ModalPillSelect>
             <ModalPillSelect value={draft.projectId || EMPTY} onValueChange={(value) => setDraft((current) => ({ ...current, projectId: value === EMPTY ? '' : value }))}>
-              <SelectItem value={EMPTY}>{isZh ? '项目' : 'Project'}</SelectItem>
+              <SelectItem value={EMPTY}>{isZh ? 'Project' : 'Project'}</SelectItem>
               {projects.map((project) => <SelectItem key={project.id} value={String(project.id)}>{project.name}</SelectItem>)}
-            </ModalPillSelect>
-            <ModalPillSelect value={draft.epicId || EMPTY} onValueChange={(value) => setDraft((current) => ({ ...current, epicId: value === EMPTY ? '' : value }))}>
-              <SelectItem value={EMPTY}>Epic</SelectItem>
-              {epics.map((epic) => <SelectItem key={epic.id} value={String(epic.id)}>{epic.title}</SelectItem>)}
-            </ModalPillSelect>
-            <ModalPillSelect value={draft.sprintId || EMPTY} onValueChange={(value) => setDraft((current) => ({ ...current, sprintId: value === EMPTY ? '' : value }))}>
-              <SelectItem value={EMPTY}>Sprint</SelectItem>
-              {sprints.map((sprint) => <SelectItem key={sprint.id} value={String(sprint.id)}>{sprint.name}</SelectItem>)}
             </ModalPillSelect>
             {createDefinitions.slice(0, 2).map((field) => (
               <ModalCustomFieldPill
@@ -627,10 +611,10 @@ function CreateIssueDialog({
               >
                 <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${createMore ? 'left-[18px]' : 'left-0.5'}`} />
               </button>
-              <span>{isZh ? '连续创建' : 'Create more'}</span>
+              <span>{isZh ? 'Create more' : 'Create more'}</span>
             </label>
             <Button onClick={onSubmit} disabled={!draft.title.trim() || !draft.projectId || createPending} className="rounded-full px-5">
-              {createPending ? (isZh ? '创建中...' : 'Creating...') : (isZh ? '创建事项' : 'Create issue')}
+              {createPending ? (isZh ? 'Creating...' : 'Creating...') : (isZh ? 'Create issue' : 'Create issue')}
             </Button>
           </div>
         </div>
@@ -645,87 +629,58 @@ function IssueRow({
   isZh,
   members,
   projects,
-  epics,
-  updatingCell,
   isLast,
   onOpen,
-  onQuickUpdate,
 }: {
   issue: Issue;
   locale: string;
   isZh: boolean;
   members: TeamMember[];
   projects: Project[];
-  epics: Epic[];
-  updatingCell: string | null;
   isLast: boolean;
   onOpen: () => void;
-  onQuickUpdate: (issueId: number, data: { state?: string; priority?: string; assigneeId?: number | null }) => Promise<void>;
 }) {
   const assignee = members.find((member) => member.id === issue.assigneeId);
   const project = projects.find((item) => item.id === issue.projectId);
-  const epic = epics.find((item) => item.id === issue.epicId);
+  const assigneeLabel = assignee?.name ?? (isZh ? 'Not set' : 'Not set');
+  const priorityLabel = labelForPriority(issue.priority, isZh);
+  const resolutionLabel =
+    issue.state === 'CANCELED' && issue.resolution && issue.resolution !== 'CANCELED'
+      ? `${labelForState(issue.state, isZh)} · ${labelForResolution(issue.resolution, isZh)}`
+      : null;
 
   return (
     <div
       onClick={onOpen}
-      className={`grid cursor-pointer grid-cols-[minmax(0,1fr)_180px_140px_128px] items-center gap-4 px-4 py-3 transition hover:bg-slate-50 ${isLast ? '' : 'border-b border-border-soft'}`}
+      className={`grid cursor-pointer grid-cols-[minmax(0,1fr)_170px_110px_72px] items-center gap-4 px-3 py-2.5 transition hover:bg-slate-50/40 ${isLast ? '' : 'border-b border-border-soft'}`}
     >
       <div className="min-w-0 space-y-1">
         <div className="flex items-center gap-3 text-sm">
-          <StateIcon state={issue.state} />
+          <span className="inline-flex h-5 w-5 items-center justify-center text-ink-500">
+            <StateIcon state={issue.state} />
+          </span>
           <span className="font-medium text-ink-400">{issue.identifier}</span>
-          <span className="truncate text-ink-900">{issue.title}</span>
+          <span className="truncate text-[15px] text-ink-900">{issue.title}</span>
         </div>
-        <div className="flex flex-wrap items-center gap-2 pl-6 text-xs text-ink-400">
+        <div className="flex flex-wrap items-center gap-2 pl-8 text-[12px] text-ink-400">
           <span>{labelForType(issue.type, isZh)}</span>
           {project ? <span>{project.name}</span> : null}
-          {epic ? <span>{epic.title}</span> : null}
+          {resolutionLabel ? <span>{resolutionLabel}</span> : null}
         </div>
       </div>
 
-      <div className="flex items-center gap-2 text-sm text-ink-700" onClick={(event) => event.stopPropagation()}>
-        <InlineSelect value={issue.assigneeId == null ? EMPTY : String(issue.assigneeId)} onValueChange={(value) => onQuickUpdate(issue.id, { assigneeId: value === EMPTY ? 0 : Number(value) })}>
-          <SelectItem value={EMPTY}>{isZh ? '未设置' : 'Not set'}</SelectItem>
-          {members.map((member) => <SelectItem key={member.id} value={String(member.id)}>{member.name}</SelectItem>)}
-        </InlineSelect>
-        {updatingCell === `${issue.id}:assigneeId` ? (
-          <span className="truncate text-xs text-ink-400">{isZh ? '更新中...' : 'Updating...'}</span>
-        ) : null}
+      <div className="truncate text-[13px] text-ink-500">
+        <span>{assigneeLabel}</span>
       </div>
 
-      <div onClick={(event) => event.stopPropagation()}>
-        <InlineSelect value={issue.priority} onValueChange={(value) => onQuickUpdate(issue.id, { priority: value })}>
-          {PRIORITY_OPTIONS.map((value) => <SelectItem key={value} value={value}>{labelForPriority(value, isZh)}</SelectItem>)}
-        </InlineSelect>
+      <div className="text-[13px] text-ink-500">
+        <span>{priorityLabel}</span>
       </div>
 
-      <div className="flex items-center justify-between gap-3 text-xs text-ink-400" onClick={(event) => event.stopPropagation()}>
-        <InlineSelect value={issue.state} onValueChange={(value) => onQuickUpdate(issue.id, { state: value })}>
-          {GROUP_ORDER.map((value) => <SelectItem key={value} value={value}>{labelForState(value, isZh)}</SelectItem>)}
-        </InlineSelect>
+      <div className="text-right text-[12px] text-ink-400">
         <span>{formatDate(issue.updatedAt, locale)}</span>
       </div>
     </div>
-  );
-}
-
-function InlineSelect({
-  value,
-  onValueChange,
-  children,
-}: {
-  value: string;
-  onValueChange: (value: string) => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger className="h-auto min-h-0 w-auto border-0 bg-transparent px-0 py-0 text-xs text-ink-400 shadow-none hover:text-ink-700 focus:ring-0">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>{children}</SelectContent>
-    </Select>
   );
 }
 
@@ -745,7 +700,6 @@ function SimpleSelect({
     </Select>
   );
 }
-
 function LookupField<T extends { id: number; name?: string; title?: string }>({
   label,
   items,
@@ -797,9 +751,9 @@ function CustomFieldFilterControl({
     return (
       <FilterField label={field.name}>
         <SimpleSelect value={value || EMPTY} onValueChange={(next) => onChange(next === EMPTY ? '' : next)}>
-          <SelectItem value={EMPTY}>{isZh ? '不限' : 'Any'}</SelectItem>
-          <SelectItem value="true">{isZh ? '是' : 'True'}</SelectItem>
-          <SelectItem value="false">{isZh ? '否' : 'False'}</SelectItem>
+          <SelectItem value={EMPTY}>{isZh ? 'Any' : 'Any'}</SelectItem>
+          <SelectItem value="true">{isZh ? 'True' : 'True'}</SelectItem>
+          <SelectItem value="false">{isZh ? 'False' : 'False'}</SelectItem>
         </SimpleSelect>
       </FilterField>
     );
@@ -809,7 +763,7 @@ function CustomFieldFilterControl({
     return (
       <FilterField label={field.name}>
         <SimpleSelect value={value || EMPTY} onValueChange={(next) => onChange(next === EMPTY ? '' : next)}>
-          <SelectItem value={EMPTY}>{isZh ? '不限' : 'Any'}</SelectItem>
+          <SelectItem value={EMPTY}>{isZh ? 'Any' : 'Any'}</SelectItem>
           {field.options.map((option) => <SelectItem key={option.id} value={option.value}>{option.label}</SelectItem>)}
         </SimpleSelect>
       </FilterField>
@@ -817,11 +771,11 @@ function CustomFieldFilterControl({
   }
 
   if (field.dataType === 'USER') {
-    return <LookupField label={field.name} items={members} value={value} emptyLabel={isZh ? '不限' : 'Any'} onChange={onChange} />;
+    return <LookupField label={field.name} items={members} value={value} emptyLabel={isZh ? 'Any' : 'Any'} onChange={onChange} />;
   }
 
   if (field.dataType === 'TEAM') {
-    return <LookupField label={field.name} items={teams} value={value} emptyLabel={isZh ? '不限' : 'Any'} onChange={onChange} />;
+    return <LookupField label={field.name} items={teams} value={value} emptyLabel={isZh ? 'Any' : 'Any'} onChange={onChange} />;
   }
 
   return (
@@ -858,9 +812,9 @@ function CustomFieldCreateControl({
     return (
       <FilterField label={field.name}>
         <SimpleSelect value={String(value ?? EMPTY)} onValueChange={(next) => onChange(next === EMPTY ? undefined : next === 'true')}>
-          <SelectItem value={EMPTY}>{isZh ? '未设置' : 'Not set'}</SelectItem>
-          <SelectItem value="true">{isZh ? '是' : 'True'}</SelectItem>
-          <SelectItem value="false">{isZh ? '否' : 'False'}</SelectItem>
+          <SelectItem value={EMPTY}>{isZh ? 'Not set' : 'Not set'}</SelectItem>
+          <SelectItem value="true">{isZh ? 'True' : 'True'}</SelectItem>
+          <SelectItem value="false">{isZh ? 'False' : 'False'}</SelectItem>
         </SimpleSelect>
       </FilterField>
     );
@@ -870,7 +824,7 @@ function CustomFieldCreateControl({
     return (
       <FilterField label={field.name}>
         <SimpleSelect value={String(value ?? EMPTY)} onValueChange={(next) => onChange(next === EMPTY ? undefined : next)}>
-          <SelectItem value={EMPTY}>{isZh ? '未设置' : 'Not set'}</SelectItem>
+          <SelectItem value={EMPTY}>{isZh ? 'Not set' : 'Not set'}</SelectItem>
           {field.options.map((option) => <SelectItem key={option.id} value={option.value}>{option.label}</SelectItem>)}
         </SimpleSelect>
       </FilterField>
@@ -878,11 +832,11 @@ function CustomFieldCreateControl({
   }
 
   if (field.dataType === 'USER') {
-    return <LookupField label={field.name} items={members} value={String(value ?? '')} emptyLabel={isZh ? '未设置' : 'Not set'} onChange={(next) => onChange(next ? Number(next) : undefined)} />;
+    return <LookupField label={field.name} items={members} value={String(value ?? '')} emptyLabel={isZh ? 'Not set' : 'Not set'} onChange={(next) => onChange(next ? Number(next) : undefined)} />;
   }
 
   if (field.dataType === 'TEAM') {
-    return <LookupField label={field.name} items={teams} value={String(value ?? '')} emptyLabel={isZh ? '未设置' : 'Not set'} onChange={(next) => onChange(next ? Number(next) : undefined)} />;
+    return <LookupField label={field.name} items={teams} value={String(value ?? '')} emptyLabel={isZh ? 'Not set' : 'Not set'} onChange={(next) => onChange(next ? Number(next) : undefined)} />;
   }
 
   if (field.dataType === 'DATE') {
@@ -963,8 +917,8 @@ function ModalCustomFieldPill({
     return (
       <ModalPillSelect value={String(value ?? EMPTY)} onValueChange={(next) => onChange(next === EMPTY ? undefined : next === 'true')}>
         <SelectItem value={EMPTY}>{field.name}</SelectItem>
-        <SelectItem value="true">{isZh ? '是' : 'True'}</SelectItem>
-        <SelectItem value="false">{isZh ? '否' : 'False'}</SelectItem>
+        <SelectItem value="true">{isZh ? 'True' : 'True'}</SelectItem>
+        <SelectItem value="false">{isZh ? 'False' : 'False'}</SelectItem>
       </ModalPillSelect>
     );
   }
@@ -995,10 +949,13 @@ function ModalCustomFieldPill({
 }
 
 function StateIcon({ state }: { state: string }) {
+  if (state === 'BACKLOG') return <CircleDashed className="h-4 w-4 text-slate-300" />;
+  if (state === 'TODO') return <Circle className="h-4 w-4 text-slate-500" />;
+  if (state === 'IN_PROGRESS') return <LoaderCircle className="h-4 w-4 text-sky-600" />;
+  if (state === 'IN_REVIEW') return <CircleEllipsis className="h-4 w-4 text-amber-600" />;
   if (state === 'DONE') return <CheckCircle2 className="h-4 w-4 text-emerald-600" />;
-  if (state === 'IN_PROGRESS' || state === 'IN_REVIEW') return <ArrowUpRight className="h-4 w-4 text-brand-600" />;
-  if (state === 'BACKLOG') return <CircleDot className="h-4 w-4 text-ink-300" />;
-  return <CircleDot className="h-4 w-4 text-ink-500" />;
+  if (state === 'CANCELED') return <Ban className="h-4 w-4 text-slate-400" />;
+  return <Circle className="h-4 w-4 text-slate-400" />;
 }
 
 function buildIssueFilters(searchParams: URLSearchParams, organizationId: number) {
@@ -1015,8 +972,6 @@ function buildIssueFilters(searchParams: URLSearchParams, organizationId: number
     priority: searchParams.get('priority') ?? undefined,
     assigneeId: searchParams.get('assigneeId') ? Number(searchParams.get('assigneeId')) : undefined,
     projectId: searchParams.get('projectId') ? Number(searchParams.get('projectId')) : undefined,
-    epicId: searchParams.get('epicId') ? Number(searchParams.get('epicId')) : undefined,
-    sprintId: searchParams.get('sprintId') ? Number(searchParams.get('sprintId')) : undefined,
     teamId: searchParams.get('teamId') ? Number(searchParams.get('teamId')) : undefined,
     customFieldFilters: Object.keys(customFieldFilters).length ? customFieldFilters : undefined,
   };
@@ -1038,8 +993,6 @@ function readFilterDraft(searchParams: URLSearchParams, customFieldDefinitions: 
     priority: searchParams.get('priority') ?? '',
     assigneeId: searchParams.get('assigneeId') ?? '',
     projectId: searchParams.get('projectId') ?? '',
-    epicId: searchParams.get('epicId') ?? '',
-    sprintId: searchParams.get('sprintId') ?? '',
     teamId: searchParams.get('teamId') ?? '',
     customFieldFilters,
   };
@@ -1054,8 +1007,6 @@ function buildCreateDraft(projects: Project[], presetState: string | null, custo
     state: presetState ?? 'TODO',
     priority: 'MEDIUM',
     teamId: '',
-    epicId: '',
-    sprintId: '',
     customFields: Object.fromEntries(customFieldDefinitions.filter((field) => field.showOnCreate).map((field) => [field.key, undefined])),
   };
 }
@@ -1063,22 +1014,18 @@ function buildCreateDraft(projects: Project[], presetState: string | null, custo
 function buildFilterSummary(
   filters: FilterDraft,
   projects: Project[],
-  epics: Epic[],
-  sprints: Sprint[],
   teams: Team[],
   members: TeamMember[],
   definitions: CustomFieldDefinition[],
   isZh: boolean
 ) {
   const items: string[] = [];
-  if (filters.q) items.push(`${isZh ? '搜索' : 'Search'}: ${filters.q}`);
+  if (filters.q) items.push(`${isZh ? 'Search' : 'Search'}: ${filters.q}`);
   if (filters.type) items.push(labelForType(filters.type, isZh));
   if (filters.state) items.push(labelForState(filters.state, isZh));
   if (filters.priority) items.push(labelForPriority(filters.priority, isZh));
   if (filters.assigneeId) items.push(members.find((member) => String(member.id) === filters.assigneeId)?.name ?? `#${filters.assigneeId}`);
   if (filters.projectId) items.push(projects.find((item) => String(item.id) === filters.projectId)?.name ?? `#${filters.projectId}`);
-  if (filters.epicId) items.push(epics.find((item) => String(item.id) === filters.epicId)?.title ?? `#${filters.epicId}`);
-  if (filters.sprintId) items.push(sprints.find((item) => String(item.id) === filters.sprintId)?.name ?? `#${filters.sprintId}`);
   if (filters.teamId) items.push(teams.find((item) => String(item.id) === filters.teamId)?.name ?? `#${filters.teamId}`);
   Object.entries(filters.customFieldFilters).forEach(([key, value]) => {
     if (!value) return;
@@ -1117,16 +1064,52 @@ function normalizeView(value: string | null): IssueView {
   return 'all';
 }
 
+function readCollapsedStates(searchParams: URLSearchParams) {
+  const raw = searchParams.get('collapsed');
+  if (!raw) return new Set<string>();
+
+  return new Set(
+    raw
+      .split(',')
+      .map((value) => value.trim())
+      .filter((value): value is string => Boolean(value) && GROUP_ORDER.includes(value as (typeof GROUP_ORDER)[number]))
+  );
+}
+
+function serializeCollapsedStates(states: Set<string>) {
+  const values = GROUP_ORDER.filter((state) => states.has(state));
+  return values.length ? values.join(',') : null;
+}
+
+function collapseInitializationKey(searchParams: URLSearchParams) {
+  const params = new URLSearchParams(searchParams.toString());
+  params.delete('collapsed');
+  return params.toString();
+}
+
 function groupBelongsToView(state: string, view: IssueView) {
   if (view === 'all') return true;
-  if (view === 'backlog') return state === 'BACKLOG';
-  if (view === 'done') return state === 'DONE';
-  return ACTIVE_STATES.includes(state as (typeof ACTIVE_STATES)[number]);
+  const category = stateCategoryFor(state);
+  if (view === 'backlog') return category === 'BACKLOG';
+  if (view === 'done') return category === 'COMPLETED';
+  return category === 'ACTIVE' || category === 'REVIEW';
+}
+
+function stateCategoryFor(state: string) {
+  const map: Record<string, (typeof STATE_CATEGORIES)[number]> = {
+    BACKLOG: 'BACKLOG',
+    TODO: 'ACTIVE',
+    IN_PROGRESS: 'ACTIVE',
+    IN_REVIEW: 'REVIEW',
+    DONE: 'COMPLETED',
+    CANCELED: 'CANCELED',
+  };
+  return map[state] ?? 'ACTIVE';
 }
 
 function labelForState(state: string, isZh: boolean) {
   const map: Record<string, [string, string]> = {
-    BACKLOG: ['Backlog', 'Backlog'],
+    BACKLOG: ['Backlog', '待规划'],
     TODO: ['Todo', '待开始'],
     IN_PROGRESS: ['In progress', '进行中'],
     IN_REVIEW: ['In review', '待评审'],
@@ -1148,6 +1131,18 @@ function labelForPriority(priority: string, isZh: boolean) {
   return isZh ? pair[1] : pair[0];
 }
 
+function labelForResolution(resolution: string, isZh: boolean) {
+  const map: Record<string, [string, string]> = {
+    COMPLETED: ['Completed', '已完成'],
+    CANCELED: ['Canceled', '已取消'],
+    DUPLICATE: ['Duplicate', '重复'],
+    OBSOLETE: ['Obsolete', '已过时'],
+    WONT_DO: ["Won't do", '不处理'],
+  };
+  const pair = map[resolution] ?? [resolution, resolution];
+  return isZh ? pair[1] : pair[0];
+}
+
 function labelForType(type: string, isZh: boolean) {
   const map: Record<string, [string, string]> = {
     FEATURE: ['Feature', '需求'],
@@ -1158,7 +1153,6 @@ function labelForType(type: string, isZh: boolean) {
   const pair = map[type] ?? [type, type];
   return isZh ? pair[1] : pair[0];
 }
-
 function formatDate(value: string, locale: string) {
   try {
     return new Intl.DateTimeFormat(locale === 'en' ? 'en-US' : 'zh-CN', {
@@ -1177,3 +1171,4 @@ function writeValue(params: URLSearchParams, key: string, value: string | null |
     params.set(key, value);
   }
 }
+

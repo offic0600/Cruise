@@ -5,7 +5,6 @@ export const getDocs = (params?: {
   organizationId?: number;
   teamId?: number;
   projectId?: number;
-  epicId?: number;
   issueId?: number;
   status?: string;
   q?: string;
@@ -17,7 +16,6 @@ export const createDoc = (data: {
   organizationId?: number;
   teamId?: number | null;
   projectId?: number | null;
-  epicId?: number | null;
   issueId?: number | null;
   title: string;
   slug?: string | null;
@@ -29,7 +27,6 @@ export const createDoc = (data: {
 export const updateDoc = (id: number, data: {
   teamId?: number | null;
   projectId?: number | null;
-  epicId?: number | null;
   issueId?: number | null;
   title?: string;
   slug?: string | null;
@@ -40,14 +37,13 @@ export const updateDoc = (id: number, data: {
 
 export const deleteDoc = (id: number) => apiClient.delete(`/docs/${id}`);
 
-export const getComments = (params?: { issueId?: number; epicId?: number; docId?: number; authorId?: number }) =>
+export const getComments = (params?: { issueId?: number; docId?: number; authorId?: number }) =>
   apiClient.get<Comment[]>('/comments', { params }).then((r) => r.data);
 
 export const getComment = (id: number) => apiClient.get<Comment>(`/comments/${id}`).then((r) => r.data);
 
 export const createComment = (data: {
   issueId?: number | null;
-  epicId?: number | null;
   docId?: number | null;
   parentCommentId?: number | null;
   authorId: number;

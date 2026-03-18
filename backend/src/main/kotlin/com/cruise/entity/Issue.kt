@@ -15,12 +15,6 @@ class Issue(
     @Column(name = "organization_id", nullable = false)
     var organizationId: Long = 1,
 
-    @Column(name = "epic_id")
-    var epicId: Long? = null,
-
-    @Column(name = "sprint_id")
-    var sprintId: Long? = null,
-
     @Column(nullable = false, length = 50, unique = true)
     var identifier: String = "",
 
@@ -35,6 +29,9 @@ class Issue(
 
     @Column(nullable = false, length = 50)
     var state: String = "TODO",
+
+    @Column(length = 30)
+    var resolution: String? = null,
 
     @Column(nullable = false, length = 20)
     var priority: String = "MEDIUM",

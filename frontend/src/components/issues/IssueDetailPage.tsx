@@ -28,6 +28,7 @@ import { useIssueDetailWorkspace, useIssueMutations } from '@/lib/query/issues';
 const EMPTY = '__empty__';
 const ISSUE_STATES: Issue['state'][] = ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELED'];
 const ISSUE_PRIORITIES: Issue['priority'][] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
+const ISSUE_RESOLUTIONS: NonNullable<Issue['resolution']>[] = ['COMPLETED', 'CANCELED', 'DUPLICATE', 'OBSOLETE', 'WONT_DO'];
 const RELATION_TYPES = ['BLOCKS', 'BLOCKED_BY', 'RELATES_TO', 'DUPLICATES', 'CAUSED_BY', 'SPLIT_FROM'] as const;
 
 interface IssueDetailPageProps {
@@ -38,11 +39,10 @@ interface DraftIssue {
   title: string;
   description: string;
   state: Issue['state'];
+  resolution: Issue['resolution'];
   priority: Issue['priority'];
   assigneeId: number | null;
   projectId: number;
-  epicId: number | null;
-  sprintId: number | null;
   teamId: number | null;
   parentIssueId: number | null;
   estimatedHours: number;
@@ -67,8 +67,6 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
     docsQuery,
     customFieldDefinitionsQuery,
     projectsQuery,
-    epicsQuery,
-    sprintsQuery,
     teamsQuery,
     membersQuery,
   } = useIssueDetailWorkspace(issueId, organizationId);
@@ -91,8 +89,6 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   const childIssues = childIssuesQuery.data ?? [];
   const docs = docsQuery.data ?? [];
   const projects = projectsQuery.data ?? [];
-  const epics = epicsQuery.data ?? [];
-  const sprints = sprintsQuery.data ?? [];
   const teams = teamsQuery.data ?? [];
   const members = (membersQuery.data as Array<{ id: number; name: string }> | undefined) ?? [];
   const customFieldDefinitions = (issue?.customFieldDefinitions ?? customFieldDefinitionsQuery.data ?? []) as CustomFieldDefinition[];
@@ -128,11 +124,10 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
           title: draftIssue.title,
           description: draftIssue.description,
           state: draftIssue.state,
+          resolution: draftIssue.resolution,
           priority: draftIssue.priority,
           assigneeId: toNullableForeignKeyPayload(draftIssue.assigneeId),
           projectId: draftIssue.projectId,
-          epicId: toNullableForeignKeyPayload(draftIssue.epicId),
-          sprintId: toNullableForeignKeyPayload(draftIssue.sprintId),
           teamId: toNullableForeignKeyPayload(draftIssue.teamId),
           parentIssueId: toNullableForeignKeyPayload(draftIssue.parentIssueId),
           estimatedHours: draftIssue.estimatedHours,
@@ -147,8 +142,6 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   }, [currentSnapshot, initialSnapshot, draftIssue, issue, updateIssueMutation]);
 
   const projectMap = useMemo(() => new Map(projects.map((project) => [project.id, project.name])), [projects]);
-  const epicMap = useMemo(() => new Map(epics.map((epic) => [epic.id, epic.title])), [epics]);
-  const sprintMap = useMemo(() => new Map(sprints.map((sprint) => [sprint.id, sprint.name])), [sprints]);
   const teamMap = useMemo(() => new Map(teams.map((team) => [team.id, team.name])), [teams]);
   const memberMap = useMemo(() => new Map(members.map((member) => [member.id, member.name])), [members]);
   const childMap = useMemo(() => new Map(childIssues.map((child) => [child.id, child.title])), [childIssues]);
@@ -191,7 +184,6 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
       organizationId: issue.organizationId,
       teamId: issue.teamId,
       projectId: issue.projectId,
-      epicId: issue.epicId,
       issueId: issue.id,
       authorId: user?.id ?? 1,
       title: docTitle.trim(),
@@ -549,12 +541,20 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                   <InlineSelectRow
                     label={t('issues.columns.state')}
                     editor={
-                      <Select
-                        value={draftIssue.state}
-                        onValueChange={(value) => {
-                          setDraftIssue((current) => (current ? { ...current, state: value as Issue['state'] } : current));
-                          setActiveProperty(null);
-                        }}
+                        <Select
+                          value={draftIssue.state}
+                          onValueChange={(value) => {
+                            setDraftIssue((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    state: value as Issue['state'],
+                                    resolution: nextResolutionForState(value as Issue['state'], current.resolution),
+                                  }
+                                : current
+                            );
+                            setActiveProperty(null);
+                          }}
                       >
                         <SelectTrigger className="h-auto min-h-0 rounded-none border-0 bg-transparent px-0 py-0 text-sm text-ink-900 shadow-none hover:bg-transparent focus:ring-0">
                           <SelectValue />
@@ -569,6 +569,39 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                       </Select>
                     }
                   />
+                  {draftIssue.state === 'DONE' || draftIssue.state === 'CANCELED' ? (
+                    <InlineSelectRow
+                      label={locale.startsWith('zh') ? '关闭原因' : 'Resolution'}
+                      editor={
+                        <Select
+                          value={draftIssue.resolution ?? nextResolutionForState(draftIssue.state, draftIssue.resolution) ?? EMPTY}
+                          onValueChange={(value) => {
+                            setDraftIssue((current) =>
+                              current
+                                ? { ...current, resolution: value === EMPTY ? null : (value as Issue['resolution']) }
+                                : current
+                            );
+                            setActiveProperty(null);
+                          }}
+                        >
+                          <SelectTrigger className="h-auto min-h-0 rounded-none border-0 bg-transparent px-0 py-0 text-sm text-ink-900 shadow-none hover:bg-transparent focus:ring-0">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {draftIssue.state === 'CANCELED' ? (
+                              ISSUE_RESOLUTIONS.filter((value) => value !== 'COMPLETED').map((value) => (
+                                <SelectItem key={value} value={value}>
+                                  {t(`common.resolution.${value}`)}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="COMPLETED">{t('common.resolution.COMPLETED')}</SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      }
+                    />
+                  ) : null}
                   <InlineSelectRow
                     label={t('issues.columns.priority')}
                     editor={
@@ -636,54 +669,6 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                           {projects.map((project) => (
                             <SelectItem key={project.id} value={String(project.id)}>
                               {project.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    }
-                  />
-                  <InlineSelectRow
-                    label={t('issues.detailPage.epic')}
-                    editor={
-                      <Select
-                        value={stringValue(draftIssue.epicId)}
-                        onValueChange={(value) => {
-                          setDraftIssue((current) => (current ? { ...current, epicId: parseNullableNumber(value) } : current));
-                          setActiveProperty(null);
-                        }}
-                      >
-                        <SelectTrigger className="h-auto min-h-0 rounded-none border-0 bg-transparent px-0 py-0 text-sm text-ink-900 shadow-none hover:bg-transparent focus:ring-0">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={EMPTY}>{t('common.notSet')}</SelectItem>
-                          {epics.map((epic) => (
-                            <SelectItem key={epic.id} value={String(epic.id)}>
-                              {epic.title}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    }
-                  />
-                  <InlineSelectRow
-                    label={t('issues.detailPage.sprint')}
-                    editor={
-                      <Select
-                        value={stringValue(draftIssue.sprintId)}
-                        onValueChange={(value) => {
-                          setDraftIssue((current) => (current ? { ...current, sprintId: parseNullableNumber(value) } : current));
-                          setActiveProperty(null);
-                        }}
-                      >
-                        <SelectTrigger className="h-auto min-h-0 rounded-none border-0 bg-transparent px-0 py-0 text-sm text-ink-900 shadow-none hover:bg-transparent focus:ring-0">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={EMPTY}>{t('common.notSet')}</SelectItem>
-                          {sprints.map((sprint) => (
-                            <SelectItem key={sprint.id} value={String(sprint.id)}>
-                              {sprint.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -1001,14 +986,20 @@ function QuickLink({ href, label, count }: { href: string; label: string; count:
 
 function IssueStateBadge({
   state,
+  resolution,
   t,
 }: {
   state: Issue['state'];
+  resolution?: Issue['resolution'];
   t: (key: string, vars?: Record<string, string | number>) => string;
 }) {
-  if (state === 'DONE') return <Badge variant="success">{t(`common.status.${state}`)}</Badge>;
+  if (state === 'DONE') {
+    return <Badge variant="success">{resolution && resolution !== 'COMPLETED' ? `${t(`common.status.${state}`)} · ${t(`common.resolution.${resolution}`)}` : t(`common.status.${state}`)}</Badge>;
+  }
   if (state === 'IN_PROGRESS' || state === 'IN_REVIEW') return <Badge variant="brand">{t(`common.status.${state}`)}</Badge>;
-  if (state === 'CANCELED') return <Badge variant="danger">{t(`common.status.${state}`)}</Badge>;
+  if (state === 'CANCELED') {
+    return <Badge variant="danger">{resolution && resolution !== 'CANCELED' ? `${t(`common.status.${state}`)} · ${t(`common.resolution.${resolution}`)}` : t(`common.status.${state}`)}</Badge>;
+  }
   return <Badge variant="neutral">{t(`common.status.${state}`)}</Badge>;
 }
 
@@ -1067,11 +1058,10 @@ function createDraft(issue: Issue): DraftIssue {
     title: issue.title,
     description: issue.description ?? '',
     state: issue.state,
+    resolution: issue.resolution,
     priority: issue.priority,
     assigneeId: issue.assigneeId,
     projectId: issue.projectId,
-    epicId: issue.epicId,
-    sprintId: issue.sprintId,
     teamId: issue.teamId,
     parentIssueId: issue.parentIssueId,
     estimatedHours: issue.estimatedHours,
@@ -1255,6 +1245,14 @@ function parseNullableNumber(value: string) {
 
 function toNullableForeignKeyPayload(value: number | null) {
   return value == null ? 0 : value;
+}
+
+function nextResolutionForState(state: Issue['state'], resolution: Issue['resolution']) {
+  if (state === 'DONE') return 'COMPLETED';
+  if (state === 'CANCELED') {
+    return resolution && resolution !== 'COMPLETED' ? resolution : 'CANCELED';
+  }
+  return null;
 }
 
 function valueFromMap(map: Map<number, string>, key: number | null, fallback: string) {

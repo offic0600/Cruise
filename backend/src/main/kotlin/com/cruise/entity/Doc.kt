@@ -24,9 +24,6 @@ class Doc(
     @Column(name = "project_id")
     var projectId: Long? = null,
 
-    @Column(name = "epic_id")
-    var epicId: Long? = null,
-
     @Column(name = "issue_id")
     var issueId: Long? = null,
 

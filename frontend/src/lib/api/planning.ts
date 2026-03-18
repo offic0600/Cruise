@@ -1,5 +1,5 @@
 import apiClient from './client';
-import { Epic, IssueRelation, Membership, Project, Sprint, Team, Workflow } from './types';
+import { IssueRelation, Membership, Project, Team, Workflow } from './types';
 
 export const getProjects = (params?: {
   organizationId?: number;
@@ -105,72 +105,6 @@ export const updateWorkflow = (id: number, data: {
 }) => apiClient.put<Workflow>(`/workflows/${id}`, data).then((r) => r.data);
 
 export const deleteWorkflow = (id: number) => apiClient.delete(`/workflows/${id}`);
-
-export const getEpics = (params?: {
-  organizationId?: number;
-  teamId?: number;
-  projectId?: number;
-  state?: string;
-  q?: string;
-}) => apiClient.get<Epic[]>('/epics', { params }).then((r) => r.data);
-
-export const getEpic = (id: number) => apiClient.get<Epic>(`/epics/${id}`).then((r) => r.data);
-
-export const createEpic = (data: {
-  organizationId?: number;
-  teamId: number;
-  projectId?: number | null;
-  title: string;
-  description?: string | null;
-  state?: string;
-  priority?: string;
-  ownerId?: number | null;
-  reporterId?: number | null;
-  startDate?: string | null;
-  targetDate?: string | null;
-}) => apiClient.post<Epic>('/epics', data).then((r) => r.data);
-
-export const updateEpic = (id: number, data: {
-  projectId?: number | null;
-  title?: string;
-  description?: string | null;
-  state?: string;
-  priority?: string;
-  ownerId?: number | null;
-  reporterId?: number | null;
-  startDate?: string | null;
-  targetDate?: string | null;
-}) => apiClient.put<Epic>(`/epics/${id}`, data).then((r) => r.data);
-
-export const deleteEpic = (id: number) => apiClient.delete(`/epics/${id}`);
-
-export const getSprints = (params?: { teamId?: number; projectId?: number; status?: string; q?: string }) =>
-  apiClient.get<Sprint[]>('/sprints', { params }).then((r) => r.data);
-
-export const getSprint = (id: number) => apiClient.get<Sprint>(`/sprints/${id}`).then((r) => r.data);
-
-export const createSprint = (data: {
-  teamId: number;
-  projectId?: number | null;
-  name: string;
-  goal?: string | null;
-  sequenceNumber?: number;
-  status?: string;
-  startDate: string;
-  endDate: string;
-}) => apiClient.post<Sprint>('/sprints', data).then((r) => r.data);
-
-export const updateSprint = (id: number, data: {
-  projectId?: number | null;
-  name?: string;
-  goal?: string | null;
-  sequenceNumber?: number;
-  status?: string;
-  startDate?: string;
-  endDate?: string;
-}) => apiClient.put<Sprint>(`/sprints/${id}`, data).then((r) => r.data);
-
-export const deleteSprint = (id: number) => apiClient.delete(`/sprints/${id}`);
 
 export const getIssueRelations = (issueId: number) =>
   apiClient.get<IssueRelation[]>(`/issues/${issueId}/relations`).then((r) => r.data);

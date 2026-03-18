@@ -14,13 +14,13 @@ import java.time.LocalDateTime
 data class IssueDto(
     val id: Long,
     val organizationId: Long,
-    val epicId: Long?,
-    val sprintId: Long?,
     val identifier: String,
     val type: String,
     val title: String,
     val description: String?,
     val state: String,
+    val stateCategory: String,
+    val resolution: String?,
     val priority: String,
     val projectId: Long,
     val teamId: Long?,
@@ -46,8 +46,6 @@ data class IssueDto(
 data class IssueQuery(
     val type: String? = null,
     val organizationId: Long? = null,
-    val epicId: Long? = null,
-    val sprintId: Long? = null,
     val projectId: Long? = null,
     val assigneeId: Long? = null,
     val parentIssueId: Long? = null,
@@ -59,12 +57,11 @@ data class IssueQuery(
 
 data class CreateIssueRequest(
     val organizationId: Long? = null,
-    val epicId: Long? = null,
-    val sprintId: Long? = null,
     val type: String,
     val title: String,
     val description: String? = null,
     val state: String? = null,
+    val resolution: String? = null,
     val priority: String? = null,
     val projectId: Long,
     val teamId: Long? = null,
@@ -86,12 +83,11 @@ data class CreateIssueRequest(
 
 data class UpdateIssueRequest(
     val organizationId: Long? = null,
-    val epicId: Long? = null,
-    val sprintId: Long? = null,
     val projectId: Long? = null,
     val title: String? = null,
     val description: String? = null,
     val state: String? = null,
+    val resolution: String? = null,
     val priority: String? = null,
     val teamId: Long? = null,
     val parentIssueId: Long? = null,
@@ -120,8 +116,6 @@ open class IssueService(
             .asSequence()
             .filter { query.type == null || it.type == query.type }
             .filter { query.organizationId == null || it.organizationId == query.organizationId }
-            .filter { query.epicId == null || it.epicId == query.epicId }
-            .filter { query.sprintId == null || it.sprintId == query.sprintId }
             .filter { query.projectId == null || it.projectId == query.projectId }
             .filter { query.assigneeId == null || it.assigneeId == query.assigneeId }
             .filter { query.parentIssueId == null || it.parentIssueId == query.parentIssueId }
@@ -163,13 +157,15 @@ open class IssueService(
         val saved = issueRepository.save(
             Issue(
                 organizationId = request.organizationId ?: 1L,
-                epicId = request.epicId,
-                sprintId = request.sprintId,
                 identifier = nextIdentifier(),
                 type = request.type,
                 title = request.title,
                 description = request.description,
                 state = request.state ?: defaultStateForType(request.type),
+                resolution = normalizeResolution(
+                    state = request.state ?: defaultStateForType(request.type),
+                    resolution = request.resolution
+                ),
                 priority = request.priority ?: defaultPriorityForType(request.type),
                 projectId = request.projectId,
                 teamId = request.teamId,
@@ -200,13 +196,15 @@ open class IssueService(
         val updated = Issue(
             id = issue.id,
             organizationId = request.organizationId ?: issue.organizationId,
-            epicId = normalizeNullableReference(request.epicId, issue.epicId),
-            sprintId = normalizeNullableReference(request.sprintId, issue.sprintId),
             identifier = issue.identifier,
             type = issue.type,
             title = request.title ?: issue.title,
             description = request.description ?: issue.description,
             state = request.state ?: issue.state,
+            resolution = normalizeResolution(
+                state = request.state ?: issue.state,
+                resolution = request.resolution ?: issue.resolution
+            ),
             priority = request.priority ?: issue.priority,
             projectId = nextProjectId,
             teamId = normalizeNullableReference(request.teamId, issue.teamId),
@@ -231,19 +229,18 @@ open class IssueService(
         return findById(saved.id)
     }
 
-    fun updateState(id: Long, state: String): IssueDto {
+    fun updateState(id: Long, state: String, resolution: String? = null): IssueDto {
         val issue = getIssue(id)
         val saved = issueRepository.save(
             Issue(
                 id = issue.id,
                 organizationId = issue.organizationId,
-                epicId = issue.epicId,
-                sprintId = issue.sprintId,
                 identifier = issue.identifier,
                 type = issue.type,
                 title = issue.title,
                 description = issue.description,
                 state = state,
+                resolution = normalizeResolution(state, resolution ?: issue.resolution),
                 priority = issue.priority,
                 projectId = issue.projectId,
                 teamId = issue.teamId,
@@ -288,13 +285,13 @@ open class IssueService(
     ): IssueDto = IssueDto(
         id = id,
         organizationId = organizationId,
-        epicId = epicId,
-        sprintId = sprintId,
         identifier = identifier,
         type = type,
         title = title,
         description = description,
         state = state,
+        stateCategory = stateCategoryFor(state),
+        resolution = resolution ?: defaultResolutionForState(state),
         priority = priority,
         projectId = projectId,
         teamId = teamId,
@@ -327,6 +324,30 @@ open class IssueService(
 
     private fun defaultPriorityForType(type: String): String =
         if (type == "BUG") "HIGH" else "MEDIUM"
+
+    private fun stateCategoryFor(state: String): String =
+        when (state) {
+            "BACKLOG" -> "BACKLOG"
+            "TODO", "IN_PROGRESS" -> "ACTIVE"
+            "IN_REVIEW" -> "REVIEW"
+            "DONE" -> "COMPLETED"
+            "CANCELED" -> "CANCELED"
+            else -> "ACTIVE"
+        }
+
+    private fun normalizeResolution(state: String, resolution: String?): String? =
+        when (state) {
+            "DONE" -> "COMPLETED"
+            "CANCELED" -> resolution?.takeIf { it in setOf("CANCELED", "DUPLICATE", "OBSOLETE", "WONT_DO") } ?: "CANCELED"
+            else -> null
+        }
+
+    private fun defaultResolutionForState(state: String): String? =
+        when (state) {
+            "DONE" -> "COMPLETED"
+            "CANCELED" -> "CANCELED"
+            else -> null
+        }
 
     private fun normalizeSeverity(type: String, severity: String?): String? =
         if (type == "BUG") severity ?: "MEDIUM" else null

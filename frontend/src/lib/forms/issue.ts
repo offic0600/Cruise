@@ -6,8 +6,6 @@ export const issueFormSchema = z.object({
   description: z.string().optional(),
   projectId: z.number().positive(),
   teamId: z.number().nullable().optional(),
-  epicId: z.number().nullable().optional(),
-  sprintId: z.number().nullable().optional(),
   parentIssueId: z.number().nullable().optional(),
   state: z.enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELED']),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']),

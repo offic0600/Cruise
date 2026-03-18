@@ -23,7 +23,6 @@ data class DocDto(
     val organizationId: Long,
     val teamId: Long?,
     val projectId: Long?,
-    val epicId: Long?,
     val issueId: Long?,
     val title: String,
     val slug: String,
@@ -40,7 +39,6 @@ data class DocQuery(
     val organizationId: Long? = null,
     val teamId: Long? = null,
     val projectId: Long? = null,
-    val epicId: Long? = null,
     val issueId: Long? = null,
     val status: String? = null,
     val q: String? = null
@@ -50,7 +48,6 @@ data class CreateDocRequest(
     val organizationId: Long? = null,
     val teamId: Long? = null,
     val projectId: Long? = null,
-    val epicId: Long? = null,
     val issueId: Long? = null,
     val title: String,
     val slug: String? = null,
@@ -62,7 +59,6 @@ data class CreateDocRequest(
 data class UpdateDocRequest(
     val teamId: Long? = null,
     val projectId: Long? = null,
-    val epicId: Long? = null,
     val issueId: Long? = null,
     val title: String? = null,
     val slug: String? = null,
@@ -82,7 +78,6 @@ class DocService(
             .filter { query.organizationId == null || it.organizationId == query.organizationId }
             .filter { query.teamId == null || it.teamId == query.teamId }
             .filter { query.projectId == null || it.projectId == query.projectId }
-            .filter { query.epicId == null || it.epicId == query.epicId }
             .filter { query.issueId == null || it.issueId == query.issueId }
             .filter { query.status == null || it.status == query.status }
             .filter {
@@ -101,7 +96,6 @@ class DocService(
                 organizationId = request.organizationId ?: 1L,
                 teamId = request.teamId,
                 projectId = request.projectId,
-                epicId = request.epicId,
                 issueId = request.issueId,
                 title = request.title,
                 slug = request.slug ?: defaultSlug(request.title),
@@ -131,7 +125,6 @@ class DocService(
                 organizationId = doc.organizationId,
                 teamId = request.teamId ?: doc.teamId,
                 projectId = request.projectId ?: doc.projectId,
-                epicId = request.epicId ?: doc.epicId,
                 issueId = request.issueId ?: doc.issueId,
                 title = request.title ?: doc.title,
                 slug = request.slug ?: doc.slug,
@@ -178,7 +171,6 @@ class DocService(
             organizationId = organizationId,
             teamId = teamId,
             projectId = projectId,
-            epicId = epicId,
             issueId = issueId,
             title = title,
             slug = slug,

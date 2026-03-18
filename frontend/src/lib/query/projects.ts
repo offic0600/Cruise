@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createProject, getActivityEvents, getDocs, getEpics, getIssues, getProjects, getSprints, updateProject } from '@/lib/api';
+import { createProject, getActivityEvents, getDocs, getIssues, getProjects, updateProject } from '@/lib/api';
 import { queryKeys } from './keys';
 
 export function useProjectsWorkspace() {
@@ -11,14 +11,6 @@ export function useProjectsWorkspace() {
     issuesQuery: useQuery({
       queryKey: [...queryKeys.projects, 'issues'],
       queryFn: () => getIssues(),
-    }),
-    epicsQuery: useQuery({
-      queryKey: [...queryKeys.projects, 'epics'],
-      queryFn: () => getEpics(),
-    }),
-    sprintsQuery: useQuery({
-      queryKey: [...queryKeys.projects, 'sprints'],
-      queryFn: () => getSprints(),
     }),
     docsQuery: useQuery({
       queryKey: [...queryKeys.projects, 'docs'],
@@ -38,8 +30,6 @@ export function useProjectMutations() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.projects }),
       queryClient.invalidateQueries({ queryKey: [...queryKeys.projects, 'issues'] }),
-      queryClient.invalidateQueries({ queryKey: [...queryKeys.projects, 'epics'] }),
-      queryClient.invalidateQueries({ queryKey: [...queryKeys.projects, 'sprints'] }),
       queryClient.invalidateQueries({ queryKey: [...queryKeys.projects, 'docs'] }),
       queryClient.invalidateQueries({ queryKey: [...queryKeys.projects, 'activity'] }),
     ]);

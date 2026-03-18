@@ -1,13 +1,13 @@
 export interface Issue {
   id: number;
   organizationId: number;
-  epicId: number | null;
-  sprintId: number | null;
   identifier: string;
   type: 'FEATURE' | 'TASK' | 'BUG' | 'TECH_DEBT';
   title: string;
   description: string | null;
   state: 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE' | 'CANCELED';
+  stateCategory: 'BACKLOG' | 'ACTIVE' | 'REVIEW' | 'COMPLETED' | 'CANCELED' | string;
+  resolution: 'COMPLETED' | 'CANCELED' | 'DUPLICATE' | 'OBSOLETE' | 'WONT_DO' | null;
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   projectId: number;
   teamId: number | null;
@@ -42,7 +42,7 @@ export interface CustomFieldOption {
 export interface CustomFieldDefinition {
   id: number;
   organizationId: number;
-  entityType: 'ISSUE' | 'PROJECT' | 'EPIC' | 'SPRINT' | string;
+  entityType: 'ISSUE' | 'PROJECT' | string;
   scopeType: 'GLOBAL' | 'TEAM' | 'PROJECT' | string;
   scopeId: number | null;
   key: string;
@@ -137,6 +137,22 @@ export interface Team {
   updatedAt: string;
 }
 
+export interface View {
+  id: number;
+  organizationId: number;
+  teamId: number | null;
+  projectId: number | null;
+  name: string;
+  description: string | null;
+  filterJson: string | null;
+  groupBy: string | null;
+  sortJson: string | null;
+  visibility: string;
+  isSystem: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Membership {
   id: number;
   organizationId: number;
@@ -173,38 +189,6 @@ export interface Workflow {
   transitions: WorkflowTransition[];
 }
 
-export interface Epic {
-  id: number;
-  organizationId: number;
-  teamId: number;
-  projectId: number | null;
-  identifier: string;
-  title: string;
-  description: string | null;
-  state: 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE' | 'CANCELED' | string;
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT' | string;
-  ownerId: number | null;
-  reporterId: number | null;
-  startDate: string | null;
-  targetDate: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Sprint {
-  id: number;
-  teamId: number;
-  projectId: number | null;
-  name: string;
-  goal: string | null;
-  sequenceNumber: number;
-  status: 'PLANNED' | 'ACTIVE' | 'CLOSED' | 'CANCELED' | string;
-  startDate: string;
-  endDate: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface IssueRelation {
   id: number;
   fromIssueId: number;
@@ -237,7 +221,6 @@ export interface Doc {
   organizationId: number;
   teamId: number | null;
   projectId: number | null;
-  epicId: number | null;
   issueId: number | null;
   title: string;
   slug: string;
@@ -253,7 +236,6 @@ export interface Doc {
 export interface Comment {
   id: number;
   issueId: number | null;
-  epicId: number | null;
   docId: number | null;
   parentCommentId: number | null;
   authorId: number;
@@ -265,7 +247,7 @@ export interface Comment {
 export interface ActivityEvent {
   id: number;
   actorId: number | null;
-  entityType: 'ISSUE' | 'EPIC' | 'SPRINT' | 'DOC' | 'COMMENT' | string;
+  entityType: 'ISSUE' | 'DOC' | 'COMMENT' | string;
   entityId: number;
   actionType: string;
   summary: string;

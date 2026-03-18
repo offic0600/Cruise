@@ -25,13 +25,11 @@ class CommentController(
     @GetMapping
     fun getAll(
         @RequestParam(required = false) issueId: Long?,
-        @RequestParam(required = false) epicId: Long?,
         @RequestParam(required = false) docId: Long?,
         @RequestParam(required = false) authorId: Long?
     ): List<CommentDto> = commentService.findAll(
         CommentQuery(
             issueId = issueId,
-            epicId = epicId,
             docId = docId,
             authorId = authorId
         )

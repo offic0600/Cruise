@@ -27,6 +27,20 @@ const enMessages = {
       DONE: "Done",
       CANCELED: "Canceled",
     },
+    stateCategory: {
+      BACKLOG: "Backlog",
+      ACTIVE: "Active",
+      REVIEW: "Review",
+      COMPLETED: "Completed",
+      CANCELED: "Canceled",
+    },
+    resolution: {
+      COMPLETED: "Completed",
+      CANCELED: "Canceled",
+      DUPLICATE: "Duplicate",
+      OBSOLETE: "Obsolete",
+      WONT_DO: "Won't do",
+    },
     priority: {
       LOW: "Low",
       MEDIUM: "Medium",
@@ -338,7 +352,7 @@ const enMessages = {
   },
   issues: {
     title: "Issues",
-    subtitle: "Work items are the execution source of truth. Filter them by project, epic, sprint, and state.",
+    subtitle: "Work items are the execution source of truth. Filter them by project, team, and state.",
     empty: "No issues match the current view",
     metrics: {
       total: "Visible issues",
@@ -349,16 +363,12 @@ const enMessages = {
     filters: {
       type: "Type",
       project: "Project",
-      epic: "Epic",
-      sprint: "Sprint",
       reset: "Reset filters",
       searchPlaceholder: "Search by title or identifier",
       state: "State",
       priority: "Priority",
       allTypes: "All types",
       allProjects: "All projects",
-      allEpics: "All epics",
-      allSprints: "All sprints",
       allStates: "All states",
       allPriorities: "All priorities",
     },
@@ -366,8 +376,6 @@ const enMessages = {
       title: "Title",
       type: "Type",
       project: "Project",
-      epic: "Epic",
-      sprint: "Sprint",
       state: "State",
       priority: "Priority",
       team: "Team",
@@ -412,10 +420,11 @@ const enMessages = {
       resources: "Resources",
       uploadAttachment: "Upload file",
       linkedDocs: "Linked docs",
-      subIssues: "Sub-issues",
-      newSubIssue: "Create a sub-issue",
-      assignee: "Assignee",
-      parentIssue: "Parent issue",
+        subIssues: "Sub-issues",
+        newSubIssue: "Create a sub-issue",
+        assignee: "Assignee",
+        parentIssue: "Parent issue",
+        team: "Team",
       plannedStart: "Planned start",
       plannedEnd: "Planned end",
     },
@@ -449,7 +458,7 @@ const enMessages = {
   },
   projects: {
     title: "Projects",
-    subtitle: "Projects organize delivery context. Issues, sprints, docs, and activity stay inside the project container.",
+    subtitle: "Projects organize delivery context. Issues, docs, views, and activity stay inside the project container.",
     searchPlaceholder: "Search projects",
     actions: {
       new: "New project",
@@ -472,22 +481,35 @@ const enMessages = {
     },
     metrics: {
       issues: "Issues",
-      epics: "Epics",
-      sprints: "Sprints",
+      active: "Active work",
       docs: "Docs",
+      activity: "Recent activity",
     },
     panels: {
       workItems: "Work items",
-      sprints: "Sprints",
+      views: "Suggested views",
       docs: "Docs",
       activity: "Recent activity",
     },
     empty: {
       projects: "No projects available",
       workItems: "No issues in this project",
-      sprints: "No sprints in this project",
       docs: "No docs linked to this project",
       activity: "No recent activity for this project",
+    },
+    presets: {
+      activeWork: {
+        title: "Active work",
+        description: "Focus on issues that are already in execution or review.",
+      },
+      backlog: {
+        title: "Backlog",
+        description: "Review work that is recorded but not yet committed.",
+      },
+      review: {
+        title: "Needs review",
+        description: "Collect issues waiting for review or final confirmation.",
+      },
     },
   },
   views: {
@@ -495,24 +517,7 @@ const enMessages = {
     subtitle: "Views are reusable contexts on top of the same work item graph, not separate modules.",
     searchPlaceholder: "Search this view",
     empty: "No issues in this view",
-    presets: {
-      myWork: {
-        title: "My work",
-        description: "Issues that already have an owner or reporter attached.",
-      },
-      currentSprint: {
-        title: "Current sprint",
-        description: "Items linked to active sprints.",
-      },
-      highPriority: {
-        title: "High priority",
-        description: "Items marked high or urgent.",
-      },
-      doneRecently: {
-        title: "Done recently",
-        description: "A quick look at recently completed work.",
-      },
-    },
+    defaultDescription: "A reusable work context built from filters, grouping, and sorting.",
   },
   customFields: {
     title: "Custom Fields",
@@ -577,8 +582,6 @@ const enMessages = {
     entityType: {
       ISSUE: "Issue",
       PROJECT: "Project",
-      EPIC: "Epic",
-      SPRINT: "Sprint",
     },
     scopeType: {
       GLOBAL: "Global",

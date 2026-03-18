@@ -20,7 +20,7 @@ import { customFieldFormSchema, type CustomFieldFormInput, type CustomFieldFormV
 import { useCustomFieldMutations, useCustomFieldsWorkspace } from '@/lib/query/custom-fields';
 
 const EMPTY = '__empty__';
-const ENTITY_TYPES = ['ISSUE', 'PROJECT', 'EPIC', 'SPRINT'] as const;
+const ENTITY_TYPES = ['ISSUE', 'PROJECT'] as const;
 const SCOPE_TYPES = ['GLOBAL', 'TEAM', 'PROJECT'] as const;
 const DATA_TYPES = ['TEXT', 'TEXTAREA', 'NUMBER', 'DATE', 'DATETIME', 'SINGLE_SELECT', 'MULTI_SELECT', 'BOOLEAN', 'USER', 'TEAM', 'URL'] as const;
 

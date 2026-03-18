@@ -18,9 +18,6 @@ class Comment(
     @Column(name = "issue_id")
     var issueId: Long? = null,
 
-    @Column(name = "epic_id")
-    var epicId: Long? = null,
-
     @Column(name = "doc_id")
     var docId: Long? = null,
 

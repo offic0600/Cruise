@@ -27,7 +27,6 @@ class DocController(
         @RequestParam(required = false) organizationId: Long?,
         @RequestParam(required = false) teamId: Long?,
         @RequestParam(required = false) projectId: Long?,
-        @RequestParam(required = false) epicId: Long?,
         @RequestParam(required = false) issueId: Long?,
         @RequestParam(required = false) status: String?,
         @RequestParam(required = false) q: String?
@@ -36,7 +35,6 @@ class DocController(
             organizationId = organizationId,
             teamId = teamId,
             projectId = projectId,
-            epicId = epicId,
             issueId = issueId,
             status = status,
             q = q
