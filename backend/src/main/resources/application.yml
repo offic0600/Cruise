@@ -43,6 +43,16 @@ spring:
     init:
       mode: always
 
+  mail:
+    host: localhost
+    port: 1025
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+
 management:
   endpoints:
     web:
@@ -62,6 +72,37 @@ logging:
 jwt:
   secret: cruise-secret-key-for-jwt-token-generation-must-be-long-enough-256-bits
   expiration: 86400000
+
+cruise:
+  auth:
+    frontend-base-url: http://localhost:3000
+    legacy-password-enabled: true
+    default-organization-slug: cruise
+    magic-link:
+      enabled: true
+      token-ttl-minutes: 15
+      callback-path: /login/callback
+      from-address: noreply@cruise.local
+    google:
+      enabled: true
+      provider-key: google
+      provider-type: GOOGLE_OIDC
+      display-name: Google
+      authorization-url: https://accounts.google.com/o/oauth2/v2/auth
+      token-url: https://oauth2.googleapis.com/token
+      userinfo-url: https://openidconnect.googleapis.com/v1/userinfo
+      scopes: openid profile email
+      is-default: false
+      # Set client-id and client-secret in deployment env/config before enabling real sign-in.
+    enterprise:
+      enabled: false
+      provider-key: enterprise
+      provider-type: ENTERPRISE_OIDC
+      display-name: Enterprise SSO
+      scopes: openid profile email
+      is-default: false
+  storage:
+    attachments-root: storage
 
 minimax:
   api-key: sk-cp-EQCCFxfVKNv4mVcruv_PRd5YPKOEBOugbUGfhbyIIh9O161hLWOyXsglcRySfy4v_H_Peda8FVQ1EKlYtYBByKBS4zwQLNMazIgvrTr1xdd4VcAg_vEG1Xw

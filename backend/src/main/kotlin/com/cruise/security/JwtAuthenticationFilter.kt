@@ -34,8 +34,12 @@ class JwtAuthenticationFilter(
         try {
             val jwt = getJwtFromRequest(request)
 
-            if (StringUtils.hasText(jwt) && jwtTokenProvider.validateToken(jwt!!)) {
-                val username = jwtTokenProvider.getUsernameFromToken(jwt!!)
+            if (StringUtils.hasText(jwt)) {
+                val token = jwt ?: return filterChain.doFilter(request, response)
+                if (!jwtTokenProvider.validateToken(token)) {
+                    return filterChain.doFilter(request, response)
+                }
+                val username = jwtTokenProvider.getUsernameFromToken(token)
                 val userDetails = customUserDetailsService.loadUserByUsername(username)
 
                 val authentication = UsernamePasswordAuthenticationToken(

@@ -6,6 +6,7 @@ repositories {
 plugins {
     id("org.springframework.boot") version "3.2.5"
     id("org.jetbrains.kotlin.jvm") version "1.9.23"
+    id("org.jetbrains.kotlin.plugin.spring") version "1.9.23"
     id("org.jetbrains.kotlin.plugin.allopen") version "1.9.23"
 }
 
@@ -34,6 +35,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.springframework.boot:spring-boot-starter-mail")
 
     // JWT
     implementation("io.jsonwebtoken:jjwt-api:0.12.5")

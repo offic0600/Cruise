@@ -7,8 +7,18 @@
     color-scheme: light;
   }
 
+  html {
+    scrollbar-gutter: stable;
+  }
+
   body {
     @apply bg-page-glow text-ink-900 antialiased;
+    overflow-y: scroll;
+  }
+
+  body[data-scroll-locked] {
+    overflow-y: scroll !important;
+    margin-right: 0 !important;
   }
 }
 
@@ -83,5 +93,10 @@
 
   .filter-bar {
     @apply panel-card p-5;
+  }
+
+  .editable-surface:empty::before {
+    content: attr(data-placeholder);
+    @apply text-ink-400;
   }
 }

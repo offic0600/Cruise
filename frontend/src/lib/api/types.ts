@@ -24,8 +24,56 @@ export interface Issue {
   sourceType: string;
   sourceId: number | null;
   legacyPayload: string | null;
+  customFields: Record<string, unknown>;
+  customFieldDefinitions?: CustomFieldDefinition[] | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CustomFieldOption {
+  id: number;
+  value: string;
+  label: string;
+  color: string | null;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+export interface CustomFieldDefinition {
+  id: number;
+  organizationId: number;
+  entityType: 'ISSUE' | 'PROJECT' | 'EPIC' | 'SPRINT' | string;
+  scopeType: 'GLOBAL' | 'TEAM' | 'PROJECT' | string;
+  scopeId: number | null;
+  key: string;
+  name: string;
+  description: string | null;
+  dataType: 'TEXT' | 'TEXTAREA' | 'NUMBER' | 'DATE' | 'DATETIME' | 'SINGLE_SELECT' | 'MULTI_SELECT' | 'BOOLEAN' | 'USER' | 'TEAM' | 'URL' | string;
+  required: boolean;
+  multiple: boolean;
+  isActive: boolean;
+  isVisible: boolean;
+  isFilterable: boolean;
+  isSortable: boolean;
+  showOnCreate: boolean;
+  showOnDetail: boolean;
+  showOnList: boolean;
+  sortOrder: number;
+  config: Record<string, unknown>;
+  options: CustomFieldOption[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ImportFieldMappingTemplate {
+  id: number;
+  organizationId: number;
+  entityType: string;
+  name: string;
+  sourceType: 'EXCEL' | 'CSV' | string;
+  mapping: Record<string, unknown>;
+  isDefault: boolean;
+  createdAt: string;
 }
 
 type JsonRecord = Record<string, unknown>;
@@ -162,6 +210,16 @@ export interface IssueRelation {
   fromIssueId: number;
   toIssueId: number;
   relationType: 'BLOCKS' | 'BLOCKED_BY' | 'RELATES_TO' | 'DUPLICATES' | 'CAUSED_BY' | 'SPLIT_FROM' | string;
+  createdAt: string;
+}
+
+export interface IssueAttachment {
+  id: number;
+  issueId: number;
+  filename: string;
+  contentType: string | null;
+  size: number;
+  uploadedBy: number | null;
   createdAt: string;
 }
 

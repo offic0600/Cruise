@@ -1,19 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Bell, ChevronDown, Menu } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import LocaleSwitcher from '@/components/LocaleSwitcher';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { localizePath } from '@/i18n/config';
 import { useI18n } from '@/i18n/useI18n';
 import { clearSession, getStoredUser, type StoredUser } from '@/lib/auth';
@@ -37,6 +29,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       { href: '/issues', label: t('nav.issues'), icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 7h6m-6 4h6m-7-8h.01M9 16h.01' },
       { href: '/projects', label: t('nav.projects'), icon: 'M4 7a2 2 0 012-2h4l2 2h6a2 2 0 012 2v2H4V7zm0 4h16v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6z' },
       { href: '/views', label: t('nav.views'), icon: 'M4 6h16M4 12h10M4 18h7' },
+      { href: '/custom-fields', label: t('nav.customFields'), icon: 'M4 7a3 3 0 013-3h3l2 2h5a3 3 0 013 3v8a3 3 0 01-3 3H7a3 3 0 01-3-3V7zm4 2h8m-8 4h8m-8 4h5' },
       { href: '/team-members', label: t('nav.teamMembers'), icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
       { href: '/skills', label: t('nav.skills'), icon: 'M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z' },
       { href: '/agent', label: t('nav.agent'), icon: 'M9.75 3a.75.75 0 01.75.75V5h3V3.75a.75.75 0 011.5 0V5h.75A2.25 2.25 0 0119 7.25v7.5A2.25 2.25 0 0116.75 17h-1.19l1.22 2.44a.75.75 0 01-1.34.67L14.08 17h-4.16l-1.36 3.11a.75.75 0 11-1.37-.6L8.44 17H7.25A2.25 2.25 0 015 14.75v-7.5A2.25 2.25 0 017.25 5H8V3.75A.75.75 0 018.75 3h1zm-2.5 5a.75.75 0 000 1.5h9.5a.75.75 0 000-1.5h-9.5zM9 12a1 1 0 112 0 1 1 0 01-2 0zm4 0a1 1 0 112 0 1 1 0 01-2 0z' },
@@ -59,8 +52,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   };
 
   if (!user) return null;
-
-  const activeItem = navItems.find((item) => pathname === localizePath(locale, item.href));
 
   return (
     <div className="app-shell">
@@ -103,9 +94,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="subtle-card p-4">
               <div className="text-sm font-medium text-ink-900">{user.username}</div>
               <div className="mt-1 text-xs text-ink-700">{user.role}</div>
-              <div className="mt-4 flex items-center justify-between gap-3">
-                <LocaleSwitcher />
-                <Button onClick={handleLogout} variant="secondary" size="sm">
+              <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                <div className="min-w-0">
+                  <LocaleSwitcher />
+                </div>
+                <Button onClick={handleLogout} variant="secondary" size="sm" className="shrink-0 whitespace-nowrap">
                   {t('nav.logout')}
                 </Button>
               </div>
@@ -115,58 +108,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="xl:ml-72">
-        <header className="glass-header sticky top-0 z-20">
-          <div className="flex items-center justify-between px-5 py-4 sm:px-8">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="secondary"
-                size="icon"
-                className="xl:hidden"
-                onClick={() => setMobileNavOpen((current) => !current)}
-                aria-label="Toggle navigation"
-              >
-                <Menu className="h-4 w-4" />
-              </Button>
-              <div>
-              <div className="text-xs uppercase tracking-[0.2em] text-ink-400">{t('common.workspace')}</div>
-              <h1 className="text-lg font-semibold text-ink-900">{activeItem?.label ?? 'Cruise'}</h1>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Button variant="secondary" size="icon" className="hidden md:inline-flex">
-                <Bell className="h-4 w-4" />
-              </Button>
-              <div className="hidden rounded-card border border-border-soft bg-white px-3 py-2 text-sm text-ink-700 sm:block">
-                {user.email}
-              </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="brand-badge flex h-10 items-center gap-2 rounded-card px-3 text-sm font-semibold">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/20">
-                      {user.username.charAt(0).toUpperCase()}
-                    </span>
-                    <span className="hidden sm:inline">{user.username}</span>
-                    <ChevronDown className="hidden h-4 w-4 sm:inline" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>{user.email}</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => router.push(localizePath(locale, '/issues'))}>
-                    {t('nav.issues')}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => router.push(localizePath(locale, '/projects'))}>
-                    {t('nav.projects')}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout}>{t('nav.logout')}</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+        <main className="px-5 py-6 sm:px-8">
+          <div className="mb-4 xl:hidden">
+            <Button
+              variant="secondary"
+              size="icon"
+              onClick={() => setMobileNavOpen((current) => !current)}
+              aria-label="Toggle navigation"
+            >
+              <Menu className="h-4 w-4" />
+            </Button>
           </div>
-        </header>
-
-        <main className="px-5 py-6 sm:px-8">{children}</main>
+          {children}
+        </main>
       </div>
     </div>
   );

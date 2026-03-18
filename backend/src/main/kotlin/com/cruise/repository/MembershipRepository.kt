@@ -8,4 +8,5 @@ import org.springframework.stereotype.Repository
 interface MembershipRepository : JpaRepository<Membership, Long> {
     fun findByTeamId(teamId: Long): List<Membership>
     fun findByUserId(userId: Long): List<Membership>
+    fun findFirstByUserIdAndActiveTrue(userId: Long): Membership?
 }

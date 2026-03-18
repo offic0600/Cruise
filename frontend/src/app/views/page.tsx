@@ -7,9 +7,9 @@ import AppLayout from '@/components/AppLayout';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { useViewsWorkspace } from '@/lib/query/views';
 import { useI18n } from '@/i18n/useI18n';
 import { localizePath } from '@/i18n/config';
-import { getIssues, getProjects, getSprints } from '@/lib/api';
 
 type ViewId = 'my-work' | 'current-sprint' | 'high-priority' | 'done-recently';
 
@@ -17,10 +17,7 @@ export default function ViewsPage() {
   const { locale, t } = useI18n();
   const [q, setQ] = useState('');
   const [activeView, setActiveView] = useState<ViewId>('my-work');
-
-  const issuesQuery = useQuery({ queryKey: ['views', 'issues'], queryFn: () => getIssues() });
-  const projectsQuery = useQuery({ queryKey: ['views', 'projects'], queryFn: () => getProjects() });
-  const sprintsQuery = useQuery({ queryKey: ['views', 'sprints'], queryFn: () => getSprints() });
+  const { issuesQuery, projectsQuery, sprintsQuery } = useViewsWorkspace();
 
   const issues = issuesQuery.data ?? [];
   const projects = projectsQuery.data ?? [];

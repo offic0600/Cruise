@@ -7,8 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useI18n } from '@/i18n/useI18n';
-import { Issue, createSession, getIssues, getTeamMembers, sendQuery } from '@/lib/api';
-import { getStoredUser } from '@/lib/auth';
+import { Issue } from '@/lib/api';
+import { useDashboardAgent, useDashboardData } from '@/lib/query/dashboard';
 
 interface ChartConfig {
   type: 'bar' | 'line' | 'pie';
@@ -27,9 +27,6 @@ interface Message {
 
 export default function DashboardPage() {
   const { t } = useI18n();
-  const [issues, setIssues] = useState<Issue[]>([]);
-  const [members, setMembers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(() =>
     typeof window === 'undefined' ? null : localStorage.getItem('ai_session_id')
@@ -42,10 +39,10 @@ export default function DashboardPage() {
   const [aiInput, setAiInput] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    void loadData();
-  }, []);
+  const { issuesQuery, membersQuery } = useDashboardData();
+  const { sessionMutation, queryMutation } = useDashboardAgent();
+  const issues = (issuesQuery.data ?? []) as Issue[];
+  const members = Array.isArray(membersQuery.data) ? membersQuery.data : [];
 
   useEffect(() => {
     if (sessionId) {
@@ -70,22 +67,9 @@ export default function DashboardPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, aiPanelOpen]);
 
-  const loadData = async () => {
-    try {
-      const [issueList, memberList] = await Promise.all([getIssues(), getTeamMembers()]);
-      setIssues(Array.isArray(issueList) ? issueList : []);
-      setMembers(Array.isArray(memberList) ? memberList : []);
-    } catch (error) {
-      console.error(t('dashboard.loadError'), error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const initAiSession = async () => {
     try {
-      const user = getStoredUser();
-      const session = await createSession(user?.id, user?.username);
+      const session = await sessionMutation.mutateAsync();
       setSessionId(session.sessionId);
     } catch (error) {
       console.error(t('dashboard.sessionError'), error);
@@ -115,7 +99,7 @@ export default function DashboardPage() {
     setAiLoading(true);
 
     try {
-      const response = await sendQuery(sessionId, query);
+      const response = await queryMutation.mutateAsync({ sessionId, query });
       const chartConfig = parseChartConfig(response.message || '');
       setMessages((current) => [
         ...current,
@@ -161,7 +145,7 @@ export default function DashboardPage() {
     },
   ];
 
-  if (loading) {
+  if (issuesQuery.isLoading || membersQuery.isLoading) {
     return (
       <AppLayout>
         <div className="flex h-64 items-center justify-center text-ink-700">{t('common.loading')}</div>

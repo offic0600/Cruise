@@ -3,6 +3,7 @@ export interface StoredUser {
   username: string;
   email: string;
   role: string;
+  organizationId?: number | null;
 }
 
 export interface AuthSession {
