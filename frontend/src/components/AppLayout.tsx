@@ -8,7 +8,7 @@ import LocaleSwitcher from '@/components/LocaleSwitcher';
 import { Button } from '@/components/ui/button';
 import { localizePath } from '@/i18n/config';
 import { useI18n } from '@/i18n/useI18n';
-import { clearSession, getStoredUser, type StoredUser } from '@/lib/auth';
+import { clearSession, getStoredSession, type StoredUser } from '@/lib/auth';
 
 interface NavItem {
   href: string;
@@ -34,12 +34,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   );
 
   useEffect(() => {
-    const storedUser = getStoredUser();
-    if (!storedUser) {
+    const session = getStoredSession();
+    if (!session?.user) {
       router.replace(localizePath(locale, '/login'));
       return;
     }
-    setUser(storedUser);
+    setUser(session.user);
   }, [locale, router]);
 
   const handleLogout = () => {
@@ -48,6 +48,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   };
 
   if (!user) return null;
+
+  const newIssueHref = localizePath(locale, '/issues/new');
+  const issuesRootHref = localizePath(locale, '/issues');
+  const showGlobalNewIssue = pathname !== newIssueHref && !pathname.startsWith(issuesRootHref);
 
   return (
     <div className="app-shell">
@@ -115,6 +119,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <Menu className="h-4 w-4" />
             </Button>
           </div>
+          {showGlobalNewIssue ? (
+            <div className="mb-5 flex justify-end">
+              <Link
+                href={newIssueHref}
+                className="inline-flex h-10 items-center justify-center rounded-xl bg-slate-900 px-4 text-sm font-medium text-white transition hover:brightness-105"
+              >
+                {t('nav.newIssue')}
+              </Link>
+            </div>
+          ) : null}
           {children}
         </main>
       </div>

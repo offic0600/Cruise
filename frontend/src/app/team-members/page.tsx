@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,6 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetDismissButton, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
+import { localizePath } from '@/i18n/config';
 import { useI18n } from '@/i18n/useI18n';
 import { createTeamMember, deleteTeamMember, getTeamMembers, updateTeamMember } from '@/lib/api';
 
@@ -40,7 +42,7 @@ const memberSchema = z.object({
 type MemberValues = z.infer<typeof memberSchema>;
 
 export default function TeamMembersPage() {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [editorOpen, setEditorOpen] = useState(false);
@@ -120,6 +122,12 @@ export default function TeamMembersPage() {
             <p className="mt-2 text-sm text-ink-700">{t('teamMembers.subtitle')}</p>
           </div>
           <div className="flex gap-3">
+            <Link
+              href={localizePath(locale, '/teams/current/settings/templates')}
+              className="inline-flex h-10 items-center justify-center rounded-xl border border-border-soft bg-white px-4 text-sm font-medium text-ink-700 transition hover:bg-slate-50"
+            >
+              {t('teamMembers.issueSettings')}
+            </Link>
             <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('common.search')} className="w-72" />
             <Button onClick={() => { setEditingItem(null); setEditorOpen(true); }} className="gap-2">
               <Plus className="h-4 w-4" />

@@ -9,3 +9,4 @@ export * from './custom-fields';
 export * from './legacy';
 export * from './agent';
 export * from './skills';
+export * from './issue-platform';

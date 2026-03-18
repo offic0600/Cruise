@@ -261,54 +261,18 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
               <DetailSection
                 title={t('issues.detailPage.subIssues')}
                 action={
-                  <div className="flex items-center gap-2 text-sm text-ink-400">
-                    <Plus className="h-4 w-4" />
-                    <span>{t('issues.detailPage.newSubIssue')}</span>
-                  </div>
-                }
-              >
-                {isAddingChild ? (
-                  <div className="flex items-center gap-3 border-b border-border-soft/80 pb-3">
-                    <Input
-                      value={childTitle}
-                      onChange={(event) => setChildTitle(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          event.preventDefault();
-                          void createChildIssue();
-                        }
-                        if (event.key === 'Escape') {
-                          setChildTitle('');
-                          setIsAddingChild(false);
-                        }
-                      }}
-                      placeholder={t('issues.detailPage.newSubIssue')}
-                      className="h-9 rounded-none border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
-                    />
-                    <Button variant="ghost" size="sm" onClick={() => void createChildIssue()}>
-                      {t('common.create')}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setChildTitle('');
-                        setIsAddingChild(false);
-                      }}
-                    >
-                      {t('common.cancel')}
-                    </Button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingChild(true)}
-                    className="flex items-center gap-2 py-1 text-sm text-ink-400 transition hover:text-ink-700"
+                  <Link
+                    href={localizePath(
+                      locale,
+                      `/issues/new?parentIssueId=${issue.id}&projectId=${issue.projectId}&teamId=${issue.teamId ?? ''}&title=`
+                    )}
+                    className="flex items-center gap-2 text-sm text-ink-400 transition hover:text-ink-700"
                   >
                     <Plus className="h-4 w-4" />
                     <span>{t('issues.detailPage.newSubIssue')}</span>
-                  </button>
-                )}
+                  </Link>
+                }
+              >
                 <div className="divide-y divide-border-soft">
                   {childIssues.length ? (
                     childIssues.map((child) => (

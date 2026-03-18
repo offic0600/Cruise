@@ -116,6 +116,11 @@ export const uploadIssueAttachment = (issueId: number, data: { file: File; uploa
   }).then((r) => r.data);
 };
 
+export const createIssueLinkAttachments = (
+  issueId: number,
+  data: Array<{ url: string; title?: string | null; metadataJson?: string | null; uploadedBy?: number | null }>
+) => apiClient.post<IssueAttachment[]>(`/issues/${issueId}/attachments/links`, data).then((r) => r.data);
+
 export const deleteIssueAttachment = (issueId: number, attachmentId: number) =>
   apiClient.delete(`/issues/${issueId}/attachments/${attachmentId}`);
 

@@ -1,9 +1,11 @@
 ﻿'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Ban, CheckCircle2, ChevronDown, ChevronRight, Circle, CircleDashed, CircleEllipsis, FilterX, LoaderCircle, Maximize2, Paperclip, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
+import IssueComposer from '@/components/issues/IssueComposer';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetDismissButton, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
+import { localizePath } from '@/i18n/config';
 import { useI18n } from '@/i18n/useI18n';
 import type { CustomFieldDefinition, Issue, Project, Team } from '@/lib/api';
 import { getStoredUser } from '@/lib/auth';
@@ -56,7 +59,7 @@ const TYPE_OPTIONS = ['FEATURE', 'TASK', 'BUG', 'TECH_DEBT'] as const;
 const PRIORITY_OPTIONS = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const;
 
 export default function IssuesPage() {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -239,7 +242,7 @@ export default function IssuesPage() {
         setQuickCreateState(null);
       }
     } catch {
-      setWorkspaceError(isZh ? 'Failed to create issue. Please try again.' : 'Failed to create issue. Please try again.');
+      setWorkspaceError(t('issues.errors.create'));
     }
   };
 
@@ -259,10 +262,10 @@ export default function IssuesPage() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-1.5">
             {([
-              ['all', isZh ? 'All issues' : 'All issues'],
-              ['active', isZh ? 'Active' : 'Active'],
-              ['backlog', isZh ? 'Backlog' : 'Backlog'],
-              ['done', isZh ? 'Done' : 'Done'],
+              ['all', isZh ? '全部事项' : 'All issues'],
+              ['active', isZh ? '进行中' : 'Active'],
+              ['backlog', isZh ? '待规划' : 'Backlog'],
+              ['done', isZh ? '已完成' : 'Done'],
             ] as const).map(([view, label]) => (
               <button
                 key={view}
@@ -271,7 +274,7 @@ export default function IssuesPage() {
                   currentView === view ? 'bg-slate-900 text-white' : 'bg-white text-ink-700 hover:bg-slate-100'
                 }`}
               >
-                {view === 'done' ? (isZh ? 'Completed' : 'Completed') : label}
+                {view === 'done' ? (isZh ? '已完成' : 'Completed') : label}
                 <span className="ml-2 text-xs opacity-70">{viewCounts[view]}</span>
               </button>
             ))}
@@ -289,11 +292,17 @@ export default function IssuesPage() {
             </form>
             <Button variant="secondary" size="sm" className="h-9 rounded-full px-3 text-[13px]" onClick={() => setFilterOpen(true)}>
               <SlidersHorizontal className="mr-2 h-4 w-4" />
-              {isZh ? 'Advanced filter' : 'Advanced filter'}
+              {t('issues.actions.advancedFilter')}
             </Button>
+            <Link
+              href={localizePath(locale, '/drafts')}
+              className="inline-flex h-9 items-center justify-center rounded-full border border-border-soft bg-white px-3 text-[13px] font-medium text-ink-700 transition hover:bg-slate-50"
+            >
+              {t('issues.actions.drafts')}
+            </Link>
             <Button size="sm" className="h-9 rounded-full px-3 text-[13px]" onClick={() => openCreateSheet()}>
               <Plus className="mr-2 h-4 w-4" />
-              {isZh ? 'New issue' : 'New issue'}
+              {t('issues.actions.new')}
             </Button>
           </div>
         </div>
@@ -364,6 +373,7 @@ export default function IssuesPage() {
         open={filterOpen}
         setOpen={setFilterOpen}
         isZh={isZh}
+        advancedFilterLabel={t('issues.actions.advancedFilter')}
         draftFilters={draftFilters}
         setDraftFilters={setDraftFilters}
         customFieldDefinitions={customFieldDefinitions}
@@ -375,7 +385,7 @@ export default function IssuesPage() {
       />
 
       <CreateIssueDialog
-        open={createOpen}
+        open={false}
         setOpen={setCreateOpen}
         isZh={isZh}
         draft={createDraft}
@@ -389,6 +399,13 @@ export default function IssuesPage() {
         setCreateMore={setCreateMore}
         onSubmit={handleCreateIssue}
       />
+      <IssueComposer
+        mode="modal"
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        initialParams={new URLSearchParams(quickCreateState ? `state=${quickCreateState}` : '')}
+        localeScope="issues-list-modal"
+      />
     </AppLayout>
   );
 }
@@ -397,6 +414,7 @@ function FilterSheet({
   open,
   setOpen,
   isZh,
+  advancedFilterLabel,
   draftFilters,
   setDraftFilters,
   customFieldDefinitions,
@@ -409,6 +427,7 @@ function FilterSheet({
   open: boolean;
   setOpen: (open: boolean) => void;
   isZh: boolean;
+  advancedFilterLabel: string;
   draftFilters: FilterDraft;
   setDraftFilters: React.Dispatch<React.SetStateAction<FilterDraft>>;
   customFieldDefinitions: CustomFieldDefinition[];
@@ -425,7 +444,7 @@ function FilterSheet({
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="text-xs uppercase tracking-[0.18em] text-ink-400">Issues</div>
-              <SheetTitle className="mt-2">{isZh ? 'Advanced filter' : 'Advanced filter'}</SheetTitle>
+              <SheetTitle className="mt-2">{advancedFilterLabel}</SheetTitle>
             </div>
             <SheetDismissButton aria-label={isZh ? 'Cancel' : 'Cancel'} />
           </div>

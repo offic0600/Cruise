@@ -201,10 +201,98 @@ export interface IssueAttachment {
   id: number;
   issueId: number;
   filename: string;
+  attachmentType: 'FILE' | 'LINK' | string;
   contentType: string | null;
   size: number;
+  externalUrl: string | null;
+  linkTitle: string | null;
+  metadataJson: string | null;
   uploadedBy: number | null;
   createdAt: string;
+}
+
+export interface IssueTemplate {
+  id: number;
+  organizationId: number;
+  teamId: number | null;
+  projectId: number | null;
+  name: string;
+  title: string | null;
+  description: string | null;
+  type: Issue['type'];
+  state: Issue['state'] | null;
+  priority: Issue['priority'] | null;
+  assigneeId: number | null;
+  estimatePoints: number | null;
+  plannedStartDate: string | null;
+  plannedEndDate: string | null;
+  legacyPayload: string | null;
+  customFields: Record<string, unknown>;
+  subIssues: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IssueDraft {
+  id: number;
+  organizationId: number;
+  teamId: number | null;
+  projectId: number | null;
+  templateId: number | null;
+  title: string | null;
+  description: string | null;
+  type: Issue['type'];
+  state: Issue['state'] | null;
+  priority: Issue['priority'] | null;
+  assigneeId: number | null;
+  parentIssueId: number | null;
+  estimatePoints: number | null;
+  plannedStartDate: string | null;
+  plannedEndDate: string | null;
+  status: 'LOCAL_DRAFT' | 'SAVED_DRAFT' | string;
+  legacyPayload: string | null;
+  customFields: Record<string, unknown>;
+  attachmentsPending: Array<Record<string, unknown>>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RecurringIssueDefinition {
+  id: number;
+  organizationId: number;
+  teamId: number | null;
+  projectId: number;
+  templateId: number | null;
+  name: string;
+  title: string | null;
+  description: string | null;
+  type: Issue['type'];
+  state: Issue['state'] | null;
+  priority: Issue['priority'] | null;
+  assigneeId: number | null;
+  estimatePoints: number | null;
+  cadenceType: 'DAILY' | 'WEEKLY' | 'MONTHLY' | string;
+  cadenceInterval: number;
+  weekdays: string[];
+  nextRunAt: string;
+  active: boolean;
+  customFields: Record<string, unknown>;
+  legacyPayload: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmailIntakeConfig {
+  id: number;
+  organizationId: number;
+  teamId: number | null;
+  projectId: number | null;
+  templateId: number | null;
+  name: string;
+  emailAddress: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface DocRevision {

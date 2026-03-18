@@ -16,6 +16,13 @@ import org.springframework.web.multipart.MultipartFile
 class IssueAttachmentController(
     private val issueAttachmentService: IssueAttachmentService
 ) {
+    data class CreateLinkAttachmentPayload(
+        val url: String,
+        val title: String? = null,
+        val metadataJson: String? = null,
+        val uploadedBy: Long? = null
+    )
+
     @GetMapping
     fun getAll(@PathVariable issueId: Long): List<IssueAttachmentDto> =
         issueAttachmentService.findAll(issueId)
@@ -27,6 +34,25 @@ class IssueAttachmentController(
         @RequestParam(required = false) uploadedBy: Long?
     ): ResponseEntity<IssueAttachmentDto> =
         ResponseEntity.status(HttpStatus.CREATED).body(issueAttachmentService.upload(issueId, file, uploadedBy))
+
+    @PostMapping("/links")
+    fun createLinks(
+        @PathVariable issueId: Long,
+        @RequestBody payload: List<CreateLinkAttachmentPayload>
+    ): ResponseEntity<List<IssueAttachmentDto>> =
+        ResponseEntity.status(HttpStatus.CREATED).body(
+            issueAttachmentService.createLinkAttachments(
+                issueId,
+                payload.map {
+                    IssueAttachmentService.CreateLinkAttachmentRequest(
+                        url = it.url,
+                        title = it.title,
+                        metadataJson = it.metadataJson,
+                        uploadedBy = it.uploadedBy
+                    )
+                }
+            )
+        )
 
     @GetMapping("/{attachmentId}/download")
     fun download(@PathVariable issueId: Long, @PathVariable attachmentId: Long): ResponseEntity<Resource> {

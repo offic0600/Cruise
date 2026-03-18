@@ -22,8 +22,12 @@ data class IssueAttachmentDto(
     val id: Long,
     val issueId: Long,
     val filename: String,
+    val attachmentType: String,
     val contentType: String?,
     val size: Long,
+    val externalUrl: String?,
+    val linkTitle: String?,
+    val metadataJson: String?,
     val uploadedBy: Long?,
     val createdAt: String
 )
@@ -39,6 +43,13 @@ class IssueAttachmentService(
     private val issueService: IssueService,
     @Value("\${cruise.storage.attachments-root:storage}") attachmentsRoot: String
 ) {
+    data class CreateLinkAttachmentRequest(
+        val url: String,
+        val title: String? = null,
+        val metadataJson: String? = null,
+        val uploadedBy: Long? = null
+    )
+
     private val rootPath: Path = Paths.get(attachmentsRoot).toAbsolutePath().normalize()
 
     fun findAll(issueId: Long): List<IssueAttachmentDto> {
@@ -65,6 +76,7 @@ class IssueAttachmentService(
             IssueAttachment(
                 issueId = issueId,
                 filename = originalName,
+                attachmentType = "FILE",
                 contentType = file.contentType,
                 size = file.size,
                 storagePath = targetFile.toString(),
@@ -76,8 +88,35 @@ class IssueAttachmentService(
         return toDto(attachment)
     }
 
+    @Transactional
+    fun createLinkAttachments(issueId: Long, requests: List<CreateLinkAttachmentRequest>): List<IssueAttachmentDto> {
+        issueService.getIssue(issueId)
+        return requests.map { request ->
+            val safeUrl = request.url.trim()
+            if (safeUrl.isBlank()) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Link URL is required")
+            issueAttachmentRepository.save(
+                IssueAttachment(
+                    issueId = issueId,
+                    filename = request.title?.takeIf { it.isNotBlank() } ?: safeUrl,
+                    attachmentType = "LINK",
+                    contentType = "text/uri-list",
+                    size = safeUrl.length.toLong(),
+                    storagePath = null,
+                    externalUrl = safeUrl,
+                    linkTitle = request.title?.trim()?.takeIf { it.isNotBlank() },
+                    metadataJson = request.metadataJson,
+                    uploadedBy = request.uploadedBy,
+                    createdAt = LocalDateTime.now()
+                )
+            )
+        }.map(::toDto)
+    }
+
     fun load(issueId: Long, attachmentId: Long): AttachmentDownload {
         val attachment = getAttachment(issueId, attachmentId)
+        if (attachment.attachmentType != "FILE" || attachment.storagePath.isNullOrBlank()) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only file attachments can be downloaded")
+        }
         val resource = try {
             UrlResource(Paths.get(attachment.storagePath).toUri())
         } catch (error: MalformedURLException) {
@@ -107,8 +146,12 @@ class IssueAttachmentService(
         id = attachment.id,
         issueId = attachment.issueId,
         filename = attachment.filename,
+        attachmentType = attachment.attachmentType,
         contentType = attachment.contentType,
         size = attachment.size,
+        externalUrl = attachment.externalUrl,
+        linkTitle = attachment.linkTitle,
+        metadataJson = attachment.metadataJson,
         uploadedBy = attachment.uploadedBy,
         createdAt = attachment.createdAt.toString()
     )

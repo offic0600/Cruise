@@ -1,6 +1,6 @@
 import enMessages from './en';
 
-const zhCNMessages: typeof enMessages = {
+const zhCNMessages = {
   ...enMessages,
   common: {
     ...enMessages.common,
@@ -296,6 +296,106 @@ const zhCNMessages: typeof enMessages = {
     empty: '该视图下暂无事项',
     defaultDescription: '由筛选、分组和排序组合出的可复用工作上下文。',
   },
+} as typeof enMessages;
+
+zhCNMessages.teamMembers = {
+  ...zhCNMessages.teamMembers,
+  issueSettings: '事项设置',
+};
+
+zhCNMessages.issues = {
+  ...zhCNMessages.issues,
+  actions: {
+    ...zhCNMessages.issues.actions,
+    drafts: '草稿',
+    advancedFilter: '高级筛选',
+    create: '创建事项',
+    creating: '创建中...',
+    manageTemplates: '管理模板',
+    openDrafts: '打开草稿',
+  },
+  errors: {
+    ...zhCNMessages.issues.errors,
+    create: '创建事项失败，请重试。',
+  },
+};
+
+zhCNMessages.settings = {
+  ...enMessages.settings,
+  team: {
+    ...enMessages.settings.team,
+    eyebrow: '团队设置',
+    title: '事项配置',
+    subtitle: '模板、周期规则和邮件导入都是团队级配置能力，不应出现在主导航中，而是统一放在这里管理。',
+    templates: '模板',
+    recurring: '周期事项',
+    emailIntake: '邮件导入',
+    teamMembers: '团队成员',
+  },
+  templates: {
+    ...enMessages.settings.templates,
+    title: '模板',
+    subtitle: '在事项创建器里使用模板，这里负责维护可复用的默认配置。',
+    create: '创建模板',
+  },
+  recurring: {
+    ...enMessages.settings.recurring,
+    title: '周期事项',
+    subtitle: '周期规则属于团队自动化能力，而不是主工作对象。',
+    create: '创建周期事项',
+    runNow: '立即执行',
+    nextRun: '下次执行：{value}',
+  },
+  emailIntake: {
+    ...enMessages.settings.emailIntake,
+    title: '邮件导入',
+    subtitle: '邮件建单属于团队配置能力，只在设置中管理。',
+    create: '创建邮件配置',
+  },
+  drafts: {
+    ...enMessages.settings.drafts,
+    eyebrow: '事项草稿',
+    title: '草稿',
+    subtitle: '已保存草稿不再出现在主导航中，而是作为事项创建流程中的辅助入口保留。',
+    continue: '继续编辑',
+    untitled: '未命名草稿',
+  },
+  composer: {
+    ...enMessages.settings.composer,
+    eyebrow: '快速创建',
+    templateHint: '为这个事项选择一组可复用的默认配置。',
+    titlePlaceholder: '输入事项标题',
+    descriptionPlaceholder: '补充更多上下文、预期结果或相关说明。',
+    noTemplate: '不使用模板',
+    moreProperties: '更多属性',
+    hideProperties: '收起属性',
+    moreActions: '更多操作',
+    hideActions: '收起操作',
+    addFiles: '添加附件',
+    filesSelected: '已选择 {count} 个文件',
+    attachments: '附件',
+    saveLocalDraft: '保存本地草稿',
+    saveDraft: '保存草稿',
+    saveAsTemplate: '保存为模板',
+    templateName: '模板名称',
+    saveTemplate: '保存模板',
+    tagsPlaceholder: '标签1,标签2',
+    linksLabel: '链接',
+    linksPlaceholder: '每行一个 URL',
+    estimatePoints: '预估点数',
+  },
+};
+
+zhCNMessages.settings.composer = {
+  ...zhCNMessages.settings.composer,
+  fullCreateEyebrow: '\u5b8c\u6574\u521b\u5efa',
+  noProject: '\u672a\u9009\u62e9\u9879\u76ee',
+  discardConfirm: '\u653e\u5f03\u5f53\u524d\u4e8b\u9879\u8349\u7a3f\uff1f',
+  noLabels: '\u6682\u65e0\u6807\u7b7e',
+  createMore: '\u7ee7\u7eed\u521b\u5efa',
+  openFullCreate: '\u6253\u5f00\u5b8c\u6574\u521b\u5efa',
+  selectedFiles: '\u5df2\u9009\u9644\u4ef6',
+  labels: '\u6807\u7b7e',
 };
 
 export default zhCNMessages;
