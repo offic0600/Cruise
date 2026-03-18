@@ -4,11 +4,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, Expand, Paperclip, Save, Tag, X } from 'lucide-react';
+import { Calendar, CalendarPlus, CheckCircle2, ChevronDown, ChevronRight, Circle, CircleDashed, CircleEllipsis, Equal, Expand, Flame, Link2, ListPlus, LoaderCircle, Minus, Paperclip, Repeat, Save, Tag, X, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuPortal,
@@ -21,11 +20,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { localizePath, type Locale } from '@/i18n/config';
 import { useI18n } from '@/i18n/useI18n';
 import {
+  createRecurringIssue,
   createIssue,
   createIssueDraft,
   createIssueLinkAttachments,
@@ -58,10 +59,20 @@ import {
   serializeDraftToQuery,
 } from '@/lib/issues/composer';
 import { queryKeys } from '@/lib/query/keys';
+import { cn } from '@/lib/utils';
 
 type TeamMember = {
   id: number;
   name: string;
+};
+
+type SingleValueOptionDef = {
+  value: string;
+  label: string;
+  icon?: React.ReactNode;
+  iconClassName?: string;
+  avatarText?: string;
+  avatarClassName?: string;
 };
 
 type IssueTagRecord = {
@@ -104,6 +115,9 @@ export default function IssueComposer({
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templateName, setTemplateName] = useState('');
   const [createMore, setCreateMore] = useState(false);
+  const [recurringEnabled, setRecurringEnabled] = useState(false);
+  const [recurringInterval, setRecurringInterval] = useState('1');
+  const [recurringUnit, setRecurringUnit] = useState<'day' | 'week' | 'month'>('week');
 
   const projectsQuery = useQuery({
     queryKey: queryKeys.projects,
@@ -160,6 +174,10 @@ export default function IssueComposer({
       nextDraft = { ...nextDraft, ...((JSON.parse(localDraftRaw) as IssueComposerDraft) ?? {}) };
     }
 
+    if (!nextDraft.assigneeId && storedUser?.id) {
+      nextDraft = { ...nextDraft, assigneeId: String(storedUser.id) };
+    }
+
     setDraft(nextDraft);
     setInitialSnapshot(JSON.stringify(nextDraft));
   }, [draft, initialDraftId, initialParams, localeScope, projects, storedUser?.id, templates]);
@@ -170,6 +188,11 @@ export default function IssueComposer({
     setDraft(nextDraft);
     setInitialSnapshot(JSON.stringify(nextDraft));
   }, [draft, savedDraftQuery.data]);
+
+  useEffect(() => {
+    if (!draft || !recurringEnabled || draft.plannedEndDate) return;
+    setDraft((current) => (current ? { ...current, plannedEndDate: toDateInputValue(addDays(new Date(), 7)) } : current));
+  }, [draft, recurringEnabled]);
 
   const createIssueMutation = useMutation({ mutationFn: createIssue });
   const uploadAttachmentMutation = useMutation({
@@ -190,6 +213,7 @@ export default function IssueComposer({
       await queryClient.invalidateQueries({ queryKey: queryKeys.issueTemplates({ organizationId }) });
     },
   });
+  const createRecurringMutation = useMutation({ mutationFn: createRecurringIssue });
 
   const dirty = useMemo(() => {
     if (!draft) return false;
@@ -207,11 +231,15 @@ export default function IssueComposer({
 
   const resetComposer = () => {
     const nextDraft = parseIssueCreateParams(initialParams ?? new URLSearchParams(), projects, templates);
-    setDraft(nextDraft);
-    setInitialSnapshot(JSON.stringify(nextDraft));
+    const nextDraftWithAssignee = !nextDraft.assigneeId && storedUser?.id ? { ...nextDraft, assigneeId: String(storedUser.id) } : nextDraft;
+    setDraft(nextDraftWithAssignee);
+    setInitialSnapshot(JSON.stringify(nextDraftWithAssignee));
     setPendingFiles([]);
     setSavingTemplate(false);
     setTemplateName('');
+    setRecurringEnabled(false);
+    setRecurringInterval('1');
+    setRecurringUnit('week');
   };
 
   const handleClose = () => {
@@ -220,6 +248,49 @@ export default function IssueComposer({
   };
 
   const handleCreate = async () => {
+    if (recurringEnabled) {
+      await createRecurringMutation.mutateAsync({
+        organizationId,
+        teamId: draft.teamId ? Number(draft.teamId) : null,
+        projectId: Number(draft.projectId),
+        templateId: draft.templateId ? Number(draft.templateId) : null,
+        name: draft.title.trim(),
+        title: draft.title.trim() || null,
+        description: draft.description.trim() || null,
+        type: draft.type,
+        state: draft.state,
+        priority: draft.priority,
+        assigneeId: draft.assigneeId ? Number(draft.assigneeId) : null,
+        estimatePoints: draft.estimatePoints ? Number(draft.estimatePoints) : null,
+        cadenceType: recurringUnit === 'day' ? 'DAILY' : recurringUnit === 'month' ? 'MONTHLY' : 'WEEKLY',
+        cadenceInterval: Number(recurringInterval) || 1,
+        weekdays: recurringUnit === 'week' && draft.plannedEndDate ? [weekdayCodeFromDate(draft.plannedEndDate)] : undefined,
+        nextRunAt: buildRecurringNextRunAt(draft.plannedEndDate),
+        customFields: draft.customFields,
+        legacyPayload: buildLegacyPayloadFromDraft(draft),
+      });
+
+      if (initialDraftId) {
+        await deleteIssueDraft(initialDraftId);
+      }
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(localDraftStorageKey(storedUser?.id, localeScope));
+      }
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.recurringIssues }),
+        queryClient.invalidateQueries({ queryKey: ['issues'] }),
+      ]);
+
+      if (mode === 'page') {
+        router.push(localizePath(locale, '/recurring'));
+        return;
+      }
+
+      onClose?.();
+      return;
+    }
+
     const issue = await createIssueMutation.mutateAsync({
       organizationId,
       type: draft.type,
@@ -342,9 +413,14 @@ export default function IssueComposer({
       dirty={dirty}
       pendingFiles={pendingFiles}
       createMore={createMore}
-      createPending={createIssueMutation.isPending}
+      recurringEnabled={recurringEnabled}
+      recurringInterval={recurringInterval}
+      recurringUnit={recurringUnit}
+      createPending={createIssueMutation.isPending || createRecurringMutation.isPending}
       selectedTags={selectedTags}
       templates={templates}
+      currentUserId={storedUser?.id != null ? String(storedUser.id) : null}
+      currentUserName={storedUser?.username ?? null}
       t={t}
       locale={locale}
       onClose={onClose ? handleClose : undefined}
@@ -354,6 +430,9 @@ export default function IssueComposer({
       onPickFiles={() => fileInputRef.current?.click()}
       onCreate={handleCreate}
       onCreateMoreChange={setCreateMore}
+      onRecurringEnabledChange={setRecurringEnabled}
+      onRecurringIntervalChange={setRecurringInterval}
+      onRecurringUnitChange={setRecurringUnit}
       onDraftChange={setDraft}
     />
   );
@@ -414,9 +493,14 @@ function QuickCreateView({
   dirty,
   pendingFiles,
   createMore,
+  recurringEnabled,
+  recurringInterval,
+  recurringUnit,
   createPending,
   selectedTags,
   templates,
+  currentUserId,
+  currentUserName,
   t,
   locale,
   onClose,
@@ -426,6 +510,9 @@ function QuickCreateView({
   onPickFiles,
   onCreate,
   onCreateMoreChange,
+  onRecurringEnabledChange,
+  onRecurringIntervalChange,
+  onRecurringUnitChange,
   onDraftChange,
 }: {
   draft: IssueComposerDraft;
@@ -436,9 +523,14 @@ function QuickCreateView({
   dirty: boolean;
   pendingFiles: File[];
   createMore: boolean;
+  recurringEnabled: boolean;
+  recurringInterval: string;
+  recurringUnit: 'day' | 'week' | 'month';
   createPending: boolean;
   selectedTags: string[];
   templates: IssueTemplate[];
+  currentUserId: string | null;
+  currentUserName: string | null;
   t: (key: string, params?: Record<string, string | number>) => string;
   locale: Locale;
   onClose?: () => void;
@@ -448,11 +540,21 @@ function QuickCreateView({
   onPickFiles: () => void;
   onCreate: () => Promise<void>;
   onCreateMoreChange: (value: boolean) => void;
+  onRecurringEnabledChange: (value: boolean) => void;
+  onRecurringIntervalChange: (value: string) => void;
+  onRecurringUnitChange: (value: 'day' | 'week' | 'month') => void;
   onDraftChange: React.Dispatch<React.SetStateAction<IssueComposerDraft | null>>;
 }) {
-  const labelsLabel = selectedTags.length
-    ? `${selectedTags[0]}${selectedTags.length > 1 ? ` +${selectedTags.length - 1}` : ''}`
-    : t('settings.composer.labels');
+  const labelsLabel = t('settings.composer.labels');
+  const stateOptions = ISSUE_STATES.map((value) => buildStateOption(value, t));
+  const priorityOptions = ISSUE_PRIORITIES.map((value) => buildPriorityOption(value, t));
+  const assigneeOptions = members.map((member) => ({
+    value: String(member.id),
+    label: member.name,
+    avatarText: getInitials(member.name),
+    avatarClassName: 'bg-rose-100 text-rose-600',
+  } satisfies SingleValueOptionDef));
+  const dueDateInputRef = useRef<HTMLInputElement | null>(null);
 
   return (
     <div className="flex min-h-[470px] flex-col">
@@ -514,21 +616,24 @@ function QuickCreateView({
         <SingleValuePill
           label={issueStateLabel(draft.state, t)}
           value={draft.state}
-          options={ISSUE_STATES.map((value) => ({ value, label: issueStateLabel(value, t) }))}
+          options={stateOptions}
           onChange={(value) => onDraftChange((current) => (current ? { ...current, state: value as Issue['state'] } : current))}
         />
         <SingleValuePill
           label={issuePriorityLabel(draft.priority, t)}
           value={draft.priority}
-          options={ISSUE_PRIORITIES.map((value) => ({ value, label: issuePriorityLabel(value, t) }))}
+          options={priorityOptions}
           onChange={(value) => onDraftChange((current) => (current ? { ...current, priority: value as Issue['priority'] } : current))}
         />
         <SingleValuePill
-          label={members.find((member) => String(member.id) === draft.assigneeId)?.name ?? t('common.notSet')}
+          label={members.find((member) => String(member.id) === draft.assigneeId)?.name ?? (draft.assigneeId === currentUserId ? currentUserName : undefined) ?? t('common.notSet')}
           value={draft.assigneeId || '__empty__'}
-          options={members.map((member) => ({ value: String(member.id), label: member.name }))}
+          options={assigneeOptions}
           onChange={(value) => onDraftChange((current) => (current ? { ...current, assigneeId: value === '__empty__' ? '' : value } : current))}
           emptyLabel={t('common.notSet')}
+          searchable
+          searchPlaceholder={t('settings.composer.searchAssignee')}
+          noSearchResultsLabel={t('settings.composer.noAssigneeResults')}
         />
         <LabelsPill
           label={labelsLabel}
@@ -547,6 +652,7 @@ function QuickCreateView({
           t={t}
         />
         <QuickActionsPill
+          draft={draft}
           templates={templates}
           locale={locale}
           pageHref={pageHref}
@@ -561,12 +667,15 @@ function QuickCreateView({
             )
           }
           onSaveLocalDraft={onSaveLocalDraft}
+          onDraftChange={onDraftChange}
+          onExpand={onExpand}
+          onToggleRecurring={() => onRecurringEnabledChange(true)}
           t={t}
         />
       </div>
 
       <div className="mt-10 flex items-end justify-between gap-4">
-        <div className="flex items-center gap-3">
+        <div className="flex min-h-12 flex-1 items-center gap-3">
           <button
             type="button"
             onClick={onPickFiles}
@@ -575,32 +684,88 @@ function QuickCreateView({
           >
             <Paperclip className="h-5 w-5" />
           </button>
-          {pendingFiles.length ? (
+          {recurringEnabled ? (
+            <div className="flex flex-wrap items-center gap-2.5 text-[15px] text-ink-800">
+              <span className="font-semibold text-ink-700">{t('settings.composer.firstDue')}</span>
+              <input
+                ref={dueDateInputRef}
+                type="date"
+                value={draft.plannedEndDate}
+                onChange={(event) => onDraftChange((current) => (current ? { ...current, plannedEndDate: event.target.value } : current))}
+                className="sr-only"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const input = dueDateInputRef.current as any;
+                  if (!input) return;
+                  if ('showPicker' in input) {
+                    input.showPicker();
+                    return;
+                  }
+                  input.click();
+                }}
+                className="inline-flex h-12 min-w-[168px] items-center rounded-[16px] border border-slate-200 bg-white px-5 text-[15px] font-medium text-ink-800 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:bg-slate-50"
+              >
+                {formatRecurringDateDisplay(draft.plannedEndDate)}
+              </button>
+              <span className="font-semibold text-ink-700">{t('settings.composer.repeatsEvery')}</span>
+              <MiniInlineSelect
+                value={recurringInterval}
+                onChange={onRecurringIntervalChange}
+                options={[1, 2, 3, 4].map((value) => ({ value: String(value), label: String(value) }))}
+                widthClassName="w-[78px]"
+              />
+              <MiniInlineSelect
+                value={recurringUnit}
+                onChange={(value) => onRecurringUnitChange(value as 'day' | 'week' | 'month')}
+                options={[
+                  { value: 'day', label: t('settings.composer.recurringDay') },
+                  { value: 'week', label: t('settings.composer.recurringWeek') },
+                  { value: 'month', label: t('settings.composer.recurringMonth') },
+                ]}
+                widthClassName="w-[92px]"
+              />
+              <button
+                type="button"
+                onClick={() => onRecurringEnabledChange(false)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ink-400 transition hover:bg-slate-50 hover:text-ink-700"
+                aria-label={t('common.cancel')}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          ) : pendingFiles.length ? (
             <div className="text-sm text-ink-400">{t('settings.composer.filesSelected', { count: pendingFiles.length })}</div>
           ) : null}
         </div>
 
         <div className="flex items-center gap-6">
-          <label className="flex items-center gap-3 text-sm text-ink-600">
-            <button
-              type="button"
-              aria-pressed={createMore}
-              onClick={() => onCreateMoreChange(!createMore)}
-              className={`relative h-7 w-12 rounded-full transition ${createMore ? 'bg-slate-900' : 'bg-slate-200'}`}
-            >
-              <span
-                className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition ${createMore ? 'left-6' : 'left-1'}`}
-              />
-            </button>
-            <span>{t('settings.composer.createMore')}</span>
-          </label>
+          {!recurringEnabled ? (
+            <label className="flex items-center gap-3 text-sm text-ink-600">
+              <button
+                type="button"
+                aria-pressed={createMore}
+                onClick={() => onCreateMoreChange(!createMore)}
+                className={`relative h-7 w-12 rounded-full transition ${createMore ? 'bg-slate-900' : 'bg-slate-200'}`}
+              >
+                <span
+                  className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition ${createMore ? 'left-6' : 'left-1'}`}
+                />
+              </button>
+              <span>{t('settings.composer.createMore')}</span>
+            </label>
+          ) : null}
           <Button
             type="button"
             onClick={() => void onCreate()}
             disabled={!draft.title.trim() || !draft.projectId || createPending}
-            className="h-14 rounded-full px-8 text-lg"
+            className={cn(
+              'h-14 rounded-full px-8 text-base font-semibold shadow-none',
+              recurringEnabled ? 'bg-[#5E6AD2] hover:bg-[#525DC2]' : undefined
+            )}
           >
-            {createPending ? t('issues.actions.creating') : t('issues.actions.create')}
+            {createPending ? t('issues.actions.creating') : recurringEnabled ? t('settings.composer.createRecurringIssue') : t('issues.actions.create')}
           </Button>
         </div>
       </div>
@@ -867,13 +1032,80 @@ function SingleValuePill({
   options,
   onChange,
   emptyLabel,
+  searchable = false,
+  searchPlaceholder,
+  noSearchResultsLabel,
 }: {
   label: string;
   value: string;
-  options: Array<{ value: string; label: string }>;
+  options: SingleValueOptionDef[];
   onChange: (value: string) => void;
   emptyLabel?: string;
+  searchable?: boolean;
+  searchPlaceholder?: string;
+  noSearchResultsLabel?: string;
 }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const selectedOption = options.find((option) => option.value === value);
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredOptions = searchable && normalizedQuery
+    ? options.filter((option) => option.label.toLowerCase().includes(normalizedQuery))
+    : options;
+
+  const handleChange = (nextValue: string) => {
+    onChange(nextValue);
+    setOpen(false);
+    setQuery('');
+  };
+
+  if (searchable) {
+    return (
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
+          >
+            <SingleValueDisplay option={selectedOption} fallbackLabel={label || emptyLabel || ''} />
+            <ChevronDown className="h-4 w-4 text-ink-300" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-[320px] overflow-hidden p-0">
+          <div className="border-b border-border-soft px-4 py-3">
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={searchPlaceholder}
+              className="h-auto border-0 bg-transparent px-0 py-0 text-[16px] shadow-none focus:ring-0"
+            />
+          </div>
+          <div className="max-h-80 overflow-y-auto p-2">
+            <div className="space-y-1">
+              {emptyLabel ? (
+                <SingleValueOption
+                  label={emptyLabel}
+                  selected={value === '__empty__'}
+                  onSelect={() => handleChange('__empty__')}
+                />
+              ) : null}
+              {filteredOptions.map((option) => (
+                <SingleValueOption
+                  key={option.value}
+                  option={option}
+                  selected={value === option.value}
+                  onSelect={() => handleChange(option.value)}
+                />
+              ))}
+            </div>
+            {!filteredOptions.length ? <div className="px-3 py-4 text-sm text-ink-400">{noSearchResultsLabel}</div> : null}
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -881,7 +1113,7 @@ function SingleValuePill({
           type="button"
           className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
         >
-          <span>{label || emptyLabel}</span>
+          <SingleValueDisplay option={selectedOption} fallbackLabel={label || emptyLabel || ''} />
           <ChevronDown className="h-4 w-4 text-ink-300" />
         </button>
       </DropdownMenuTrigger>
@@ -890,12 +1122,89 @@ function SingleValuePill({
           {emptyLabel ? <DropdownMenuRadioItem value="__empty__">{emptyLabel}</DropdownMenuRadioItem> : null}
           {options.map((option) => (
             <DropdownMenuRadioItem key={option.value} value={option.value}>
-              {option.label}
+              <SingleValueDisplay option={option} fallbackLabel={option.label} />
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+function SingleValueOption({
+  label,
+  option,
+  selected,
+  onSelect,
+}: {
+  label?: string;
+  option?: SingleValueOptionDef;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-ink-700 transition hover:bg-slate-50"
+    >
+      <span className="flex h-4 w-4 items-center justify-center text-brand-600">
+        {selected ? (
+          <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 fill-current" aria-hidden="true">
+            <path d="M6.4 11.2 3.6 8.4l-.8.8 3.6 3.6 6.8-6.8-.8-.8z" />
+          </svg>
+        ) : null}
+      </span>
+      <SingleValueDisplay option={option} fallbackLabel={label ?? ''} />
+    </button>
+  );
+}
+
+function SingleValueDisplay({ option, fallbackLabel }: { option?: SingleValueOptionDef; fallbackLabel: string }) {
+  const label = option?.label ?? fallbackLabel;
+
+  return (
+    <span className="inline-flex min-w-0 items-center gap-2">
+      {option?.avatarText ? <AvatarChip text={option.avatarText} className={option.avatarClassName} /> : null}
+      {option?.icon ? <span className={cn('inline-flex items-center justify-center', option.iconClassName)}>{option.icon}</span> : null}
+      <span className="truncate">{label}</span>
+    </span>
+  );
+}
+
+function AvatarChip({ text, className }: { text: string; className?: string }) {
+  return <span className={cn('inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold uppercase', className)}>{text}</span>;
+}
+
+function MiniInlineSelect({
+  value,
+  onChange,
+  options,
+  widthClassName,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+  widthClassName?: string;
+}) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger
+        className={cn(
+          'h-12 rounded-[16px] border-slate-200 bg-white px-4 text-[15px] font-medium text-ink-800 shadow-[0_1px_2px_rgba(15,23,42,0.04)] focus:ring-0',
+          widthClassName
+        )}
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -912,9 +1221,19 @@ function LabelsPill({
   onToggle: (name: string) => void;
   t: (key: string, params?: Record<string, string | number>) => string;
 }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredTags = normalizedQuery
+    ? tags.filter((tag) => tag.name.toLowerCase().includes(normalizedQuery))
+    : tags;
+  const frequentTags = filteredTags.filter((tag) => selectedTags.includes(tag.name));
+  const otherTags = filteredTags.filter((tag) => !selectedTags.includes(tag.name));
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
         <button
           type="button"
           className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
@@ -922,40 +1241,128 @@ function LabelsPill({
           <Tag className="h-4 w-4 text-ink-400" />
           <span>{label}</span>
         </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-56">
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[360px] overflow-hidden p-0">
+        <div className="flex items-center gap-3 border-b border-border-soft px-4 py-3">
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t('settings.composer.searchLabels')}
+            className="h-auto border-0 bg-transparent px-0 py-0 text-[16px] shadow-none focus:ring-0"
+          />
+          <span className="rounded-lg border border-border-soft px-2 py-1 text-xs font-medium text-ink-400">L</span>
+        </div>
+
         {tags.length ? (
-          tags.map((tag) => (
-            <DropdownMenuCheckboxItem key={tag.id} checked={selectedTags.includes(tag.name)} onCheckedChange={() => onToggle(tag.name)}>
-              <span className="inline-flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: tag.color ?? '#94a3b8' }} />
-                {tag.name}
-              </span>
-            </DropdownMenuCheckboxItem>
-          ))
+          <div className="max-h-80 overflow-y-auto py-2">
+            {frequentTags.length ? (
+              <>
+                <div className="px-6 pb-2 text-sm font-medium text-ink-400">{t('settings.composer.frequentlyUsedLabels')}</div>
+                <div className="space-y-1 px-2 pb-3">
+                  {frequentTags.map((tag) => (
+                    <LabelOption key={tag.id} tag={tag} selected={true} onToggle={onToggle} />
+                  ))}
+                </div>
+              </>
+            ) : null}
+
+            {otherTags.length ? (
+              <>
+                <div className="px-6 pb-2 text-sm font-medium text-ink-400">{t('settings.composer.labels')}</div>
+                <div className="space-y-1 px-2">
+                  {otherTags.map((tag) => (
+                    <LabelOption key={tag.id} tag={tag} selected={false} onToggle={onToggle} />
+                  ))}
+                </div>
+              </>
+            ) : normalizedQuery ? (
+              <div className="px-4 py-6 text-center text-sm text-ink-400">{t('settings.composer.noLabels')}</div>
+            ) : null}
+          </div>
         ) : (
-          <DropdownMenuItem disabled>{t('settings.composer.noLabels')}</DropdownMenuItem>
+          <div className="px-4 py-6 text-center text-sm text-ink-400">{t('settings.composer.noLabels')}</div>
         )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function LabelOption({
+  tag,
+  selected,
+  onToggle,
+}: {
+  tag: IssueTagRecord;
+  selected: boolean;
+  onToggle: (name: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onToggle(tag.name)}
+      className={`flex w-full items-center gap-4 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50 ${selected ? 'bg-slate-100' : ''}`}
+    >
+      <span
+        className={`flex h-6 w-6 items-center justify-center rounded-md border ${selected ? 'border-brand-500 bg-brand-50 text-brand-600' : 'border-border-soft bg-white text-transparent'}`}
+      >
+        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 fill-current" aria-hidden="true">
+          <path d="M6.4 11.2 3.6 8.4l-.8.8 3.6 3.6 6.8-6.8-.8-.8z" />
+        </svg>
+      </span>
+      <span className="h-3.5 w-3.5 rounded-full" style={{ backgroundColor: tag.color ?? '#94a3b8' }} />
+      <span className="truncate">{tag.name}</span>
+    </button>
   );
 }
 
 function QuickActionsPill({
+  draft,
   templates,
   locale,
   pageHref,
   onApplyTemplate,
   onSaveLocalDraft,
+  onDraftChange,
+  onExpand,
+  onToggleRecurring,
   t,
 }: {
+  draft: IssueComposerDraft;
   templates: IssueTemplate[];
   locale: Locale;
   pageHref: string;
   onApplyTemplate: (templateId: number) => void;
   onSaveLocalDraft: () => void;
+  onDraftChange: React.Dispatch<React.SetStateAction<IssueComposerDraft | null>>;
+  onExpand: () => void;
+  onToggleRecurring: () => void;
   t: (key: string, params?: Record<string, string | number>) => string;
 }) {
+  const [linkValue, setLinkValue] = useState('');
+  const suggestedDueDates = buildSuggestedDueDates(locale);
+
+  const applyDueDate = (value: string) => {
+    onDraftChange((current) => (current ? { ...current, plannedEndDate: value } : current));
+  };
+
+  const addLink = () => {
+    const nextLink = linkValue.trim();
+    if (!nextLink) return;
+
+    onDraftChange((current) => {
+      if (!current) return current;
+      const lines = current.linksText
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+      return {
+        ...current,
+        linksText: [...lines, nextLink].join('\n'),
+      };
+    });
+    setLinkValue('');
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -966,14 +1373,89 @@ function QuickActionsPill({
           <span className="text-xl leading-none">...</span>
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-56">
-        <DropdownMenuItem asChild>
-          <Link href={pageHref}>{t('settings.composer.openFullCreate')}</Link>
+      <DropdownMenuContent align="start" className="min-w-[320px] p-2">
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+            <CalendarPlus className="h-5 w-5 text-ink-500" />
+            <span>{t('settings.composer.setDueDate')}</span>
+            <span className="ml-auto text-xs text-ink-400">D</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuSubContent className="min-w-[380px] overflow-hidden p-0">
+              <div className="border-b border-border-soft px-6 py-4 text-[15px] text-ink-400">{t('settings.composer.dueDateSuggestions')}</div>
+              <div className="p-2">
+                <button
+                  type="button"
+                  onClick={() => applyDueDate('')}
+                  className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50"
+                >
+                  <Calendar className="h-5 w-5 text-ink-500" />
+                  <span>{t('settings.composer.customDueDate')}</span>
+                </button>
+                <div className="px-4 pb-3 pt-1">
+                  <Input
+                    type="date"
+                    value={draft.plannedEndDate}
+                    onChange={(event) => applyDueDate(event.target.value)}
+                    className="h-10"
+                  />
+                </div>
+                {suggestedDueDates.map((option) => (
+                  <button
+                    key={option.label}
+                    type="button"
+                    onClick={() => applyDueDate(option.value)}
+                    className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50"
+                  >
+                    <Calendar className="h-5 w-5 text-ink-500" />
+                    <span className="flex-1">{option.label}</span>
+                    <span className="text-ink-400">{option.preview}</span>
+                  </button>
+                ))}
+              </div>
+            </DropdownMenuSubContent>
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
+        <DropdownMenuItem onSelect={onToggleRecurring} className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+            <Repeat className="h-5 w-5 text-ink-500" />
+            <span>{t('settings.composer.makeRecurring')}</span>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href={localizePath(locale, '/drafts')}>{t('issues.actions.openDrafts')}</Link>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+            <Link2 className="h-5 w-5 text-ink-500" />
+            <span>{t('settings.composer.addLink')}</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuSubContent className="min-w-[340px] p-3">
+              <div className="space-y-3">
+                <Input
+                  value={linkValue}
+                  onChange={(event) => setLinkValue(event.target.value)}
+                  placeholder={t('settings.composer.linkInputPlaceholder')}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      addLink();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={addLink}
+                  className="inline-flex h-10 items-center rounded-full border border-border-soft px-4 text-sm font-medium text-ink-700 transition hover:bg-slate-50"
+                >
+                  {t('settings.composer.confirmAddLink')}
+                </button>
+              </div>
+            </DropdownMenuSubContent>
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={onExpand} className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+          <ListPlus className="h-5 w-5 text-ink-500" />
+          <span>{t('issues.detailPage.newSubIssue')}</span>
+          <ChevronRight className="ml-auto h-4 w-4 text-ink-300" />
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={onSaveLocalDraft}>{t('settings.composer.saveLocalDraft')}</DropdownMenuItem>
         {templates.length ? (
           <>
             <DropdownMenuSeparator />
@@ -1149,4 +1631,116 @@ function toggleName(raw: string, name: string) {
     .filter(Boolean);
   const next = values.includes(name) ? values.filter((item) => item !== name) : [...values, name];
   return next.join(', ');
+}
+
+function buildStateOption(value: Issue['state'], t: (key: string, params?: Record<string, string | number>) => string): SingleValueOptionDef {
+  const label = issueStateLabel(value, t);
+
+  if (value === 'BACKLOG') {
+    return { value, label, icon: <CircleDashed className="h-4 w-4" />, iconClassName: 'text-slate-400' };
+  }
+  if (value === 'TODO') {
+    return { value, label, icon: <Circle className="h-4 w-4" />, iconClassName: 'text-slate-400' };
+  }
+  if (value === 'IN_PROGRESS') {
+    return { value, label, icon: <LoaderCircle className="h-4 w-4" />, iconClassName: 'text-sky-500' };
+  }
+  if (value === 'IN_REVIEW') {
+    return { value, label, icon: <CircleEllipsis className="h-4 w-4" />, iconClassName: 'text-amber-500' };
+  }
+  if (value === 'DONE') {
+    return { value, label, icon: <CheckCircle2 className="h-4 w-4" />, iconClassName: 'text-emerald-500' };
+  }
+  return { value, label, icon: <XCircle className="h-4 w-4" />, iconClassName: 'text-rose-500' };
+}
+
+function buildPriorityOption(value: Issue['priority'], t: (key: string, params?: Record<string, string | number>) => string): SingleValueOptionDef {
+  const label = issuePriorityLabel(value, t);
+
+  if (value === 'LOW') {
+    return { value, label, icon: <Minus className="h-4 w-4" />, iconClassName: 'text-slate-400' };
+  }
+  if (value === 'MEDIUM') {
+    return { value, label, icon: <Equal className="h-4 w-4" />, iconClassName: 'text-sky-500' };
+  }
+  if (value === 'HIGH') {
+    return { value, label, icon: <ChevronDown className="h-4 w-4 rotate-180" />, iconClassName: 'text-orange-500' };
+  }
+  return { value, label, icon: <Flame className="h-4 w-4" />, iconClassName: 'text-rose-500' };
+}
+
+function getInitials(name: string) {
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
+
+  if (!parts.length) return 'NA';
+  return parts.map((part) => part[0]).join('').toUpperCase();
+}
+
+function buildSuggestedDueDates(locale: Locale) {
+  const tomorrow = addDays(new Date(), 1);
+  const nextWeek = addDays(new Date(), 7);
+  const endOfWeek = getEndOfWeek(new Date());
+
+  return [
+    {
+      label: locale.startsWith('zh') ? '明天' : 'Tomorrow',
+      value: toDateInputValue(tomorrow),
+      preview: formatQuickDate(tomorrow, locale),
+    },
+    {
+      label: locale.startsWith('zh') ? '本周结束前' : 'End of this week',
+      value: toDateInputValue(endOfWeek),
+      preview: formatQuickDate(endOfWeek, locale),
+    },
+    {
+      label: locale.startsWith('zh') ? '一周后' : 'In one week',
+      value: toDateInputValue(nextWeek),
+      preview: formatQuickDate(nextWeek, locale),
+    },
+  ];
+}
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function getEndOfWeek(date: Date) {
+  const next = new Date(date);
+  const day = next.getDay();
+  const delta = day === 0 ? 5 : 5 - day;
+  next.setDate(next.getDate() + (delta >= 0 ? delta : delta + 7));
+  return next;
+}
+
+function toDateInputValue(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function formatQuickDate(date: Date, locale: Locale) {
+  return new Intl.DateTimeFormat(locale.startsWith('zh') ? 'zh-CN' : 'en-US', {
+    month: 'short',
+    day: 'numeric',
+    weekday: 'short',
+  }).format(date);
+}
+
+function formatRecurringDateDisplay(value: string) {
+  if (!value) return 'YYYY/MM/DD';
+  return value.replace(/-/g, '/');
+}
+
+function buildRecurringNextRunAt(value: string) {
+  const safeDate = value || toDateInputValue(addDays(new Date(), 7));
+  return `${safeDate}T09:00:00`;
+}
+
+function weekdayCodeFromDate(value: string) {
+  const day = new Date(`${value}T00:00:00`).getDay();
+  return ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'][day] ?? 'MONDAY';
 }

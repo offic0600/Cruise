@@ -254,9 +254,9 @@ open class DataInitializer {
     ) {
         tagRepository.saveAll(
             listOf(
-                IssueTag(name = "platform", color = "#2563EB", sortOrder = 1, createdAt = now),
-                IssueTag(name = "auth", color = "#0F766E", sortOrder = 2, createdAt = now),
-                IssueTag(name = "migration", color = "#EA580C", sortOrder = 3, createdAt = now)
+                IssueTag(name = "Bug", color = "#EF4444", sortOrder = 1, createdAt = now),
+                IssueTag(name = "Feature", color = "#A855F7", sortOrder = 2, createdAt = now),
+                IssueTag(name = "Improvement", color = "#3B82F6", sortOrder = 3, createdAt = now)
             )
         )
 
