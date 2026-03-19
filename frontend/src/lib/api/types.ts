@@ -181,6 +181,18 @@ export interface Initiative {
   archivedAt: string | null;
 }
 
+export interface InitiativeUpdate {
+  id: number;
+  initiativeId: number;
+  title: string;
+  body: string | null;
+  health: string | null;
+  userId: number | null;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+}
+
 export interface ProjectMilestone {
   id: number;
   projectId: number;
