@@ -119,7 +119,12 @@ export default function IssuesPage() {
   useEffect(() => {
     if (!createOpen) return;
     setCreateDraft(buildCreateDraft(projects, quickCreateState, customFieldDefinitions, currentTeamId));
-  }, [createOpen, projects, quickCreateState, customFieldDefinitions]);
+  }, [createOpen, projects, quickCreateState, customFieldDefinitions, currentTeamId]);
+
+  useEffect(() => {
+    if (!currentTeamId) return;
+    setCreateDraft((current) => (current.teamId ? current : { ...current, teamId: String(currentTeamId) }));
+  }, [currentTeamId]);
 
   const viewCounts = useMemo(
     () => ({

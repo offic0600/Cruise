@@ -196,6 +196,11 @@ export default function IssueComposer({
   }, [draft, savedDraftQuery.data]);
 
   useEffect(() => {
+    if (!draft || draft.teamId || !currentTeamId) return;
+    setDraft((current) => (current && !current.teamId ? { ...current, teamId: String(currentTeamId) } : current));
+  }, [currentTeamId, draft]);
+
+  useEffect(() => {
     if (!draft || !recurringEnabled || draft.plannedEndDate) return;
     setDraft((current) => (current ? { ...current, plannedEndDate: toDateInputValue(addDays(new Date(), 7)) } : current));
   }, [draft, recurringEnabled]);
