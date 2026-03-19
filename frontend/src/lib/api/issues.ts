@@ -10,6 +10,7 @@ import {
 export const getIssues = (params?: {
   type?: string;
   organizationId?: number;
+  teamId?: number;
   projectId?: number;
   assigneeId?: number;
   parentIssueId?: number;

@@ -1,5 +1,14 @@
 import apiClient from './client';
-import { Comment, Customer, CustomerNeed, Initiative, InitiativeProject, InitiativeUpdate, IssueRelation, Membership, Project, ProjectMilestone, ProjectUpdate, RestPageResponse, Roadmap, RoadmapProject, Team, Workflow } from './types';
+import { Comment, CreateOrganizationRequest, CreateOrganizationResponse, Customer, CustomerNeed, Initiative, InitiativeProject, InitiativeUpdate, IssueRelation, Membership, Organization, Project, ProjectMilestone, ProjectUpdate, RestPageResponse, Roadmap, RoadmapProject, SlugAvailability, Team, Workflow } from './types';
+
+export const getOrganizations = () =>
+  apiClient.get<Organization[]>('/organizations').then((r) => r.data);
+
+export const checkOrganizationSlugAvailability = (slug: string) =>
+  apiClient.get<SlugAvailability>('/organizations/slug-availability', { params: { slug } }).then((r) => r.data);
+
+export const createOrganization = (data: CreateOrganizationRequest) =>
+  apiClient.post<CreateOrganizationResponse>('/organizations', data).then((r) => r.data);
 
 export const getProjects = (params?: {
   organizationId?: number;

@@ -403,6 +403,43 @@ export interface Team {
   updatedAt: string;
 }
 
+export interface Organization {
+  id: number;
+  name: string;
+  slug: string;
+  region: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SlugAvailability {
+  slug: string;
+  available: boolean;
+}
+
+export interface CreateOrganizationRequest {
+  name: string;
+  slug: string;
+  region: string;
+  initialTeamName?: string;
+}
+
+export interface CreateOrganizationResponse {
+  organization: Organization;
+  initialTeam: Team;
+  membership: Membership;
+  authSession: {
+    token: string;
+    userId: number;
+    username: string;
+    email: string;
+    role: string;
+    organizationId: number | null;
+    providerKey?: string | null;
+  };
+}
+
 export interface View {
   id: number;
   organizationId: number;

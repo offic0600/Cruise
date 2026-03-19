@@ -1,10 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Menu } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import LocaleSwitcher from '@/components/LocaleSwitcher';
+import WorkspaceHeader from '@/components/WorkspaceHeader';
+import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
+import IssueComposer from '@/components/issues/IssueComposer';
 import { Button } from '@/components/ui/button';
 import { localizePath } from '@/i18n/config';
 import { useI18n } from '@/i18n/useI18n';
@@ -16,12 +19,33 @@ interface NavItem {
   icon: string;
 }
 
+const SHORTCUT_TIMEOUT_MS = 1000;
+
+function isTypingTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName.toLowerCase();
+  return tag === 'input' || tag === 'textarea' || target.isContentEditable;
+}
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { locale, t } = useI18n();
+  const {
+    organizations,
+    currentOrganization,
+    currentOrganizationId,
+    setCurrentOrganizationId,
+    currentTeamId,
+    isLoading: workspaceLoading,
+  } = useCurrentWorkspace();
   const [user, setUser] = useState<StoredUser | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
+  const [focusSwitchWorkspace, setFocusSwitchWorkspace] = useState(false);
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const shortcutBuffer = useRef('');
+  const shortcutTimerRef = useRef<number | null>(null);
 
   const navItems = useMemo<NavItem[]>(
     () => [
@@ -47,34 +71,107 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     setUser(session.user);
   }, [locale, router]);
 
+  useEffect(() => {
+    if (!user) return;
+    if (pathname === localizePath(locale, '/create-workspace')) return;
+    if (!workspaceLoading && !currentOrganizationId && organizations.length === 0) {
+      router.replace(localizePath(locale, '/create-workspace'));
+    }
+  }, [user, pathname, locale, router, currentOrganizationId, organizations.length, workspaceLoading]);
+
   const handleLogout = () => {
     clearSession();
     router.push(localizePath(locale, '/login'));
   };
 
-  if (!user) return null;
+  useEffect(() => {
+    const resetShortcutBuffer = () => {
+      shortcutBuffer.current = '';
+      if (shortcutTimerRef.current != null) {
+        window.clearTimeout(shortcutTimerRef.current);
+        shortcutTimerRef.current = null;
+      }
+    };
 
-  const newIssueHref = localizePath(locale, '/issues/new');
-  const issuesRootHref = localizePath(locale, '/issues');
-  const showGlobalNewIssue = pathname !== newIssueHref && !pathname.startsWith(issuesRootHref);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (isTypingTarget(event.target)) return;
+
+      const key = event.key.toLowerCase();
+
+      if ((event.metaKey || event.ctrlKey) && key === 'k') {
+        event.preventDefault();
+        router.push(localizePath(locale, '/search'));
+        resetShortcutBuffer();
+        return;
+      }
+
+      if (event.altKey && event.shiftKey && key === 'q') {
+        event.preventDefault();
+        handleLogout();
+        resetShortcutBuffer();
+        return;
+      }
+
+      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+
+      shortcutBuffer.current = `${shortcutBuffer.current}${key}`.slice(-2);
+      if (shortcutTimerRef.current != null) {
+        window.clearTimeout(shortcutTimerRef.current);
+      }
+      shortcutTimerRef.current = window.setTimeout(resetShortcutBuffer, SHORTCUT_TIMEOUT_MS);
+
+      if (shortcutBuffer.current === 'gs') {
+        event.preventDefault();
+        router.push(localizePath(locale, '/teams/current/settings/templates'));
+        resetShortcutBuffer();
+      } else if (shortcutBuffer.current === 'ow') {
+        event.preventDefault();
+        setFocusSwitchWorkspace(true);
+        setWorkspaceMenuOpen(true);
+        resetShortcutBuffer();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      resetShortcutBuffer();
+    };
+  }, [locale, router]);
+
+  if (!user) return null;
 
   return (
     <div className="app-shell">
       <aside className={`glass-sidebar fixed inset-y-0 left-0 z-30 w-72 transition-transform xl:translate-x-0 ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full'} xl:block`}>
         <div className="flex h-full flex-col">
-          <div className="border-b border-border-subtle px-6 py-6">
-            <div className="flex items-center gap-3">
-              <div className="brand-badge flex h-11 w-11 items-center justify-center rounded-card">
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <div>
-                <div className="text-lg font-semibold">Cruise</div>
-                <div className="text-sm text-ink-700">{t('common.workspace')}</div>
-              </div>
-            </div>
-          </div>
+          <WorkspaceHeader
+            organization={currentOrganization}
+            organizations={organizations}
+            menuOpen={workspaceMenuOpen}
+            onMenuOpenChange={setWorkspaceMenuOpen}
+            onSearch={() => router.push(localizePath(locale, '/search'))}
+            onNewIssue={() => setQuickCreateOpen(true)}
+            onLogout={handleLogout}
+            onSelectOrganization={setCurrentOrganizationId}
+            settingsHref={localizePath(locale, '/teams/current/settings/templates')}
+            membersHref={localizePath(locale, '/team-members')}
+            createWorkspaceHref={localizePath(locale, '/create-workspace')}
+            currentWorkspaceLabel={t('workspaceMenu.currentWorkspace')}
+            settingsLabel={t('workspaceMenu.settings')}
+            inviteMembersLabel={t('workspaceMenu.inviteMembers')}
+            switchWorkspaceLabel={t('workspaceMenu.switchWorkspace')}
+            createWorkspaceLabel={t('workspaceMenu.createWorkspace')}
+            logoutLabel={t('workspaceMenu.logout')}
+            noWorkspacesLabel={t('workspaceMenu.noWorkspaces')}
+            shortcuts={{
+              settings: t('workspaceMenu.shortcuts.settings'),
+              switchWorkspace: t('workspaceMenu.shortcuts.switchWorkspace'),
+              logout: t('workspaceMenu.shortcuts.logout'),
+            }}
+            focusSwitchWorkspace={focusSwitchWorkspace}
+            onSwitchWorkspaceFocused={() => setFocusSwitchWorkspace(false)}
+          />
 
           <nav className="flex-1 space-y-1 px-4 py-5">
             {navItems.map((item) => {
@@ -99,13 +196,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="subtle-card p-4">
               <div className="text-sm font-medium text-ink-900">{user.username}</div>
               <div className="mt-1 text-xs text-ink-700">{user.role}</div>
-              <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-                <div className="min-w-0">
-                  <LocaleSwitcher />
-                </div>
-                <Button onClick={handleLogout} variant="secondary" size="sm" className="shrink-0 whitespace-nowrap">
-                  {t('nav.logout')}
-                </Button>
+              <div className="mt-4">
+                <LocaleSwitcher />
               </div>
             </div>
           </div>
@@ -124,19 +216,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <Menu className="h-4 w-4" />
             </Button>
           </div>
-          {showGlobalNewIssue ? (
-            <div className="mb-5 flex justify-end">
-              <Link
-                href={newIssueHref}
-                className="inline-flex h-10 items-center justify-center rounded-xl bg-slate-900 px-4 text-sm font-medium text-white transition hover:brightness-105"
-              >
-                {t('nav.newIssue')}
-              </Link>
-            </div>
-          ) : null}
           {children}
         </main>
       </div>
+
+      <IssueComposer
+        mode="modal"
+        open={quickCreateOpen}
+        onClose={() => setQuickCreateOpen(false)}
+        initialParams={new URLSearchParams(currentTeamId ? `teamId=${currentTeamId}` : '')}
+        localeScope="issues-list-modal"
+      />
     </div>
   );
 }

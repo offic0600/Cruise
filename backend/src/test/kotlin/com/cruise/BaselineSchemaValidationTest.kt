@@ -20,7 +20,7 @@ class BaselineSchemaValidationTest {
         val context = SpringApplicationBuilder(CruiseApplication::class.java)
             .properties(
                 mapOf(
-                    "server.port" to "0",
+                    "spring.main.web-application-type" to "none",
                     "spring.datasource.url" to jdbcUrl,
                     "spring.datasource.username" to "sa",
                     "spring.datasource.password" to "",

@@ -68,7 +68,7 @@ export default function LoginPage() {
           organizationId: response.organizationId,
         },
       });
-      router.push(localizePath(locale, '/issues'));
+      router.push(localizePath(locale, response.organizationId ? '/issues' : '/create-workspace'));
     } catch (err: any) {
       setError(err.response?.data?.error || t('login.error'));
     } finally {

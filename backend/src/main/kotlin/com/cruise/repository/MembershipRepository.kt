@@ -9,4 +9,5 @@ interface MembershipRepository : JpaRepository<Membership, Long> {
     fun findByTeamId(teamId: Long): List<Membership>
     fun findByUserId(userId: Long): List<Membership>
     fun findFirstByUserIdAndActiveTrue(userId: Long): Membership?
+    fun findByUserIdAndActiveTrue(userId: Long): List<Membership>
 }

@@ -2,26 +2,33 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createComment, createDoc, createIssue, createIssueRelation, deleteIssueAttachment, deleteIssueRelation, getActivityEvents, getComments, getDocs, getIssue, getIssueAttachments, getIssueRelations, getIssues, getProjects, getTeamMembers, getTeams, updateIssue, updateIssueState, uploadIssueAttachment } from '@/lib/api';
 import { getCustomFieldDefinitions } from '@/lib/api/custom-fields';
 import type { CustomFieldDefinition, Issue, Project, RestPageResponse } from '@/lib/api';
+import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import { queryKeys } from './keys';
 
 export function useIssueWorkspace(filters?: Parameters<typeof getIssues>[0]) {
+  const { organizationId, currentTeamId } = useCurrentWorkspace();
+  const scopedFilters = {
+    organizationId: organizationId ?? filters?.organizationId ?? 1,
+    teamId: filters?.teamId ?? currentTeamId ?? undefined,
+    ...filters,
+  };
   const issuesQuery = useQuery({
-    queryKey: queryKeys.issues(filters),
-    queryFn: () => getIssues(filters),
+    queryKey: queryKeys.issues(scopedFilters),
+    queryFn: () => getIssues(scopedFilters),
     select: (response) => response.items,
   });
   const customFieldDefinitionsQuery = useQuery({
-    queryKey: queryKeys.customFields({ organizationId: 1, entityType: 'ISSUE' }),
-    queryFn: () => getCustomFieldDefinitions({ organizationId: 1, entityType: 'ISSUE' }),
+    queryKey: queryKeys.customFields({ organizationId: organizationId ?? 1, entityType: 'ISSUE' }),
+    queryFn: () => getCustomFieldDefinitions({ organizationId: organizationId ?? 1, entityType: 'ISSUE' }),
   });
   const projectsQuery = useQuery({
-    queryKey: queryKeys.projects,
-    queryFn: () => getProjects(),
+    queryKey: [...queryKeys.projects, organizationId ?? 1, currentTeamId ?? 'all'],
+    queryFn: () => getProjects({ organizationId: organizationId ?? 1, teamId: currentTeamId ?? undefined }),
     select: (response) => response.items,
   });
   const teamsQuery = useQuery({
-    queryKey: queryKeys.teams,
-    queryFn: () => getTeams(),
+    queryKey: [...queryKeys.teams, organizationId ?? 1],
+    queryFn: () => getTeams({ organizationId: organizationId ?? 1 }),
   });
   const membersQuery = useQuery({
     queryKey: queryKeys.teamMembers,
@@ -70,6 +77,7 @@ export function useIssueDetails(issueId: number | null) {
 }
 
 export function useIssueDetailWorkspace(issueId: number, organizationId: number) {
+  const { currentTeamId } = useCurrentWorkspace();
   const issueQuery = useQuery({
     queryKey: queryKeys.issueDetail(issueId),
     queryFn: () => getIssue(issueId),
@@ -100,8 +108,8 @@ export function useIssueDetailWorkspace(issueId: number, organizationId: number)
       queryFn: () => getIssueAttachments(issueId),
     }),
     childIssuesQuery: useQuery({
-      queryKey: queryKeys.issues({ parentIssueId: issueId }),
-      queryFn: () => getIssues({ parentIssueId: issueId }),
+      queryKey: queryKeys.issues({ parentIssueId: issueId, teamId: currentTeamId ?? undefined }),
+      queryFn: () => getIssues({ parentIssueId: issueId, teamId: currentTeamId ?? undefined }),
       select: (response) => response.items,
     }),
     customFieldDefinitionsQuery: useQuery({
@@ -109,12 +117,12 @@ export function useIssueDetailWorkspace(issueId: number, organizationId: number)
       queryFn: () => getCustomFieldDefinitions({ organizationId, entityType: 'ISSUE' }),
     }),
     projectsQuery: useQuery({
-      queryKey: queryKeys.projects,
-      queryFn: () => getProjects({ organizationId }),
+      queryKey: [...queryKeys.projects, organizationId, currentTeamId ?? 'all'],
+      queryFn: () => getProjects({ organizationId, teamId: currentTeamId ?? undefined }),
       select: (response) => response.items,
     }),
     teamsQuery: useQuery({
-      queryKey: queryKeys.teams,
+      queryKey: [...queryKeys.teams, organizationId],
       queryFn: () => getTeams({ organizationId }),
     }),
     membersQuery: useQuery({

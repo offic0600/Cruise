@@ -1,13 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import * as api from '@/lib/api/resources';
 import { queryKeys } from './keys';
 
 export function useResourceCatalog() {
+  const { organizationId, currentTeamId } = useCurrentWorkspace();
   return {
-    cyclesQuery: useQuery({ queryKey: queryKeys.cycles, queryFn: () => api.getCycles() }),
-    projectStatusesQuery: useQuery({ queryKey: queryKeys.projectStatuses, queryFn: () => api.getProjectStatuses() }),
-    customerStatusesQuery: useQuery({ queryKey: queryKeys.customerStatuses, queryFn: () => api.getCustomerStatuses() }),
-    customerTiersQuery: useQuery({ queryKey: queryKeys.customerTiers, queryFn: () => api.getCustomerTiers() }),
+    cyclesQuery: useQuery({ queryKey: [...queryKeys.cycles, organizationId ?? 1, currentTeamId ?? 'all'], queryFn: () => api.getCycles({ organizationId: organizationId ?? 1, teamId: currentTeamId ?? undefined }) }),
+    projectStatusesQuery: useQuery({ queryKey: [...queryKeys.projectStatuses, organizationId ?? 1], queryFn: () => api.getProjectStatuses({ organizationId: organizationId ?? 1 }) }),
+    customerStatusesQuery: useQuery({ queryKey: [...queryKeys.customerStatuses, organizationId ?? 1], queryFn: () => api.getCustomerStatuses({ organizationId: organizationId ?? 1 }) }),
+    customerTiersQuery: useQuery({ queryKey: [...queryKeys.customerTiers, organizationId ?? 1], queryFn: () => api.getCustomerTiers({ organizationId: organizationId ?? 1 }) }),
   };
 }
 

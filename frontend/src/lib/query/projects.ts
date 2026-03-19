@@ -1,25 +1,27 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import { createProject, getActivityEvents, getDocs, getIssues, getProjects, updateProject } from '@/lib/api';
 import { queryKeys } from './keys';
 
 export function useProjectsWorkspace() {
+  const { organizationId, currentTeamId } = useCurrentWorkspace();
   return {
     projectsQuery: useQuery({
-      queryKey: queryKeys.projects,
-      queryFn: () => getProjects(),
+      queryKey: [...queryKeys.projects, organizationId ?? 1, currentTeamId ?? 'all'],
+      queryFn: () => getProjects({ organizationId: organizationId ?? 1, teamId: currentTeamId ?? undefined }),
       select: (response) => response.items,
     }),
     issuesQuery: useQuery({
-      queryKey: [...queryKeys.projects, 'issues'],
-      queryFn: () => getIssues(),
+      queryKey: [...queryKeys.projects, 'issues', organizationId ?? 1, currentTeamId ?? 'all'],
+      queryFn: () => getIssues({ organizationId: organizationId ?? 1, teamId: currentTeamId ?? undefined }),
       select: (response) => response.items,
     }),
     docsQuery: useQuery({
-      queryKey: [...queryKeys.projects, 'docs'],
-      queryFn: () => getDocs(),
+      queryKey: [...queryKeys.projects, 'docs', organizationId ?? 1, currentTeamId ?? 'all'],
+      queryFn: () => getDocs({ organizationId: organizationId ?? 1, teamId: currentTeamId ?? undefined }),
     }),
     activityQuery: useQuery({
-      queryKey: [...queryKeys.projects, 'activity'],
+      queryKey: [...queryKeys.projects, 'activity', organizationId ?? 1],
       queryFn: () => getActivityEvents(),
     }),
   };

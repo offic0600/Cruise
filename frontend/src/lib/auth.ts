@@ -44,6 +44,18 @@ export function storeSession(session: AuthSession) {
   localStorage.setItem(USER_KEY, JSON.stringify(session.user));
 }
 
+export function updateStoredSession(patch: { token?: string; user?: Partial<StoredUser> }) {
+  const existing = getStoredSession();
+  if (!existing) return;
+  storeSession({
+    token: patch.token ?? existing.token,
+    user: {
+      ...existing.user,
+      ...patch.user,
+    },
+  });
+}
+
 export function clearSession() {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(TOKEN_KEY);

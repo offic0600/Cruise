@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Ban, CheckCircle2, ChevronDown, ChevronRight, Circle, CircleDashed, CircleEllipsis, FilterX, LoaderCircle, Maximize2, Paperclip, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import IssueComposer from '@/components/issues/IssueComposer';
+import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +18,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { localizePath } from '@/i18n/config';
 import { useI18n } from '@/i18n/useI18n';
 import type { CustomFieldDefinition, Issue, Project, Team } from '@/lib/api';
-import { getStoredUser } from '@/lib/auth';
 import { useIssueMutations, useIssueWorkspace } from '@/lib/query/issues';
 
 type IssueView = 'all' | 'active' | 'backlog' | 'done';
@@ -63,8 +63,7 @@ export default function IssuesPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const storedUser = getStoredUser();
-  const organizationId = storedUser?.organizationId ?? 1;
+  const { organizationId, currentTeamId } = useCurrentWorkspace();
   const isZh = locale.startsWith('zh');
   const currentView = normalizeView(searchParams.get('view'));
   const searchParamsKey = searchParams.toString();
@@ -72,8 +71,8 @@ export default function IssuesPage() {
   const collapseInitRef = useRef(new Set<string>());
 
   const apiFilters = useMemo(
-    () => buildIssueFilters(searchParams, organizationId),
-    [organizationId, searchParamsKey]
+    () => buildIssueFilters(searchParams, organizationId ?? 1, currentTeamId),
+    [organizationId, currentTeamId, searchParamsKey]
   );
   const {
     issuesQuery,
@@ -225,7 +224,7 @@ export default function IssuesPage() {
 
     try {
       await createIssueMutation.mutateAsync({
-        organizationId,
+        organizationId: organizationId ?? 1,
         title,
         description: createDraft.description.trim() || undefined,
         type: createDraft.type,
@@ -977,7 +976,7 @@ function StateIcon({ state }: { state: string }) {
   return <Circle className="h-4 w-4 text-slate-400" />;
 }
 
-function buildIssueFilters(searchParams: URLSearchParams, organizationId: number) {
+function buildIssueFilters(searchParams: URLSearchParams, organizationId: number, currentTeamId: number | null) {
   const customFieldFilters: Record<string, string> = {};
   searchParams.forEach((value, key) => {
     if (key.startsWith('cf_') && value) customFieldFilters[key.slice(3)] = value;
@@ -991,7 +990,7 @@ function buildIssueFilters(searchParams: URLSearchParams, organizationId: number
     priority: searchParams.get('priority') ?? undefined,
     assigneeId: searchParams.get('assigneeId') ? Number(searchParams.get('assigneeId')) : undefined,
     projectId: searchParams.get('projectId') ? Number(searchParams.get('projectId')) : undefined,
-    teamId: searchParams.get('teamId') ? Number(searchParams.get('teamId')) : undefined,
+    teamId: searchParams.get('teamId') ? Number(searchParams.get('teamId')) : currentTeamId ?? undefined,
     customFieldFilters: Object.keys(customFieldFilters).length ? customFieldFilters : undefined,
   };
 }

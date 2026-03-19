@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import {
   attachInitiativeProject,
   attachRoadmapProject,
@@ -26,15 +27,16 @@ import {
 import { queryKeys } from './keys';
 
 export function useInitiativesWorkspace() {
+  const { organizationId, currentTeamId } = useCurrentWorkspace();
   return {
     initiativesQuery: useQuery({
-      queryKey: queryKeys.initiatives,
-      queryFn: () => getInitiatives(),
+      queryKey: [...queryKeys.initiatives, organizationId ?? 1],
+      queryFn: () => getInitiatives({ organizationId: organizationId ?? 1 }),
       select: (response) => response.items,
     }),
     projectsQuery: useQuery({
-      queryKey: queryKeys.projects,
-      queryFn: () => getProjects(),
+      queryKey: [...queryKeys.projects, organizationId ?? 1, currentTeamId ?? 'all'],
+      queryFn: () => getProjects({ organizationId: organizationId ?? 1, teamId: currentTeamId ?? undefined }),
       select: (response) => response.items,
     }),
   };
@@ -49,15 +51,16 @@ export function useInitiativeProjects(initiativeId: number | null) {
 }
 
 export function useRoadmapsWorkspace() {
+  const { organizationId, currentTeamId } = useCurrentWorkspace();
   return {
     roadmapsQuery: useQuery({
-      queryKey: queryKeys.roadmaps,
-      queryFn: () => getRoadmaps(),
+      queryKey: [...queryKeys.roadmaps, organizationId ?? 1],
+      queryFn: () => getRoadmaps({ organizationId: organizationId ?? 1 }),
       select: (response) => response.items,
     }),
     projectsQuery: useQuery({
-      queryKey: queryKeys.projects,
-      queryFn: () => getProjects(),
+      queryKey: [...queryKeys.projects, organizationId ?? 1, currentTeamId ?? 'all'],
+      queryFn: () => getProjects({ organizationId: organizationId ?? 1, teamId: currentTeamId ?? undefined }),
       select: (response) => response.items,
     }),
   };
@@ -72,15 +75,16 @@ export function useRoadmapProjects(roadmapId: number | null) {
 }
 
 export function useCustomersWorkspace() {
+  const { organizationId, currentTeamId } = useCurrentWorkspace();
   return {
     customersQuery: useQuery({
-      queryKey: queryKeys.customers,
-      queryFn: () => getCustomers(),
+      queryKey: [...queryKeys.customers, organizationId ?? 1],
+      queryFn: () => getCustomers({ organizationId: organizationId ?? 1 }),
       select: (response) => response.items,
     }),
     projectsQuery: useQuery({
-      queryKey: queryKeys.projects,
-      queryFn: () => getProjects(),
+      queryKey: [...queryKeys.projects, organizationId ?? 1, currentTeamId ?? 'all'],
+      queryFn: () => getProjects({ organizationId: organizationId ?? 1, teamId: currentTeamId ?? undefined }),
       select: (response) => response.items,
     }),
   };
