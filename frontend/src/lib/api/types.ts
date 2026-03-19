@@ -489,11 +489,39 @@ export interface Notification {
   id: number;
   userId: number;
   eventId: number;
+  actorId: number | null;
   type: 'ASSIGNMENT' | 'MENTION' | 'COMMENT' | 'STATE_CHANGE' | 'SYSTEM' | string;
+  category: string;
+  resourceType: string | null;
+  resourceId: number | null;
   title: string;
   body: string;
+  payloadJson: string | null;
   readAt: string | null;
+  updatedAt: string;
   createdAt: string;
+  archivedAt: string | null;
+}
+
+export interface NotificationSubscription {
+  id: number;
+  userId: number;
+  resourceType: string;
+  resourceId: number;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+}
+
+export interface NotificationPreference {
+  id: number;
+  userId: number;
+  category: string;
+  channel: string;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export const parseLegacyPayload = (legacyPayload: string | null | undefined): JsonRecord => {
