@@ -3,9 +3,11 @@ package com.cruise.controller
 import com.cruise.service.CreateInitiativeRequest
 import com.cruise.service.CreateInitiativeUpdateRequest
 import com.cruise.service.CreateCommentRequest
+import com.cruise.service.AttachInitiativeProjectRequest
 import com.cruise.service.CommentDto
 import com.cruise.service.CommentService
 import com.cruise.service.InitiativeDto
+import com.cruise.service.InitiativeProjectDto
 import com.cruise.service.InitiativeQuery
 import com.cruise.service.InitiativeService
 import com.cruise.service.InitiativeUpdateDto
@@ -14,6 +16,7 @@ import com.cruise.service.RestPageResponse
 import com.cruise.service.UpdateInitiativeRequest
 import com.cruise.service.UpdateInitiativeUpdateRequest
 import com.cruise.service.UpdateCommentRequest
+import com.cruise.service.UpdateInitiativeProjectRequest
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
@@ -60,6 +63,32 @@ class InitiativeController(
     @DeleteMapping("/{id}")
     fun delete(@PathVariable id: Long): ResponseEntity<Void> {
         initiativeService.delete(id)
+        return ResponseEntity.noContent().build()
+    }
+
+    @GetMapping("/{id}/projects")
+    fun getProjects(
+        @PathVariable id: Long,
+        @RequestParam(required = false, defaultValue = "false") includeArchived: Boolean
+    ): List<InitiativeProjectDto> = initiativeService.findProjects(id, includeArchived)
+
+    @PostMapping("/{id}/projects")
+    fun attachProject(
+        @PathVariable id: Long,
+        @RequestBody request: AttachInitiativeProjectRequest
+    ): ResponseEntity<InitiativeProjectDto> =
+        ResponseEntity.status(HttpStatus.CREATED).body(initiativeService.attachProject(id, request))
+
+    @PutMapping("/{id}/projects/{relationId}")
+    fun updateProject(
+        @PathVariable id: Long,
+        @PathVariable relationId: Long,
+        @RequestBody request: UpdateInitiativeProjectRequest
+    ): InitiativeProjectDto = initiativeService.updateProject(id, relationId, request)
+
+    @DeleteMapping("/{id}/projects/{relationId}")
+    fun detachProject(@PathVariable id: Long, @PathVariable relationId: Long): ResponseEntity<Void> {
+        initiativeService.detachProject(id, relationId)
         return ResponseEntity.noContent().build()
     }
 

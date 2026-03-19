@@ -193,6 +193,16 @@ export interface InitiativeUpdate {
   archivedAt: string | null;
 }
 
+export interface InitiativeProject {
+  id: number;
+  initiativeId: number;
+  projectId: number;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+}
+
 export interface ProjectMilestone {
   id: number;
   projectId: number;

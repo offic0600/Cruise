@@ -1,7 +1,10 @@
 package com.cruise.service
 
 import com.cruise.entity.Initiative
+import com.cruise.entity.InitiativeToProject
 import com.cruise.repository.InitiativeRepository
+import com.cruise.repository.InitiativeToProjectRepository
+import com.cruise.repository.ProjectRepository
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
@@ -22,6 +25,16 @@ data class InitiativeDto(
     val targetDate: String?,
     val startedAt: String?,
     val completedAt: String?,
+    val createdAt: String,
+    val updatedAt: String,
+    val archivedAt: String?
+)
+
+data class InitiativeProjectDto(
+    val id: Long,
+    val initiativeId: Long,
+    val projectId: Long,
+    val sortOrder: Int,
     val createdAt: String,
     val updatedAt: String,
     val archivedAt: String?
@@ -62,9 +75,21 @@ data class UpdateInitiativeRequest(
     val archivedAt: String? = null
 )
 
+data class AttachInitiativeProjectRequest(
+    val projectId: Long,
+    val sortOrder: Int? = null
+)
+
+data class UpdateInitiativeProjectRequest(
+    val sortOrder: Int? = null,
+    val archivedAt: String? = null
+)
+
 @Service
 class InitiativeService(
-    private val initiativeRepository: InitiativeRepository
+    private val initiativeRepository: InitiativeRepository,
+    private val initiativeToProjectRepository: InitiativeToProjectRepository,
+    private val projectRepository: ProjectRepository
 ) {
     fun findAll(query: InitiativeQuery = InitiativeQuery()): RestPageResponse<InitiativeDto> =
         initiativeRepository.findAll()
@@ -129,8 +154,56 @@ class InitiativeService(
         initiativeRepository.delete(getInitiative(id))
     }
 
+    fun findProjects(initiativeId: Long, includeArchived: Boolean = false): List<InitiativeProjectDto> {
+        getInitiative(initiativeId)
+        return initiativeToProjectRepository.findAll()
+            .asSequence()
+            .filter { it.initiativeId == initiativeId }
+            .filter { includeArchived || it.archivedAt == null }
+            .sortedWith(compareBy<InitiativeToProject> { it.sortOrder }.thenBy { it.id })
+            .map { it.toDto() }
+            .toList()
+    }
+
+    fun attachProject(initiativeId: Long, request: AttachInitiativeProjectRequest): InitiativeProjectDto {
+        getInitiative(initiativeId)
+        projectRepository.findById(request.projectId)
+            .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found") }
+        return initiativeToProjectRepository.save(
+            InitiativeToProject(
+                initiativeId = initiativeId,
+                projectId = request.projectId,
+                sortOrder = request.sortOrder ?: 0
+            )
+        ).toDto()
+    }
+
+    fun updateProject(initiativeId: Long, relationId: Long, request: UpdateInitiativeProjectRequest): InitiativeProjectDto {
+        val relation = getInitiativeProject(initiativeId, relationId)
+        return initiativeToProjectRepository.save(
+            InitiativeToProject(
+                id = relation.id,
+                initiativeId = relation.initiativeId,
+                projectId = relation.projectId,
+                sortOrder = request.sortOrder ?: relation.sortOrder,
+                createdAt = relation.createdAt,
+                updatedAt = LocalDateTime.now(),
+                archivedAt = parseDateTime(request.archivedAt) ?: relation.archivedAt
+            )
+        ).toDto()
+    }
+
+    fun detachProject(initiativeId: Long, relationId: Long) {
+        initiativeToProjectRepository.delete(getInitiativeProject(initiativeId, relationId))
+    }
+
     private fun getInitiative(id: Long): Initiative = initiativeRepository.findById(id)
         .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Initiative not found") }
+
+    private fun getInitiativeProject(initiativeId: Long, relationId: Long): InitiativeToProject =
+        initiativeToProjectRepository.findById(relationId)
+            .filter { it.initiativeId == initiativeId }
+            .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Initiative project relation not found") }
 
     private fun Initiative.toDto() = InitiativeDto(
         id = id,
@@ -151,7 +224,16 @@ class InitiativeService(
         archivedAt = archivedAt?.toString()
     )
 
+    private fun InitiativeToProject.toDto() = InitiativeProjectDto(
+        id = id,
+        initiativeId = initiativeId,
+        projectId = projectId,
+        sortOrder = sortOrder,
+        createdAt = createdAt.toString(),
+        updatedAt = updatedAt.toString(),
+        archivedAt = archivedAt?.toString()
+    )
+
     private fun parseDate(value: String?): LocalDate? = value?.let(LocalDate::parse)
     private fun parseDateTime(value: String?): LocalDateTime? = value?.let(LocalDateTime::parse)
 }
-

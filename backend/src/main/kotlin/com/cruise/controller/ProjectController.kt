@@ -3,6 +3,10 @@ package com.cruise.controller
 import com.cruise.service.CreateProjectRequest
 import com.cruise.service.CreateProjectMilestoneRequest
 import com.cruise.service.CreateProjectUpdateRequest
+import com.cruise.service.CreateCommentRequest
+import com.cruise.service.CommentDto
+import com.cruise.service.CommentQuery
+import com.cruise.service.CommentService
 import com.cruise.service.ProjectDto
 import com.cruise.service.ProjectMilestoneDto
 import com.cruise.service.ProjectMilestoneService
@@ -31,7 +35,8 @@ import org.springframework.web.bind.annotation.RestController
 class ProjectController(
     private val projectService: ProjectService,
     private val projectMilestoneService: ProjectMilestoneService,
-    private val projectUpdateService: ProjectUpdateService
+    private val projectUpdateService: ProjectUpdateService,
+    private val commentService: CommentService
 ) {
     @GetMapping
     fun getAll(
@@ -128,6 +133,73 @@ class ProjectController(
     @DeleteMapping("/{id}/updates/{updateId}")
     fun deleteUpdate(@PathVariable id: Long, @PathVariable updateId: Long): ResponseEntity<Void> {
         projectUpdateService.delete(id, updateId)
+        return ResponseEntity.noContent().build()
+    }
+
+    @GetMapping("/{id}/updates/{updateId}/comments")
+    fun getUpdateComments(
+        @PathVariable id: Long,
+        @PathVariable updateId: Long,
+        @RequestParam(required = false, defaultValue = "false") includeArchived: Boolean
+    ): List<CommentDto> {
+        projectUpdateService.findById(id, updateId)
+        return commentService.findAll(
+            CommentQuery(
+                targetType = "PROJECT_UPDATE",
+                targetId = updateId,
+                includeArchived = includeArchived
+            )
+        )
+    }
+
+    @PostMapping("/{id}/updates/{updateId}/comments")
+    fun createUpdateComment(
+        @PathVariable id: Long,
+        @PathVariable updateId: Long,
+        @RequestBody request: CreateCommentRequest
+    ): ResponseEntity<CommentDto> {
+        projectUpdateService.findById(id, updateId)
+        return ResponseEntity.status(HttpStatus.CREATED).body(
+            commentService.create(
+                CreateCommentRequest(
+                    targetType = "PROJECT_UPDATE",
+                    targetId = updateId,
+                    documentContentId = request.documentContentId,
+                    parentCommentId = request.parentCommentId,
+                    authorId = request.authorId,
+                    body = request.body
+                )
+            )
+        )
+    }
+
+    @PutMapping("/{id}/updates/{updateId}/comments/{commentId}")
+    fun updateUpdateComment(
+        @PathVariable id: Long,
+        @PathVariable updateId: Long,
+        @PathVariable commentId: Long,
+        @RequestBody request: com.cruise.service.UpdateCommentRequest
+    ): CommentDto {
+        projectUpdateService.findById(id, updateId)
+        val comment = commentService.findById(commentId)
+        if (comment.targetType != "PROJECT_UPDATE" || comment.targetId != updateId) {
+            throw org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND, "Project update comment not found")
+        }
+        return commentService.update(commentId, request)
+    }
+
+    @DeleteMapping("/{id}/updates/{updateId}/comments/{commentId}")
+    fun deleteUpdateComment(
+        @PathVariable id: Long,
+        @PathVariable updateId: Long,
+        @PathVariable commentId: Long
+    ): ResponseEntity<Void> {
+        projectUpdateService.findById(id, updateId)
+        val comment = commentService.findById(commentId)
+        if (comment.targetType != "PROJECT_UPDATE" || comment.targetId != updateId) {
+            throw org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND, "Project update comment not found")
+        }
+        commentService.delete(commentId)
         return ResponseEntity.noContent().build()
     }
 }

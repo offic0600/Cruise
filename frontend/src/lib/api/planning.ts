@@ -1,5 +1,5 @@
 import apiClient from './client';
-import { Comment, Customer, CustomerNeed, Initiative, InitiativeUpdate, IssueRelation, Membership, Project, ProjectMilestone, ProjectUpdate, RestPageResponse, Roadmap, RoadmapProject, Team, Workflow } from './types';
+import { Comment, Customer, CustomerNeed, Initiative, InitiativeProject, InitiativeUpdate, IssueRelation, Membership, Project, ProjectMilestone, ProjectUpdate, RestPageResponse, Roadmap, RoadmapProject, Team, Workflow } from './types';
 
 export const getProjects = (params?: {
   organizationId?: number;
@@ -49,6 +49,20 @@ export const updateInitiative = (id: number, data: {
 }) => apiClient.put<Initiative>(`/initiatives/${id}`, data).then((r) => r.data);
 
 export const deleteInitiative = (id: number) => apiClient.delete(`/initiatives/${id}`);
+
+export const getInitiativeProjects = (initiativeId: number, params?: { includeArchived?: boolean }) =>
+  apiClient.get<InitiativeProject[]>(`/initiatives/${initiativeId}/projects`, { params }).then((r) => r.data);
+
+export const attachInitiativeProject = (initiativeId: number, data: { projectId: number; sortOrder?: number | null }) =>
+  apiClient.post<InitiativeProject>(`/initiatives/${initiativeId}/projects`, data).then((r) => r.data);
+
+export const updateInitiativeProject = (initiativeId: number, relationId: number, data: {
+  sortOrder?: number | null;
+  archivedAt?: string | null;
+}) => apiClient.put<InitiativeProject>(`/initiatives/${initiativeId}/projects/${relationId}`, data).then((r) => r.data);
+
+export const deleteInitiativeProject = (initiativeId: number, relationId: number) =>
+  apiClient.delete(`/initiatives/${initiativeId}/projects/${relationId}`);
 
 export const getInitiativeUpdates = (initiativeId: number, params?: { includeArchived?: boolean }) =>
   apiClient.get<InitiativeUpdate[]>(`/initiatives/${initiativeId}/updates`, { params }).then((r) => r.data);
@@ -134,6 +148,26 @@ export const deleteCustomer = (id: number) => apiClient.delete(`/customers/${id}
 export const getCustomerNeeds = (customerId: number, params?: { includeArchived?: boolean }) =>
   apiClient.get<CustomerNeed[]>(`/customers/${customerId}/needs`, { params }).then((r) => r.data);
 
+export const createCustomerNeed = (customerId: number, data: {
+  projectId?: number | null;
+  title: string;
+  description?: string | null;
+  priority?: string;
+  status?: string;
+}) => apiClient.post<CustomerNeed>(`/customers/${customerId}/needs`, data).then((r) => r.data);
+
+export const updateCustomerNeed = (customerId: number, needId: number, data: {
+  projectId?: number | null;
+  title?: string;
+  description?: string | null;
+  priority?: string;
+  status?: string;
+  archivedAt?: string | null;
+}) => apiClient.put<CustomerNeed>(`/customers/${customerId}/needs/${needId}`, data).then((r) => r.data);
+
+export const deleteCustomerNeed = (customerId: number, needId: number) =>
+  apiClient.delete(`/customers/${customerId}/needs/${needId}`);
+
 export const getProject = (id: number) => apiClient.get<Project>(`/projects/${id}`).then((r) => r.data);
 
 export const createProject = (data: {
@@ -210,6 +244,24 @@ export const updateProjectUpdate = (projectId: number, updateId: number, data: {
 
 export const deleteProjectUpdate = (projectId: number, updateId: number) =>
   apiClient.delete(`/projects/${projectId}/updates/${updateId}`);
+
+export const getProjectUpdateComments = (projectId: number, updateId: number, params?: { includeArchived?: boolean }) =>
+  apiClient.get<Comment[]>(`/projects/${projectId}/updates/${updateId}/comments`, { params }).then((r) => r.data);
+
+export const createProjectUpdateComment = (projectId: number, updateId: number, data: {
+  documentContentId?: number | null;
+  parentCommentId?: number | null;
+  authorId: number;
+  body: string;
+}) => apiClient.post<Comment>(`/projects/${projectId}/updates/${updateId}/comments`, data).then((r) => r.data);
+
+export const updateProjectUpdateComment = (projectId: number, updateId: number, commentId: number, data: {
+  body: string;
+  archivedAt?: string | null;
+}) => apiClient.put<Comment>(`/projects/${projectId}/updates/${updateId}/comments/${commentId}`, data).then((r) => r.data);
+
+export const deleteProjectUpdateComment = (projectId: number, updateId: number, commentId: number) =>
+  apiClient.delete(`/projects/${projectId}/updates/${updateId}/comments/${commentId}`);
 
 export const getRoadmaps = (params?: {
   organizationId?: number;
