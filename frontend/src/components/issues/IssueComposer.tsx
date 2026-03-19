@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Calendar, CalendarPlus, CheckCircle2, ChevronDown, ChevronRight, Circle, CircleDashed, CircleEllipsis, Equal, Expand, Flame, Link2, ListPlus, LoaderCircle, Minus, Paperclip, Repeat, Save, Tag, X, XCircle } from 'lucide-react';
+import { Calendar, CalendarPlus, CheckCircle2, ChevronDown, ChevronRight, Circle, CircleDashed, CircleEllipsis, Equal, Expand, Flame, Link2, ListPlus, LoaderCircle, Minus, MoreHorizontal, Paperclip, Repeat, Save, Tag, X, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -26,6 +26,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { localizePath, type Locale } from '@/i18n/config';
 import { useI18n } from '@/i18n/useI18n';
 import {
+  createLabel,
   createRecurringIssue,
   createIssue,
   createIssueDraft,
@@ -33,13 +34,14 @@ import {
   createIssueTemplate,
   deleteIssueDraft,
   getIssueDraft,
-  getIssueTags,
+  getLabels,
   getIssueTemplates,
   getProjects,
   getTeamMembers,
   getTeams,
   type CustomFieldDefinition,
   type Issue,
+  type Label,
   type IssueTemplate,
   updateIssueDraft,
   uploadIssueAttachment,
@@ -73,12 +75,6 @@ type SingleValueOptionDef = {
   iconClassName?: string;
   avatarText?: string;
   avatarClassName?: string;
-};
-
-type IssueTagRecord = {
-  id: number;
-  name: string;
-  color?: string | null;
 };
 
 type ComposerMode = 'modal' | 'page';
@@ -149,10 +145,10 @@ export default function IssueComposer({
     queryFn: () => getIssueDraft(initialDraftId!),
     enabled: composerEnabled && initialDraftId != null,
   });
-  const tagsQuery = useQuery({
-    queryKey: ['issue-tags'],
-    queryFn: () => getIssueTags(),
-    enabled: composerEnabled && mode === 'modal',
+  const labelsQuery = useQuery({
+    queryKey: ['labels', organizationId, draft?.teamId ?? 'none'],
+    queryFn: () => getLabels({ organizationId, teamId: draft?.teamId ? Number(draft.teamId) : undefined }),
+    enabled: composerEnabled && !!draft,
   });
 
   const projects = projectsQuery.data ?? [];
@@ -160,7 +156,8 @@ export default function IssueComposer({
   const members = (membersQuery.data ?? []) as TeamMember[];
   const templates = templatesQuery.data ?? [];
   const customFields = ((customFieldsQuery.data ?? []) as CustomFieldDefinition[]).filter((field) => field.showOnCreate);
-  const tags = (tagsQuery.data ?? []) as IssueTagRecord[];
+  const labelCatalog = labelsQuery.data;
+  const labels = useMemo(() => [...(labelCatalog?.teamLabels ?? []), ...(labelCatalog?.workspaceLabels ?? [])], [labelCatalog]);
 
   useEffect(() => {
     if (!projects.length || draft) return;
@@ -214,6 +211,12 @@ export default function IssueComposer({
     },
   });
   const createRecurringMutation = useMutation({ mutationFn: createRecurringIssue });
+  const createLabelMutation = useMutation({
+    mutationFn: createLabel,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['labels', organizationId, draft?.teamId ?? 'none'] });
+    },
+  });
 
   const dirty = useMemo(() => {
     if (!draft) return false;
@@ -224,10 +227,7 @@ export default function IssueComposer({
 
   const pageHref = `${localizePath(locale, '/issues/new')}?${serializeDraftToQuery(draft)}`;
   const projectName = projects.find((project) => String(project.id) === draft.projectId)?.name ?? t('settings.composer.noProject');
-  const selectedTags = draft.tags
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean);
+  const selectedLabelIds = draft.labelIds;
 
   const resetComposer = () => {
     const nextDraft = parseIssueCreateParams(initialParams ?? new URLSearchParams(), projects, templates);
@@ -266,6 +266,7 @@ export default function IssueComposer({
         cadenceInterval: Number(recurringInterval) || 1,
         weekdays: recurringUnit === 'week' && draft.plannedEndDate ? [weekdayCodeFromDate(draft.plannedEndDate)] : undefined,
         nextRunAt: buildRecurringNextRunAt(draft.plannedEndDate),
+        labelIds: draft.labelIds.map(Number),
         customFields: draft.customFields,
         legacyPayload: buildLegacyPayloadFromDraft(draft),
       });
@@ -305,6 +306,7 @@ export default function IssueComposer({
       estimatePoints: draft.estimatePoints ? Number(draft.estimatePoints) : null,
       plannedStartDate: draft.plannedStartDate || null,
       plannedEndDate: draft.plannedEndDate || null,
+      labelIds: draft.labelIds.map(Number),
       legacyPayload: buildLegacyPayloadFromDraft(draft),
       customFields: draft.customFields,
     });
@@ -365,6 +367,7 @@ export default function IssueComposer({
         estimatePoints: draft.estimatePoints ? Number(draft.estimatePoints) : null,
         plannedStartDate: draft.plannedStartDate || null,
         plannedEndDate: draft.plannedEndDate || null,
+        labelIds: draft.labelIds.map(Number),
         status: 'SAVED_DRAFT',
         legacyPayload: buildLegacyPayloadFromDraft(draft),
         customFields: draft.customFields,
@@ -396,6 +399,7 @@ export default function IssueComposer({
       estimatePoints: draft.estimatePoints ? Number(draft.estimatePoints) : null,
       plannedStartDate: draft.plannedStartDate || null,
       plannedEndDate: draft.plannedEndDate || null,
+      labelIds: draft.labelIds.map(Number),
       legacyPayload: buildLegacyPayloadFromDraft(draft),
       customFields: draft.customFields,
     });
@@ -406,7 +410,8 @@ export default function IssueComposer({
   const quickBody = (
     <QuickCreateView
       draft={draft}
-      tags={tags}
+      labels={labels}
+      labelCatalog={labelCatalog}
       members={members}
       projectName={projectName}
       pageHref={pageHref}
@@ -417,7 +422,7 @@ export default function IssueComposer({
       recurringInterval={recurringInterval}
       recurringUnit={recurringUnit}
       createPending={createIssueMutation.isPending || createRecurringMutation.isPending}
-      selectedTags={selectedTags}
+      selectedLabelIds={selectedLabelIds}
       templates={templates}
       currentUserId={storedUser?.id != null ? String(storedUser.id) : null}
       currentUserName={storedUser?.username ?? null}
@@ -433,6 +438,16 @@ export default function IssueComposer({
       onRecurringEnabledChange={setRecurringEnabled}
       onRecurringIntervalChange={setRecurringInterval}
       onRecurringUnitChange={setRecurringUnit}
+      onCreateLabel={async (scopeType, name) => {
+        const created = await createLabelMutation.mutateAsync({
+          organizationId,
+          scopeType,
+          scopeId: scopeType === 'TEAM' ? (draft.teamId ? Number(draft.teamId) : null) : null,
+          name,
+          createdBy: storedUser?.id ?? null,
+        });
+        setDraft((current) => (current ? { ...current, labelIds: Array.from(new Set([...current.labelIds, String(created.id)])) } : current));
+      }}
       onDraftChange={setDraft}
     />
   );
@@ -440,6 +455,7 @@ export default function IssueComposer({
   const fullBody = (
     <FullCreateView
       draft={draft}
+      labels={labels}
       pendingFiles={pendingFiles}
       projects={projects}
       teams={teams}
@@ -486,7 +502,8 @@ export default function IssueComposer({
 
 function QuickCreateView({
   draft,
-  tags,
+  labels,
+  labelCatalog,
   members,
   projectName,
   pageHref,
@@ -497,7 +514,7 @@ function QuickCreateView({
   recurringInterval,
   recurringUnit,
   createPending,
-  selectedTags,
+  selectedLabelIds,
   templates,
   currentUserId,
   currentUserName,
@@ -513,10 +530,12 @@ function QuickCreateView({
   onRecurringEnabledChange,
   onRecurringIntervalChange,
   onRecurringUnitChange,
+  onCreateLabel,
   onDraftChange,
 }: {
   draft: IssueComposerDraft;
-  tags: IssueTagRecord[];
+  labels: Label[];
+  labelCatalog?: { teamLabels: Label[]; workspaceLabels: Label[] };
   members: TeamMember[];
   projectName: string;
   pageHref: string;
@@ -527,7 +546,7 @@ function QuickCreateView({
   recurringInterval: string;
   recurringUnit: 'day' | 'week' | 'month';
   createPending: boolean;
-  selectedTags: string[];
+  selectedLabelIds: string[];
   templates: IssueTemplate[];
   currentUserId: string | null;
   currentUserName: string | null;
@@ -543,6 +562,7 @@ function QuickCreateView({
   onRecurringEnabledChange: (value: boolean) => void;
   onRecurringIntervalChange: (value: string) => void;
   onRecurringUnitChange: (value: 'day' | 'week' | 'month') => void;
+  onCreateLabel: (scopeType: 'TEAM' | 'WORKSPACE', name: string) => Promise<void>;
   onDraftChange: React.Dispatch<React.SetStateAction<IssueComposerDraft | null>>;
 }) {
   const labelsLabel = t('settings.composer.labels');
@@ -637,18 +657,21 @@ function QuickCreateView({
         />
         <LabelsPill
           label={labelsLabel}
-          tags={tags}
-          selectedTags={selectedTags}
-          onToggle={(name) =>
+          labels={labels}
+          labelCatalog={labelCatalog}
+          selectedLabelIds={selectedLabelIds}
+          teamId={draft.teamId ? Number(draft.teamId) : null}
+          onToggle={(labelId) =>
             onDraftChange((current) =>
               current
                 ? {
                     ...current,
-                    tags: toggleName(current.tags, name),
+                    labelIds: toggleSelection(current.labelIds, String(labelId)),
                   }
                 : current
             )
           }
+          onCreateLabel={onCreateLabel}
           t={t}
         />
         <QuickActionsPill
@@ -775,6 +798,7 @@ function QuickCreateView({
 
 function FullCreateView({
   draft,
+  labels,
   pendingFiles,
   projects,
   teams,
@@ -796,6 +820,7 @@ function FullCreateView({
   onCreate,
 }: {
   draft: IssueComposerDraft;
+  labels: Label[];
   pendingFiles: File[];
   projects: Array<{ id: number; name: string }>;
   teams: Array<{ id: number; name: string }>;
@@ -816,6 +841,8 @@ function FullCreateView({
   onPickFiles: () => void;
   onCreate: () => Promise<void>;
 }) {
+  const selectedLabelNames = labels.filter((item) => draft.labelIds.includes(String(item.id))).map((item) => item.name).join(', ');
+
   return (
     <div className="rounded-[32px] border border-border-soft bg-white p-8 shadow-sm">
       <div className="flex items-center justify-between gap-4">
@@ -943,9 +970,9 @@ function FullCreateView({
           </Field>
           <Field label={t('settings.composer.labels')} className="md:col-span-2 xl:col-span-1">
             <Input
-              value={draft.tags}
-              onChange={(event) => onDraftChange((current) => (current ? { ...current, tags: event.target.value } : current))}
-              placeholder={t('settings.composer.tagsPlaceholder')}
+              value={selectedLabelNames}
+              readOnly
+              placeholder={t('settings.composer.noLabels')}
             />
           </Field>
           <Field label={t('settings.composer.linksLabel')} className="md:col-span-2 xl:col-span-3">
@@ -1210,26 +1237,48 @@ function MiniInlineSelect({
 
 function LabelsPill({
   label,
-  tags,
-  selectedTags,
+  labels,
+  labelCatalog,
+  selectedLabelIds,
+  teamId,
   onToggle,
+  onCreateLabel,
   t,
 }: {
   label: string;
-  tags: IssueTagRecord[];
-  selectedTags: string[];
-  onToggle: (name: string) => void;
+  labels: Label[];
+  labelCatalog?: { teamLabels: Label[]; workspaceLabels: Label[] };
+  selectedLabelIds: string[];
+  teamId: number | null;
+  onToggle: (labelId: number) => void;
+  onCreateLabel: (scopeType: 'TEAM' | 'WORKSPACE', name: string) => Promise<void>;
   t: (key: string, params?: Record<string, string | number>) => string;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [creating, setCreating] = useState<'TEAM' | 'WORKSPACE' | null>(null);
 
   const normalizedQuery = query.trim().toLowerCase();
-  const filteredTags = normalizedQuery
-    ? tags.filter((tag) => tag.name.toLowerCase().includes(normalizedQuery))
-    : tags;
-  const frequentTags = filteredTags.filter((tag) => selectedTags.includes(tag.name));
-  const otherTags = filteredTags.filter((tag) => !selectedTags.includes(tag.name));
+  const filteredLabels = normalizedQuery ? labels.filter((item) => item.name.toLowerCase().includes(normalizedQuery)) : labels;
+  const selectedSet = new Set(selectedLabelIds);
+  const frequentLabels = filteredLabels.filter((item) => selectedSet.has(String(item.id)));
+  const teamLabels = (labelCatalog?.teamLabels ?? filteredLabels)
+    .filter((item) => (!normalizedQuery || item.name.toLowerCase().includes(normalizedQuery)) && !selectedSet.has(String(item.id)));
+  const workspaceLabels = (labelCatalog?.workspaceLabels ?? filteredLabels)
+    .filter((item) => (!normalizedQuery || item.name.toLowerCase().includes(normalizedQuery)) && !selectedSet.has(String(item.id)));
+  const canCreate = Boolean(normalizedQuery) && !labels.some((item) => item.name.toLowerCase() === normalizedQuery);
+
+  const handleCreate = async (scopeType: 'TEAM' | 'WORKSPACE') => {
+    const name = query.trim();
+    if (!name) return;
+    setCreating(scopeType);
+    try {
+      await onCreateLabel(scopeType, name);
+      setQuery('');
+    } finally {
+      setCreating(null);
+    }
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -1253,35 +1302,73 @@ function LabelsPill({
           <span className="rounded-lg border border-border-soft px-2 py-1 text-xs font-medium text-ink-400">L</span>
         </div>
 
-        {tags.length ? (
-          <div className="max-h-80 overflow-y-auto py-2">
-            {frequentTags.length ? (
+        <div className="max-h-80 overflow-y-auto py-2">
+          {canCreate ? (
+            <div className="space-y-1 px-2 pb-3">
+              {teamId ? (
+                <button
+                  type="button"
+                  onClick={() => void handleCreate('TEAM')}
+                  className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50"
+                  disabled={creating != null}
+                >
+                  <span className="text-xl leading-none text-ink-500">+</span>
+                  <span>{t('settings.composer.createTeamLabel', { value: query.trim() })}</span>
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => void handleCreate('WORKSPACE')}
+                className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50"
+                disabled={creating != null}
+              >
+                <span className="text-xl leading-none text-ink-500">+</span>
+                <span>{t('settings.composer.createWorkspaceLabel', { value: query.trim() })}</span>
+              </button>
+            </div>
+          ) : null}
+
+          {labels.length ? (
+            <>
+              {frequentLabels.length ? (
               <>
                 <div className="px-6 pb-2 text-sm font-medium text-ink-400">{t('settings.composer.frequentlyUsedLabels')}</div>
                 <div className="space-y-1 px-2 pb-3">
-                  {frequentTags.map((tag) => (
+                  {frequentLabels.map((tag) => (
                     <LabelOption key={tag.id} tag={tag} selected={true} onToggle={onToggle} />
                   ))}
                 </div>
               </>
-            ) : null}
+              ) : null}
 
-            {otherTags.length ? (
+              {teamLabels.length ? (
               <>
-                <div className="px-6 pb-2 text-sm font-medium text-ink-400">{t('settings.composer.labels')}</div>
-                <div className="space-y-1 px-2">
-                  {otherTags.map((tag) => (
+                <div className="px-6 pb-2 text-sm font-medium text-ink-400">{t('settings.composer.teamLabels')}</div>
+                <div className="space-y-1 px-2 pb-3">
+                  {teamLabels.map((tag) => (
                     <LabelOption key={tag.id} tag={tag} selected={false} onToggle={onToggle} />
                   ))}
                 </div>
               </>
-            ) : normalizedQuery ? (
+              ) : null}
+
+              {workspaceLabels.length ? (
+              <>
+                <div className="px-6 pb-2 text-sm font-medium text-ink-400">{t('settings.composer.workspaceLabels')}</div>
+                <div className="space-y-1 px-2">
+                  {workspaceLabels.map((tag) => (
+                    <LabelOption key={tag.id} tag={tag} selected={false} onToggle={onToggle} />
+                  ))}
+                </div>
+              </>
+              ) : normalizedQuery && !canCreate ? (
               <div className="px-4 py-6 text-center text-sm text-ink-400">{t('settings.composer.noLabels')}</div>
-            ) : null}
-          </div>
-        ) : (
-          <div className="px-4 py-6 text-center text-sm text-ink-400">{t('settings.composer.noLabels')}</div>
-        )}
+              ) : null}
+            </>
+          ) : !canCreate ? (
+            <div className="px-4 py-6 text-center text-sm text-ink-400">{t('settings.composer.noLabels')}</div>
+          ) : null}
+        </div>
       </PopoverContent>
     </Popover>
   );
@@ -1292,14 +1379,14 @@ function LabelOption({
   selected,
   onToggle,
 }: {
-  tag: IssueTagRecord;
+  tag: Label;
   selected: boolean;
-  onToggle: (name: string) => void;
+  onToggle: (labelId: number) => void;
 }) {
   return (
     <button
       type="button"
-      onClick={() => onToggle(tag.name)}
+      onClick={() => onToggle(tag.id)}
       className={`flex w-full items-center gap-4 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50 ${selected ? 'bg-slate-100' : ''}`}
     >
       <span
@@ -1370,7 +1457,7 @@ function QuickActionsPill({
           type="button"
           className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border-soft bg-white text-ink-700 shadow-sm transition hover:bg-slate-50"
         >
-          <span className="text-xl leading-none">...</span>
+          <MoreHorizontal className="h-4.5 w-4.5 text-ink-500" strokeWidth={2} />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-[320px] p-2">
@@ -1624,13 +1711,8 @@ function issueTypeLabel(value: Issue['type'], t: (key: string, params?: Record<s
   return t(`issues.type.${value}`);
 }
 
-function toggleName(raw: string, name: string) {
-  const values = raw
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean);
-  const next = values.includes(name) ? values.filter((item) => item !== name) : [...values, name];
-  return next.join(', ');
+function toggleSelection(values: string[], nextValue: string) {
+  return values.includes(nextValue) ? values.filter((item) => item !== nextValue) : [...values, nextValue];
 }
 
 function buildStateOption(value: Issue['state'], t: (key: string, params?: Record<string, string | number>) => string): SingleValueOptionDef {

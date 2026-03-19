@@ -67,6 +67,9 @@ class RecurringIssueDefinition(
     @Column(name = "custom_fields_json", length = 4000)
     var customFieldsJson: String? = null,
 
+    @Column(name = "label_ids_json", length = 4000)
+    var labelIdsJson: String? = null,
+
     @Column(name = "created_at", nullable = false)
     var createdAt: LocalDateTime = LocalDateTime.now(),
 

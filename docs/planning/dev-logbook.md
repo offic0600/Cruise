@@ -497,4 +497,109 @@
 
 ---
 
+## Session 8 — 2026-03-18：标签系统彻底重构（Workspace / Team Labels）
+
+**目标**：将 Issue 标签体系从旧的全局字符串标签重构为符合 Linear 风格的结构化标签系统，支持 workspace label / team label 双作用域，并打通快速创建、草稿、模板、周期事项与后端持久化链路。
+
+### 8.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 新增 | `backend/src/main/resources/db/migration/V10__label_system_refactor.sql` | 新建 `label_definition` / `issue_label` 表，并为模板、草稿、周期事项增加 `label_ids_json` |
+| 新增 | `backend/src/main/kotlin/com/cruise/entity/LabelDefinition.kt` | 标签定义实体，支持 `WORKSPACE` / `TEAM` 作用域 |
+| 新增 | `backend/src/main/kotlin/com/cruise/entity/IssueLabel.kt` | Issue 与 Label 多对多关联实体 |
+| 新增 | `backend/src/main/kotlin/com/cruise/repository/LabelDefinitionRepository.kt` | 标签定义仓储 |
+| 新增 | `backend/src/main/kotlin/com/cruise/repository/IssueLabelRepository.kt` | Issue 标签关联仓储 |
+| 新增 | `backend/src/main/kotlin/com/cruise/service/LabelService.kt` | 标签目录查询、创建、更新、Issue 标签替换与作用域校验 |
+| 新增 | `backend/src/main/kotlin/com/cruise/controller/LabelController.kt` | 新标签 API：`/api/labels` |
+| 修改 | `backend/src/main/kotlin/com/cruise/service/IssueService.kt` | Issue DTO/创建/更新链路支持 `labelIds` 与结构化 `labels` 返回 |
+| 修改 | `backend/src/main/kotlin/com/cruise/service/IssueTemplateService.kt` | 模板支持 `labelIds` |
+| 修改 | `backend/src/main/kotlin/com/cruise/service/IssueDraftService.kt` | 草稿支持 `labelIds` |
+| 修改 | `backend/src/main/kotlin/com/cruise/service/RecurringIssueService.kt` | 周期事项定义支持 `labelIds`，触发创建 Issue 时传递标签 |
+| 修改 | `backend/src/main/kotlin/com/cruise/controller/IssueTagController.kt` | 旧 `issue-tags` 接口改为兼容 facade，转发到新标签服务 |
+| 修改 | `backend/src/main/kotlin/com/cruise/service/IssueTagService.kt` | 旧标签服务改为兼容层，不再写旧表 |
+| 修改 | `backend/src/main/kotlin/com/cruise/config/DataInitializer.kt` | 种子数据改为 workspace/team 双层标签，并为示例 Issue 绑定标签 |
+| 修改 | `frontend/src/lib/api/types.ts` | 增加 `Label` / `LabelCatalog`，Issue/Template/Draft/Recurring 增加结构化标签字段 |
+| 修改 | `frontend/src/lib/api/legacy.ts` | 旧 tag API 切换为新 `labels` API |
+| 修改 | `frontend/src/lib/api/issues.ts` | Issue 创建/更新支持 `labelIds` |
+| 修改 | `frontend/src/lib/api/issue-platform.ts` | 模板/草稿/周期事项创建支持 `labelIds` |
+| 修改 | `frontend/src/lib/issues/composer.ts` | Composer 草稿从 `tags: string` 改为 `labelIds: string[]` |
+| 修改 | `frontend/src/components/issues/IssueComposer.tsx` | 快速创建标签弹层重做为 Team/Workspace 分组 + 创建新标签 + 自动选中 |
+| 修改 | `frontend/src/i18n/messages/en.ts` / `frontend/src/i18n/messages/zh-CN.ts` | 补充 Team/Workspace label 文案与创建动作文案 |
+
+### 8.2 发现的 Bug 及修复
+
+| Bug | 根因 | 修复 |
+|-----|------|------|
+| 旧标签模型无法区分 team/workspace | `IssueTag` 只有全局字段，没有 scope | 重建 `label_definition`，采用 `organizationId + scopeType + scopeId` 模型 |
+| Issue 标签仍走字符串拼接 | Composer 和 legacy payload 以 `tags` 字符串驱动 | 前端草稿改为 `labelIds[]`，后端 Issue 改为 `labels` 结构化返回 |
+| 快速创建标签只支持勾选，不支持新建 | UI 仅加载平铺标签列表 | 标签弹层增加 Team/Workspace 分组与 “Create new ... label” 动作 |
+| 旧 `/api/issue-tags` 仍可能写入废弃表 | 兼容接口仍绑定老仓储 | 将旧 controller/service 改为兼容 facade，统一转发到 `LabelService` |
+
+### 8.3 经验沉淀
+
+- 标签系统若要支持作用域、筛选、模板、周期事项，必须走结构化 `labelIds` / `labels`，不能继续依赖 legacy 字符串
+- 标签作用域建模应与项目中已有的 `scopeType + scopeId` 风格统一，避免形成第二套作用域语义
+- 兼容旧接口时，优先把旧入口改成 facade，而不是继续让旧表参与写路径
+- 快速创建的标签体验要一次性覆盖：搜索、分组、创建、自动选中，否则会反复返工
+
+### 8.4 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 新增数据库表 | 2（`label_definition`, `issue_label`） |
+| 新增数据库字段 | 3（模板/草稿/周期事项 `label_ids_json`） |
+| 新增后端文件 | 7 |
+| 主要改动前端文件 | 6+ |
+| 兼容保留旧接口 | `issue-tags` 保留为 facade |
+| 前端构建 | ✅ `npm run build` |
+| 后端编译 | ✅ `./gradlew :backend:compileKotlin` |
+| 后端启动验证 | ✅ `./gradlew :backend:bootRun --args="--server.port=8081"` |
+
+### 8.5 Git Commit
+
+待提交
+
+---
+
+## Session 9 — 2026-03-18：Workspace / Project 概念统一
+
+**目标**：对齐 Linear 的核心概念，将产品语义中的 `Workspace` 明确映射到平台顶层空间，将 `Project` 恢复为项目容器，清理 UI 与种子数据中的 `organization/workspace/project` 混用。
+
+### 9.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 修改 | `backend/src/main/kotlin/com/cruise/config/DataInitializer.kt` | 将种子项目名从 `Cruise RnD Workspace` 调整为 `Cruise RnD`，避免把项目误称为工作区 |
+| 新增 | `backend/src/main/resources/db/migration/V12__align_workspace_project_naming.sql` | 将已有库中的历史项目名同步改为新的项目命名 |
+| 修改 | `frontend/src/i18n/messages/en.ts` | 将登录与自定义字段页中的 `organization` 文案改为 `workspace` |
+| 修改 | `frontend/src/i18n/messages/zh-CN.ts` | 将登录页中的“组织”语义调整为“工作区” |
+
+### 9.2 概念结论
+
+| 概念 | 对齐后的产品语义 | 备注 |
+|------|------------------|------|
+| Workspace | 顶层工作区 | 当前后端内部仍使用 `organizationId` 作为实现字段 |
+| Team | 团队 | 与 Linear 一致 |
+| Project | 项目 | 不再用 `Workspace` 命名项目实例 |
+
+### 9.3 经验沉淀
+
+- 对齐 Linear 时，先统一产品语义，再决定是否重命名底层字段；底层 `organizationId` 可以短期保留为实现细节
+- `Workspace` 不能再被项目名冒用，否则标签作用域、登录文案、导航结构都会继续混乱
+
+### 9.4 统计快照
+
+| 指标 | 值 |
+|------|-----|
+| 新增迁移脚本 | 1 |
+| 修改文案文件 | 2 |
+| 修改种子数据文件 | 1 |
+
+### 9.5 Git Commit
+
+待提交
+
+---
+
 > *下次 Session 开始时，先读本文件最后一条记录恢复上下文。*

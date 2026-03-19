@@ -21,6 +21,7 @@ export const createIssueTemplate = (data: {
   estimatePoints?: number | null;
   plannedStartDate?: string | null;
   plannedEndDate?: string | null;
+  labelIds?: number[];
   legacyPayload?: string | null;
   customFields?: Record<string, unknown>;
   subIssues?: string[];
@@ -51,6 +52,7 @@ export const createIssueDraft = (data: {
   estimatePoints?: number | null;
   plannedStartDate?: string | null;
   plannedEndDate?: string | null;
+  labelIds?: number[];
   status?: string;
   legacyPayload?: string | null;
   customFields?: Record<string, unknown>;
@@ -82,6 +84,7 @@ export const createRecurringIssue = (data: {
   cadenceInterval?: number;
   weekdays?: string[];
   nextRunAt: string;
+  labelIds?: number[];
   active?: boolean;
   customFields?: Record<string, unknown>;
   legacyPayload?: string | null;

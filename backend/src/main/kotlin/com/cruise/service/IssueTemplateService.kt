@@ -25,6 +25,7 @@ data class IssueTemplateDto(
     val estimatePoints: Int?,
     val plannedStartDate: String?,
     val plannedEndDate: String?,
+    val labelIds: List<Long>,
     val legacyPayload: String?,
     val customFields: Map<String, Any?>,
     val subIssues: List<String>,
@@ -52,6 +53,7 @@ data class CreateIssueTemplateRequest(
     val estimatePoints: Int? = null,
     val plannedStartDate: String? = null,
     val plannedEndDate: String? = null,
+    val labelIds: List<Long>? = null,
     val legacyPayload: String? = null,
     val customFields: Map<String, Any?>? = null,
     val subIssues: List<String>? = null
@@ -70,6 +72,7 @@ data class UpdateIssueTemplateRequest(
     val estimatePoints: Int? = null,
     val plannedStartDate: String? = null,
     val plannedEndDate: String? = null,
+    val labelIds: List<Long>? = null,
     val legacyPayload: String? = null,
     val customFields: Map<String, Any?>? = null,
     val subIssues: List<String>? = null
@@ -78,6 +81,7 @@ data class UpdateIssueTemplateRequest(
 @Service
 class IssueTemplateService(
     private val issueTemplateRepository: IssueTemplateRepository,
+    private val labelService: LabelService,
     private val objectMapper: ObjectMapper
 ) {
     fun findAll(query: IssueTemplateQuery = IssueTemplateQuery()): List<IssueTemplateDto> =
@@ -111,6 +115,7 @@ class IssueTemplateService(
                 estimatePoints = request.estimatePoints,
                 plannedStartDate = parseDate(request.plannedStartDate),
                 plannedEndDate = parseDate(request.plannedEndDate),
+                labelIdsJson = labelService.writeLabelIdsJson(request.labelIds),
                 legacyPayload = request.legacyPayload,
                 customFieldsJson = writeJson(request.customFields ?: emptyMap<String, Any?>()),
                 subIssuesJson = writeJson(request.subIssues ?: emptyList<String>())
@@ -135,6 +140,7 @@ class IssueTemplateService(
                 estimatePoints = request.estimatePoints ?: template.estimatePoints,
                 plannedStartDate = parseDate(request.plannedStartDate) ?: template.plannedStartDate,
                 plannedEndDate = parseDate(request.plannedEndDate) ?: template.plannedEndDate,
+                labelIdsJson = if (request.labelIds != null) labelService.writeLabelIdsJson(request.labelIds) else template.labelIdsJson,
                 legacyPayload = request.legacyPayload ?: template.legacyPayload,
                 customFieldsJson = if (request.customFields != null) writeJson(request.customFields) else template.customFieldsJson,
                 subIssuesJson = if (request.subIssues != null) writeJson(request.subIssues) else template.subIssuesJson,
@@ -166,6 +172,7 @@ class IssueTemplateService(
         estimatePoints = template.estimatePoints,
         plannedStartDate = template.plannedStartDate?.toString(),
         plannedEndDate = template.plannedEndDate?.toString(),
+        labelIds = labelService.readLabelIdsJson(template.labelIdsJson),
         legacyPayload = template.legacyPayload,
         customFields = readMap(template.customFieldsJson),
         subIssues = readList(template.subIssuesJson),

@@ -13,8 +13,9 @@ import com.cruise.entity.IssueApplicationLink
 import com.cruise.entity.IssueDeliveryPlan
 import com.cruise.entity.IssueExtensionPayload
 import com.cruise.entity.IssueFeatureExtension
+import com.cruise.entity.IssueLabel
 import com.cruise.entity.IssueRelation
-import com.cruise.entity.IssueTag
+import com.cruise.entity.LabelDefinition
 import com.cruise.entity.IssueVendorAssignment
 import com.cruise.entity.Membership
 import com.cruise.entity.Notification
@@ -39,10 +40,11 @@ import com.cruise.repository.IssueApplicationLinkRepository
 import com.cruise.repository.IssueDeliveryPlanRepository
 import com.cruise.repository.IssueExtensionPayloadRepository
 import com.cruise.repository.IssueFeatureExtensionRepository
+import com.cruise.repository.IssueLabelRepository
 import com.cruise.repository.IssueRelationRepository
 import com.cruise.repository.IssueRepository
-import com.cruise.repository.IssueTagRepository
 import com.cruise.repository.IssueVendorAssignmentRepository
+import com.cruise.repository.LabelDefinitionRepository
 import com.cruise.repository.MembershipRepository
 import com.cruise.repository.NotificationRepository
 import com.cruise.repository.OrganizationRepository
@@ -80,7 +82,8 @@ open class DataInitializer {
         customFieldOptionRepository: CustomFieldOptionRepository,
         customFieldValueRepository: CustomFieldValueRepository,
         importFieldMappingTemplateRepository: ImportFieldMappingTemplateRepository,
-        issueTagRepository: IssueTagRepository,
+        labelDefinitionRepository: LabelDefinitionRepository,
+        issueLabelRepository: IssueLabelRepository,
         issueRepository: IssueRepository,
         issueFeatureExtensionRepository: IssueFeatureExtensionRepository,
         issueDeliveryPlanRepository: IssueDeliveryPlanRepository,
@@ -177,8 +180,8 @@ open class DataInitializer {
                 organizationId = organization.id,
                 teamId = team.id,
                 key = "CRUISE",
-                name = "Cruise RnD Workspace",
-                description = "Unified work tracking workspace",
+                name = "Cruise RnD",
+                description = "Unified work tracking project",
                 status = "ACTIVE",
                 ownerId = admin.id,
                 startDate = LocalDate.of(2026, 3, 1),
@@ -209,9 +212,18 @@ open class DataInitializer {
             )
         )
 
-        seedTagsAndFields(now, organization.id, team.id, project.id, customFieldDefinitionRepository, customFieldOptionRepository, issueTagRepository)
+        val seededLabels = seedLabelsAndFields(
+            now,
+            organization.id,
+            team.id,
+            project.id,
+            customFieldDefinitionRepository,
+            customFieldOptionRepository,
+            labelDefinitionRepository
+        )
 
         val issues = seedIssues(now, organization.id, project.id, team.id, admin.id, analyst.id, members, issueRepository)
+        seedIssueLabels(now, issues, seededLabels, issueLabelRepository, admin.id)
         seedIssueExtensions(now, issues, issueFeatureExtensionRepository, issueDeliveryPlanRepository, issueApplicationLinkRepository, issueVendorAssignmentRepository, issueExtensionPayloadRepository)
         seedCustomFieldValues(now, issues, customFieldDefinitionRepository, customFieldValueRepository)
         seedImports(now, organization.id, importFieldMappingTemplateRepository)
@@ -243,22 +255,22 @@ open class DataInitializer {
         updatedAt = now
     )
 
-    private fun seedTagsAndFields(
+    private fun seedLabelsAndFields(
         now: LocalDateTime,
         organizationId: Long,
         teamId: Long,
         projectId: Long,
         definitionRepository: CustomFieldDefinitionRepository,
         optionRepository: CustomFieldOptionRepository,
-        tagRepository: IssueTagRepository
-    ) {
-        tagRepository.saveAll(
+        labelRepository: LabelDefinitionRepository
+    ): Map<String, LabelDefinition> {
+        val labels = labelRepository.saveAll(
             listOf(
-                IssueTag(name = "Bug", color = "#EF4444", sortOrder = 1, createdAt = now),
-                IssueTag(name = "Feature", color = "#A855F7", sortOrder = 2, createdAt = now),
-                IssueTag(name = "Improvement", color = "#3B82F6", sortOrder = 3, createdAt = now)
+                LabelDefinition(organizationId = organizationId, scopeType = "WORKSPACE", name = "Bug", nameNormalized = "bug", color = "#EF4444", sortOrder = 1, createdAt = now, updatedAt = now),
+                LabelDefinition(organizationId = organizationId, scopeType = "WORKSPACE", name = "Feature", nameNormalized = "feature", color = "#A855F7", sortOrder = 2, createdAt = now, updatedAt = now),
+                LabelDefinition(organizationId = organizationId, scopeType = "WORKSPACE", name = "Improvement", nameNormalized = "improvement", color = "#3B82F6", sortOrder = 3, createdAt = now, updatedAt = now)
             )
-        )
+        ).associateBy { it.name.lowercase() }
 
         val fields = listOf(
             CustomFieldDefinition(organizationId = organizationId, entityType = "ISSUE", scopeType = "GLOBAL", key = "ai_delivery_type", name = "AI Delivery Type", description = "How AI contributes to the delivery of this work item.", dataType = "SINGLE_SELECT", isFilterable = true, showOnCreate = true, showOnDetail = true, showOnList = true, sortOrder = 1, configJson = """{"placeholder":"Select delivery type"}""", createdAt = now, updatedAt = now),
@@ -280,6 +292,26 @@ open class DataInitializer {
                 CustomFieldOption(fieldDefinitionId = fields.getValue("delivery_mode").id, value = "OUTSOURCED", label = "Outsourced", color = "#F97316", sortOrder = 2),
                 CustomFieldOption(fieldDefinitionId = fields.getValue("track").id, value = "auth", label = "Authentication", color = "#2563EB", sortOrder = 0),
                 CustomFieldOption(fieldDefinitionId = fields.getValue("track").id, value = "work-management", label = "Work management", color = "#7C3AED", sortOrder = 1)
+            )
+        )
+
+        return labels
+    }
+
+    private fun seedIssueLabels(
+        now: LocalDateTime,
+        issues: Map<String, Issue>,
+        labels: Map<String, LabelDefinition>,
+        issueLabelRepository: IssueLabelRepository,
+        appliedBy: Long
+    ) {
+        issueLabelRepository.saveAll(
+            listOf(
+                IssueLabel(issueId = issues.getValue("featureAuth").id, labelId = labels.getValue("feature").id, appliedBy = appliedBy, appliedAt = now.minusDays(6)),
+                IssueLabel(issueId = issues.getValue("featureWork").id, labelId = labels.getValue("feature").id, appliedBy = appliedBy, appliedAt = now.minusDays(5)),
+                IssueLabel(issueId = issues.getValue("taskApi").id, labelId = labels.getValue("improvement").id, appliedBy = appliedBy, appliedAt = now.minusDays(3)),
+                IssueLabel(issueId = issues.getValue("bugLogin").id, labelId = labels.getValue("bug").id, appliedBy = appliedBy, appliedAt = now.minusDays(4)),
+                IssueLabel(issueId = issues.getValue("taskSeed").id, labelId = labels.getValue("improvement").id, appliedBy = appliedBy, appliedAt = now.minusDays(8))
             )
         )
     }

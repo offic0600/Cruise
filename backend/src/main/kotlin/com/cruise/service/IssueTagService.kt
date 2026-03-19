@@ -1,10 +1,11 @@
 package com.cruise.service
 
-import com.cruise.entity.IssueTag
-import com.cruise.repository.IssueTagRepository
 import org.springframework.stereotype.Service
 
 data class CreateIssueTagRequest(
+    val organizationId: Long? = null,
+    val teamId: Long? = null,
+    val scopeType: String? = null,
     val name: String,
     val color: String = "#3B82F6",
     val sortOrder: Int = 0
@@ -13,41 +14,43 @@ data class CreateIssueTagRequest(
 data class UpdateIssueTagRequest(
     val name: String?,
     val color: String?,
-    val sortOrder: Int?
+    val sortOrder: Int?,
+    val archived: Boolean? = null
 )
 
 @Service
 class IssueTagService(
-    private val repository: IssueTagRepository
+    private val labelService: LabelService
 ) {
-    fun findAll(): List<IssueTag> = repository.findByOrderBySortOrderAsc()
-
-    fun findById(id: Long): IssueTag = repository.findById(id)
-        .orElseThrow { RuntimeException("Tag not found: $id") }
-
-    fun create(request: CreateIssueTagRequest): IssueTag =
-        repository.save(
-            IssueTag(
-                name = request.name,
-                color = request.color,
-                sortOrder = request.sortOrder
-            )
-        )
-
-    fun update(id: Long, request: UpdateIssueTagRequest): IssueTag {
-        val tag = findById(id)
-        return repository.save(
-            IssueTag(
-                id = tag.id,
-                name = request.name ?: tag.name,
-                color = request.color ?: tag.color,
-                sortOrder = request.sortOrder ?: tag.sortOrder,
-                createdAt = tag.createdAt
-            )
-        )
+    fun findAll(organizationId: Long?, teamId: Long?): List<LabelDto> {
+        val catalog = labelService.findCatalog(organizationId, teamId)
+        return catalog.teamLabels + catalog.workspaceLabels
     }
 
+    fun findById(id: Long): LabelDto = labelService.findById(id)
+
+    fun create(request: CreateIssueTagRequest): LabelDto = labelService.create(
+        CreateLabelRequest(
+            organizationId = request.organizationId,
+            scopeType = request.scopeType ?: if (request.teamId != null) "TEAM" else "WORKSPACE",
+            scopeId = request.teamId,
+            name = request.name,
+            color = request.color,
+            sortOrder = request.sortOrder
+        )
+    )
+
+    fun update(id: Long, request: UpdateIssueTagRequest): LabelDto = labelService.update(
+        id,
+        UpdateLabelRequest(
+            name = request.name,
+            color = request.color,
+            sortOrder = request.sortOrder,
+            archived = request.archived
+        )
+    )
+
     fun delete(id: Long) {
-        repository.deleteById(id)
+        labelService.delete(id)
     }
 }

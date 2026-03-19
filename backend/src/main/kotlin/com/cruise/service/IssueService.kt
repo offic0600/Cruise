@@ -36,6 +36,7 @@ data class IssueDto(
     val severity: String?,
     val sourceType: String,
     val sourceId: Long?,
+    val labels: List<LabelDto>,
     val legacyPayload: String?,
     val customFields: Map<String, Any?>,
     val customFieldDefinitions: List<CustomFieldDefinitionDto>? = null,
@@ -77,6 +78,7 @@ data class CreateIssueRequest(
     val severity: String? = null,
     val sourceType: String? = null,
     val sourceId: Long? = null,
+    val labelIds: List<Long>? = null,
     val legacyPayload: String? = null,
     val customFields: Map<String, Any?>? = null
 )
@@ -100,6 +102,7 @@ data class UpdateIssueRequest(
     val estimatedHours: Float? = null,
     val actualHours: Float? = null,
     val severity: String? = null,
+    val labelIds: List<Long>? = null,
     val legacyPayload: String? = null,
     val customFields: Map<String, Any?>? = null
 )
@@ -109,6 +112,7 @@ data class UpdateIssueRequest(
 open class IssueService(
     private val issueRepository: IssueRepository,
     private val issueCustomFieldService: IssueCustomFieldService,
+    private val labelService: LabelService,
     private val objectMapper: ObjectMapper
 ) {
     fun findAll(query: IssueQuery = IssueQuery()): List<IssueDto> =
@@ -129,6 +133,7 @@ open class IssueService(
             .toList()
             .let { issues ->
                 val customValues = issueCustomFieldService.getValuesForIssues(issues)
+                val labelsByIssue = labelService.getLabelsForIssues(issues.map { it.id })
                 issues
                     .filter { issue ->
                         query.customFieldFilters.isEmpty() || issueCustomFieldService.matchesFilters(
@@ -136,7 +141,7 @@ open class IssueService(
                             query.customFieldFilters
                         )
                     }
-                    .map { issue -> issue.toDto(customValues[issue.id].orEmpty()) }
+                    .map { issue -> issue.toDto(customValues[issue.id].orEmpty(), labels = labelsByIssue[issue.id].orEmpty()) }
             }
             .toList()
 
@@ -144,6 +149,7 @@ open class IssueService(
         val issue = getIssue(id)
         return issue.toDto(
             customFields = issueCustomFieldService.getValuesForIssue(issue),
+            labels = labelService.getLabelsForIssues(listOf(issue.id))[issue.id].orEmpty(),
             customFieldDefinitions = issueCustomFieldService.getDefinitionsForIssue(issue)
         )
     }
@@ -185,6 +191,7 @@ open class IssueService(
             )
         )
         issueCustomFieldService.replaceIssueValues(saved, request.customFields)
+        labelService.replaceIssueLabels(saved.id, saved.organizationId, saved.teamId, request.labelIds, request.reporterId)
         return findById(saved.id)
     }
 
@@ -226,6 +233,7 @@ open class IssueService(
         )
         val saved = issueRepository.save(updated)
         issueCustomFieldService.replaceIssueValues(saved, request.customFields ?: issueCustomFieldService.getValuesForIssue(issue))
+        labelService.replaceIssueLabels(saved.id, saved.organizationId, saved.teamId, request.labelIds, request.reporterId ?: saved.reporterId)
         return findById(saved.id)
     }
 
@@ -261,13 +269,17 @@ open class IssueService(
                 updatedAt = LocalDateTime.now()
             )
         )
-        return saved.toDto(issueCustomFieldService.getValuesForIssue(saved))
+        return saved.toDto(
+            customFields = issueCustomFieldService.getValuesForIssue(saved),
+            labels = labelService.getLabelsForIssues(listOf(saved.id))[saved.id].orEmpty()
+        )
     }
 
     @Transactional
     fun delete(id: Long) {
         val issue = getIssue(id)
         issueCustomFieldService.deleteIssueValues(issue.id)
+        labelService.replaceIssueLabels(issue.id, issue.organizationId, issue.teamId, emptyList(), null)
         issueRepository.delete(issue)
     }
 
@@ -281,6 +293,7 @@ open class IssueService(
 
     private fun Issue.toDto(
         customFields: Map<String, Any?> = emptyMap(),
+        labels: List<LabelDto> = emptyList(),
         customFieldDefinitions: List<CustomFieldDefinitionDto>? = null
     ): IssueDto = IssueDto(
         id = id,
@@ -307,6 +320,7 @@ open class IssueService(
         severity = severity,
         sourceType = sourceType,
         sourceId = sourceId,
+        labels = labels,
         legacyPayload = legacyPayload,
         customFields = customFields,
         customFieldDefinitions = customFieldDefinitions,

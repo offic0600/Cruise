@@ -44,6 +44,7 @@ export const createIssue = (data: {
   progress?: number;
   plannedStartDate?: string | null;
   plannedEndDate?: string | null;
+  labelIds?: number[];
   estimatedHours?: number;
   actualHours?: number;
   severity?: string | null;
@@ -69,6 +70,7 @@ export const updateIssue = (
     progress?: number;
     plannedStartDate?: string | null;
     plannedEndDate?: string | null;
+    labelIds?: number[];
     estimatedHours?: number;
     actualHours?: number;
     severity?: string | null;

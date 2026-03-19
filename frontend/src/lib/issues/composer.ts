@@ -15,7 +15,7 @@ export type IssueComposerDraft = {
   estimatePoints: string;
   plannedStartDate: string;
   plannedEndDate: string;
-  tags: string;
+  labelIds: string[];
   linksText: string;
   customFields: Record<string, unknown>;
 };
@@ -42,7 +42,7 @@ export function createEmptyIssueComposerDraft(
     estimatePoints: '',
     plannedStartDate: '',
     plannedEndDate: '',
-    tags: '',
+    labelIds: [],
     linksText: '',
     customFields: {},
     ...params,
@@ -54,7 +54,6 @@ export function applyTemplateToDraft(
   template: IssueTemplate | undefined | null
 ): IssueComposerDraft {
   if (!template) return draft;
-  const legacy = parseLegacyPayload(template.legacyPayload);
   return {
     ...draft,
     templateId: String(template.id),
@@ -69,7 +68,7 @@ export function applyTemplateToDraft(
     estimatePoints: template.estimatePoints != null ? String(template.estimatePoints) : draft.estimatePoints,
     plannedStartDate: template.plannedStartDate ?? draft.plannedStartDate,
     plannedEndDate: template.plannedEndDate ?? draft.plannedEndDate,
-    tags: typeof legacy.tags === 'string' ? legacy.tags : draft.tags,
+    labelIds: template.labelIds.map(String),
     customFields: { ...draft.customFields, ...template.customFields },
   };
 }
@@ -95,7 +94,7 @@ export function applySavedDraftToComposer(
     estimatePoints: draft.estimatePoints != null ? String(draft.estimatePoints) : current.estimatePoints,
     plannedStartDate: draft.plannedStartDate ?? current.plannedStartDate,
     plannedEndDate: draft.plannedEndDate ?? current.plannedEndDate,
-    tags: typeof legacy.tags === 'string' ? legacy.tags : current.tags,
+    labelIds: draft.labelIds.map(String),
     linksText: Array.isArray(legacy.links) ? legacy.links.join('\n') : current.linksText,
     customFields: { ...current.customFields, ...draft.customFields },
   };
@@ -151,7 +150,6 @@ export function buildLegacyPayloadFromDraft(draft: IssueComposerDraft, existingP
   const links = draft.linksText.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   return stringifyLegacyPayload({
     ...payload,
-    tags: draft.tags.trim() || null,
     links,
   });
 }

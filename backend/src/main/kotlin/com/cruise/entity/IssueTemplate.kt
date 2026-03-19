@@ -59,6 +59,9 @@ class IssueTemplate(
     @Column(name = "custom_fields_json", length = 4000)
     var customFieldsJson: String? = null,
 
+    @Column(name = "label_ids_json", length = 4000)
+    var labelIdsJson: String? = null,
+
     @Column(name = "sub_issues_json", length = 4000)
     var subIssuesJson: String? = null,
 

@@ -26,6 +26,7 @@ data class IssueDraftDto(
     val estimatePoints: Int?,
     val plannedStartDate: String?,
     val plannedEndDate: String?,
+    val labelIds: List<Long>,
     val status: String,
     val legacyPayload: String?,
     val customFields: Map<String, Any?>,
@@ -55,6 +56,7 @@ data class SaveIssueDraftRequest(
     val estimatePoints: Int? = null,
     val plannedStartDate: String? = null,
     val plannedEndDate: String? = null,
+    val labelIds: List<Long>? = null,
     val status: String = "SAVED_DRAFT",
     val legacyPayload: String? = null,
     val customFields: Map<String, Any?>? = null,
@@ -64,6 +66,7 @@ data class SaveIssueDraftRequest(
 @Service
 class IssueDraftService(
     private val issueDraftRepository: IssueDraftRepository,
+    private val labelService: LabelService,
     private val objectMapper: ObjectMapper
 ) {
     fun findAll(query: IssueDraftQuery = IssueDraftQuery()): List<IssueDraftDto> =
@@ -108,6 +111,7 @@ class IssueDraftService(
             estimatePoints = request.estimatePoints ?: current.estimatePoints,
             plannedStartDate = parseDate(request.plannedStartDate) ?: current.plannedStartDate,
             plannedEndDate = parseDate(request.plannedEndDate) ?: current.plannedEndDate,
+            labelIdsJson = if (request.labelIds != null) labelService.writeLabelIdsJson(request.labelIds) else current.labelIdsJson,
             status = request.status,
             legacyPayload = request.legacyPayload ?: current.legacyPayload,
             customFieldsJson = if (request.customFields != null) writeJson(request.customFields) else current.customFieldsJson,
@@ -132,6 +136,7 @@ class IssueDraftService(
         estimatePoints = draft.estimatePoints,
         plannedStartDate = draft.plannedStartDate?.toString(),
         plannedEndDate = draft.plannedEndDate?.toString(),
+        labelIds = labelService.readLabelIdsJson(draft.labelIdsJson),
         status = draft.status,
         legacyPayload = draft.legacyPayload,
         customFields = readMap(draft.customFieldsJson),

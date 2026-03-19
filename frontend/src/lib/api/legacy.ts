@@ -1,4 +1,5 @@
 import apiClient from './client';
+import type { Label, LabelCatalog } from './types';
 
 export const getTeamMembers = () => apiClient.get('/team-members').then((r) => r.data);
 export const getTeamMember = (id: number) => apiClient.get(`/team-members/${id}`).then((r) => r.data);
@@ -11,9 +12,18 @@ export const deleteTeamMember = (id: number) => apiClient.delete(`/team-members/
 export const getProjectOverview = (projectId: number) => apiClient.get(`/dashboard/project/${projectId}`).then((r) => r.data);
 export const getTeamLoad = (teamId: number) => apiClient.get(`/dashboard/team/${teamId}/load`).then((r) => r.data);
 
-export const getIssueTags = () => apiClient.get('/issue-tags').then((r) => r.data);
-export const createIssueTag = (data: { name: string; color?: string; sortOrder?: number }) =>
-  apiClient.post('/issue-tags', data).then((r) => r.data);
-export const updateIssueTag = (id: number, data: { name?: string; color?: string; sortOrder?: number }) =>
-  apiClient.put(`/issue-tags/${id}`, data).then((r) => r.data);
-export const deleteIssueTag = (id: number) => apiClient.delete(`/issue-tags/${id}`);
+export const getLabels = (params?: { organizationId?: number; teamId?: number; q?: string }) =>
+  apiClient.get<LabelCatalog>('/labels', { params }).then((r) => r.data);
+export const createLabel = (data: {
+  organizationId?: number;
+  scopeType: 'WORKSPACE' | 'TEAM';
+  scopeId?: number | null;
+  name: string;
+  color?: string;
+  description?: string | null;
+  sortOrder?: number | null;
+  createdBy?: number | null;
+}) => apiClient.post<Label>('/labels', data).then((r) => r.data);
+export const updateLabel = (id: number, data: { name?: string; color?: string; description?: string | null; sortOrder?: number; archived?: boolean }) =>
+  apiClient.put<Label>(`/labels/${id}`, data).then((r) => r.data);
+export const deleteLabel = (id: number) => apiClient.delete(`/labels/${id}`);

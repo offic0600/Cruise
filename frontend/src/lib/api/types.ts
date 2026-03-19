@@ -23,11 +23,32 @@ export interface Issue {
   severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | null;
   sourceType: string;
   sourceId: number | null;
+  labels: Label[];
   legacyPayload: string | null;
   customFields: Record<string, unknown>;
   customFieldDefinitions?: CustomFieldDefinition[] | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface Label {
+  id: number;
+  organizationId: number;
+  scopeType: 'WORKSPACE' | 'TEAM' | string;
+  scopeId: number | null;
+  name: string;
+  color: string;
+  description: string | null;
+  sortOrder: number;
+  archived: boolean;
+  createdBy: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LabelCatalog {
+  teamLabels: Label[];
+  workspaceLabels: Label[];
 }
 
 export interface CustomFieldOption {
@@ -226,6 +247,7 @@ export interface IssueTemplate {
   estimatePoints: number | null;
   plannedStartDate: string | null;
   plannedEndDate: string | null;
+  labelIds: number[];
   legacyPayload: string | null;
   customFields: Record<string, unknown>;
   subIssues: string[];
@@ -249,6 +271,7 @@ export interface IssueDraft {
   estimatePoints: number | null;
   plannedStartDate: string | null;
   plannedEndDate: string | null;
+  labelIds: number[];
   status: 'LOCAL_DRAFT' | 'SAVED_DRAFT' | string;
   legacyPayload: string | null;
   customFields: Record<string, unknown>;
@@ -275,6 +298,7 @@ export interface RecurringIssueDefinition {
   cadenceInterval: number;
   weekdays: string[];
   nextRunAt: string;
+  labelIds: number[];
   active: boolean;
   customFields: Record<string, unknown>;
   legacyPayload: string | null;

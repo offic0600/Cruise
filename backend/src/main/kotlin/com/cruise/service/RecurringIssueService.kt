@@ -29,6 +29,7 @@ data class RecurringIssueDto(
     val cadenceInterval: Int,
     val weekdays: List<String>,
     val nextRunAt: String,
+    val labelIds: List<Long>,
     val active: Boolean,
     val customFields: Map<String, Any?>,
     val legacyPayload: String?,
@@ -53,6 +54,7 @@ data class SaveRecurringIssueRequest(
     val cadenceInterval: Int = 1,
     val weekdays: List<String>? = null,
     val nextRunAt: String,
+    val labelIds: List<Long>? = null,
     val active: Boolean = true,
     val customFields: Map<String, Any?>? = null,
     val legacyPayload: String? = null
@@ -63,6 +65,7 @@ class RecurringIssueService(
     private val recurringIssueDefinitionRepository: RecurringIssueDefinitionRepository,
     private val issueService: IssueService,
     private val issueTemplateService: IssueTemplateService,
+    private val labelService: LabelService,
     private val objectMapper: ObjectMapper
 ) {
     fun findAll(): List<RecurringIssueDto> =
@@ -104,6 +107,7 @@ class RecurringIssueService(
                 estimatePoints = template?.estimatePoints ?: definition.estimatePoints,
                 plannedStartDate = template?.plannedStartDate,
                 plannedEndDate = template?.plannedEndDate,
+                labelIds = template?.labelIds ?: labelService.readLabelIdsJson(definition.labelIdsJson),
                 sourceType = "RECURRING",
                 sourceId = definition.id,
                 legacyPayload = template?.legacyPayload ?: definition.legacyPayload,
@@ -138,6 +142,7 @@ class RecurringIssueService(
             cadenceInterval = request.cadenceInterval.coerceAtLeast(1),
             weekdaysCsv = request.weekdays?.joinToString(","),
             nextRunAt = LocalDateTime.parse(request.nextRunAt),
+            labelIdsJson = if (request.labelIds != null) labelService.writeLabelIdsJson(request.labelIds) else current.labelIdsJson,
             active = request.active,
             customFieldsJson = if (request.customFields != null) objectMapper.writeValueAsString(request.customFields) else current.customFieldsJson,
             legacyPayload = request.legacyPayload ?: current.legacyPayload,
@@ -163,6 +168,7 @@ class RecurringIssueService(
         cadenceInterval = definition.cadenceInterval,
         weekdays = definition.weekdaysCsv?.split(",")?.filter { it.isNotBlank() } ?: emptyList(),
         nextRunAt = definition.nextRunAt.toString(),
+        labelIds = labelService.readLabelIdsJson(definition.labelIdsJson),
         active = definition.active,
         customFields = readMap(definition.customFieldsJson),
         legacyPayload = definition.legacyPayload,

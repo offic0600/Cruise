@@ -65,6 +65,9 @@ class IssueDraft(
     @Column(name = "custom_fields_json", length = 4000)
     var customFieldsJson: String? = null,
 
+    @Column(name = "label_ids_json", length = 4000)
+    var labelIdsJson: String? = null,
+
     @Column(name = "attachments_pending_json", length = 4000)
     var attachmentsPendingJson: String? = null,
 
