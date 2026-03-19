@@ -29,7 +29,7 @@ export default function ProjectsPage() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
 
-  const { projectsQuery, issuesQuery, epicsQuery, sprintsQuery, docsQuery, activityQuery } = useProjectsWorkspace();
+  const { projectsQuery, issuesQuery, docsQuery, activityQuery } = useProjectsWorkspace();
   const { createProjectMutation, updateProjectMutation } = useProjectMutations();
 
   const projects = useMemo(
@@ -39,9 +39,7 @@ export default function ProjectsPage() {
 
   const selectedProject = projects.find((project) => project.id === selectedProjectId) ?? projects[0] ?? null;
   const projectIssues = ((issuesQuery.data ?? []) as any[]).filter((issue) => issue.projectId === selectedProject?.id);
-  const projectSprints = ((sprintsQuery.data ?? []) as any[]).filter((sprint) => sprint.projectId === selectedProject?.id);
   const projectDocs = ((docsQuery.data ?? []) as any[]).filter((doc) => doc.projectId === selectedProject?.id);
-  const projectEpics = ((epicsQuery.data ?? []) as any[]).filter((epic) => epic.projectId === selectedProject?.id);
   const projectActivity = ((activityQuery.data ?? []) as any[]).filter((event) => projectIssues.some((issue) => issue.id === event.entityId)).slice(0, 8);
 
   const form = useForm<ProjectFormValues>({
@@ -164,9 +162,9 @@ export default function ProjectsPage() {
               <>
                 <div className="grid gap-4 md:grid-cols-4">
                   <Metric label={t('projects.metrics.issues')} value={projectIssues.length} />
-                  <Metric label={t('projects.metrics.epics')} value={projectEpics.length} />
-                  <Metric label={t('projects.metrics.sprints')} value={projectSprints.length} />
+                  <Metric label={t('projects.metrics.active')} value={projectIssues.filter((issue) => issue.stateCategory === 'ACTIVE' || issue.stateCategory === 'REVIEW').length} />
                   <Metric label={t('projects.metrics.docs')} value={projectDocs.length} />
+                  <Metric label={t('projects.metrics.activity')} value={projectActivity.length} />
                 </div>
 
                 <div className="grid gap-6 xl:grid-cols-2">
@@ -183,8 +181,19 @@ export default function ProjectsPage() {
                       </Link>
                     )) : <Empty label={t('projects.empty.workItems')} />}
                   </Panel>
-                  <Panel title={t('projects.panels.sprints')}>
-                    {projectSprints.length ? projectSprints.map((sprint) => <div key={sprint.id} className="drawer-panel"><div className="text-sm font-medium text-ink-900">{sprint.name}</div><div className="mt-1 text-xs text-ink-400">{sprint.startDate} - {sprint.endDate}</div></div>) : <Empty label={t('projects.empty.sprints')} />}
+                  <Panel title={t('projects.panels.views')}>
+                    <div className="drawer-panel">
+                      <div className="text-sm font-medium text-ink-900">{t('projects.presets.activeWork.title')}</div>
+                      <div className="mt-1 text-xs text-ink-400">{t('projects.presets.activeWork.description')}</div>
+                    </div>
+                    <div className="drawer-panel">
+                      <div className="text-sm font-medium text-ink-900">{t('projects.presets.backlog.title')}</div>
+                      <div className="mt-1 text-xs text-ink-400">{t('projects.presets.backlog.description')}</div>
+                    </div>
+                    <div className="drawer-panel">
+                      <div className="text-sm font-medium text-ink-900">{t('projects.presets.review.title')}</div>
+                      <div className="mt-1 text-xs text-ink-400">{t('projects.presets.review.description')}</div>
+                    </div>
                   </Panel>
                   <Panel title={t('projects.panels.docs')}>
                     {projectDocs.length ? projectDocs.map((doc) => <div key={doc.id} className="drawer-panel"><div className="text-sm font-medium text-ink-900">{doc.title}</div><div className="mt-1 text-xs text-ink-400">{doc.slug}</div></div>) : <Empty label={t('projects.empty.docs')} />}

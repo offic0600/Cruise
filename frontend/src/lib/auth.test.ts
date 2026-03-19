@@ -1,3 +1,4 @@
+import { afterEach, describe, expect, it } from 'vitest';
 import { clearSession, getStoredSession, storeSession } from '@/lib/auth';
 
 describe('auth storage', () => {

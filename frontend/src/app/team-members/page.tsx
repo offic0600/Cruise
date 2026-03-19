@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -7,6 +8,7 @@ import { useForm } from 'react-hook-form';
 import { Plus } from 'lucide-react';
 import { z } from 'zod';
 import AppLayout from '@/components/AppLayout';
+import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,8 +17,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetDismissButton, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
+import { localizePath } from '@/i18n/config';
 import { useI18n } from '@/i18n/useI18n';
-import { createTeamMember, deleteTeamMember, getTeamMembers, updateTeamMember } from '@/lib/api';
+import { createTeamMember, createWorkspaceInvite, deleteTeamMember, getTeamMembers, updateTeamMember, type WorkspaceInvite } from '@/lib/api';
 
 interface TeamMember {
   id: number;
@@ -40,11 +43,14 @@ const memberSchema = z.object({
 type MemberValues = z.infer<typeof memberSchema>;
 
 export default function TeamMembersPage() {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
+  const { currentOrganizationId, currentTeamId } = useCurrentWorkspace();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<TeamMember | null>(null);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [latestInvite, setLatestInvite] = useState<WorkspaceInvite | null>(null);
 
   const membersQuery = useQuery({
     queryKey: ['team-members'],
@@ -107,6 +113,24 @@ export default function TeamMembersPage() {
     },
   });
 
+  const inviteMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentOrganizationId) {
+        throw new Error(t('teamMembers.invites.noWorkspace'));
+      }
+      return createWorkspaceInvite(currentOrganizationId, {
+        teamId: currentTeamId ?? undefined,
+        email: inviteEmail.trim() || undefined,
+        role: 'MEMBER',
+        expiresInDays: 7,
+      });
+    },
+    onSuccess: (invite) => {
+      setLatestInvite(invite);
+      setInviteEmail('');
+    },
+  });
+
   const submit = form.handleSubmit(async (values) => {
     await saveMutation.mutateAsync(values);
   });
@@ -120,6 +144,12 @@ export default function TeamMembersPage() {
             <p className="mt-2 text-sm text-ink-700">{t('teamMembers.subtitle')}</p>
           </div>
           <div className="flex gap-3">
+            <Link
+              href={localizePath(locale, '/teams/current/settings/templates')}
+              className="inline-flex h-10 items-center justify-center rounded-xl border border-border-soft bg-white px-4 text-sm font-medium text-ink-700 transition hover:bg-slate-50"
+            >
+              {t('teamMembers.issueSettings')}
+            </Link>
             <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('common.search')} className="w-72" />
             <Button onClick={() => { setEditingItem(null); setEditorOpen(true); }} className="gap-2">
               <Plus className="h-4 w-4" />
@@ -129,6 +159,41 @@ export default function TeamMembersPage() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <Card className="section-panel md:col-span-2 xl:col-span-3">
+            <CardHeader className="pb-3">
+              <CardTitle>{t('teamMembers.invites.title')}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                <Input
+                  value={inviteEmail}
+                  onChange={(event) => setInviteEmail(event.target.value)}
+                  placeholder={t('teamMembers.invites.emailPlaceholder')}
+                  className="lg:max-w-sm"
+                />
+                <Button
+                  onClick={() => inviteMutation.mutate()}
+                  disabled={inviteMutation.isPending || !currentOrganizationId}
+                >
+                  {inviteMutation.isPending ? t('teamMembers.invites.creating') : t('teamMembers.invites.create')}
+                </Button>
+              </div>
+              <div className="text-sm text-ink-500">{t('teamMembers.invites.hint')}</div>
+              {inviteMutation.isError ? (
+                <div className="text-sm text-red-500">
+                  {(inviteMutation.error as Error)?.message || t('teamMembers.submitError')}
+                </div>
+              ) : null}
+              {latestInvite ? (
+                <div className="rounded-2xl border border-border-soft bg-slate-50 p-4">
+                  <div className="text-sm font-medium text-ink-900">{t('teamMembers.invites.latest')}</div>
+                  <div className="mt-2 break-all text-sm text-ink-700">{latestInvite.inviteUrl}</div>
+                  <div className="mt-2 text-xs text-ink-500">{t('teamMembers.invites.expiresInDays')}</div>
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+
           {membersQuery.isLoading ? (
             <Card className="section-panel md:col-span-2 xl:col-span-3"><CardContent className="p-10 text-center text-ink-400">{t('common.loading')}</CardContent></Card>
           ) : members.length ? (

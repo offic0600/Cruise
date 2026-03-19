@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import MarkdownEditor from '@/components/issues/MarkdownEditor';
+import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,6 +29,7 @@ import { useIssueDetailWorkspace, useIssueMutations } from '@/lib/query/issues';
 const EMPTY = '__empty__';
 const ISSUE_STATES: Issue['state'][] = ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELED'];
 const ISSUE_PRIORITIES: Issue['priority'][] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
+const ISSUE_RESOLUTIONS: NonNullable<Issue['resolution']>[] = ['COMPLETED', 'CANCELED', 'DUPLICATE', 'OBSOLETE', 'WONT_DO'];
 const RELATION_TYPES = ['BLOCKS', 'BLOCKED_BY', 'RELATES_TO', 'DUPLICATES', 'CAUSED_BY', 'SPLIT_FROM'] as const;
 
 interface IssueDetailPageProps {
@@ -38,11 +40,10 @@ interface DraftIssue {
   title: string;
   description: string;
   state: Issue['state'];
+  resolution: Issue['resolution'];
   priority: Issue['priority'];
   assigneeId: number | null;
-  projectId: number;
-  epicId: number | null;
-  sprintId: number | null;
+  projectId: number | null;
   teamId: number | null;
   parentIssueId: number | null;
   estimatedHours: number;
@@ -54,6 +55,7 @@ interface DraftIssue {
 
 export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   const { locale, t } = useI18n();
+  const { currentTeamId } = useCurrentWorkspace();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const user = getStoredUser();
   const organizationId = user?.organizationId ?? 1;
@@ -67,8 +69,6 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
     docsQuery,
     customFieldDefinitionsQuery,
     projectsQuery,
-    epicsQuery,
-    sprintsQuery,
     teamsQuery,
     membersQuery,
   } = useIssueDetailWorkspace(issueId, organizationId);
@@ -91,10 +91,13 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   const childIssues = childIssuesQuery.data ?? [];
   const docs = docsQuery.data ?? [];
   const projects = projectsQuery.data ?? [];
-  const epics = epicsQuery.data ?? [];
-  const sprints = sprintsQuery.data ?? [];
   const teams = teamsQuery.data ?? [];
-  const members = (membersQuery.data as Array<{ id: number; name: string }> | undefined) ?? [];
+  const members = useMemo(() => {
+    const allMembers = (membersQuery.data as Array<{ id: number; name: string; teamId?: number | null }> | undefined) ?? [];
+    const scopedTeamId = issue?.teamId ?? currentTeamId ?? null;
+    if (scopedTeamId == null) return allMembers;
+    return allMembers.filter((member) => member.teamId == null || member.teamId === scopedTeamId);
+  }, [currentTeamId, issue?.teamId, membersQuery.data]);
   const customFieldDefinitions = (issue?.customFieldDefinitions ?? customFieldDefinitionsQuery.data ?? []) as CustomFieldDefinition[];
 
   const [draftIssue, setDraftIssue] = useState<DraftIssue | null>(null);
@@ -128,11 +131,10 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
           title: draftIssue.title,
           description: draftIssue.description,
           state: draftIssue.state,
+          resolution: draftIssue.resolution,
           priority: draftIssue.priority,
           assigneeId: toNullableForeignKeyPayload(draftIssue.assigneeId),
           projectId: draftIssue.projectId,
-          epicId: toNullableForeignKeyPayload(draftIssue.epicId),
-          sprintId: toNullableForeignKeyPayload(draftIssue.sprintId),
           teamId: toNullableForeignKeyPayload(draftIssue.teamId),
           parentIssueId: toNullableForeignKeyPayload(draftIssue.parentIssueId),
           estimatedHours: draftIssue.estimatedHours,
@@ -147,8 +149,6 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   }, [currentSnapshot, initialSnapshot, draftIssue, issue, updateIssueMutation]);
 
   const projectMap = useMemo(() => new Map(projects.map((project) => [project.id, project.name])), [projects]);
-  const epicMap = useMemo(() => new Map(epics.map((epic) => [epic.id, epic.title])), [epics]);
-  const sprintMap = useMemo(() => new Map(sprints.map((sprint) => [sprint.id, sprint.name])), [sprints]);
   const teamMap = useMemo(() => new Map(teams.map((team) => [team.id, team.name])), [teams]);
   const memberMap = useMemo(() => new Map(members.map((member) => [member.id, member.name])), [members]);
   const childMap = useMemo(() => new Map(childIssues.map((child) => [child.id, child.title])), [childIssues]);
@@ -181,7 +181,12 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
 
   const addComment = async () => {
     if (!issue || !commentBody.trim()) return;
-    await createCommentMutation.mutateAsync({ issueId: issue.id, authorId: user?.id ?? 1, body: commentBody.trim() });
+    await createCommentMutation.mutateAsync({
+      targetType: 'ISSUE',
+      targetId: issue.id,
+      authorId: user?.id ?? 1,
+      body: commentBody.trim(),
+    });
     setCommentBody('');
   };
 
@@ -191,7 +196,6 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
       organizationId: issue.organizationId,
       teamId: issue.teamId,
       projectId: issue.projectId,
-      epicId: issue.epicId,
       issueId: issue.id,
       authorId: user?.id ?? 1,
       title: docTitle.trim(),
@@ -269,54 +273,18 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
               <DetailSection
                 title={t('issues.detailPage.subIssues')}
                 action={
-                  <div className="flex items-center gap-2 text-sm text-ink-400">
-                    <Plus className="h-4 w-4" />
-                    <span>{t('issues.detailPage.newSubIssue')}</span>
-                  </div>
-                }
-              >
-                {isAddingChild ? (
-                  <div className="flex items-center gap-3 border-b border-border-soft/80 pb-3">
-                    <Input
-                      value={childTitle}
-                      onChange={(event) => setChildTitle(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          event.preventDefault();
-                          void createChildIssue();
-                        }
-                        if (event.key === 'Escape') {
-                          setChildTitle('');
-                          setIsAddingChild(false);
-                        }
-                      }}
-                      placeholder={t('issues.detailPage.newSubIssue')}
-                      className="h-9 rounded-none border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
-                    />
-                    <Button variant="ghost" size="sm" onClick={() => void createChildIssue()}>
-                      {t('common.create')}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setChildTitle('');
-                        setIsAddingChild(false);
-                      }}
-                    >
-                      {t('common.cancel')}
-                    </Button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingChild(true)}
-                    className="flex items-center gap-2 py-1 text-sm text-ink-400 transition hover:text-ink-700"
+                  <Link
+                    href={localizePath(
+                      locale,
+                    `/issues/new?parentIssueId=${issue.id}${issue.projectId != null ? `&projectId=${issue.projectId}` : ''}&teamId=${issue.teamId ?? ''}&title=`
+                    )}
+                    className="flex items-center gap-2 text-sm text-ink-400 transition hover:text-ink-700"
                   >
                     <Plus className="h-4 w-4" />
                     <span>{t('issues.detailPage.newSubIssue')}</span>
-                  </button>
-                )}
+                  </Link>
+                }
+              >
                 <div className="divide-y divide-border-soft">
                   {childIssues.length ? (
                     childIssues.map((child) => (
@@ -549,12 +517,20 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                   <InlineSelectRow
                     label={t('issues.columns.state')}
                     editor={
-                      <Select
-                        value={draftIssue.state}
-                        onValueChange={(value) => {
-                          setDraftIssue((current) => (current ? { ...current, state: value as Issue['state'] } : current));
-                          setActiveProperty(null);
-                        }}
+                        <Select
+                          value={draftIssue.state}
+                          onValueChange={(value) => {
+                            setDraftIssue((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    state: value as Issue['state'],
+                                    resolution: nextResolutionForState(value as Issue['state'], current.resolution),
+                                  }
+                                : current
+                            );
+                            setActiveProperty(null);
+                          }}
                       >
                         <SelectTrigger className="h-auto min-h-0 rounded-none border-0 bg-transparent px-0 py-0 text-sm text-ink-900 shadow-none hover:bg-transparent focus:ring-0">
                           <SelectValue />
@@ -569,6 +545,39 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                       </Select>
                     }
                   />
+                  {draftIssue.state === 'DONE' || draftIssue.state === 'CANCELED' ? (
+                    <InlineSelectRow
+                      label={locale.startsWith('zh') ? '关闭原因' : 'Resolution'}
+                      editor={
+                        <Select
+                          value={draftIssue.resolution ?? nextResolutionForState(draftIssue.state, draftIssue.resolution) ?? EMPTY}
+                          onValueChange={(value) => {
+                            setDraftIssue((current) =>
+                              current
+                                ? { ...current, resolution: value === EMPTY ? null : (value as Issue['resolution']) }
+                                : current
+                            );
+                            setActiveProperty(null);
+                          }}
+                        >
+                          <SelectTrigger className="h-auto min-h-0 rounded-none border-0 bg-transparent px-0 py-0 text-sm text-ink-900 shadow-none hover:bg-transparent focus:ring-0">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {draftIssue.state === 'CANCELED' ? (
+                              ISSUE_RESOLUTIONS.filter((value) => value !== 'COMPLETED').map((value) => (
+                                <SelectItem key={value} value={value}>
+                                  {t(`common.resolution.${value}`)}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="COMPLETED">{t('common.resolution.COMPLETED')}</SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      }
+                    />
+                  ) : null}
                   <InlineSelectRow
                     label={t('issues.columns.priority')}
                     editor={
@@ -638,54 +647,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                               {project.name}
                             </SelectItem>
                           ))}
-                        </SelectContent>
-                      </Select>
-                    }
-                  />
-                  <InlineSelectRow
-                    label={t('issues.detailPage.epic')}
-                    editor={
-                      <Select
-                        value={stringValue(draftIssue.epicId)}
-                        onValueChange={(value) => {
-                          setDraftIssue((current) => (current ? { ...current, epicId: parseNullableNumber(value) } : current));
-                          setActiveProperty(null);
-                        }}
-                      >
-                        <SelectTrigger className="h-auto min-h-0 rounded-none border-0 bg-transparent px-0 py-0 text-sm text-ink-900 shadow-none hover:bg-transparent focus:ring-0">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
                           <SelectItem value={EMPTY}>{t('common.notSet')}</SelectItem>
-                          {epics.map((epic) => (
-                            <SelectItem key={epic.id} value={String(epic.id)}>
-                              {epic.title}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    }
-                  />
-                  <InlineSelectRow
-                    label={t('issues.detailPage.sprint')}
-                    editor={
-                      <Select
-                        value={stringValue(draftIssue.sprintId)}
-                        onValueChange={(value) => {
-                          setDraftIssue((current) => (current ? { ...current, sprintId: parseNullableNumber(value) } : current));
-                          setActiveProperty(null);
-                        }}
-                      >
-                        <SelectTrigger className="h-auto min-h-0 rounded-none border-0 bg-transparent px-0 py-0 text-sm text-ink-900 shadow-none hover:bg-transparent focus:ring-0">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={EMPTY}>{t('common.notSet')}</SelectItem>
-                          {sprints.map((sprint) => (
-                            <SelectItem key={sprint.id} value={String(sprint.id)}>
-                              {sprint.name}
-                            </SelectItem>
-                          ))}
                         </SelectContent>
                       </Select>
                     }
@@ -1001,14 +963,20 @@ function QuickLink({ href, label, count }: { href: string; label: string; count:
 
 function IssueStateBadge({
   state,
+  resolution,
   t,
 }: {
   state: Issue['state'];
+  resolution?: Issue['resolution'];
   t: (key: string, vars?: Record<string, string | number>) => string;
 }) {
-  if (state === 'DONE') return <Badge variant="success">{t(`common.status.${state}`)}</Badge>;
+  if (state === 'DONE') {
+    return <Badge variant="success">{resolution && resolution !== 'COMPLETED' ? `${t(`common.status.${state}`)} · ${t(`common.resolution.${resolution}`)}` : t(`common.status.${state}`)}</Badge>;
+  }
   if (state === 'IN_PROGRESS' || state === 'IN_REVIEW') return <Badge variant="brand">{t(`common.status.${state}`)}</Badge>;
-  if (state === 'CANCELED') return <Badge variant="danger">{t(`common.status.${state}`)}</Badge>;
+  if (state === 'CANCELED') {
+    return <Badge variant="danger">{resolution && resolution !== 'CANCELED' ? `${t(`common.status.${state}`)} · ${t(`common.resolution.${resolution}`)}` : t(`common.status.${state}`)}</Badge>;
+  }
   return <Badge variant="neutral">{t(`common.status.${state}`)}</Badge>;
 }
 
@@ -1067,11 +1035,10 @@ function createDraft(issue: Issue): DraftIssue {
     title: issue.title,
     description: issue.description ?? '',
     state: issue.state,
+    resolution: issue.resolution,
     priority: issue.priority,
     assigneeId: issue.assigneeId,
     projectId: issue.projectId,
-    epicId: issue.epicId,
-    sprintId: issue.sprintId,
     teamId: issue.teamId,
     parentIssueId: issue.parentIssueId,
     estimatedHours: issue.estimatedHours,
@@ -1255,6 +1222,14 @@ function parseNullableNumber(value: string) {
 
 function toNullableForeignKeyPayload(value: number | null) {
   return value == null ? 0 : value;
+}
+
+function nextResolutionForState(state: Issue['state'], resolution: Issue['resolution']) {
+  if (state === 'DONE') return 'COMPLETED';
+  if (state === 'CANCELED') {
+    return resolution && resolution !== 'COMPLETED' ? resolution : 'CANCELED';
+  }
+  return null;
 }
 
 function valueFromMap(map: Map<number, string>, key: number | null, fallback: string) {

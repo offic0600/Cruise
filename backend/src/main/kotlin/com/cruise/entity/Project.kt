@@ -40,5 +40,8 @@ class Project(
     var createdAt: java.time.LocalDateTime = java.time.LocalDateTime.now(),
 
     @Column(name = "updated_at")
-    var updatedAt: java.time.LocalDateTime = java.time.LocalDateTime.now()
+    var updatedAt: java.time.LocalDateTime = java.time.LocalDateTime.now(),
+
+    @Column(name = "archived_at")
+    var archivedAt: java.time.LocalDateTime? = null
 )

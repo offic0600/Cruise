@@ -1,14 +1,15 @@
 import apiClient from './client';
-import { ActivityEvent, Comment, Doc, IssueAttachment, Notification } from './types';
+import { ActivityEvent, Comment, Doc, IssueAttachment, Notification, NotificationPreference, NotificationSubscription } from './types';
 
 export const getDocs = (params?: {
   organizationId?: number;
   teamId?: number;
   projectId?: number;
-  epicId?: number;
   issueId?: number;
+  initiativeId?: number;
   status?: string;
   q?: string;
+  includeArchived?: boolean;
 }) => apiClient.get<Doc[]>('/docs', { params }).then((r) => r.data);
 
 export const getDoc = (id: number) => apiClient.get<Doc>(`/docs/${id}`).then((r) => r.data);
@@ -17,8 +18,8 @@ export const createDoc = (data: {
   organizationId?: number;
   teamId?: number | null;
   projectId?: number | null;
-  epicId?: number | null;
   issueId?: number | null;
+  initiativeId?: number | null;
   title: string;
   slug?: string | null;
   status?: string;
@@ -29,32 +30,39 @@ export const createDoc = (data: {
 export const updateDoc = (id: number, data: {
   teamId?: number | null;
   projectId?: number | null;
-  epicId?: number | null;
   issueId?: number | null;
+  initiativeId?: number | null;
   title?: string;
   slug?: string | null;
   status?: string;
   authorId?: number | null;
   content?: string;
+  archivedAt?: string | null;
 }) => apiClient.put<Doc>(`/docs/${id}`, data).then((r) => r.data);
 
 export const deleteDoc = (id: number) => apiClient.delete(`/docs/${id}`);
 
-export const getComments = (params?: { issueId?: number; epicId?: number; docId?: number; authorId?: number }) =>
+export const getComments = (params?: {
+  targetType?: string;
+  targetId?: number;
+  documentContentId?: number;
+  authorId?: number;
+  includeArchived?: boolean;
+}) =>
   apiClient.get<Comment[]>('/comments', { params }).then((r) => r.data);
 
 export const getComment = (id: number) => apiClient.get<Comment>(`/comments/${id}`).then((r) => r.data);
 
 export const createComment = (data: {
-  issueId?: number | null;
-  epicId?: number | null;
-  docId?: number | null;
+  targetType: string;
+  targetId: number;
+  documentContentId?: number | null;
   parentCommentId?: number | null;
   authorId: number;
   body: string;
 }) => apiClient.post<Comment>('/comments', data).then((r) => r.data);
 
-export const updateComment = (id: number, data: { body: string }) =>
+export const updateComment = (id: number, data: { body: string; archivedAt?: string | null }) =>
   apiClient.put<Comment>(`/comments/${id}`, data).then((r) => r.data);
 
 export const deleteComment = (id: number) => apiClient.delete(`/comments/${id}`);
@@ -83,7 +91,15 @@ export const updateActivityEvent = (id: number, data: { summary?: string; payloa
 
 export const deleteActivityEvent = (id: number) => apiClient.delete(`/activity/${id}`);
 
-export const getNotifications = (params?: { userId?: number; unreadOnly?: boolean; type?: string }) =>
+export const getNotifications = (params?: {
+  userId?: number;
+  unreadOnly?: boolean;
+  type?: string;
+  category?: string;
+  resourceType?: string;
+  resourceId?: number;
+  includeArchived?: boolean;
+}) =>
   apiClient.get<Notification[]>('/notifications', { params }).then((r) => r.data);
 
 export const getNotification = (id: number) =>
@@ -92,19 +108,83 @@ export const getNotification = (id: number) =>
 export const createNotification = (data: {
   userId: number;
   eventId: number;
+  actorId?: number | null;
   type?: string;
+  category?: string;
+  resourceType?: string | null;
+  resourceId?: number | null;
   title: string;
   body: string;
+  payloadJson?: string | null;
   readAt?: string | null;
 }) => apiClient.post<Notification>('/notifications', data).then((r) => r.data);
 
-export const updateNotification = (id: number, data: { title?: string; body?: string; readAt?: string | null }) =>
+export const updateNotification = (id: number, data: {
+  actorId?: number | null;
+  type?: string;
+  category?: string;
+  resourceType?: string | null;
+  resourceId?: number | null;
+  title?: string;
+  body?: string;
+  payloadJson?: string | null;
+  readAt?: string | null;
+  archivedAt?: string | null;
+}) =>
   apiClient.put<Notification>(`/notifications/${id}`, data).then((r) => r.data);
 
 export const markNotificationRead = (id: number) =>
   apiClient.patch<Notification>(`/notifications/${id}/read`).then((r) => r.data);
 
 export const deleteNotification = (id: number) => apiClient.delete(`/notifications/${id}`);
+
+export const getNotificationSubscriptions = (params?: {
+  userId?: number;
+  resourceType?: string;
+  resourceId?: number;
+  active?: boolean;
+  includeArchived?: boolean;
+}) => apiClient.get<NotificationSubscription[]>('/notifications/subscriptions', { params }).then((r) => r.data);
+
+export const getNotificationSubscription = (id: number) =>
+  apiClient.get<NotificationSubscription>(`/notifications/subscriptions/${id}`).then((r) => r.data);
+
+export const createNotificationSubscription = (data: {
+  userId: number;
+  resourceType: string;
+  resourceId: number;
+  active?: boolean;
+}) => apiClient.post<NotificationSubscription>('/notifications/subscriptions', data).then((r) => r.data);
+
+export const updateNotificationSubscription = (id: number, data: {
+  active?: boolean;
+  archivedAt?: string | null;
+}) => apiClient.put<NotificationSubscription>(`/notifications/subscriptions/${id}`, data).then((r) => r.data);
+
+export const deleteNotificationSubscription = (id: number) =>
+  apiClient.delete(`/notifications/subscriptions/${id}`);
+
+export const getNotificationPreferences = (params?: {
+  userId?: number;
+  category?: string;
+  channel?: string;
+}) => apiClient.get<NotificationPreference[]>('/notifications/preferences', { params }).then((r) => r.data);
+
+export const getNotificationPreference = (id: number) =>
+  apiClient.get<NotificationPreference>(`/notifications/preferences/${id}`).then((r) => r.data);
+
+export const createNotificationPreference = (data: {
+  userId: number;
+  category: string;
+  channel?: string;
+  enabled?: boolean;
+}) => apiClient.post<NotificationPreference>('/notifications/preferences', data).then((r) => r.data);
+
+export const updateNotificationPreference = (id: number, data: { enabled?: boolean }) =>
+  apiClient.put<NotificationPreference>(`/notifications/preferences/${id}`, data).then((r) => r.data);
+
+export const deleteNotificationPreference = (id: number) =>
+  apiClient.delete(`/notifications/preferences/${id}`);
 
 export const getIssueAttachments = (issueId: number) =>
   apiClient.get<IssueAttachment[]>(`/issues/${issueId}/attachments`).then((r) => r.data);
@@ -119,6 +199,11 @@ export const uploadIssueAttachment = (issueId: number, data: { file: File; uploa
     headers: { 'Content-Type': 'multipart/form-data' },
   }).then((r) => r.data);
 };
+
+export const createIssueLinkAttachments = (
+  issueId: number,
+  data: Array<{ url: string; title?: string | null; metadataJson?: string | null; uploadedBy?: number | null }>
+) => apiClient.post<IssueAttachment[]>(`/issues/${issueId}/attachments/links`, data).then((r) => r.data);
 
 export const deleteIssueAttachment = (issueId: number, attachmentId: number) =>
   apiClient.delete(`/issues/${issueId}/attachments/${attachmentId}`);

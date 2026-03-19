@@ -24,16 +24,18 @@ class CommentController(
 ) {
     @GetMapping
     fun getAll(
-        @RequestParam(required = false) issueId: Long?,
-        @RequestParam(required = false) epicId: Long?,
-        @RequestParam(required = false) docId: Long?,
-        @RequestParam(required = false) authorId: Long?
+        @RequestParam(required = false) targetType: String?,
+        @RequestParam(required = false) targetId: Long?,
+        @RequestParam(required = false) documentContentId: Long?,
+        @RequestParam(required = false) authorId: Long?,
+        @RequestParam(required = false, defaultValue = "false") includeArchived: Boolean
     ): List<CommentDto> = commentService.findAll(
         CommentQuery(
-            issueId = issueId,
-            epicId = epicId,
-            docId = docId,
-            authorId = authorId
+            targetType = targetType,
+            targetId = targetId,
+            documentContentId = documentContentId,
+            authorId = authorId,
+            includeArchived = includeArchived
         )
     )
 

@@ -3,7 +3,7 @@ import type { CustomFieldDefinition, ImportFieldMappingTemplate } from './types'
 
 export const getCustomFieldDefinitions = (params: {
   organizationId: number;
-  entityType: 'ISSUE' | 'PROJECT' | 'EPIC' | 'SPRINT' | string;
+  entityType: 'ISSUE' | 'PROJECT' | string;
   includeInactive?: boolean;
 }) => apiClient.get<CustomFieldDefinition[]>('/custom-fields', { params }).then((r) => r.data);
 

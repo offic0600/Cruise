@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import { getProjects, getTeams } from '@/lib/api';
 import type { CustomFieldDefinition } from '@/lib/api';
 import {
@@ -10,6 +11,7 @@ import {
 import { queryKeys } from './keys';
 
 export function useCustomFieldsWorkspace(params: { organizationId: number; entityType?: string; includeInactive?: boolean }) {
+  const { currentTeamId } = useCurrentWorkspace();
   return {
     customFieldsQuery: useQuery({
       queryKey: queryKeys.customFields(params),
@@ -21,12 +23,13 @@ export function useCustomFieldsWorkspace(params: { organizationId: number; entit
         }),
     }),
     teamsQuery: useQuery({
-      queryKey: queryKeys.teams,
+      queryKey: [...queryKeys.teams, params.organizationId],
       queryFn: () => getTeams({ organizationId: params.organizationId }),
     }),
     projectsQuery: useQuery({
-      queryKey: queryKeys.projects,
-      queryFn: () => getProjects({ organizationId: params.organizationId }),
+      queryKey: [...queryKeys.projects, params.organizationId, currentTeamId ?? 'all'],
+      queryFn: () => getProjects({ organizationId: params.organizationId, teamId: currentTeamId ?? undefined }),
+      select: (response) => response.items,
     }),
   };
 }

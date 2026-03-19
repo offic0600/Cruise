@@ -24,11 +24,11 @@ class Doc(
     @Column(name = "project_id")
     var projectId: Long? = null,
 
-    @Column(name = "epic_id")
-    var epicId: Long? = null,
-
     @Column(name = "issue_id")
     var issueId: Long? = null,
+
+    @Column(name = "initiative_id")
+    var initiativeId: Long? = null,
 
     @Column(nullable = false, length = 255)
     var title: String = "",
@@ -42,12 +42,15 @@ class Doc(
     @Column(name = "author_id", nullable = false)
     var authorId: Long = 0,
 
-    @Column(name = "current_revision_id")
-    var currentRevisionId: Long? = null,
+    @Column(name = "current_content_id")
+    var currentContentId: Long? = null,
 
     @Column(name = "created_at")
     var createdAt: LocalDateTime = LocalDateTime.now(),
 
     @Column(name = "updated_at")
-    var updatedAt: LocalDateTime = LocalDateTime.now()
+    var updatedAt: LocalDateTime = LocalDateTime.now(),
+
+    @Column(name = "archived_at")
+    var archivedAt: LocalDateTime? = null
 )

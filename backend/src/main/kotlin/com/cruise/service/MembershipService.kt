@@ -59,7 +59,8 @@ class MembershipService(
     fun create(request: CreateMembershipRequest): MembershipDto =
         membershipRepository.save(
             Membership(
-                organizationId = request.organizationId ?: 1L,
+                organizationId = request.organizationId
+                    ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "organizationId is required"),
                 teamId = request.teamId,
                 userId = request.userId,
                 role = request.role ?: "MEMBER",

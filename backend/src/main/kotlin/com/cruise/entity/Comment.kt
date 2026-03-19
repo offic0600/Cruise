@@ -15,14 +15,14 @@ class Comment(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long = 0,
 
-    @Column(name = "issue_id")
-    var issueId: Long? = null,
+    @Column(name = "target_type", nullable = false, length = 50)
+    var targetType: String = "ISSUE",
 
-    @Column(name = "epic_id")
-    var epicId: Long? = null,
+    @Column(name = "target_id", nullable = false)
+    var targetId: Long = 0,
 
-    @Column(name = "doc_id")
-    var docId: Long? = null,
+    @Column(name = "document_content_id")
+    var documentContentId: Long? = null,
 
     @Column(name = "parent_comment_id")
     var parentCommentId: Long? = null,
@@ -37,5 +37,8 @@ class Comment(
     var createdAt: LocalDateTime = LocalDateTime.now(),
 
     @Column(name = "updated_at")
-    var updatedAt: LocalDateTime = LocalDateTime.now()
+    var updatedAt: LocalDateTime = LocalDateTime.now(),
+
+    @Column(name = "archived_at")
+    var archivedAt: LocalDateTime? = null
 )

@@ -1,18 +1,16 @@
 import apiClient from './client';
 import {
   Issue,
+  RestPageResponse,
   mapBugIssue,
   mapFeatureIssue,
   mapTaskIssue,
-  parseLegacyPayload,
-  stringifyLegacyPayload,
 } from './types';
 
 export const getIssues = (params?: {
   type?: string;
   organizationId?: number;
-  epicId?: number;
-  sprintId?: number;
+  teamId?: number;
   projectId?: number;
   assigneeId?: number;
   parentIssueId?: number;
@@ -20,7 +18,10 @@ export const getIssues = (params?: {
   q?: string;
   priority?: string;
   customFieldFilters?: Record<string, unknown>;
-}) => apiClient.get<Issue[]>('/issues', {
+  includeArchived?: boolean;
+  page?: number;
+  size?: number;
+}) => apiClient.get<RestPageResponse<Issue>>('/issues', {
   params: {
     ...params,
     customFieldFilters: params?.customFieldFilters ? JSON.stringify(params.customFieldFilters) : undefined,
@@ -31,14 +32,13 @@ export const getIssue = (id: number) => apiClient.get<Issue>(`/issues/${id}`).th
 
 export const createIssue = (data: {
   organizationId?: number;
-  epicId?: number | null;
-  sprintId?: number | null;
   type: string;
   title: string;
   description?: string;
   state?: string;
+  resolution?: string | null;
   priority?: string;
-  projectId: number;
+  projectId?: number | null;
   teamId?: number | null;
   parentIssueId?: number | null;
   assigneeId?: number | null;
@@ -47,10 +47,10 @@ export const createIssue = (data: {
   progress?: number;
   plannedStartDate?: string | null;
   plannedEndDate?: string | null;
+  labelIds?: number[];
   estimatedHours?: number;
   actualHours?: number;
   severity?: string | null;
-  legacyPayload?: string | null;
   customFields?: Record<string, unknown>;
 }) => apiClient.post<Issue>('/issues', data).then((r) => r.data);
 
@@ -58,13 +58,12 @@ export const updateIssue = (
   id: number,
   data: {
     organizationId?: number;
-    epicId?: number | null;
-    sprintId?: number | null;
     title?: string;
     description?: string;
     state?: string;
+    resolution?: string | null;
     priority?: string;
-    projectId?: number;
+    projectId?: number | null;
     teamId?: number | null;
     parentIssueId?: number | null;
     assigneeId?: number | null;
@@ -73,28 +72,28 @@ export const updateIssue = (
     progress?: number;
     plannedStartDate?: string | null;
     plannedEndDate?: string | null;
+    labelIds?: number[];
     estimatedHours?: number;
     actualHours?: number;
     severity?: string | null;
-    legacyPayload?: string | null;
     customFields?: Record<string, unknown>;
   }
 ) => apiClient.put<Issue>(`/issues/${id}`, data).then((r) => r.data);
 
-export const updateIssueState = (id: number, state: string) =>
-  apiClient.patch<Issue>(`/issues/${id}/state`, { state }).then((r) => r.data);
+export const updateIssueState = (id: number, state: string, resolution?: string | null) =>
+  apiClient.patch<Issue>(`/issues/${id}/state`, { state, resolution }).then((r) => r.data);
 
 export const deleteIssue = (id: number) => apiClient.delete(`/issues/${id}`);
 
 export const getFeatureIssues = () =>
-  getIssues({ type: 'FEATURE' }).then((issues) => issues.map(mapFeatureIssue));
+  getIssues({ type: 'FEATURE' }).then((response) => response.items.map(mapFeatureIssue));
 
 export const createFeatureIssue = (data: {
   title: string;
   description?: string;
   status?: string;
   priority?: string;
-  projectId: number;
+  projectId?: number | null;
   teamId?: number | null;
   plannedStartDate?: string | null;
   expectedDeliveryDate?: string | null;
@@ -127,7 +126,7 @@ export const createFeatureIssue = (data: {
     progress: data.progress ?? 0,
     plannedStartDate: data.plannedStartDate,
     plannedEndDate: data.expectedDeliveryDate,
-    legacyPayload: stringifyLegacyPayload({
+    customFields: {
       productOwnerId: data.productOwnerId ?? null,
       devOwnerId: data.devOwnerId ?? null,
       devParticipants: data.devParticipants ?? null,
@@ -142,7 +141,7 @@ export const createFeatureIssue = (data: {
       vendors: data.vendors ?? null,
       vendorStaff: data.vendorStaff ?? null,
       createdBy: data.createdBy ?? null,
-    }),
+    },
   }).then(mapFeatureIssue);
 
 export const updateFeatureIssue = (
@@ -184,8 +183,8 @@ export const updateFeatureIssue = (
       progress: data.progress,
       plannedStartDate: data.plannedStartDate,
       plannedEndDate: data.expectedDeliveryDate,
-      legacyPayload: stringifyLegacyPayload({
-        ...parseLegacyPayload(issue.legacyPayload),
+      customFields: {
+        ...issue.customFields,
         productOwnerId: data.productOwnerId,
         devOwnerId: data.devOwnerId,
         devParticipants: data.devParticipants,
@@ -200,12 +199,12 @@ export const updateFeatureIssue = (
         vendors: data.vendors,
         vendorStaff: data.vendorStaff,
         createdBy: data.createdBy,
-      }),
+      },
     }).then(mapFeatureIssue)
   );
 
 export const getTaskIssues = () =>
-  getIssues({ type: 'TASK' }).then((issues) => issues.map(mapTaskIssue));
+  getIssues({ type: 'TASK' }).then((response) => response.items.map(mapTaskIssue));
 
 export const createTaskIssue = (data: {
   title: string;
@@ -236,11 +235,11 @@ export const createTaskIssue = (data: {
       plannedStartDate: data.plannedStartDate,
       plannedEndDate: data.plannedEndDate,
       estimatedHours: data.estimatedHours ?? 0,
-      legacyPayload: stringifyLegacyPayload({
+      customFields: {
         estimatedDays: data.estimatedDays ?? null,
         plannedDays: data.plannedDays ?? null,
         remainingDays: data.remainingDays ?? null,
-      }),
+      },
     }).then(mapTaskIssue)
   );
 
@@ -272,12 +271,12 @@ export const updateTaskIssue = (
       plannedStartDate: data.plannedStartDate,
       plannedEndDate: data.plannedEndDate,
       estimatedHours: data.estimatedHours,
-      legacyPayload: stringifyLegacyPayload({
-        ...parseLegacyPayload(issue.legacyPayload),
+      customFields: {
+        ...issue.customFields,
         estimatedDays: data.estimatedDays,
         plannedDays: data.plannedDays,
         remainingDays: data.remainingDays,
-      }),
+      },
     }).then(mapTaskIssue)
   );
 
@@ -289,13 +288,13 @@ export const logTaskIssueHours = (id: number, hours: number) =>
   );
 
 export const getBugIssues = () =>
-  getIssues({ type: 'BUG' }).then((issues) => issues.map(mapBugIssue));
+  getIssues({ type: 'BUG' }).then((response) => response.items.map(mapBugIssue));
 
 export const createBugIssue = (data: {
   title: string;
   description?: string;
   severity?: string;
-  projectId: number;
+  projectId?: number | null;
   taskId?: number | null;
   reporterId?: number | null;
 }) =>

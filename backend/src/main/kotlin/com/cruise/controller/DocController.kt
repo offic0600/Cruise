@@ -27,19 +27,21 @@ class DocController(
         @RequestParam(required = false) organizationId: Long?,
         @RequestParam(required = false) teamId: Long?,
         @RequestParam(required = false) projectId: Long?,
-        @RequestParam(required = false) epicId: Long?,
         @RequestParam(required = false) issueId: Long?,
+        @RequestParam(required = false) initiativeId: Long?,
         @RequestParam(required = false) status: String?,
-        @RequestParam(required = false) q: String?
+        @RequestParam(required = false) q: String?,
+        @RequestParam(required = false, defaultValue = "false") includeArchived: Boolean
     ): List<DocDto> = docService.findAll(
         DocQuery(
             organizationId = organizationId,
             teamId = teamId,
             projectId = projectId,
-            epicId = epicId,
             issueId = issueId,
+            initiativeId = initiativeId,
             status = status,
-            q = q
+            q = q,
+            includeArchived = includeArchived
         )
     )
 

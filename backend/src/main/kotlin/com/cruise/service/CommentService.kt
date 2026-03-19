@@ -9,34 +9,37 @@ import java.time.LocalDateTime
 
 data class CommentDto(
     val id: Long,
-    val issueId: Long?,
-    val epicId: Long?,
-    val docId: Long?,
+    val targetType: String,
+    val targetId: Long,
+    val documentContentId: Long?,
     val parentCommentId: Long?,
     val authorId: Long,
     val body: String,
     val createdAt: String,
-    val updatedAt: String
+    val updatedAt: String,
+    val archivedAt: String?
 )
 
 data class CommentQuery(
-    val issueId: Long? = null,
-    val epicId: Long? = null,
-    val docId: Long? = null,
-    val authorId: Long? = null
+    val targetType: String? = null,
+    val targetId: Long? = null,
+    val documentContentId: Long? = null,
+    val authorId: Long? = null,
+    val includeArchived: Boolean = false
 )
 
 data class CreateCommentRequest(
-    val issueId: Long? = null,
-    val epicId: Long? = null,
-    val docId: Long? = null,
+    val targetType: String,
+    val targetId: Long,
+    val documentContentId: Long? = null,
     val parentCommentId: Long? = null,
     val authorId: Long,
     val body: String
 )
 
 data class UpdateCommentRequest(
-    val body: String
+    val body: String,
+    val archivedAt: String? = null
 )
 
 @Service
@@ -46,43 +49,43 @@ class CommentService(
     fun findAll(query: CommentQuery = CommentQuery()): List<CommentDto> =
         commentRepository.findAll()
             .asSequence()
-            .filter { query.issueId == null || it.issueId == query.issueId }
-            .filter { query.epicId == null || it.epicId == query.epicId }
-            .filter { query.docId == null || it.docId == query.docId }
+            .filter { query.targetType == null || it.targetType == query.targetType }
+            .filter { query.targetId == null || it.targetId == query.targetId }
+            .filter { query.documentContentId == null || it.documentContentId == query.documentContentId }
             .filter { query.authorId == null || it.authorId == query.authorId }
+            .filter { query.includeArchived || it.archivedAt == null }
             .sortedBy { it.id }
             .map { it.toDto() }
             .toList()
 
     fun findById(id: Long): CommentDto = getComment(id).toDto()
 
-    fun create(request: CreateCommentRequest): CommentDto {
-        validateAttachment(request.issueId, request.epicId, request.docId)
-        return commentRepository.save(
+    fun create(request: CreateCommentRequest): CommentDto =
+        commentRepository.save(
             Comment(
-                issueId = request.issueId,
-                epicId = request.epicId,
-                docId = request.docId,
+                targetType = request.targetType,
+                targetId = request.targetId,
+                documentContentId = request.documentContentId,
                 parentCommentId = request.parentCommentId,
                 authorId = request.authorId,
                 body = request.body
             )
         ).toDto()
-    }
 
     fun update(id: Long, request: UpdateCommentRequest): CommentDto {
         val comment = getComment(id)
         return commentRepository.save(
             Comment(
                 id = comment.id,
-                issueId = comment.issueId,
-                epicId = comment.epicId,
-                docId = comment.docId,
+                targetType = comment.targetType,
+                targetId = comment.targetId,
+                documentContentId = comment.documentContentId,
                 parentCommentId = comment.parentCommentId,
                 authorId = comment.authorId,
                 body = request.body,
                 createdAt = comment.createdAt,
-                updatedAt = LocalDateTime.now()
+                updatedAt = LocalDateTime.now(),
+                archivedAt = parseDateTime(request.archivedAt) ?: comment.archivedAt
             )
         ).toDto()
     }
@@ -94,21 +97,19 @@ class CommentService(
     private fun getComment(id: Long): Comment = commentRepository.findById(id)
         .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Comment not found") }
 
-    private fun validateAttachment(issueId: Long?, epicId: Long?, docId: Long?) {
-        if (listOf(issueId, epicId, docId).count { it != null } != 1) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Comment must target exactly one resource")
-        }
-    }
-
     private fun Comment.toDto(): CommentDto = CommentDto(
         id = id,
-        issueId = issueId,
-        epicId = epicId,
-        docId = docId,
+        targetType = targetType,
+        targetId = targetId,
+        documentContentId = documentContentId,
         parentCommentId = parentCommentId,
         authorId = authorId,
         body = body,
         createdAt = createdAt.toString(),
-        updatedAt = updatedAt.toString()
+        updatedAt = updatedAt.toString(),
+        archivedAt = archivedAt?.toString()
     )
+
+    private fun parseDateTime(value: String?): LocalDateTime? =
+        value?.takeIf(String::isNotBlank)?.let(LocalDateTime::parse)
 }

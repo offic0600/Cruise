@@ -1,33 +1,34 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createComment, createDoc, createIssue, createIssueRelation, deleteIssueAttachment, deleteIssueRelation, getActivityEvents, getComments, getDocs, getEpics, getIssue, getIssueAttachments, getIssueRelations, getIssues, getProjects, getSprints, getTeamMembers, getTeams, updateIssue, updateIssueState, uploadIssueAttachment } from '@/lib/api';
+import { createComment, createDoc, createIssue, createIssueRelation, deleteIssueAttachment, deleteIssueRelation, getActivityEvents, getComments, getDocs, getIssue, getIssueAttachments, getIssueRelations, getIssues, getProjects, getTeamMembers, getTeams, updateIssue, updateIssueState, uploadIssueAttachment } from '@/lib/api';
 import { getCustomFieldDefinitions } from '@/lib/api/custom-fields';
-import type { CustomFieldDefinition, Issue } from '@/lib/api';
+import type { CustomFieldDefinition, Issue, Project, RestPageResponse } from '@/lib/api';
+import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import { queryKeys } from './keys';
 
 export function useIssueWorkspace(filters?: Parameters<typeof getIssues>[0]) {
+  const { organizationId, currentTeamId } = useCurrentWorkspace();
+  const scopedFilters = {
+    organizationId: organizationId ?? filters?.organizationId ?? 1,
+    teamId: filters?.teamId ?? currentTeamId ?? undefined,
+    ...filters,
+  };
   const issuesQuery = useQuery({
-    queryKey: queryKeys.issues(filters),
-    queryFn: () => getIssues(filters),
+    queryKey: queryKeys.issues(scopedFilters),
+    queryFn: () => getIssues(scopedFilters),
+    select: (response) => response.items,
   });
   const customFieldDefinitionsQuery = useQuery({
-    queryKey: queryKeys.customFields({ organizationId: 1, entityType: 'ISSUE' }),
-    queryFn: () => getCustomFieldDefinitions({ organizationId: 1, entityType: 'ISSUE' }),
+    queryKey: queryKeys.customFields({ organizationId: organizationId ?? 1, entityType: 'ISSUE' }),
+    queryFn: () => getCustomFieldDefinitions({ organizationId: organizationId ?? 1, entityType: 'ISSUE' }),
   });
   const projectsQuery = useQuery({
-    queryKey: queryKeys.projects,
-    queryFn: () => getProjects(),
-  });
-  const epicsQuery = useQuery({
-    queryKey: queryKeys.epics,
-    queryFn: () => getEpics(),
-  });
-  const sprintsQuery = useQuery({
-    queryKey: queryKeys.sprints,
-    queryFn: () => getSprints(),
+    queryKey: [...queryKeys.projects, organizationId ?? 1, currentTeamId ?? 'all'],
+    queryFn: () => getProjects({ organizationId: organizationId ?? 1, teamId: currentTeamId ?? undefined }),
+    select: (response) => response.items,
   });
   const teamsQuery = useQuery({
-    queryKey: queryKeys.teams,
-    queryFn: () => getTeams(),
+    queryKey: [...queryKeys.teams, organizationId ?? 1],
+    queryFn: () => getTeams({ organizationId: organizationId ?? 1 }),
   });
   const membersQuery = useQuery({
     queryKey: queryKeys.teamMembers,
@@ -38,8 +39,6 @@ export function useIssueWorkspace(filters?: Parameters<typeof getIssues>[0]) {
     issuesQuery,
     customFieldDefinitionsQuery,
     projectsQuery,
-    epicsQuery,
-    sprintsQuery,
     teamsQuery,
     membersQuery,
   };
@@ -51,7 +50,7 @@ export function useIssueDetails(issueId: number | null) {
   return {
     commentsQuery: useQuery({
       queryKey: queryKeys.comments({ issueId }),
-      queryFn: () => getComments({ issueId: issueId! }),
+      queryFn: () => getComments({ targetType: 'ISSUE', targetId: issueId! }),
       enabled,
     }),
     issueQuery: useQuery({
@@ -78,6 +77,7 @@ export function useIssueDetails(issueId: number | null) {
 }
 
 export function useIssueDetailWorkspace(issueId: number, organizationId: number) {
+  const { currentTeamId } = useCurrentWorkspace();
   const issueQuery = useQuery({
     queryKey: queryKeys.issueDetail(issueId),
     queryFn: () => getIssue(issueId),
@@ -89,7 +89,7 @@ export function useIssueDetailWorkspace(issueId: number, organizationId: number)
     issueQuery,
     commentsQuery: useQuery({
       queryKey: queryKeys.comments({ issueId }),
-      queryFn: () => getComments({ issueId }),
+      queryFn: () => getComments({ targetType: 'ISSUE', targetId: issueId }),
     }),
     docsQuery: useQuery({
       queryKey: queryKeys.docs({ issueId }),
@@ -108,27 +108,21 @@ export function useIssueDetailWorkspace(issueId: number, organizationId: number)
       queryFn: () => getIssueAttachments(issueId),
     }),
     childIssuesQuery: useQuery({
-      queryKey: queryKeys.issues({ parentIssueId: issueId }),
-      queryFn: () => getIssues({ parentIssueId: issueId }),
+      queryKey: queryKeys.issues({ parentIssueId: issueId, teamId: currentTeamId ?? undefined }),
+      queryFn: () => getIssues({ parentIssueId: issueId, teamId: currentTeamId ?? undefined }),
+      select: (response) => response.items,
     }),
     customFieldDefinitionsQuery: useQuery({
       queryKey: queryKeys.customFields({ organizationId, entityType: 'ISSUE' }),
       queryFn: () => getCustomFieldDefinitions({ organizationId, entityType: 'ISSUE' }),
     }),
     projectsQuery: useQuery({
-      queryKey: queryKeys.projects,
-      queryFn: () => getProjects({ organizationId }),
-    }),
-    epicsQuery: useQuery({
-      queryKey: queryKeys.epics,
-      queryFn: () => getEpics({ organizationId }),
-    }),
-    sprintsQuery: useQuery({
-      queryKey: queryKeys.sprints,
-      queryFn: () => getSprints(),
+      queryKey: [...queryKeys.projects, organizationId, currentTeamId ?? 'all'],
+      queryFn: () => getProjects({ organizationId, teamId: currentTeamId ?? undefined }),
+      select: (response) => response.items,
     }),
     teamsQuery: useQuery({
-      queryKey: queryKeys.teams,
+      queryKey: [...queryKeys.teams, organizationId],
       queryFn: () => getTeams({ organizationId }),
     }),
     membersQuery: useQuery({
@@ -144,6 +138,14 @@ function updateIssueInCache(issueList: Issue[] | undefined, updated: Issue) {
   return issueList.map((issue) => (issue.id === updated.id ? updated : issue));
 }
 
+function updateIssuePageInCache(page: RestPageResponse<Issue> | undefined, updated: Issue) {
+  if (!page) return page;
+  return {
+    ...page,
+    items: updateIssueInCache(page.items, updated) ?? page.items,
+  };
+}
+
 export function useIssueMutations(activeFilters?: Parameters<typeof getIssues>[0]) {
   const queryClient = useQueryClient();
 
@@ -151,8 +153,6 @@ export function useIssueMutations(activeFilters?: Parameters<typeof getIssues>[0
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['issues'] }),
       queryClient.invalidateQueries({ queryKey: queryKeys.projects }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.epics }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.sprints }),
       queryClient.invalidateQueries({ queryKey: ['activity'] }),
       queryClient.invalidateQueries({ queryKey: ['docs'] }),
       queryClient.invalidateQueries({ queryKey: ['comments'] }),
@@ -172,16 +172,17 @@ export function useIssueMutations(activeFilters?: Parameters<typeof getIssues>[0
   const updateIssueMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Parameters<typeof updateIssue>[1] }) => updateIssue(id, data),
     onSuccess: async (updated) => {
-      queryClient.setQueriesData<Issue[]>({ queryKey: ['issues'] }, (current) => updateIssueInCache(current, updated));
+      queryClient.setQueriesData<RestPageResponse<Issue>>({ queryKey: ['issues'] }, (current) => updateIssuePageInCache(current, updated));
       queryClient.setQueryData(queryKeys.issueDetail(updated.id), updated);
       await invalidateIssueCollections();
     },
   });
 
   const updateIssueStateMutation = useMutation({
-    mutationFn: ({ id, state }: { id: number; state: string }) => updateIssueState(id, state),
+    mutationFn: ({ id, state, resolution }: { id: number; state: string; resolution?: string | null }) =>
+      updateIssueState(id, state, resolution),
     onSuccess: async (updated) => {
-      queryClient.setQueriesData<Issue[]>({ queryKey: ['issues'] }, (current) => updateIssueInCache(current, updated));
+      queryClient.setQueriesData<RestPageResponse<Issue>>({ queryKey: ['issues'] }, (current) => updateIssuePageInCache(current, updated));
       queryClient.setQueryData(queryKeys.issueDetail(updated.id), updated);
       await invalidateIssueCollections();
     },
@@ -190,8 +191,11 @@ export function useIssueMutations(activeFilters?: Parameters<typeof getIssues>[0
   const createCommentMutation = useMutation({
     mutationFn: createComment,
     onSuccess: async (_, variables) => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.comments({ issueId: variables.issueId }) });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.activity({ entityType: 'ISSUE', entityId: variables.issueId }) });
+      const issueId = variables.targetType === 'ISSUE' ? variables.targetId : undefined;
+      await queryClient.invalidateQueries({ queryKey: queryKeys.comments({ issueId }) });
+      if (issueId != null) {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.activity({ entityType: 'ISSUE', entityId: issueId }) });
+      }
     },
   });
 

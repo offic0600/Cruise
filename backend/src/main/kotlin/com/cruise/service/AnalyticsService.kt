@@ -1,7 +1,6 @@
 package com.cruise.service
 
 import com.cruise.repository.TeamMemberRepository
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.springframework.stereotype.Service
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -11,11 +10,12 @@ class AnalyticsService(
     private val issueService: IssueService,
     private val teamMemberRepository: TeamMemberRepository
 ) {
-    private val objectMapper = jacksonObjectMapper()
+    private fun issues(query: IssueQuery): List<IssueDto> =
+        issueService.findAll(query.copy(size = Int.MAX_VALUE)).items
 
     fun getProjectEfficiency(projectId: Long): Map<String, Any> {
-        val features = issueService.findAll(IssueQuery(type = "FEATURE", projectId = projectId))
-        val tasks = issueService.findAll(IssueQuery(type = "TASK", projectId = projectId))
+        val features = issues(IssueQuery(type = "FEATURE", projectId = projectId))
+        val tasks = issues(IssueQuery(type = "TASK", projectId = projectId))
 
         val completedFeatures = features.count { it.state == "DONE" }
         val completedTasks = tasks.count { it.state == "DONE" }
@@ -48,7 +48,7 @@ class AnalyticsService(
 
     fun getTeamRanking(teamId: Long): List<Map<String, Any>> {
         val members = teamMemberRepository.findByTeamId(teamId)
-        val tasks = issueService.findAll(IssueQuery(type = "TASK")).filter { it.teamId == teamId }
+        val tasks = issues(IssueQuery(type = "TASK")).filter { it.teamId == teamId }
 
         return members.map { member ->
             val memberTasks = tasks.filter { it.assigneeId == member.id }
@@ -72,7 +72,7 @@ class AnalyticsService(
     fun getMemberWorkload(memberId: Long): Map<String, Any> {
         val member = teamMemberRepository.findById(memberId)
             .orElseThrow { IllegalArgumentException("Member not found") }
-        val tasks = issueService.findAll(IssueQuery(type = "TASK", assigneeId = memberId))
+        val tasks = issues(IssueQuery(type = "TASK", assigneeId = memberId))
 
         val totalEstimatedHours = tasks.sumOf { it.estimatedHours.toDouble() }
         val totalActualHours = tasks.sumOf { it.actualHours.toDouble() }
@@ -98,7 +98,7 @@ class AnalyticsService(
     }
 
     fun getThroughput(projectId: Long): Map<String, Any> {
-        val features = issueService.findAll(IssueQuery(type = "FEATURE", projectId = projectId))
+        val features = issues(IssueQuery(type = "FEATURE", projectId = projectId))
         val completed = features.filter { it.state == "DONE" }
 
         val monthlyThroughput = completed
@@ -121,7 +121,7 @@ class AnalyticsService(
     }
 
     fun forecastRequirements(projectId: Long): Map<String, Any> {
-        val features = issueService.findAll(IssueQuery(type = "FEATURE", projectId = projectId))
+        val features = issues(IssueQuery(type = "FEATURE", projectId = projectId))
         val completedCount = features.count { it.state == "DONE" }
         val inProgressCount = features.count { it.state == "IN_PROGRESS" }
         val backlogCount = features.count { it.state == "BACKLOG" || it.state == "TODO" }
@@ -148,7 +148,7 @@ class AnalyticsService(
     }
 
     fun getHoursTrend(projectId: Long): Map<String, Any> {
-        val tasks = issueService.findAll(IssueQuery(type = "TASK", projectId = projectId))
+        val tasks = issues(IssueQuery(type = "TASK", projectId = projectId))
         val weeklyHours = tasks
             .filter { it.state == "DONE" && it.plannedEndDate != null }
             .groupBy {
@@ -175,7 +175,7 @@ class AnalyticsService(
     }
 
     fun getTeamVelocity(teamId: Long): Map<String, Any> {
-        val tasks = issueService.findAll(IssueQuery(type = "TASK")).filter { it.teamId == teamId }
+        val tasks = issues(IssueQuery(type = "TASK")).filter { it.teamId == teamId }
         val completedTasks = tasks.filter { it.state == "DONE" }
         val inProgressTasks = tasks.filter { it.state == "IN_PROGRESS" }
 
@@ -200,9 +200,9 @@ class AnalyticsService(
     }
 
     fun getProjectRisk(projectId: Long): Map<String, Any> {
-        val features = issueService.findAll(IssueQuery(type = "FEATURE", projectId = projectId))
-        val tasks = issueService.findAll(IssueQuery(type = "TASK", projectId = projectId))
-        val defects = issueService.findAll(IssueQuery(type = "BUG", projectId = projectId))
+        val features = issues(IssueQuery(type = "FEATURE", projectId = projectId))
+        val tasks = issues(IssueQuery(type = "TASK", projectId = projectId))
+        val defects = issues(IssueQuery(type = "BUG", projectId = projectId))
 
         var riskScore = 0
         val riskItems = mutableListOf<Map<String, Any>>()
@@ -229,7 +229,7 @@ class AnalyticsService(
         }
 
         val blockedTasks = tasks.count {
-            it.state == "IN_PROGRESS" && it.progress < 30 && remainingDays(it.legacyPayload)?.let { days -> days < 1 } == true
+            it.state == "IN_PROGRESS" && it.progress < 30 && remainingDays(it.customFields)?.let { days -> days < 1 } == true
         }
         if (blockedTasks > 0) {
             riskScore += 15
@@ -252,8 +252,8 @@ class AnalyticsService(
     }
 
     fun getDelayRisk(projectId: Long): List<Map<String, Any>> {
-        val features = issueService.findAll(IssueQuery(type = "FEATURE", projectId = projectId))
-        val tasks = issueService.findAll(IssueQuery(type = "TASK", projectId = projectId))
+        val features = issues(IssueQuery(type = "FEATURE", projectId = projectId))
+        val tasks = issues(IssueQuery(type = "TASK", projectId = projectId))
         val risks = mutableListOf<Map<String, Any>>()
 
         features.filter { it.state != "DONE" }.forEach { feature ->
@@ -303,7 +303,7 @@ class AnalyticsService(
 
     fun getBottleneck(teamId: Long): Map<String, Any> {
         val members = teamMemberRepository.findByTeamId(teamId)
-        val tasks = issueService.findAll(IssueQuery(type = "TASK")).filter { it.teamId == teamId }
+        val tasks = issues(IssueQuery(type = "TASK")).filter { it.teamId == teamId }
         val bottlenecks = mutableListOf<Map<String, Any>>()
 
         members.forEach { member ->
@@ -368,9 +368,10 @@ class AnalyticsService(
     private fun percentage(done: Int, total: Int): Double =
         if (total > 0) (done.toDouble() / total) * 100 else 0.0
 
-    private fun remainingDays(legacyPayload: String?): Double? {
-        if (legacyPayload.isNullOrBlank()) return null
-        val payload = runCatching { objectMapper.readTree(legacyPayload) }.getOrNull() ?: return null
-        return payload["remainingDays"]?.asDouble()
-    }
+    private fun remainingDays(customFields: Map<String, Any?>): Double? =
+        when (val value = customFields["remainingDays"]) {
+            is Number -> value.toDouble()
+            is String -> value.toDoubleOrNull()
+            else -> null
+        }
 }

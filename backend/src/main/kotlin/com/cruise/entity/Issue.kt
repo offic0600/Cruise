@@ -15,12 +15,6 @@ class Issue(
     @Column(name = "organization_id", nullable = false)
     var organizationId: Long = 1,
 
-    @Column(name = "epic_id")
-    var epicId: Long? = null,
-
-    @Column(name = "sprint_id")
-    var sprintId: Long? = null,
-
     @Column(nullable = false, length = 50, unique = true)
     var identifier: String = "",
 
@@ -36,11 +30,14 @@ class Issue(
     @Column(nullable = false, length = 50)
     var state: String = "TODO",
 
+    @Column(length = 30)
+    var resolution: String? = null,
+
     @Column(nullable = false, length = 20)
     var priority: String = "MEDIUM",
 
-    @Column(name = "project_id", nullable = false)
-    var projectId: Long = 0,
+    @Column(name = "project_id")
+    var projectId: Long? = null,
 
     @Column(name = "team_id")
     var teamId: Long? = null,
@@ -83,14 +80,15 @@ class Issue(
     @Column(name = "source_id")
     var sourceId: Long? = null,
 
-    @Column(name = "legacy_payload", length = 4000)
-    var legacyPayload: String? = null,
-
     @Column(name = "created_at")
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     var createdAt: LocalDateTime = LocalDateTime.now(),
 
     @Column(name = "updated_at")
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
-    var updatedAt: LocalDateTime = LocalDateTime.now()
+    var updatedAt: LocalDateTime = LocalDateTime.now(),
+
+    @Column(name = "archived_at")
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
+    var archivedAt: LocalDateTime? = null
 )

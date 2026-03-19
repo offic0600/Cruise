@@ -10,7 +10,7 @@ export const customFieldOptionSchema = z.object({
 
 export const customFieldFormSchema = z.object({
   organizationId: z.number().positive(),
-  entityType: z.enum(['ISSUE', 'PROJECT', 'EPIC', 'SPRINT']),
+  entityType: z.enum(['ISSUE', 'PROJECT']),
   scopeType: z.enum(['GLOBAL', 'TEAM', 'PROJECT']),
   scopeId: z.number().nullable().optional(),
   key: z.string().min(1, 'Key is required').regex(/^[a-z][a-z0-9_]*$/, 'Use snake_case key'),

@@ -13,20 +13,20 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetDismissButton, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
+import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import { useI18n } from '@/i18n/useI18n';
 import type { CustomFieldDefinition } from '@/lib/api';
-import { getStoredUser } from '@/lib/auth';
 import { customFieldFormSchema, type CustomFieldFormInput, type CustomFieldFormValues } from '@/lib/forms/custom-field';
 import { useCustomFieldMutations, useCustomFieldsWorkspace } from '@/lib/query/custom-fields';
 
 const EMPTY = '__empty__';
-const ENTITY_TYPES = ['ISSUE', 'PROJECT', 'EPIC', 'SPRINT'] as const;
+const ENTITY_TYPES = ['ISSUE', 'PROJECT'] as const;
 const SCOPE_TYPES = ['GLOBAL', 'TEAM', 'PROJECT'] as const;
 const DATA_TYPES = ['TEXT', 'TEXTAREA', 'NUMBER', 'DATE', 'DATETIME', 'SINGLE_SELECT', 'MULTI_SELECT', 'BOOLEAN', 'USER', 'TEAM', 'URL'] as const;
 
 export default function CustomFieldsPage() {
   const { t } = useI18n();
-  const organizationId = getStoredUser()?.organizationId ?? 1;
+  const { organizationId } = useCurrentWorkspace();
   const [q, setQ] = useState('');
   const [entityType, setEntityType] = useState<(typeof ENTITY_TYPES)[number]>('ISSUE');
   const [includeInactive, setIncludeInactive] = useState(false);
@@ -34,7 +34,7 @@ export default function CustomFieldsPage() {
   const [editingField, setEditingField] = useState<CustomFieldDefinition | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
 
-  const params = { organizationId, entityType, includeInactive };
+  const params = { organizationId: organizationId ?? 1, entityType, includeInactive };
   const { customFieldsQuery, teamsQuery, projectsQuery } = useCustomFieldsWorkspace(params);
   const { createCustomFieldMutation, updateCustomFieldMutation, deleteCustomFieldMutation } = useCustomFieldMutations(params);
 
@@ -48,7 +48,7 @@ export default function CustomFieldsPage() {
 
   const form = useForm<CustomFieldFormInput, unknown, CustomFieldFormValues>({
     resolver: zodResolver(customFieldFormSchema),
-    defaultValues: buildFormValues(null, organizationId, entityType, customFields.length),
+    defaultValues: buildFormValues(null, organizationId ?? 1, entityType, customFields.length),
   });
 
   const watchScopeType = form.watch('scopeType');
@@ -99,13 +99,13 @@ export default function CustomFieldsPage() {
 
   const openCreateEditor = () => {
     setEditingField(null);
-    form.reset(buildFormValues(null, organizationId, entityType, customFields.length));
+    form.reset(buildFormValues(null, organizationId ?? 1, entityType, customFields.length));
     setEditorOpen(true);
   };
 
   const openEditEditor = (field: CustomFieldDefinition) => {
     setEditingField(field);
-    form.reset(buildFormValues(field, organizationId, entityType, customFields.length));
+    form.reset(buildFormValues(field, organizationId ?? 1, entityType, customFields.length));
     setEditorOpen(true);
   };
 
@@ -113,7 +113,7 @@ export default function CustomFieldsPage() {
     setEditorOpen(open);
     if (!open) {
       setEditingField(null);
-      form.reset(buildFormValues(null, organizationId, entityType, customFields.length));
+      form.reset(buildFormValues(null, organizationId ?? 1, entityType, customFields.length));
     }
   };
 

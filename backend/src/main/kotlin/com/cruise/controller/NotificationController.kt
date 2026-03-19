@@ -1,10 +1,18 @@
 package com.cruise.controller
 
 import com.cruise.service.CreateNotificationRequest
+import com.cruise.service.CreateNotificationPreferenceRequest
+import com.cruise.service.CreateNotificationSubscriptionRequest
 import com.cruise.service.NotificationDto
+import com.cruise.service.NotificationPreferenceDto
+import com.cruise.service.NotificationPreferenceQuery
 import com.cruise.service.NotificationQuery
 import com.cruise.service.NotificationService
+import com.cruise.service.NotificationSubscriptionDto
+import com.cruise.service.NotificationSubscriptionQuery
 import com.cruise.service.UpdateNotificationRequest
+import com.cruise.service.UpdateNotificationPreferenceRequest
+import com.cruise.service.UpdateNotificationSubscriptionRequest
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -27,12 +35,20 @@ class NotificationController(
     fun getAll(
         @RequestParam(required = false) userId: Long?,
         @RequestParam(required = false, defaultValue = "false") unreadOnly: Boolean,
-        @RequestParam(required = false) type: String?
+        @RequestParam(required = false) type: String?,
+        @RequestParam(required = false) category: String?,
+        @RequestParam(required = false) resourceType: String?,
+        @RequestParam(required = false) resourceId: Long?,
+        @RequestParam(required = false, defaultValue = "false") includeArchived: Boolean
     ): List<NotificationDto> = notificationService.findAll(
         NotificationQuery(
             userId = userId,
             unreadOnly = unreadOnly,
-            type = type
+            type = type,
+            category = category,
+            resourceType = resourceType,
+            resourceId = resourceId,
+            includeArchived = includeArchived
         )
     )
 
@@ -53,6 +69,76 @@ class NotificationController(
     @DeleteMapping("/{id}")
     fun delete(@PathVariable id: Long): ResponseEntity<Void> {
         notificationService.delete(id)
+        return ResponseEntity.noContent().build()
+    }
+
+    @GetMapping("/subscriptions")
+    fun getSubscriptions(
+        @RequestParam(required = false) userId: Long?,
+        @RequestParam(required = false) resourceType: String?,
+        @RequestParam(required = false) resourceId: Long?,
+        @RequestParam(required = false) active: Boolean?,
+        @RequestParam(required = false, defaultValue = "false") includeArchived: Boolean
+    ): List<NotificationSubscriptionDto> = notificationService.findSubscriptions(
+        NotificationSubscriptionQuery(
+            userId = userId,
+            resourceType = resourceType,
+            resourceId = resourceId,
+            active = active,
+            includeArchived = includeArchived
+        )
+    )
+
+    @GetMapping("/subscriptions/{id}")
+    fun getSubscription(@PathVariable id: Long): NotificationSubscriptionDto =
+        notificationService.findSubscriptionById(id)
+
+    @PostMapping("/subscriptions")
+    fun createSubscription(@RequestBody request: CreateNotificationSubscriptionRequest): ResponseEntity<NotificationSubscriptionDto> =
+        ResponseEntity.status(HttpStatus.CREATED).body(notificationService.createSubscription(request))
+
+    @PutMapping("/subscriptions/{id}")
+    fun updateSubscription(
+        @PathVariable id: Long,
+        @RequestBody request: UpdateNotificationSubscriptionRequest
+    ): NotificationSubscriptionDto = notificationService.updateSubscription(id, request)
+
+    @DeleteMapping("/subscriptions/{id}")
+    fun deleteSubscription(@PathVariable id: Long): ResponseEntity<Void> {
+        notificationService.deleteSubscription(id)
+        return ResponseEntity.noContent().build()
+    }
+
+    @GetMapping("/preferences")
+    fun getPreferences(
+        @RequestParam(required = false) userId: Long?,
+        @RequestParam(required = false) category: String?,
+        @RequestParam(required = false) channel: String?
+    ): List<NotificationPreferenceDto> = notificationService.findPreferences(
+        NotificationPreferenceQuery(
+            userId = userId,
+            category = category,
+            channel = channel
+        )
+    )
+
+    @GetMapping("/preferences/{id}")
+    fun getPreference(@PathVariable id: Long): NotificationPreferenceDto =
+        notificationService.findPreferenceById(id)
+
+    @PostMapping("/preferences")
+    fun createPreference(@RequestBody request: CreateNotificationPreferenceRequest): ResponseEntity<NotificationPreferenceDto> =
+        ResponseEntity.status(HttpStatus.CREATED).body(notificationService.createPreference(request))
+
+    @PutMapping("/preferences/{id}")
+    fun updatePreference(
+        @PathVariable id: Long,
+        @RequestBody request: UpdateNotificationPreferenceRequest
+    ): NotificationPreferenceDto = notificationService.updatePreference(id, request)
+
+    @DeleteMapping("/preferences/{id}")
+    fun deletePreference(@PathVariable id: Long): ResponseEntity<Void> {
+        notificationService.deletePreference(id)
         return ResponseEntity.noContent().build()
     }
 }

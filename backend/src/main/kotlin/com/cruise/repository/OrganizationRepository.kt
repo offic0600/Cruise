@@ -7,4 +7,5 @@ import org.springframework.stereotype.Repository
 @Repository
 interface OrganizationRepository : JpaRepository<Organization, Long> {
     fun findBySlug(slug: String): Organization?
+    fun existsBySlug(slug: String): Boolean
 }

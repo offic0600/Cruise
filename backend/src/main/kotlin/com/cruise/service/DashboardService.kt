@@ -34,15 +34,17 @@ class DashboardService(
     private val issueService: IssueService,
     private val teamMemberRepository: TeamMemberRepository
 ) {
+    private fun issues(query: IssueQuery): List<IssueDto> =
+        issueService.findAll(query.copy(size = Int.MAX_VALUE)).items
 
     fun getProjectOverview(projectId: Long): ProjectOverview {
         val project = projectRepository.findById(projectId)
             .orElseThrow { IllegalArgumentException("Project not found") }
 
-        val requirements = issueService.findAll(IssueQuery(type = "FEATURE", projectId = projectId))
+        val requirements = issues(IssueQuery(type = "FEATURE", projectId = projectId))
         val completedRequirements = requirements.count { it.state == "DONE" }
 
-        val allTasks = issueService.findAll(IssueQuery(type = "TASK", projectId = projectId))
+        val allTasks = issues(IssueQuery(type = "TASK", projectId = projectId))
         val completedTasks = allTasks.count { it.state == "DONE" }
 
         val totalEstimatedHours = allTasks.sumOf { it.estimatedHours.toDouble() }.toFloat()
@@ -72,7 +74,7 @@ class DashboardService(
         val teamMembers = teamMemberRepository.findByTeamId(teamId)
 
         return teamMembers.map { member ->
-            val assignedTasks = issueService.findAll(IssueQuery(type = "TASK", assigneeId = member.id))
+            val assignedTasks = issues(IssueQuery(type = "TASK", assigneeId = member.id))
             val completedTasks = assignedTasks.count { it.state == "DONE" }
 
             val totalEstimatedHours = assignedTasks.sumOf { it.estimatedHours.toDouble() }.toFloat()

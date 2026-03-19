@@ -7,6 +7,7 @@ export function useDashboardData() {
   const issuesQuery = useQuery({
     queryKey: [...queryKeys.dashboard, 'issues'],
     queryFn: () => getIssues(),
+    select: (response) => response.items,
   });
 
   const membersQuery = useQuery({

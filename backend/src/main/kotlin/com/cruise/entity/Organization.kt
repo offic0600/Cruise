@@ -21,9 +21,15 @@ class Organization(
     @Column(nullable = false, unique = true, length = 100)
     var slug: String = "",
 
+    @Column(nullable = false, length = 100)
+    var region: String = "Asia Pacific",
+
     @Column(nullable = false, length = 50)
     var status: String = "ACTIVE",
 
     @Column(name = "created_at")
-    var createdAt: LocalDateTime = LocalDateTime.now()
+    var createdAt: LocalDateTime = LocalDateTime.now(),
+
+    @Column(name = "updated_at")
+    var updatedAt: LocalDateTime = LocalDateTime.now()
 )
