@@ -19,6 +19,7 @@ class IssueController(
     fun getAll(
         @RequestParam(required = false) type: String?,
         @RequestParam(required = false) organizationId: Long?,
+        @RequestParam(required = false) teamId: Long?,
         @RequestParam(required = false) projectId: Long?,
         @RequestParam(required = false) assigneeId: Long?,
         @RequestParam(required = false) parentIssueId: Long?,
@@ -33,6 +34,7 @@ class IssueController(
         IssueQuery(
             type = type,
             organizationId = organizationId,
+            teamId = teamId,
             projectId = projectId,
             assigneeId = assigneeId,
             parentIssueId = parentIssueId,

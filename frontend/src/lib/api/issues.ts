@@ -38,7 +38,7 @@ export const createIssue = (data: {
   state?: string;
   resolution?: string | null;
   priority?: string;
-  projectId: number;
+  projectId?: number | null;
   teamId?: number | null;
   parentIssueId?: number | null;
   assigneeId?: number | null;
@@ -63,7 +63,7 @@ export const updateIssue = (
     state?: string;
     resolution?: string | null;
     priority?: string;
-    projectId?: number;
+    projectId?: number | null;
     teamId?: number | null;
     parentIssueId?: number | null;
     assigneeId?: number | null;
@@ -93,7 +93,7 @@ export const createFeatureIssue = (data: {
   description?: string;
   status?: string;
   priority?: string;
-  projectId: number;
+  projectId?: number | null;
   teamId?: number | null;
   plannedStartDate?: string | null;
   expectedDeliveryDate?: string | null;
@@ -294,7 +294,7 @@ export const createBugIssue = (data: {
   title: string;
   description?: string;
   severity?: string;
-  projectId: number;
+  projectId?: number | null;
   taskId?: number | null;
   reporterId?: number | null;
 }) =>

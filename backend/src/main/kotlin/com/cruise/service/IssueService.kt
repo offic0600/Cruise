@@ -22,7 +22,7 @@ data class IssueDto(
     val stateCategory: String,
     val resolution: String?,
     val priority: String,
-    val projectId: Long,
+    val projectId: Long?,
     val teamId: Long?,
     val parentIssueId: Long?,
     val assigneeId: Long?,
@@ -47,6 +47,7 @@ data class IssueDto(
 data class IssueQuery(
     val type: String? = null,
     val organizationId: Long? = null,
+    val teamId: Long? = null,
     val projectId: Long? = null,
     val assigneeId: Long? = null,
     val parentIssueId: Long? = null,
@@ -67,7 +68,7 @@ data class CreateIssueRequest(
     val state: String? = null,
     val resolution: String? = null,
     val priority: String? = null,
-    val projectId: Long,
+    val projectId: Long? = null,
     val teamId: Long? = null,
     val parentIssueId: Long? = null,
     val assigneeId: Long? = null,
@@ -121,6 +122,7 @@ open class IssueService(
             .asSequence()
             .filter { query.type == null || it.type == query.type }
             .filter { query.organizationId == null || it.organizationId == query.organizationId }
+            .filter { query.teamId == null || it.teamId == query.teamId }
             .filter { query.projectId == null || it.projectId == query.projectId }
             .filter { query.assigneeId == null || it.assigneeId == query.assigneeId }
             .filter { query.parentIssueId == null || it.parentIssueId == query.parentIssueId }
@@ -165,7 +167,8 @@ open class IssueService(
         validateParent(request.parentIssueId, request.projectId)
         val saved = issueRepository.save(
             Issue(
-                organizationId = request.organizationId ?: 1L,
+                organizationId = request.organizationId
+                    ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "organizationId is required"),
                 identifier = nextIdentifier(),
                 type = request.type,
                 title = request.title,
@@ -286,7 +289,7 @@ open class IssueService(
         issueRepository.delete(issue)
     }
 
-    private fun validateParent(parentIssueId: Long?, projectId: Long) {
+    private fun validateParent(parentIssueId: Long?, projectId: Long?) {
         if (parentIssueId == null) return
         val parent = getIssue(parentIssueId)
         if (parent.projectId != projectId) {

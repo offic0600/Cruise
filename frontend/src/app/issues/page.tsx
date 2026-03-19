@@ -99,7 +99,7 @@ export default function IssuesPage() {
   const [createMore, setCreateMore] = useState(false);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [draftFilters, setDraftFilters] = useState<FilterDraft>(() => readFilterDraft(searchParams, []));
-  const [createDraft, setCreateDraft] = useState<CreateDraft>(() => buildCreateDraft([], null, []));
+  const [createDraft, setCreateDraft] = useState<CreateDraft>(() => buildCreateDraft([], null, [], currentTeamId));
 
   useEffect(() => {
     setSearchValue(searchParams.get('q') ?? '');
@@ -118,7 +118,7 @@ export default function IssuesPage() {
 
   useEffect(() => {
     if (!createOpen) return;
-    setCreateDraft(buildCreateDraft(projects, quickCreateState, customFieldDefinitions));
+    setCreateDraft(buildCreateDraft(projects, quickCreateState, customFieldDefinitions, currentTeamId));
   }, [createOpen, projects, quickCreateState, customFieldDefinitions]);
 
   const viewCounts = useMemo(
@@ -213,14 +213,13 @@ export default function IssuesPage() {
 
   const openCreateSheet = (state?: string) => {
     setQuickCreateState(state ?? null);
-    setCreateDraft(buildCreateDraft(projects, state ?? null, customFieldDefinitions));
+    setCreateDraft(buildCreateDraft(projects, state ?? null, customFieldDefinitions, currentTeamId));
     setCreateOpen(true);
   };
 
   const handleCreateIssue = async () => {
     const title = createDraft.title.trim();
-    const projectId = Number(createDraft.projectId || 0);
-    if (!title || !projectId) return;
+    if (!title) return;
 
     try {
       await createIssueMutation.mutateAsync({
@@ -228,14 +227,14 @@ export default function IssuesPage() {
         title,
         description: createDraft.description.trim() || undefined,
         type: createDraft.type,
-        projectId,
+        projectId: toNullableNumber(createDraft.projectId),
         state: createDraft.state,
         priority: createDraft.priority,
         teamId: toNullableNumber(createDraft.teamId),
         customFields: serializeCreateCustomFields(createDraft.customFields, createDefinitions),
       });
       if (createMore) {
-        setCreateDraft(buildCreateDraft(projects, quickCreateState, customFieldDefinitions));
+        setCreateDraft(buildCreateDraft(projects, quickCreateState, customFieldDefinitions, currentTeamId));
       } else {
         setCreateOpen(false);
         setQuickCreateState(null);
@@ -1016,7 +1015,12 @@ function readFilterDraft(searchParams: URLSearchParams, customFieldDefinitions: 
   };
 }
 
-function buildCreateDraft(projects: Project[], presetState: string | null, customFieldDefinitions: CustomFieldDefinition[]): CreateDraft {
+function buildCreateDraft(
+  projects: Project[],
+  presetState: string | null,
+  customFieldDefinitions: CustomFieldDefinition[],
+  currentTeamId?: number | null
+): CreateDraft {
   return {
     title: '',
     description: '',
@@ -1024,7 +1028,7 @@ function buildCreateDraft(projects: Project[], presetState: string | null, custo
     projectId: projects[0] ? String(projects[0].id) : '',
     state: presetState ?? 'TODO',
     priority: 'MEDIUM',
-    teamId: '',
+    teamId: currentTeamId ? String(currentTeamId) : '',
     customFields: Object.fromEntries(customFieldDefinitions.filter((field) => field.showOnCreate).map((field) => [field.key, undefined])),
   };
 }

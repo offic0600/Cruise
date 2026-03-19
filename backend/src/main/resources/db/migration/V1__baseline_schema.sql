@@ -113,7 +113,7 @@ CREATE TABLE IF NOT EXISTS project_status (
 
 CREATE TABLE IF NOT EXISTS project_milestone (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    project_id BIGINT NOT NULL,
+    project_id BIGINT,
     name VARCHAR(255) NOT NULL,
     description VARCHAR(1000),
     target_date DATE,

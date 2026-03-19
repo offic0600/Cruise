@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Calendar, CalendarPlus, CheckCircle2, ChevronDown, ChevronRight, Circle, CircleDashed, CircleEllipsis, Equal, Expand, Flame, Link2, ListPlus, LoaderCircle, Minus, MoreHorizontal, Paperclip, Repeat, Save, Tag, X, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -102,7 +103,8 @@ export default function IssueComposer({
   const { locale, t } = useI18n();
   const isZh = locale.startsWith('zh');
   const storedUser = getStoredUser();
-  const organizationId = storedUser?.organizationId ?? 1;
+  const { currentOrganizationId, currentTeamId } = useCurrentWorkspace();
+  const organizationId = currentOrganizationId ?? storedUser?.organizationId ?? 1;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const composerEnabled = mode === 'page' ? true : open;
 
@@ -155,14 +157,19 @@ export default function IssueComposer({
 
   const projects = projectsQuery.data ?? [];
   const teams = teamsQuery.data ?? [];
-  const members = (membersQuery.data ?? []) as TeamMember[];
+  const members = useMemo(() => {
+    const allMembers = (membersQuery.data ?? []) as Array<TeamMember & { teamId?: number | null }>;
+    const scopedTeamId = draft?.teamId ? Number(draft.teamId) : currentTeamId ?? null;
+    if (scopedTeamId == null) return allMembers;
+    return allMembers.filter((member) => member.teamId == null || member.teamId === scopedTeamId);
+  }, [currentTeamId, draft?.teamId, membersQuery.data]);
   const templates = templatesQuery.data ?? [];
   const customFields = ((customFieldsQuery.data ?? []) as CustomFieldDefinition[]).filter((field) => field.showOnCreate);
   const labelCatalog = labelsQuery.data;
   const labels = useMemo(() => [...(labelCatalog?.teamLabels ?? []), ...(labelCatalog?.workspaceLabels ?? [])], [labelCatalog]);
 
   useEffect(() => {
-    if (!projects.length || draft) return;
+    if (draft) return;
 
     const params = initialParams ?? new URLSearchParams();
     let nextDraft = parseIssueCreateParams(params, projects, templates);
@@ -173,13 +180,13 @@ export default function IssueComposer({
       nextDraft = { ...nextDraft, ...((JSON.parse(localDraftRaw) as IssueComposerDraft) ?? {}) };
     }
 
-    if (!nextDraft.assigneeId && storedUser?.id) {
-      nextDraft = { ...nextDraft, assigneeId: String(storedUser.id) };
+    if (!nextDraft.teamId && currentTeamId) {
+      nextDraft = { ...nextDraft, teamId: String(currentTeamId) };
     }
 
     setDraft(nextDraft);
     setInitialSnapshot(JSON.stringify(nextDraft));
-  }, [draft, initialDraftId, initialParams, localeScope, projects, storedUser?.id, templates]);
+  }, [currentTeamId, draft, initialDraftId, initialParams, localeScope, projects, templates]);
 
   useEffect(() => {
     if (!draft || !savedDraftQuery.data) return;
@@ -233,9 +240,9 @@ export default function IssueComposer({
 
   const resetComposer = () => {
     const nextDraft = parseIssueCreateParams(initialParams ?? new URLSearchParams(), projects, templates);
-    const nextDraftWithAssignee = !nextDraft.assigneeId && storedUser?.id ? { ...nextDraft, assigneeId: String(storedUser.id) } : nextDraft;
-    setDraft(nextDraftWithAssignee);
-    setInitialSnapshot(JSON.stringify(nextDraftWithAssignee));
+    const nextDraftWithTeam = !nextDraft.teamId && currentTeamId ? { ...nextDraft, teamId: String(currentTeamId) } : nextDraft;
+    setDraft(nextDraftWithTeam);
+    setInitialSnapshot(JSON.stringify(nextDraftWithTeam));
     setPendingFiles([]);
     setSavingTemplate(false);
     setTemplateName('');
@@ -300,7 +307,7 @@ export default function IssueComposer({
       description: draft.description.trim() || undefined,
       state: draft.state,
       priority: draft.priority,
-      projectId: Number(draft.projectId),
+      projectId: draft.projectId ? Number(draft.projectId) : null,
       teamId: draft.teamId ? Number(draft.teamId) : null,
       assigneeId: draft.assigneeId ? Number(draft.assigneeId) : null,
       parentIssueId: draft.parentIssueId ? Number(draft.parentIssueId) : null,
@@ -780,7 +787,7 @@ function QuickCreateView({
           <Button
             type="button"
             onClick={() => void onCreate()}
-            disabled={!draft.title.trim() || !draft.projectId || createPending}
+            disabled={!draft.title.trim() || createPending}
             className={cn(
               'h-14 rounded-full px-8 text-base font-semibold shadow-none',
               recurringEnabled ? 'bg-[#5E6AD2] hover:bg-[#525DC2]' : undefined
@@ -892,6 +899,8 @@ function FullCreateView({
             value={draft.projectId}
             onChange={(value) => onDraftChange((current) => (current ? { ...current, projectId: value } : current))}
             options={projects.map((project) => ({ value: String(project.id), label: project.name }))}
+            allowEmpty
+            emptyLabel={t('settings.composer.noProject')}
           />
           <SelectField
             label={t('issues.filters.state')}
@@ -1031,7 +1040,7 @@ function FullCreateView({
               {t('issues.actions.manageTemplates')}
             </Link>
           </div>
-          <Button type="button" onClick={() => void onCreate()} disabled={!draft.title.trim() || !draft.projectId || createPending}>
+          <Button type="button" onClick={() => void onCreate()} disabled={!draft.title.trim() || createPending}>
             {createPending ? t('issues.actions.creating') : t('issues.actions.create')}
           </Button>
         </div>

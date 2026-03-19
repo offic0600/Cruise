@@ -36,8 +36,8 @@ class Issue(
     @Column(nullable = false, length = 20)
     var priority: String = "MEDIUM",
 
-    @Column(name = "project_id", nullable = false)
-    var projectId: Long = 0,
+    @Column(name = "project_id")
+    var projectId: Long? = null,
 
     @Column(name = "team_id")
     var teamId: Long? = null,

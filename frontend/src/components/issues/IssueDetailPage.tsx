@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import MarkdownEditor from '@/components/issues/MarkdownEditor';
+import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,7 +43,7 @@ interface DraftIssue {
   resolution: Issue['resolution'];
   priority: Issue['priority'];
   assigneeId: number | null;
-  projectId: number;
+  projectId: number | null;
   teamId: number | null;
   parentIssueId: number | null;
   estimatedHours: number;
@@ -54,6 +55,7 @@ interface DraftIssue {
 
 export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   const { locale, t } = useI18n();
+  const { currentTeamId } = useCurrentWorkspace();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const user = getStoredUser();
   const organizationId = user?.organizationId ?? 1;
@@ -90,7 +92,12 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   const docs = docsQuery.data ?? [];
   const projects = projectsQuery.data ?? [];
   const teams = teamsQuery.data ?? [];
-  const members = (membersQuery.data as Array<{ id: number; name: string }> | undefined) ?? [];
+  const members = useMemo(() => {
+    const allMembers = (membersQuery.data as Array<{ id: number; name: string; teamId?: number | null }> | undefined) ?? [];
+    const scopedTeamId = issue?.teamId ?? currentTeamId ?? null;
+    if (scopedTeamId == null) return allMembers;
+    return allMembers.filter((member) => member.teamId == null || member.teamId === scopedTeamId);
+  }, [currentTeamId, issue?.teamId, membersQuery.data]);
   const customFieldDefinitions = (issue?.customFieldDefinitions ?? customFieldDefinitionsQuery.data ?? []) as CustomFieldDefinition[];
 
   const [draftIssue, setDraftIssue] = useState<DraftIssue | null>(null);
@@ -269,7 +276,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                   <Link
                     href={localizePath(
                       locale,
-                      `/issues/new?parentIssueId=${issue.id}&projectId=${issue.projectId}&teamId=${issue.teamId ?? ''}&title=`
+                    `/issues/new?parentIssueId=${issue.id}${issue.projectId != null ? `&projectId=${issue.projectId}` : ''}&teamId=${issue.teamId ?? ''}&title=`
                     )}
                     className="flex items-center gap-2 text-sm text-ink-400 transition hover:text-ink-700"
                   >
@@ -640,6 +647,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                               {project.name}
                             </SelectItem>
                           ))}
+                          <SelectItem value={EMPTY}>{t('common.notSet')}</SelectItem>
                         </SelectContent>
                       </Select>
                     }

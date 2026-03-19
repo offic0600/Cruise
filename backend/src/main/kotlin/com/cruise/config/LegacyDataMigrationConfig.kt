@@ -58,9 +58,9 @@ open class LegacyDataMigrationConfig {
         }
 
         val requirementIdMap = linkedMapOf<Long, Long>()
-        val requirementProjectMap = linkedMapOf<Long, Long>()
+        val requirementProjectMap = linkedMapOf<Long, Long?>()
         val taskIdMap = linkedMapOf<Long, Long>()
-        val taskProjectMap = linkedMapOf<Long, Long>()
+        val taskProjectMap = linkedMapOf<Long, Long?>()
 
         if (tableExists(jdbcTemplate, "REQUIREMENT")) {
             val requirements = jdbcTemplate.query(

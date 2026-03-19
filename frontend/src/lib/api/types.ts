@@ -22,7 +22,7 @@ export interface Issue {
   stateCategory: 'BACKLOG' | 'ACTIVE' | 'REVIEW' | 'COMPLETED' | 'CANCELED' | string;
   resolution: 'COMPLETED' | 'CANCELED' | 'DUPLICATE' | 'OBSOLETE' | 'WONT_DO' | null;
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
-  projectId: number;
+  projectId: number | null;
   teamId: number | null;
   parentIssueId: number | null;
   assigneeId: number | null;
