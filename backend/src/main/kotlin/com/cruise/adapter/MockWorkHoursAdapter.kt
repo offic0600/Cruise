@@ -10,7 +10,7 @@ class MockWorkHoursAdapter(
 ) : WorkHoursAdapter {
 
     override fun syncWorkHours(projectId: Long): SyncResult {
-        val tasks = issueService.findAll(IssueQuery(type = "TASK", projectId = projectId))
+        val tasks = issueService.findAll(IssueQuery(type = "TASK", projectId = projectId, size = Int.MAX_VALUE)).items
         val syncedCount = tasks.count { it.actualHours > 0 }
         return SyncResult(
             success = true,
@@ -21,7 +21,7 @@ class MockWorkHoursAdapter(
     }
 
     override fun getWorkHoursSummary(projectId: Long): WorkHoursSummary {
-        val tasks = issueService.findAll(IssueQuery(type = "TASK", projectId = projectId))
+        val tasks = issueService.findAll(IssueQuery(type = "TASK", projectId = projectId, size = Int.MAX_VALUE)).items
         val totalHours = tasks.sumOf { it.actualHours.toDouble() }
         val memberHours = tasks
             .filter { it.assigneeId != null }

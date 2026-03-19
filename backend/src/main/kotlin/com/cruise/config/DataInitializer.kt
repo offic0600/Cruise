@@ -6,7 +6,7 @@ import com.cruise.entity.CustomFieldDefinition
 import com.cruise.entity.CustomFieldOption
 import com.cruise.entity.CustomFieldValue
 import com.cruise.entity.Doc
-import com.cruise.entity.DocRevision
+import com.cruise.entity.DocumentContent
 import com.cruise.entity.ImportFieldMappingTemplate
 import com.cruise.entity.Issue
 import com.cruise.entity.IssueApplicationLink
@@ -34,7 +34,7 @@ import com.cruise.repository.CustomFieldDefinitionRepository
 import com.cruise.repository.CustomFieldOptionRepository
 import com.cruise.repository.CustomFieldValueRepository
 import com.cruise.repository.DocRepository
-import com.cruise.repository.DocRevisionRepository
+import com.cruise.repository.DocumentContentRepository
 import com.cruise.repository.ImportFieldMappingTemplateRepository
 import com.cruise.repository.IssueApplicationLinkRepository
 import com.cruise.repository.IssueDeliveryPlanRepository
@@ -92,7 +92,7 @@ open class DataInitializer {
         issueExtensionPayloadRepository: IssueExtensionPayloadRepository,
         issueRelationRepository: IssueRelationRepository,
         docRepository: DocRepository,
-        docRevisionRepository: DocRevisionRepository,
+        documentContentRepository: DocumentContentRepository,
         commentRepository: CommentRepository,
         activityEventRepository: ActivityEventRepository,
         notificationRepository: NotificationRepository,
@@ -228,7 +228,7 @@ open class DataInitializer {
         seedCustomFieldValues(now, issues, customFieldDefinitionRepository, customFieldValueRepository)
         seedImports(now, organization.id, importFieldMappingTemplateRepository)
         seedRelations(now, issues, issueRelationRepository)
-        seedDocsAndComments(now, organization.id, team.id, project.id, admin.id, analyst.id, issues, docRepository, docRevisionRepository, commentRepository)
+        seedDocsAndComments(now, organization.id, team.id, project.id, admin.id, analyst.id, issues, docRepository, documentContentRepository, commentRepository)
         seedActivity(now, admin.id, issues["featureWork"]!!.id, activityEventRepository, notificationRepository)
     }
 
@@ -460,7 +460,7 @@ open class DataInitializer {
         analystId: Long,
         issues: Map<String, Issue>,
         docRepository: DocRepository,
-        revisionRepository: DocRevisionRepository,
+        contentRepository: DocumentContentRepository,
         commentRepository: CommentRepository
     ) {
         val doc = docRepository.save(
@@ -477,23 +477,23 @@ open class DataInitializer {
                 updatedAt = now.minusDays(1)
             )
         )
-        val revision = revisionRepository.save(
-            DocRevision(
-                docId = doc.id,
+        val content = contentRepository.save(
+            DocumentContent(
+                documentId = doc.id,
                 versionNumber = 1,
                 content = "Issue is the execution source of truth. Projects and views provide planning context.",
                 authorId = adminId,
                 createdAt = now.minusDays(2)
             )
         )
-        doc.currentRevisionId = revision.id
+        doc.currentContentId = content.id
         doc.updatedAt = now.minusDays(1)
         docRepository.save(doc)
 
         commentRepository.saveAll(
             listOf(
-                Comment(issueId = issues.getValue("featureWork").id, authorId = adminId, body = "Use Issue as the single execution object and move planning concerns into projects, views, and parent issues.", createdAt = now.minusDays(1), updatedAt = now.minusDays(1)),
-                Comment(docId = doc.id, authorId = analystId, body = "The baseline now describes projects and views instead of legacy planning containers.", createdAt = now.minusHours(20), updatedAt = now.minusHours(20))
+                Comment(targetType = "ISSUE", targetId = issues.getValue("featureWork").id, authorId = adminId, body = "Use Issue as the single execution object and move planning concerns into projects, views, and parent issues.", createdAt = now.minusDays(1), updatedAt = now.minusDays(1)),
+                Comment(targetType = "DOCUMENT", targetId = doc.id, documentContentId = content.id, authorId = analystId, body = "The baseline now describes projects and views instead of legacy planning containers.", createdAt = now.minusHours(20), updatedAt = now.minusHours(20))
             )
         )
     }

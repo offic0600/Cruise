@@ -1,3 +1,16 @@
+export interface RestPageInfo {
+  nextCursor: string | null;
+  prevCursor: string | null;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+export interface RestPageResponse<T> {
+  items: T[];
+  pageInfo: RestPageInfo;
+  totalCount: number;
+}
+
 export interface Issue {
   id: number;
   organizationId: number;
@@ -29,6 +42,7 @@ export interface Issue {
   customFieldDefinitions?: CustomFieldDefinition[] | null;
   createdAt: string;
   updatedAt: string;
+  archivedAt: string | null;
 }
 
 export interface Label {
@@ -145,6 +159,106 @@ export interface Project {
   targetDate: string | null;
   createdAt: string;
   updatedAt: string;
+  archivedAt: string | null;
+}
+
+export interface Initiative {
+  id: number;
+  organizationId: number;
+  parentInitiativeId: number | null;
+  name: string;
+  description: string | null;
+  slugId: string | null;
+  status: string;
+  health: string | null;
+  ownerId: number | null;
+  creatorId: number | null;
+  targetDate: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+}
+
+export interface ProjectMilestone {
+  id: number;
+  projectId: number;
+  name: string;
+  description: string | null;
+  targetDate: string | null;
+  status: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+}
+
+export interface ProjectUpdate {
+  id: number;
+  projectId: number;
+  title: string;
+  body: string | null;
+  health: string | null;
+  userId: number | null;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+}
+
+export interface Roadmap {
+  id: number;
+  organizationId: number;
+  name: string;
+  description: string | null;
+  color: string | null;
+  slugId: string | null;
+  sortOrder: number;
+  ownerId: number | null;
+  creatorId: number | null;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+}
+
+export interface RoadmapProject {
+  id: number;
+  roadmapId: number;
+  projectId: number;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+}
+
+export interface Customer {
+  id: number;
+  organizationId: number;
+  name: string;
+  slugId: string | null;
+  ownerId: number | null;
+  statusId: number | null;
+  tierId: number | null;
+  integrationId: number | null;
+  domains: string | null;
+  externalIds: string | null;
+  logoUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+}
+
+export interface CustomerNeed {
+  id: number;
+  customerId: number;
+  projectId: number | null;
+  title: string;
+  description: string | null;
+  priority: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
 }
 
 export interface Team {
@@ -319,12 +433,12 @@ export interface EmailIntakeConfig {
   updatedAt: string;
 }
 
-export interface DocRevision {
+export interface DocumentContent {
   id: number;
-  docId: number;
+  documentId: number;
   versionNumber: number;
   content: string;
-  authorId: number;
+  authorId: number | null;
   createdAt: string;
 }
 
@@ -334,26 +448,30 @@ export interface Doc {
   teamId: number | null;
   projectId: number | null;
   issueId: number | null;
+  initiativeId: number | null;
   title: string;
   slug: string;
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | string;
   authorId: number;
-  currentRevisionId: number | null;
+  currentContentId: number | null;
   createdAt: string;
   updatedAt: string;
-  currentRevision: DocRevision | null;
-  revisions: DocRevision[];
+  archivedAt: string | null;
+  currentContent: DocumentContent | null;
+  contents: DocumentContent[];
 }
 
 export interface Comment {
   id: number;
-  issueId: number | null;
-  docId: number | null;
+  targetType: 'ISSUE' | 'DOCUMENT' | 'PROJECT_UPDATE' | 'INITIATIVE_UPDATE' | string;
+  targetId: number;
+  documentContentId: number | null;
   parentCommentId: number | null;
   authorId: number;
   body: string;
   createdAt: string;
   updatedAt: string;
+  archivedAt: string | null;
 }
 
 export interface ActivityEvent {

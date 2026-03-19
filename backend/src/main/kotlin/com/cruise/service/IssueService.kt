@@ -41,7 +41,8 @@ data class IssueDto(
     val customFields: Map<String, Any?>,
     val customFieldDefinitions: List<CustomFieldDefinitionDto>? = null,
     val createdAt: String,
-    val updatedAt: String
+    val updatedAt: String,
+    val archivedAt: String?
 )
 
 data class IssueQuery(
@@ -53,7 +54,10 @@ data class IssueQuery(
     val state: String? = null,
     val priority: String? = null,
     val q: String? = null,
-    val customFieldFilters: Map<String, Any?> = emptyMap()
+    val customFieldFilters: Map<String, Any?> = emptyMap(),
+    val includeArchived: Boolean = false,
+    val page: Int = 0,
+    val size: Int = 50
 )
 
 data class CreateIssueRequest(
@@ -115,7 +119,7 @@ open class IssueService(
     private val labelService: LabelService,
     private val objectMapper: ObjectMapper
 ) {
-    fun findAll(query: IssueQuery = IssueQuery()): List<IssueDto> =
+    fun findAll(query: IssueQuery = IssueQuery()): RestPageResponse<IssueDto> =
         issueRepository.findAll()
             .asSequence()
             .filter { query.type == null || it.type == query.type }
@@ -125,6 +129,7 @@ open class IssueService(
             .filter { query.parentIssueId == null || it.parentIssueId == query.parentIssueId }
             .filter { query.state == null || it.state == query.state }
             .filter { query.priority == null || it.priority == query.priority }
+            .filter { query.includeArchived || it.archivedAt == null }
             .filter {
                 query.q.isNullOrBlank() || listOfNotNull(it.title, it.description)
                     .any { text -> text.contains(query.q, ignoreCase = true) }
@@ -144,6 +149,7 @@ open class IssueService(
                     .map { issue -> issue.toDto(customValues[issue.id].orEmpty(), labels = labelsByIssue[issue.id].orEmpty()) }
             }
             .toList()
+            .toRestPage(query.page, query.size)
 
     fun findById(id: Long): IssueDto {
         val issue = getIssue(id)
@@ -187,7 +193,8 @@ open class IssueService(
                 severity = normalizeSeverity(request.type, request.severity),
                 sourceType = request.sourceType ?: "NATIVE",
                 sourceId = request.sourceId,
-                legacyPayload = request.legacyPayload
+                legacyPayload = request.legacyPayload,
+                archivedAt = null
             )
         )
         issueCustomFieldService.replaceIssueValues(saved, request.customFields)
@@ -229,7 +236,8 @@ open class IssueService(
             sourceId = issue.sourceId,
             legacyPayload = request.legacyPayload ?: issue.legacyPayload,
             createdAt = issue.createdAt,
-            updatedAt = LocalDateTime.now()
+            updatedAt = LocalDateTime.now(),
+            archivedAt = issue.archivedAt
         )
         val saved = issueRepository.save(updated)
         issueCustomFieldService.replaceIssueValues(saved, request.customFields ?: issueCustomFieldService.getValuesForIssue(issue))
@@ -266,7 +274,8 @@ open class IssueService(
                 sourceId = issue.sourceId,
                 legacyPayload = issue.legacyPayload,
                 createdAt = issue.createdAt,
-                updatedAt = LocalDateTime.now()
+                updatedAt = LocalDateTime.now(),
+                archivedAt = issue.archivedAt
             )
         )
         return saved.toDto(
@@ -325,7 +334,8 @@ open class IssueService(
         customFields = customFields,
         customFieldDefinitions = customFieldDefinitions,
         createdAt = createdAt.toString(),
-        updatedAt = updatedAt.toString()
+        updatedAt = updatedAt.toString(),
+        archivedAt = archivedAt?.toString()
     )
 
     private fun parseDate(value: String?): LocalDate? = value?.let { LocalDate.parse(it) }

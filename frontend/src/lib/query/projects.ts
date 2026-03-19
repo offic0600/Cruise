@@ -7,10 +7,12 @@ export function useProjectsWorkspace() {
     projectsQuery: useQuery({
       queryKey: queryKeys.projects,
       queryFn: () => getProjects(),
+      select: (response) => response.items,
     }),
     issuesQuery: useQuery({
       queryKey: [...queryKeys.projects, 'issues'],
       queryFn: () => getIssues(),
+      select: (response) => response.items,
     }),
     docsQuery: useQuery({
       queryKey: [...queryKeys.projects, 'docs'],

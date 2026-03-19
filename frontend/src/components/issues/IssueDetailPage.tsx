@@ -174,7 +174,12 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
 
   const addComment = async () => {
     if (!issue || !commentBody.trim()) return;
-    await createCommentMutation.mutateAsync({ issueId: issue.id, authorId: user?.id ?? 1, body: commentBody.trim() });
+    await createCommentMutation.mutateAsync({
+      targetType: 'ISSUE',
+      targetId: issue.id,
+      authorId: user?.id ?? 1,
+      body: commentBody.trim(),
+    });
     setCommentBody('');
   };
 

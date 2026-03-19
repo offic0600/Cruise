@@ -27,6 +27,7 @@ export function useCustomFieldsWorkspace(params: { organizationId: number; entit
     projectsQuery: useQuery({
       queryKey: queryKeys.projects,
       queryFn: () => getProjects({ organizationId: params.organizationId }),
+      select: (response) => response.items,
     }),
   };
 }

@@ -16,7 +16,7 @@ export default function RecurringSettingsView() {
   const organizationId = user?.organizationId ?? 1;
   const recurringQuery = useQuery({ queryKey: queryKeys.recurringIssues, queryFn: getRecurringIssues });
   const templatesQuery = useQuery({ queryKey: queryKeys.issueTemplates({ organizationId }), queryFn: () => getIssueTemplates({ organizationId }) });
-  const projectsQuery = useQuery({ queryKey: queryKeys.projects, queryFn: () => getProjects({ organizationId }) });
+  const projectsQuery = useQuery({ queryKey: queryKeys.projects, queryFn: () => getProjects({ organizationId }), select: (response) => response.items });
   const [form, setForm] = useState({ name: '', projectId: '', templateId: '', nextRunAt: '' });
 
   const createMutation = useMutation({

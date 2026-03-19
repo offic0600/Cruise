@@ -1,6 +1,7 @@
 import apiClient from './client';
 import {
   Issue,
+  RestPageResponse,
   mapBugIssue,
   mapFeatureIssue,
   mapTaskIssue,
@@ -18,7 +19,10 @@ export const getIssues = (params?: {
   q?: string;
   priority?: string;
   customFieldFilters?: Record<string, unknown>;
-}) => apiClient.get<Issue[]>('/issues', {
+  includeArchived?: boolean;
+  page?: number;
+  size?: number;
+}) => apiClient.get<RestPageResponse<Issue>>('/issues', {
   params: {
     ...params,
     customFieldFilters: params?.customFieldFilters ? JSON.stringify(params.customFieldFilters) : undefined,
@@ -85,7 +89,7 @@ export const updateIssueState = (id: number, state: string, resolution?: string 
 export const deleteIssue = (id: number) => apiClient.delete(`/issues/${id}`);
 
 export const getFeatureIssues = () =>
-  getIssues({ type: 'FEATURE' }).then((issues) => issues.map(mapFeatureIssue));
+  getIssues({ type: 'FEATURE' }).then((response) => response.items.map(mapFeatureIssue));
 
 export const createFeatureIssue = (data: {
   title: string;
@@ -203,7 +207,7 @@ export const updateFeatureIssue = (
   );
 
 export const getTaskIssues = () =>
-  getIssues({ type: 'TASK' }).then((issues) => issues.map(mapTaskIssue));
+  getIssues({ type: 'TASK' }).then((response) => response.items.map(mapTaskIssue));
 
 export const createTaskIssue = (data: {
   title: string;
@@ -287,7 +291,7 @@ export const logTaskIssueHours = (id: number, hours: number) =>
   );
 
 export const getBugIssues = () =>
-  getIssues({ type: 'BUG' }).then((issues) => issues.map(mapBugIssue));
+  getIssues({ type: 'BUG' }).then((response) => response.items.map(mapBugIssue));
 
 export const createBugIssue = (data: {
   title: string;

@@ -89,5 +89,9 @@ class Issue(
 
     @Column(name = "updated_at")
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
-    var updatedAt: LocalDateTime = LocalDateTime.now()
+    var updatedAt: LocalDateTime = LocalDateTime.now(),
+
+    @Column(name = "archived_at")
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
+    var archivedAt: LocalDateTime? = null
 )

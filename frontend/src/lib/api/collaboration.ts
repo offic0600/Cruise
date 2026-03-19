@@ -6,8 +6,10 @@ export const getDocs = (params?: {
   teamId?: number;
   projectId?: number;
   issueId?: number;
+  initiativeId?: number;
   status?: string;
   q?: string;
+  includeArchived?: boolean;
 }) => apiClient.get<Doc[]>('/docs', { params }).then((r) => r.data);
 
 export const getDoc = (id: number) => apiClient.get<Doc>(`/docs/${id}`).then((r) => r.data);
@@ -17,6 +19,7 @@ export const createDoc = (data: {
   teamId?: number | null;
   projectId?: number | null;
   issueId?: number | null;
+  initiativeId?: number | null;
   title: string;
   slug?: string | null;
   status?: string;
@@ -28,29 +31,38 @@ export const updateDoc = (id: number, data: {
   teamId?: number | null;
   projectId?: number | null;
   issueId?: number | null;
+  initiativeId?: number | null;
   title?: string;
   slug?: string | null;
   status?: string;
   authorId?: number | null;
   content?: string;
+  archivedAt?: string | null;
 }) => apiClient.put<Doc>(`/docs/${id}`, data).then((r) => r.data);
 
 export const deleteDoc = (id: number) => apiClient.delete(`/docs/${id}`);
 
-export const getComments = (params?: { issueId?: number; docId?: number; authorId?: number }) =>
+export const getComments = (params?: {
+  targetType?: string;
+  targetId?: number;
+  documentContentId?: number;
+  authorId?: number;
+  includeArchived?: boolean;
+}) =>
   apiClient.get<Comment[]>('/comments', { params }).then((r) => r.data);
 
 export const getComment = (id: number) => apiClient.get<Comment>(`/comments/${id}`).then((r) => r.data);
 
 export const createComment = (data: {
-  issueId?: number | null;
-  docId?: number | null;
+  targetType: string;
+  targetId: number;
+  documentContentId?: number | null;
   parentCommentId?: number | null;
   authorId: number;
   body: string;
 }) => apiClient.post<Comment>('/comments', data).then((r) => r.data);
 
-export const updateComment = (id: number, data: { body: string }) =>
+export const updateComment = (id: number, data: { body: string; archivedAt?: string | null }) =>
   apiClient.put<Comment>(`/comments/${id}`, data).then((r) => r.data);
 
 export const deleteComment = (id: number) => apiClient.delete(`/comments/${id}`);

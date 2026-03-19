@@ -61,7 +61,7 @@ class IntegrationController(
     fun getProjectOverview(@PathVariable projectId: Long): Map<String, Any> {
         val stats = gitLabAdapter.getProjectStats(projectId)
         val workHours = workHoursAdapter.getWorkHoursSummary(projectId)
-        val features = issueService.findAll(IssueQuery(type = "FEATURE", projectId = projectId))
+        val features = issueService.findAll(IssueQuery(type = "FEATURE", projectId = projectId, size = Int.MAX_VALUE)).items
 
         return mapOf(
             "projectId" to projectId,

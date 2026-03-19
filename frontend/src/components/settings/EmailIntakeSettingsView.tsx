@@ -15,7 +15,7 @@ export default function EmailIntakeSettingsView() {
   const user = getStoredUser();
   const organizationId = user?.organizationId ?? 1;
   const configsQuery = useQuery({ queryKey: queryKeys.emailIntakeConfigs, queryFn: getEmailIntakeConfigs });
-  const projectsQuery = useQuery({ queryKey: queryKeys.projects, queryFn: () => getProjects({ organizationId }) });
+  const projectsQuery = useQuery({ queryKey: queryKeys.projects, queryFn: () => getProjects({ organizationId }), select: (response) => response.items });
   const teamsQuery = useQuery({ queryKey: queryKeys.teams, queryFn: () => getTeams({ organizationId }) });
   const templatesQuery = useQuery({ queryKey: queryKeys.issueTemplates({ organizationId }), queryFn: () => getIssueTemplates({ organizationId }) });
   const [form, setForm] = useState({ name: '', emailAddress: '', projectId: '', teamId: '', templateId: '' });

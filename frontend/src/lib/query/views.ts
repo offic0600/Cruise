@@ -8,10 +8,12 @@ export function useViewsWorkspace() {
     issuesQuery: useQuery({
       queryKey: [...queryKeys.views, 'issues'],
       queryFn: () => getIssues(),
+      select: (response) => response.items,
     }),
     projectsQuery: useQuery({
       queryKey: [...queryKeys.views, 'projects'],
       queryFn: () => getProjects(),
+      select: (response) => response.items,
     }),
     viewsQuery: useQuery({
       queryKey: queryKeys.views,

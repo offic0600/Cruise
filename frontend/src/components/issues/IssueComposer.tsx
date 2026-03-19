@@ -118,6 +118,7 @@ export default function IssueComposer({
   const projectsQuery = useQuery({
     queryKey: queryKeys.projects,
     queryFn: () => getProjects({ organizationId }),
+    select: (response) => response.items,
     enabled: composerEnabled,
   });
   const teamsQuery = useQuery({

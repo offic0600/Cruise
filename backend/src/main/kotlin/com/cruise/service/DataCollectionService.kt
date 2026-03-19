@@ -14,9 +14,9 @@ class DataCollectionService(
 
     fun getProjectSummary(): String {
         val projects = projectRepository.findAll()
-        val features = issueService.findAll(IssueQuery(type = "FEATURE"))
-        val tasks = issueService.findAll(IssueQuery(type = "TASK"))
-        val defects = issueService.findAll(IssueQuery(type = "BUG"))
+        val features = issueService.findAll(IssueQuery(type = "FEATURE", size = Int.MAX_VALUE)).items
+        val tasks = issueService.findAll(IssueQuery(type = "TASK", size = Int.MAX_VALUE)).items
+        val defects = issueService.findAll(IssueQuery(type = "BUG", size = Int.MAX_VALUE)).items
         val members = teamMemberRepository.findAll()
 
         return buildString {
@@ -61,14 +61,14 @@ class DataCollectionService(
     }
 
     fun getRequirements(): List<IssueDto> =
-        issueService.findAll(IssueQuery(type = "FEATURE"))
+        issueService.findAll(IssueQuery(type = "FEATURE", size = Int.MAX_VALUE)).items
 
     fun getTasks(): List<IssueDto> =
-        issueService.findAll(IssueQuery(type = "TASK"))
+        issueService.findAll(IssueQuery(type = "TASK", size = Int.MAX_VALUE)).items
 
     fun getTeamMembers(): List<TeamMember> =
         teamMemberRepository.findAll()
 
     fun getDefects(): List<IssueDto> =
-        issueService.findAll(IssueQuery(type = "BUG"))
+        issueService.findAll(IssueQuery(type = "BUG", size = Int.MAX_VALUE)).items
 }

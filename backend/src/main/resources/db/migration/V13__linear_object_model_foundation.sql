@@ -1,0 +1,277 @@
+ALTER TABLE issue ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP;
+ALTER TABLE project ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP;
+ALTER TABLE organization ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE organization ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP;
+ALTER TABLE team ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP;
+ALTER TABLE doc ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP;
+ALTER TABLE comment_entry ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP;
+ALTER TABLE notification ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE notification ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP;
+ALTER TABLE membership ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE membership ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP;
+ALTER TABLE workflow_state ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE workflow_state ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE workflow_state ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP;
+ALTER TABLE agent_session ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP;
+
+CREATE TABLE IF NOT EXISTS cycle (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    organization_id BIGINT NOT NULL,
+    team_id BIGINT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    description VARCHAR(1000),
+    number INT NOT NULL DEFAULT 1,
+    starts_at DATE,
+    ends_at DATE,
+    completed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS project_status (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    organization_id BIGINT NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    color VARCHAR(32),
+    type VARCHAR(30) NOT NULL DEFAULT 'active',
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS project_milestone (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id BIGINT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    description VARCHAR(1000),
+    target_date DATE,
+    status VARCHAR(30) DEFAULT 'planned',
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS project_update (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id BIGINT NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    body VARCHAR(4000),
+    health VARCHAR(30),
+    user_id BIGINT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS initiative (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    organization_id BIGINT NOT NULL,
+    parent_initiative_id BIGINT,
+    name VARCHAR(255) NOT NULL,
+    description VARCHAR(1000),
+    slug_id VARCHAR(64),
+    status VARCHAR(30) NOT NULL DEFAULT 'planned',
+    health VARCHAR(30),
+    owner_id BIGINT,
+    creator_id BIGINT,
+    target_date DATE,
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS initiative_relation (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    initiative_id BIGINT NOT NULL,
+    related_initiative_id BIGINT NOT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS initiative_to_project (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    initiative_id BIGINT NOT NULL,
+    project_id BIGINT NOT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS initiative_update (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    initiative_id BIGINT NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    body VARCHAR(4000),
+    health VARCHAR(30),
+    user_id BIGINT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS roadmap (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    organization_id BIGINT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    description VARCHAR(1000),
+    color VARCHAR(32),
+    slug_id VARCHAR(64),
+    sort_order INT NOT NULL DEFAULT 0,
+    owner_id BIGINT,
+    creator_id BIGINT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS roadmap_to_project (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    roadmap_id BIGINT NOT NULL,
+    project_id BIGINT NOT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS customer_status (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    organization_id BIGINT NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    color VARCHAR(32),
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS customer_tier (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    organization_id BIGINT NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    color VARCHAR(32),
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS customer (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    organization_id BIGINT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    slug_id VARCHAR(64),
+    owner_id BIGINT,
+    status_id BIGINT,
+    tier_id BIGINT,
+    integration_id BIGINT,
+    domains VARCHAR(512),
+    external_ids VARCHAR(1000),
+    logo_url VARCHAR(1000),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS customer_need (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    customer_id BIGINT NOT NULL,
+    project_id BIGINT,
+    title VARCHAR(255) NOT NULL,
+    description VARCHAR(4000),
+    priority VARCHAR(30) NOT NULL DEFAULT 'medium',
+    status VARCHAR(30) NOT NULL DEFAULT 'open',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS document_content (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    document_id BIGINT NOT NULL,
+    content VARCHAR(4000) NOT NULL,
+    version_number INT NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS reaction (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    issue_id BIGINT,
+    comment_id BIGINT,
+    project_update_id BIGINT,
+    initiative_update_id BIGINT,
+    emoji VARCHAR(64) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS external_entity_info (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    service VARCHAR(50) NOT NULL,
+    entity_type VARCHAR(50) NOT NULL,
+    entity_id BIGINT NOT NULL,
+    external_id VARCHAR(255) NOT NULL,
+    external_url VARCHAR(1000),
+    metadata_json VARCHAR(4000),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS external_user (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    service VARCHAR(50) NOT NULL,
+    external_id VARCHAR(255) NOT NULL,
+    name VARCHAR(255),
+    avatar_url VARCHAR(1000),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS entity_external_link (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    entity_type VARCHAR(50) NOT NULL,
+    entity_id BIGINT NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    url VARCHAR(1000) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS notification_subscription (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    resource_type VARCHAR(50) NOT NULL,
+    resource_id BIGINT NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS notification_preference (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    category VARCHAR(50) NOT NULL,
+    channel VARCHAR(50) NOT NULL DEFAULT 'in_app',
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS agent_activity (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    agent_session_id BIGINT NOT NULL,
+    type VARCHAR(50) NOT NULL DEFAULT 'message',
+    content TEXT,
+    issue_id BIGINT,
+    comment_id BIGINT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

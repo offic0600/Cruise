@@ -20,14 +20,18 @@ data class ProjectDto(
     val startDate: String?,
     val targetDate: String?,
     val createdAt: String,
-    val updatedAt: String
+    val updatedAt: String,
+    val archivedAt: String?
 )
 
 data class ProjectQuery(
     val organizationId: Long? = null,
     val teamId: Long? = null,
     val status: String? = null,
-    val q: String? = null
+    val q: String? = null,
+    val includeArchived: Boolean = false,
+    val page: Int = 0,
+    val size: Int = 50
 )
 
 data class CreateProjectRequest(
@@ -57,12 +61,13 @@ data class UpdateProjectRequest(
 class ProjectService(
     private val projectRepository: ProjectRepository
 ) {
-    fun findAll(query: ProjectQuery = ProjectQuery()): List<ProjectDto> =
+    fun findAll(query: ProjectQuery = ProjectQuery()): RestPageResponse<ProjectDto> =
         projectRepository.findAll()
             .asSequence()
             .filter { query.organizationId == null || it.organizationId == query.organizationId }
             .filter { query.teamId == null || it.teamId == query.teamId }
             .filter { query.status == null || it.status == query.status }
+            .filter { query.includeArchived || it.archivedAt == null }
             .filter {
                 query.q.isNullOrBlank() || listOfNotNull(it.name, it.description, it.key)
                     .any { text -> text.contains(query.q, ignoreCase = true) }
@@ -70,6 +75,7 @@ class ProjectService(
             .sortedBy { it.id }
             .map { it.toDto() }
             .toList()
+            .toRestPage(query.page, query.size)
 
     fun findById(id: Long): ProjectDto = getProject(id).toDto()
 
@@ -84,7 +90,8 @@ class ProjectService(
                 status = request.status ?: "ACTIVE",
                 ownerId = request.ownerId,
                 startDate = parseDate(request.startDate),
-                targetDate = parseDate(request.targetDate)
+                targetDate = parseDate(request.targetDate),
+                archivedAt = null
             )
         ).toDto()
 
@@ -103,7 +110,8 @@ class ProjectService(
                 startDate = parseDate(request.startDate) ?: project.startDate,
                 targetDate = parseDate(request.targetDate) ?: project.targetDate,
                 createdAt = project.createdAt,
-                updatedAt = LocalDateTime.now()
+                updatedAt = LocalDateTime.now(),
+                archivedAt = project.archivedAt
             )
         ).toDto()
     }
@@ -127,7 +135,8 @@ class ProjectService(
         startDate = startDate?.toString(),
         targetDate = targetDate?.toString(),
         createdAt = createdAt.toString(),
-        updatedAt = updatedAt.toString()
+        updatedAt = updatedAt.toString(),
+        archivedAt = archivedAt?.toString()
     )
 
     private fun parseDate(value: String?): LocalDate? = value?.let(LocalDate::parse)
