@@ -1,2 +1,0 @@
-ALTER TABLE issue
-ADD COLUMN resolution VARCHAR(30);
