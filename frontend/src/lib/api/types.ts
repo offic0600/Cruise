@@ -440,6 +440,48 @@ export interface CreateOrganizationResponse {
   };
 }
 
+export interface WorkspaceInvite {
+  id: number;
+  organizationId: number;
+  teamId: number | null;
+  code: string;
+  email: string | null;
+  role: string;
+  createdBy: number;
+  createdAt: string;
+  expiresAt: string | null;
+  usedAt: string | null;
+  inviteUrl: string;
+}
+
+export interface CreateWorkspaceInviteRequest {
+  teamId?: number | null;
+  email?: string | null;
+  role?: string;
+  expiresInDays?: number | null;
+}
+
+export interface CreateWorkspaceInviteResponse extends WorkspaceInvite {}
+
+export interface JoinWorkspaceInviteRequest {
+  inviteCodeOrLink: string;
+}
+
+export interface JoinWorkspaceInviteResponse {
+  organization: Organization;
+  team: Team;
+  membership: Membership;
+  authSession: {
+    token: string;
+    userId: number;
+    username: string;
+    email: string;
+    role: string;
+    organizationId: number | null;
+    providerKey?: string | null;
+  };
+}
+
 export interface View {
   id: number;
   organizationId: number;

@@ -58,7 +58,8 @@ class TeamService(
     fun create(request: CreateTeamRequest): TeamDto =
         teamRepository.save(
             Team(
-                organizationId = request.organizationId ?: 1L,
+                organizationId = request.organizationId
+                    ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "organizationId is required"),
                 key = request.key,
                 name = request.name,
                 description = request.description,

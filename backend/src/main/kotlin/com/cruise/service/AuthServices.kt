@@ -174,7 +174,6 @@ class IdentityProvisioningService(
         val organization = provider.organizationId?.let { organizationRepository.findById(it).orElse(null) }
             ?: organizationRepository.findBySlug(authProperties.defaultOrganizationSlug)
             ?: organizationRepository.findAll().firstOrNull()
-            ?: throw IllegalStateException("No organization available for provisioning")
 
         val existingUser = userRepository.findByEmail(email)
         val user = existingUser ?: userRepository.save(
@@ -191,7 +190,7 @@ class IdentityProvisioningService(
             )
         )
 
-        if (membershipRepository.findByUserId(user.id).isEmpty()) {
+        if (organization != null && membershipRepository.findByUserId(user.id).isEmpty()) {
             val team = teamRepository.findByOrganizationId(organization.id).firstOrNull()
             if (team != null) {
                 membershipRepository.save(
@@ -227,9 +226,9 @@ class IdentityProvisioningService(
         return issueSession(user, provider.providerKey)
     }
 
-    fun issueSession(user: User, providerKey: String? = null): AuthSessionResponse {
+    fun issueSession(user: User, providerKey: String? = null, organizationIdOverride: Long? = null): AuthSessionResponse {
         val userDetails = customUserDetailsService.loadUserByUsername(user.username)
-        val organizationId = membershipRepository.findFirstByUserIdAndActiveTrue(user.id)?.organizationId
+        val organizationId = organizationIdOverride ?: membershipRepository.findFirstByUserIdAndActiveTrue(user.id)?.organizationId
         val token = jwtTokenProvider.generateToken(userDetails, user.id, organizationId, user.role)
         return AuthSessionResponse(
             token = token,

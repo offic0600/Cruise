@@ -1,7 +1,7 @@
 -- Cruise baseline schema
 -- This file replaces the previous incremental migration chain.
 -- Legacy requirement/task/defect tables and legacy payload columns are intentionally omitted.
--- Sample workspace data is seeded by DataInitializer at application startup, not by SQL migrations.
+-- No default workspace is seeded. DataInitializer only creates local login accounts.
 
 CREATE TABLE IF NOT EXISTS app_user (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -630,6 +630,19 @@ CREATE TABLE IF NOT EXISTS notification_preference (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS workspace_invite (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    organization_id BIGINT NOT NULL,
+    team_id BIGINT,
+    invite_code VARCHAR(120) NOT NULL UNIQUE,
+    email VARCHAR(255),
+    role VARCHAR(30) NOT NULL DEFAULT 'MEMBER',
+    created_by BIGINT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP,
+    used_at TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS agent_session (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     session_id VARCHAR(100) NOT NULL UNIQUE,
@@ -719,3 +732,4 @@ CREATE INDEX IF NOT EXISTS idx_customer_need_customer ON customer_need (customer
 CREATE INDEX IF NOT EXISTS idx_notification_user_created ON notification (user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_notification_subscription_target ON notification_subscription (resource_type, resource_id, user_id);
 CREATE INDEX IF NOT EXISTS idx_external_entity_lookup ON external_entity_info (service, entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_workspace_invite_code ON workspace_invite (invite_code);

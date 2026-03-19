@@ -1,5 +1,5 @@
 import apiClient from './client';
-import { Comment, CreateOrganizationRequest, CreateOrganizationResponse, Customer, CustomerNeed, Initiative, InitiativeProject, InitiativeUpdate, IssueRelation, Membership, Organization, Project, ProjectMilestone, ProjectUpdate, RestPageResponse, Roadmap, RoadmapProject, SlugAvailability, Team, Workflow } from './types';
+import { Comment, CreateOrganizationRequest, CreateOrganizationResponse, CreateWorkspaceInviteRequest, CreateWorkspaceInviteResponse, Customer, CustomerNeed, Initiative, InitiativeProject, InitiativeUpdate, IssueRelation, JoinWorkspaceInviteRequest, JoinWorkspaceInviteResponse, Membership, Organization, Project, ProjectMilestone, ProjectUpdate, RestPageResponse, Roadmap, RoadmapProject, SlugAvailability, Team, Workflow } from './types';
 
 export const getOrganizations = () =>
   apiClient.get<Organization[]>('/organizations').then((r) => r.data);
@@ -9,6 +9,12 @@ export const checkOrganizationSlugAvailability = (slug: string) =>
 
 export const createOrganization = (data: CreateOrganizationRequest) =>
   apiClient.post<CreateOrganizationResponse>('/organizations', data).then((r) => r.data);
+
+export const createWorkspaceInvite = (organizationId: number, data: CreateWorkspaceInviteRequest) =>
+  apiClient.post<CreateWorkspaceInviteResponse>(`/organizations/${organizationId}/invites`, data).then((r) => r.data);
+
+export const joinWorkspaceInvite = (data: JoinWorkspaceInviteRequest) =>
+  apiClient.post<JoinWorkspaceInviteResponse>('/workspace-invites/join', data).then((r) => r.data);
 
 export const getProjects = (params?: {
   organizationId?: number;
