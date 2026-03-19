@@ -80,9 +80,6 @@ class Issue(
     @Column(name = "source_id")
     var sourceId: Long? = null,
 
-    @Column(name = "legacy_payload", length = 4000)
-    var legacyPayload: String? = null,
-
     @Column(name = "created_at")
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     var createdAt: LocalDateTime = LocalDateTime.now(),

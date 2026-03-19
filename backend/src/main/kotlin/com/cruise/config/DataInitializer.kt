@@ -9,14 +9,9 @@ import com.cruise.entity.Doc
 import com.cruise.entity.DocumentContent
 import com.cruise.entity.ImportFieldMappingTemplate
 import com.cruise.entity.Issue
-import com.cruise.entity.IssueApplicationLink
-import com.cruise.entity.IssueDeliveryPlan
-import com.cruise.entity.IssueExtensionPayload
-import com.cruise.entity.IssueFeatureExtension
 import com.cruise.entity.IssueLabel
 import com.cruise.entity.IssueRelation
 import com.cruise.entity.LabelDefinition
-import com.cruise.entity.IssueVendorAssignment
 import com.cruise.entity.Membership
 import com.cruise.entity.Notification
 import com.cruise.entity.Organization
@@ -36,14 +31,9 @@ import com.cruise.repository.CustomFieldValueRepository
 import com.cruise.repository.DocRepository
 import com.cruise.repository.DocumentContentRepository
 import com.cruise.repository.ImportFieldMappingTemplateRepository
-import com.cruise.repository.IssueApplicationLinkRepository
-import com.cruise.repository.IssueDeliveryPlanRepository
-import com.cruise.repository.IssueExtensionPayloadRepository
-import com.cruise.repository.IssueFeatureExtensionRepository
 import com.cruise.repository.IssueLabelRepository
 import com.cruise.repository.IssueRelationRepository
 import com.cruise.repository.IssueRepository
-import com.cruise.repository.IssueVendorAssignmentRepository
 import com.cruise.repository.LabelDefinitionRepository
 import com.cruise.repository.MembershipRepository
 import com.cruise.repository.NotificationRepository
@@ -85,11 +75,6 @@ open class DataInitializer {
         labelDefinitionRepository: LabelDefinitionRepository,
         issueLabelRepository: IssueLabelRepository,
         issueRepository: IssueRepository,
-        issueFeatureExtensionRepository: IssueFeatureExtensionRepository,
-        issueDeliveryPlanRepository: IssueDeliveryPlanRepository,
-        issueApplicationLinkRepository: IssueApplicationLinkRepository,
-        issueVendorAssignmentRepository: IssueVendorAssignmentRepository,
-        issueExtensionPayloadRepository: IssueExtensionPayloadRepository,
         issueRelationRepository: IssueRelationRepository,
         docRepository: DocRepository,
         documentContentRepository: DocumentContentRepository,
@@ -224,7 +209,6 @@ open class DataInitializer {
 
         val issues = seedIssues(now, organization.id, project.id, team.id, admin.id, analyst.id, members, issueRepository)
         seedIssueLabels(now, issues, seededLabels, issueLabelRepository, admin.id)
-        seedIssueExtensions(now, issues, issueFeatureExtensionRepository, issueDeliveryPlanRepository, issueApplicationLinkRepository, issueVendorAssignmentRepository, issueExtensionPayloadRepository)
         seedCustomFieldValues(now, issues, customFieldDefinitionRepository, customFieldValueRepository)
         seedImports(now, organization.id, importFieldMappingTemplateRepository)
         seedRelations(now, issues, issueRelationRepository)
@@ -342,48 +326,6 @@ open class DataInitializer {
             Issue(organizationId = organizationId, identifier = "ISSUE-1005", type = "TASK", title = "Prepare migration seed data", description = "Seed teams, views, and collaboration records.", state = "DONE", priority = "LOW", resolution = "COMPLETED", projectId = projectId, teamId = teamId, parentIssueId = featureWork.id, assigneeId = members[0].id, reporterId = adminId, estimatePoints = 2, progress = 100, plannedStartDate = LocalDate.of(2026, 3, 9), plannedEndDate = LocalDate.of(2026, 3, 12), estimatedHours = 8f, actualHours = 7.5f, sourceType = "NATIVE", createdAt = now.minusDays(8), updatedAt = now.minusDays(2))
         )
         return mapOf("featureAuth" to featureAuth, "featureWork" to featureWork, "taskApi" to taskApi, "bugLogin" to bugLogin, "taskSeed" to taskSeed)
-    }
-
-    private fun seedIssueExtensions(
-        now: LocalDateTime,
-        issues: Map<String, Issue>,
-        featureRepository: IssueFeatureExtensionRepository,
-        planRepository: IssueDeliveryPlanRepository,
-        appRepository: IssueApplicationLinkRepository,
-        vendorRepository: IssueVendorAssignmentRepository,
-        payloadRepository: IssueExtensionPayloadRepository
-    ) {
-        val featureAuth = issues.getValue("featureAuth")
-        val featureWork = issues.getValue("featureWork")
-        val bugLogin = issues.getValue("bugLogin")
-        featureRepository.saveAll(
-            listOf(
-                IssueFeatureExtension(issueId = featureAuth.id, devParticipantsText = "Bob Liu, Cathy Wu", tagsText = "auth, platform", createdByText = "Cruise Admin"),
-                IssueFeatureExtension(issueId = featureWork.id, devParticipantsText = "David Sun, Bob Liu", tagsText = "migration, platform", createdByText = "Delivery Analyst")
-            )
-        )
-        planRepository.saveAll(
-            listOf(
-                IssueDeliveryPlan(issueId = featureAuth.id, estimatedDays = 6f, plannedDays = 7f, actualDays = 4f, gapDays = -3f, gapBudget = -1200f, expectedDeliveryDate = LocalDate.of(2026, 3, 21)),
-                IssueDeliveryPlan(issueId = featureWork.id, estimatedDays = 9f, plannedDays = 10f, actualDays = 5f, gapDays = -5f, gapBudget = -2800f, expectedDeliveryDate = LocalDate.of(2026, 3, 24))
-            )
-        )
-        appRepository.saveAll(
-            listOf(
-                IssueApplicationLink(issueId = featureAuth.id, applicationCode = "AUTH-WEB"),
-                IssueApplicationLink(issueId = featureAuth.id, applicationCode = "AUTH-API"),
-                IssueApplicationLink(issueId = featureWork.id, applicationCode = "PM-DASHBOARD")
-            )
-        )
-        vendorRepository.saveAll(
-            listOf(
-                IssueVendorAssignment(issueId = featureWork.id, vendorName = "Acme Delivery", vendorStaffName = "Ethan", role = "Consultant"),
-                IssueVendorAssignment(issueId = bugLogin.id, vendorName = "QA Partners", vendorStaffName = "Mia", role = "Testing Support")
-            )
-        )
-        payloadRepository.save(
-            IssueExtensionPayload(issueId = featureWork.id, schemaVersion = 1, payloadJson = """{"legacyTracker":"legacy-workbench","importBatch":"2026-03-16","notes":"Seeded from simplified workspace initializer"}""", updatedAt = now)
-        )
     }
 
     private fun seedCustomFieldValues(

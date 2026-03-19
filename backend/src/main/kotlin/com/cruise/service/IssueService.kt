@@ -37,7 +37,6 @@ data class IssueDto(
     val sourceType: String,
     val sourceId: Long?,
     val labels: List<LabelDto>,
-    val legacyPayload: String?,
     val customFields: Map<String, Any?>,
     val customFieldDefinitions: List<CustomFieldDefinitionDto>? = null,
     val createdAt: String,
@@ -83,7 +82,6 @@ data class CreateIssueRequest(
     val sourceType: String? = null,
     val sourceId: Long? = null,
     val labelIds: List<Long>? = null,
-    val legacyPayload: String? = null,
     val customFields: Map<String, Any?>? = null
 )
 
@@ -107,7 +105,6 @@ data class UpdateIssueRequest(
     val actualHours: Float? = null,
     val severity: String? = null,
     val labelIds: List<Long>? = null,
-    val legacyPayload: String? = null,
     val customFields: Map<String, Any?>? = null
 )
 
@@ -193,7 +190,6 @@ open class IssueService(
                 severity = normalizeSeverity(request.type, request.severity),
                 sourceType = request.sourceType ?: "NATIVE",
                 sourceId = request.sourceId,
-                legacyPayload = request.legacyPayload,
                 archivedAt = null
             )
         )
@@ -234,7 +230,6 @@ open class IssueService(
             severity = normalizeSeverity(issue.type, request.severity ?: issue.severity),
             sourceType = issue.sourceType,
             sourceId = issue.sourceId,
-            legacyPayload = request.legacyPayload ?: issue.legacyPayload,
             createdAt = issue.createdAt,
             updatedAt = LocalDateTime.now(),
             archivedAt = issue.archivedAt
@@ -272,7 +267,6 @@ open class IssueService(
                 severity = issue.severity,
                 sourceType = issue.sourceType,
                 sourceId = issue.sourceId,
-                legacyPayload = issue.legacyPayload,
                 createdAt = issue.createdAt,
                 updatedAt = LocalDateTime.now(),
                 archivedAt = issue.archivedAt
@@ -330,7 +324,6 @@ open class IssueService(
         sourceType = sourceType,
         sourceId = sourceId,
         labels = labels,
-        legacyPayload = legacyPayload,
         customFields = customFields,
         customFieldDefinitions = customFieldDefinitions,
         createdAt = createdAt.toString(),

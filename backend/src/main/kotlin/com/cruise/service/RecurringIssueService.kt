@@ -32,7 +32,6 @@ data class RecurringIssueDto(
     val labelIds: List<Long>,
     val active: Boolean,
     val customFields: Map<String, Any?>,
-    val legacyPayload: String?,
     val createdAt: String,
     val updatedAt: String
 )
@@ -56,8 +55,7 @@ data class SaveRecurringIssueRequest(
     val nextRunAt: String,
     val labelIds: List<Long>? = null,
     val active: Boolean = true,
-    val customFields: Map<String, Any?>? = null,
-    val legacyPayload: String? = null
+    val customFields: Map<String, Any?>? = null
 )
 
 @Service
@@ -110,8 +108,7 @@ class RecurringIssueService(
                 labelIds = template?.labelIds ?: labelService.readLabelIdsJson(definition.labelIdsJson),
                 sourceType = "RECURRING",
                 sourceId = definition.id,
-                legacyPayload = template?.legacyPayload ?: definition.legacyPayload,
-                customFields = template?.customFields ?: readMap(definition.customFieldsJson)
+                customFields = issueMaterializedCustomFields(template?.customFields ?: readMap(definition.customFieldsJson))
             )
         )
         definition.nextRunAt = advanceNextRun(definition.nextRunAt, definition.cadenceType, definition.cadenceInterval, definition.weekdaysCsv)
@@ -145,7 +142,6 @@ class RecurringIssueService(
             labelIdsJson = if (request.labelIds != null) labelService.writeLabelIdsJson(request.labelIds) else current.labelIdsJson,
             active = request.active,
             customFieldsJson = if (request.customFields != null) objectMapper.writeValueAsString(request.customFields) else current.customFieldsJson,
-            legacyPayload = request.legacyPayload ?: current.legacyPayload,
             createdAt = current.createdAt.takeIf { current.id != 0L } ?: LocalDateTime.now(),
             updatedAt = LocalDateTime.now()
         )
@@ -171,13 +167,15 @@ class RecurringIssueService(
         labelIds = labelService.readLabelIdsJson(definition.labelIdsJson),
         active = definition.active,
         customFields = readMap(definition.customFieldsJson),
-        legacyPayload = definition.legacyPayload,
         createdAt = definition.createdAt.toString(),
         updatedAt = definition.updatedAt.toString()
     )
 
     private fun readMap(value: String?): Map<String, Any?> =
         if (value.isNullOrBlank()) emptyMap() else objectMapper.readValue(value, object : TypeReference<Map<String, Any?>>() {})
+
+    private fun issueMaterializedCustomFields(values: Map<String, Any?>): Map<String, Any?> =
+        values.filterKeys { it != "links" }
 
     private fun normalizeNullable(requestValue: Long?, currentValue: Long?): Long? =
         when {

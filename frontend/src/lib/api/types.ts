@@ -37,7 +37,6 @@ export interface Issue {
   sourceType: string;
   sourceId: number | null;
   labels: Label[];
-  legacyPayload: string | null;
   customFields: Record<string, unknown>;
   customFieldDefinitions?: CustomFieldDefinition[] | null;
   createdAt: string;
@@ -110,8 +109,6 @@ export interface ImportFieldMappingTemplate {
   isDefault: boolean;
   createdAt: string;
 }
-
-type JsonRecord = Record<string, unknown>;
 
 export interface FeatureIssue extends Issue {
   type: 'FEATURE';
@@ -203,6 +200,43 @@ export interface InitiativeProject {
   archivedAt: string | null;
 }
 
+export interface Cycle {
+  id: number;
+  organizationId: number;
+  teamId: number;
+  name: string;
+  description: string | null;
+  number: number;
+  startsAt: string | null;
+  endsAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+}
+
+export interface ProjectStatus {
+  id: number;
+  organizationId: number;
+  name: string;
+  color: string | null;
+  type: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+}
+
+export interface InitiativeRelation {
+  id: number;
+  initiativeId: number;
+  relatedInitiativeId: number;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+}
+
 export interface ProjectMilestone {
   id: number;
   projectId: number;
@@ -281,6 +315,81 @@ export interface CustomerNeed {
   createdAt: string;
   updatedAt: string;
   archivedAt: string | null;
+}
+
+export interface CustomerStatus {
+  id: number;
+  organizationId: number;
+  name: string;
+  color: string | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+}
+
+export interface CustomerTier {
+  id: number;
+  organizationId: number;
+  name: string;
+  color: string | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+}
+
+export interface ExternalEntityInfo {
+  id: number;
+  service: string;
+  entityType: string;
+  entityId: number;
+  externalId: string;
+  externalUrl: string | null;
+  metadataJson: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExternalUser {
+  id: number;
+  service: string;
+  externalId: string;
+  name: string | null;
+  avatarUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EntityExternalLink {
+  id: number;
+  entityType: string;
+  entityId: number;
+  title: string;
+  url: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentActivity {
+  id: number;
+  agentSessionId: number;
+  type: string;
+  content: string | null;
+  issueId: number | null;
+  commentId: number | null;
+  createdAt: string;
+}
+
+export interface Reaction {
+  id: number;
+  userId: number;
+  issueId: number | null;
+  commentId: number | null;
+  projectUpdateId: number | null;
+  initiativeUpdateId: number | null;
+  emoji: string;
+  createdAt: string;
 }
 
 export interface Team {
@@ -384,7 +493,6 @@ export interface IssueTemplate {
   plannedStartDate: string | null;
   plannedEndDate: string | null;
   labelIds: number[];
-  legacyPayload: string | null;
   customFields: Record<string, unknown>;
   subIssues: string[];
   createdAt: string;
@@ -409,7 +517,6 @@ export interface IssueDraft {
   plannedEndDate: string | null;
   labelIds: number[];
   status: 'LOCAL_DRAFT' | 'SAVED_DRAFT' | string;
-  legacyPayload: string | null;
   customFields: Record<string, unknown>;
   attachmentsPending: Array<Record<string, unknown>>;
   createdAt: string;
@@ -437,7 +544,6 @@ export interface RecurringIssueDefinition {
   labelIds: number[];
   active: boolean;
   customFields: Record<string, unknown>;
-  legacyPayload: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -546,23 +652,12 @@ export interface NotificationPreference {
   updatedAt: string;
 }
 
-export const parseLegacyPayload = (legacyPayload: string | null | undefined): JsonRecord => {
-  if (!legacyPayload) return {};
-  try {
-    return JSON.parse(legacyPayload) as JsonRecord;
-  } catch {
-    return {};
-  }
-};
-
-export const stringifyLegacyPayload = (payload: JsonRecord): string =>
-  JSON.stringify(Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined)));
-
-const asNumber = (value: unknown): number | null => (typeof value === 'number' ? value : null);
+const asNumber = (value: unknown): number | null =>
+  typeof value === 'number' ? value : typeof value === 'string' ? Number(value) || null : null;
 const asString = (value: unknown): string | null => (typeof value === 'string' ? value : null);
 
 export const mapFeatureIssue = (issue: Issue): FeatureIssue => {
-  const payload = parseLegacyPayload(issue.legacyPayload);
+  const payload = issue.customFields ?? {};
   return {
     ...issue,
     type: 'FEATURE',
@@ -586,7 +681,7 @@ export const mapFeatureIssue = (issue: Issue): FeatureIssue => {
 };
 
 export const mapTaskIssue = (issue: Issue): TaskIssue => {
-  const payload = parseLegacyPayload(issue.legacyPayload);
+  const payload = issue.customFields ?? {};
   return {
     ...issue,
     type: 'TASK',

@@ -2,15 +2,16 @@
 
 import { useMemo, useState } from 'react';
 import AppLayout from '@/components/AppLayout';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { useI18n } from '@/i18n/useI18n';
 import type { Initiative, Project } from '@/lib/api';
 import { useInitiativeProjects, useInitiativesWorkspace, usePlanningHubMutations } from '@/lib/query/planning-hub';
 
 export default function InitiativesPage() {
+  const { t } = useI18n();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -33,17 +34,17 @@ export default function InitiativesPage() {
     <AppLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-semibold text-ink-900">Initiatives</h1>
-          <p className="mt-2 text-sm text-ink-700">Strategic initiatives and their linked delivery projects.</p>
+          <h1 className="text-3xl font-semibold text-ink-900">{t('initiatives.title')}</h1>
+          <p className="mt-2 text-sm text-ink-700">{t('initiatives.subtitle')}</p>
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
           <section className="space-y-3">
             <Card className="section-panel">
-              <CardHeader className="p-0 pb-4"><CardTitle>New initiative</CardTitle></CardHeader>
+              <CardHeader className="p-0 pb-4"><CardTitle>{t('initiatives.panels.newInitiative')}</CardTitle></CardHeader>
               <CardContent className="space-y-3 p-0">
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Initiative name" />
-                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" />
+                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('initiatives.fields.name')} />
+                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('initiatives.fields.description')} />
                 <Button
                   className="w-full"
                   onClick={async () => {
@@ -53,7 +54,7 @@ export default function InitiativesPage() {
                     setDescription('');
                   }}
                 >
-                  Create initiative
+                  {t('initiatives.actions.create')}
                 </Button>
               </CardContent>
             </Card>
@@ -67,7 +68,7 @@ export default function InitiativesPage() {
               >
                 <div className="text-sm font-semibold">{initiative.name}</div>
                 <div className={`mt-2 text-xs ${selected?.id === initiative.id ? 'text-slate-300' : 'text-ink-400'}`}>{initiative.slugId ?? `#${initiative.id}`}</div>
-                <div className={`mt-3 text-sm ${selected?.id === initiative.id ? 'text-slate-300' : 'text-ink-700'}`}>{initiative.description ?? 'No description'}</div>
+                <div className={`mt-3 text-sm ${selected?.id === initiative.id ? 'text-slate-300' : 'text-ink-700'}`}>{initiative.description ?? t('initiatives.empty.noDescription')}</div>
               </button>
             ))}
           </section>
@@ -76,16 +77,16 @@ export default function InitiativesPage() {
             {selected ? (
               <>
                 <div className="grid gap-4 md:grid-cols-4">
-                  <Metric label="Status" value={selected.status} />
-                  <Metric label="Health" value={selected.health ?? 'Not set'} />
-                  <Metric label="Target date" value={selected.targetDate ?? 'Not set'} />
-                  <Metric label="Linked projects" value={String(attachedProjects.length)} />
+                  <Metric label={t('initiatives.metrics.status')} value={selected.status} />
+                  <Metric label={t('initiatives.metrics.health')} value={selected.health ?? t('initiatives.empty.notSet')} />
+                  <Metric label={t('initiatives.metrics.targetDate')} value={selected.targetDate ?? t('initiatives.empty.notSet')} />
+                  <Metric label={t('initiatives.metrics.linkedProjects')} value={String(attachedProjects.length)} />
                 </div>
 
                 <Card className="section-panel">
-                  <CardHeader className="p-0 pb-4"><CardTitle>Link projects</CardTitle></CardHeader>
+                  <CardHeader className="p-0 pb-4"><CardTitle>{t('initiatives.panels.linkProjects')}</CardTitle></CardHeader>
                   <CardContent className="space-y-3 p-0">
-                    <Input value={projectId} onChange={(e) => setProjectId(e.target.value)} placeholder="Project ID" />
+                    <Input value={projectId} onChange={(e) => setProjectId(e.target.value)} placeholder={t('initiatives.fields.projectId')} />
                     <Button
                       onClick={async () => {
                         if (!selected || !projectId) return;
@@ -93,25 +94,25 @@ export default function InitiativesPage() {
                         setProjectId('');
                       }}
                     >
-                      Attach project
+                      {t('initiatives.actions.attachProject')}
                     </Button>
-                    <div className="text-xs text-ink-400">Available: {projects.map((item) => `${item.id}:${item.name}`).join(' | ')}</div>
+                    <div className="text-xs text-ink-400">{t('initiatives.hints.availableProjects', { value: projects.map((item) => `${item.id}:${item.name}`).join(' | ') })}</div>
                   </CardContent>
                 </Card>
 
-                <Panel title="Linked projects">
+                <Panel title={t('initiatives.panels.linkedProjects')}>
                   {attachedProjects.length ? attachedProjects.map(({ relation, project }) => (
                     <div key={relation.id} className="drawer-panel flex items-center justify-between gap-3">
                       <div>
                         <div className="text-sm font-medium text-ink-900">{project?.name}</div>
-                        <div className="mt-1 text-xs text-ink-400">#{project?.id} · sort {relation.sortOrder}</div>
+                        <div className="mt-1 text-xs text-ink-400">#{project?.id} / {t('initiatives.hints.relationSortOrder', { value: relation.sortOrder })}</div>
                       </div>
-                      <Button variant="secondary" onClick={() => selected && deleteInitiativeProjectMutation.mutate({ initiativeId: selected.id, relationId: relation.id })}>Detach</Button>
+                      <Button variant="secondary" onClick={() => selected && deleteInitiativeProjectMutation.mutate({ initiativeId: selected.id, relationId: relation.id })}>{t('initiatives.actions.detachProject')}</Button>
                     </div>
-                  )) : <Empty label="No linked projects" />}
+                  )) : <Empty label={t('initiatives.empty.linkedProjects')} />}
                 </Panel>
               </>
-            ) : <Card className="section-panel p-10 text-center text-ink-400">No initiatives</Card>}
+            ) : <Card className="section-panel p-10 text-center text-ink-400">{t('initiatives.empty.initiatives')}</Card>}
           </section>
         </div>
       </div>

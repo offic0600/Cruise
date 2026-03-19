@@ -28,7 +28,6 @@ data class IssueDraftDto(
     val plannedEndDate: String?,
     val labelIds: List<Long>,
     val status: String,
-    val legacyPayload: String?,
     val customFields: Map<String, Any?>,
     val attachmentsPending: List<Map<String, Any?>>,
     val createdAt: String,
@@ -58,7 +57,6 @@ data class SaveIssueDraftRequest(
     val plannedEndDate: String? = null,
     val labelIds: List<Long>? = null,
     val status: String = "SAVED_DRAFT",
-    val legacyPayload: String? = null,
     val customFields: Map<String, Any?>? = null,
     val attachmentsPending: List<Map<String, Any?>>? = null
 )
@@ -113,7 +111,6 @@ class IssueDraftService(
             plannedEndDate = parseDate(request.plannedEndDate) ?: current.plannedEndDate,
             labelIdsJson = if (request.labelIds != null) labelService.writeLabelIdsJson(request.labelIds) else current.labelIdsJson,
             status = request.status,
-            legacyPayload = request.legacyPayload ?: current.legacyPayload,
             customFieldsJson = if (request.customFields != null) writeJson(request.customFields) else current.customFieldsJson,
             attachmentsPendingJson = if (request.attachmentsPending != null) writeJson(request.attachmentsPending) else current.attachmentsPendingJson,
             createdAt = current.createdAt.takeIf { current.id != 0L } ?: LocalDateTime.now(),
@@ -138,7 +135,6 @@ class IssueDraftService(
         plannedEndDate = draft.plannedEndDate?.toString(),
         labelIds = labelService.readLabelIdsJson(draft.labelIdsJson),
         status = draft.status,
-        legacyPayload = draft.legacyPayload,
         customFields = readMap(draft.customFieldsJson),
         attachmentsPending = readAttachmentList(draft.attachmentsPendingJson),
         createdAt = draft.createdAt.toString(),

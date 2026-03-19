@@ -1,7 +1,6 @@
 package com.cruise.service
 
 import com.cruise.repository.TeamMemberRepository
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.springframework.stereotype.Service
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -11,8 +10,6 @@ class AnalyticsService(
     private val issueService: IssueService,
     private val teamMemberRepository: TeamMemberRepository
 ) {
-    private val objectMapper = jacksonObjectMapper()
-
     private fun issues(query: IssueQuery): List<IssueDto> =
         issueService.findAll(query.copy(size = Int.MAX_VALUE)).items
 
@@ -232,7 +229,7 @@ class AnalyticsService(
         }
 
         val blockedTasks = tasks.count {
-            it.state == "IN_PROGRESS" && it.progress < 30 && remainingDays(it.legacyPayload)?.let { days -> days < 1 } == true
+            it.state == "IN_PROGRESS" && it.progress < 30 && remainingDays(it.customFields)?.let { days -> days < 1 } == true
         }
         if (blockedTasks > 0) {
             riskScore += 15
@@ -371,9 +368,10 @@ class AnalyticsService(
     private fun percentage(done: Int, total: Int): Double =
         if (total > 0) (done.toDouble() / total) * 100 else 0.0
 
-    private fun remainingDays(legacyPayload: String?): Double? {
-        if (legacyPayload.isNullOrBlank()) return null
-        val payload = runCatching { objectMapper.readTree(legacyPayload) }.getOrNull() ?: return null
-        return payload["remainingDays"]?.asDouble()
-    }
+    private fun remainingDays(customFields: Map<String, Any?>): Double? =
+        when (val value = customFields["remainingDays"]) {
+            is Number -> value.toDouble()
+            is String -> value.toDoubleOrNull()
+            else -> null
+        }
 }

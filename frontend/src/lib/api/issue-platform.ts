@@ -22,7 +22,6 @@ export const createIssueTemplate = (data: {
   plannedStartDate?: string | null;
   plannedEndDate?: string | null;
   labelIds?: number[];
-  legacyPayload?: string | null;
   customFields?: Record<string, unknown>;
   subIssues?: string[];
 }) => apiClient.post<IssueTemplate>('/issue-templates', data).then((r) => r.data);
@@ -54,7 +53,6 @@ export const createIssueDraft = (data: {
   plannedEndDate?: string | null;
   labelIds?: number[];
   status?: string;
-  legacyPayload?: string | null;
   customFields?: Record<string, unknown>;
   attachmentsPending?: Array<Record<string, unknown>>;
 }) => apiClient.post<IssueDraft>('/issue-drafts', data).then((r) => r.data);
@@ -87,7 +85,6 @@ export const createRecurringIssue = (data: {
   labelIds?: number[];
   active?: boolean;
   customFields?: Record<string, unknown>;
-  legacyPayload?: string | null;
 }) => apiClient.post<RecurringIssueDefinition>('/recurring-issues', data).then((r) => r.data);
 
 export const updateRecurringIssue = (id: number, data: Parameters<typeof createRecurringIssue>[0]) =>

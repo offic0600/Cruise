@@ -51,7 +51,8 @@ import { getStoredUser } from '@/lib/auth';
 import {
   applySavedDraftToComposer,
   applyTemplateToDraft,
-  buildLegacyPayloadFromDraft,
+  buildIssueCustomFields,
+  buildPersistedCustomFields,
   ISSUE_PRIORITIES,
   ISSUE_STATES,
   ISSUE_TYPES,
@@ -268,8 +269,7 @@ export default function IssueComposer({
         weekdays: recurringUnit === 'week' && draft.plannedEndDate ? [weekdayCodeFromDate(draft.plannedEndDate)] : undefined,
         nextRunAt: buildRecurringNextRunAt(draft.plannedEndDate),
         labelIds: draft.labelIds.map(Number),
-        customFields: draft.customFields,
-        legacyPayload: buildLegacyPayloadFromDraft(draft),
+        customFields: buildPersistedCustomFields(draft),
       });
 
       if (initialDraftId) {
@@ -308,8 +308,7 @@ export default function IssueComposer({
       plannedStartDate: draft.plannedStartDate || null,
       plannedEndDate: draft.plannedEndDate || null,
       labelIds: draft.labelIds.map(Number),
-      legacyPayload: buildLegacyPayloadFromDraft(draft),
-      customFields: draft.customFields,
+      customFields: buildIssueCustomFields(draft),
     });
 
     if (pendingFiles.length) {
@@ -370,8 +369,7 @@ export default function IssueComposer({
         plannedEndDate: draft.plannedEndDate || null,
         labelIds: draft.labelIds.map(Number),
         status: 'SAVED_DRAFT',
-        legacyPayload: buildLegacyPayloadFromDraft(draft),
-        customFields: draft.customFields,
+        customFields: buildPersistedCustomFields(draft),
         attachmentsPending: pendingFiles.map((file) => ({ name: file.name, size: file.size })),
       },
     });
@@ -401,8 +399,7 @@ export default function IssueComposer({
       plannedStartDate: draft.plannedStartDate || null,
       plannedEndDate: draft.plannedEndDate || null,
       labelIds: draft.labelIds.map(Number),
-      legacyPayload: buildLegacyPayloadFromDraft(draft),
-      customFields: draft.customFields,
+      customFields: buildPersistedCustomFields(draft),
     });
     setSavingTemplate(false);
     setTemplateName('');

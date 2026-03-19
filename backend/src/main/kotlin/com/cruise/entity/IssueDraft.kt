@@ -59,9 +59,6 @@ class IssueDraft(
     @Column(nullable = false, length = 30)
     var status: String = "SAVED_DRAFT",
 
-    @Column(name = "legacy_payload", length = 4000)
-    var legacyPayload: String? = null,
-
     @Column(name = "custom_fields_json", length = 4000)
     var customFieldsJson: String? = null,
 

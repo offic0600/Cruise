@@ -5,8 +5,6 @@ import {
   mapBugIssue,
   mapFeatureIssue,
   mapTaskIssue,
-  parseLegacyPayload,
-  stringifyLegacyPayload,
 } from './types';
 
 export const getIssues = (params?: {
@@ -52,7 +50,6 @@ export const createIssue = (data: {
   estimatedHours?: number;
   actualHours?: number;
   severity?: string | null;
-  legacyPayload?: string | null;
   customFields?: Record<string, unknown>;
 }) => apiClient.post<Issue>('/issues', data).then((r) => r.data);
 
@@ -78,7 +75,6 @@ export const updateIssue = (
     estimatedHours?: number;
     actualHours?: number;
     severity?: string | null;
-    legacyPayload?: string | null;
     customFields?: Record<string, unknown>;
   }
 ) => apiClient.put<Issue>(`/issues/${id}`, data).then((r) => r.data);
@@ -129,7 +125,7 @@ export const createFeatureIssue = (data: {
     progress: data.progress ?? 0,
     plannedStartDate: data.plannedStartDate,
     plannedEndDate: data.expectedDeliveryDate,
-    legacyPayload: stringifyLegacyPayload({
+    customFields: {
       productOwnerId: data.productOwnerId ?? null,
       devOwnerId: data.devOwnerId ?? null,
       devParticipants: data.devParticipants ?? null,
@@ -144,7 +140,7 @@ export const createFeatureIssue = (data: {
       vendors: data.vendors ?? null,
       vendorStaff: data.vendorStaff ?? null,
       createdBy: data.createdBy ?? null,
-    }),
+    },
   }).then(mapFeatureIssue);
 
 export const updateFeatureIssue = (
@@ -186,8 +182,8 @@ export const updateFeatureIssue = (
       progress: data.progress,
       plannedStartDate: data.plannedStartDate,
       plannedEndDate: data.expectedDeliveryDate,
-      legacyPayload: stringifyLegacyPayload({
-        ...parseLegacyPayload(issue.legacyPayload),
+      customFields: {
+        ...issue.customFields,
         productOwnerId: data.productOwnerId,
         devOwnerId: data.devOwnerId,
         devParticipants: data.devParticipants,
@@ -202,7 +198,7 @@ export const updateFeatureIssue = (
         vendors: data.vendors,
         vendorStaff: data.vendorStaff,
         createdBy: data.createdBy,
-      }),
+      },
     }).then(mapFeatureIssue)
   );
 
@@ -238,11 +234,11 @@ export const createTaskIssue = (data: {
       plannedStartDate: data.plannedStartDate,
       plannedEndDate: data.plannedEndDate,
       estimatedHours: data.estimatedHours ?? 0,
-      legacyPayload: stringifyLegacyPayload({
+      customFields: {
         estimatedDays: data.estimatedDays ?? null,
         plannedDays: data.plannedDays ?? null,
         remainingDays: data.remainingDays ?? null,
-      }),
+      },
     }).then(mapTaskIssue)
   );
 
@@ -274,12 +270,12 @@ export const updateTaskIssue = (
       plannedStartDate: data.plannedStartDate,
       plannedEndDate: data.plannedEndDate,
       estimatedHours: data.estimatedHours,
-      legacyPayload: stringifyLegacyPayload({
-        ...parseLegacyPayload(issue.legacyPayload),
+      customFields: {
+        ...issue.customFields,
         estimatedDays: data.estimatedDays,
         plannedDays: data.plannedDays,
         remainingDays: data.remainingDays,
-      }),
+      },
     }).then(mapTaskIssue)
   );
 

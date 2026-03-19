@@ -27,7 +27,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     () => [
       { href: '/issues', label: t('nav.issues'), icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 7h6m-6 4h6m-7-8h.01M9 16h.01' },
       { href: '/projects', label: t('nav.projects'), icon: 'M4 7a2 2 0 012-2h4l2 2h6a2 2 0 012 2v2H4V7zm0 4h16v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6z' },
+      { href: '/initiatives', label: t('nav.initiatives'), icon: 'M5 4h14v4H5zm0 6h8v4H5zm0 6h14v4H5z' },
+      { href: '/roadmaps', label: t('nav.roadmaps'), icon: 'M4 6h6v4H4zm10 0h6v4h-6zM4 14h10v4H4zm14 0h2v4h-2z' },
+      { href: '/customers', label: t('nav.customers'), icon: 'M5 19h14a1 1 0 001-1v-1a4 4 0 00-4-4H8a4 4 0 00-4 4v1a1 1 0 001 1zm7-9a4 4 0 100-8 4 4 0 000 8z' },
       { href: '/views', label: t('nav.views'), icon: 'M4 6h16M4 12h10M4 18h7' },
+      { href: '/custom-fields', label: t('nav.customFields'), icon: 'M4 7h16M4 12h16M4 17h10' },
+      { href: '/agent', label: t('nav.agent'), icon: 'M12 3a4 4 0 00-4 4v2H7a2 2 0 00-2 2v6a4 4 0 004 4h6a4 4 0 004-4v-6a2 2 0 00-2-2h-1V7a4 4 0 00-4-4zm-2 8V7a2 2 0 114 0v4h-4z' },
       { href: '/team-members', label: t('nav.teamMembers'), icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
     ],
     [t]

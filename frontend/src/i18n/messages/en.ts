@@ -65,6 +65,9 @@ const enMessages = {
     dashboard: "Dashboard",
     issues: "Issues",
     newIssue: "New Issue",
+    initiatives: "Initiatives",
+    roadmaps: "Roadmaps",
+    customers: "Customers",
     drafts: "Drafts",
     templates: "Templates",
     recurring: "Recurring",
@@ -700,6 +703,113 @@ const enMessages = {
       USER: "User",
       TEAM: "Team",
       URL: "URL",
+    },
+  },
+  initiatives: {
+    title: "Initiatives",
+    subtitle: "Strategic initiatives and their linked delivery projects.",
+    actions: {
+      create: "Create initiative",
+      attachProject: "Attach project",
+      detachProject: "Detach",
+    },
+    fields: {
+      name: "Initiative name",
+      description: "Description",
+      projectId: "Project ID",
+    },
+    metrics: {
+      status: "Status",
+      health: "Health",
+      targetDate: "Target date",
+      linkedProjects: "Linked projects",
+    },
+    panels: {
+      newInitiative: "New initiative",
+      linkProjects: "Link projects",
+      linkedProjects: "Linked projects",
+    },
+    empty: {
+      initiatives: "No initiatives",
+      linkedProjects: "No linked projects",
+      noDescription: "No description",
+      notSet: "Not set",
+    },
+    hints: {
+      availableProjects: "Available: {value}",
+      relationSortOrder: "Sort {value}",
+    },
+  },
+  roadmaps: {
+    title: "Roadmaps",
+    subtitle: "Roadmaps organize project sequencing and presentation.",
+    actions: {
+      create: "Create roadmap",
+      attachProject: "Attach project",
+      detachProject: "Detach",
+    },
+    fields: {
+      name: "Roadmap name",
+      description: "Description",
+      projectId: "Project ID",
+    },
+    metrics: {
+      owner: "Owner",
+      color: "Color",
+      sortOrder: "Sort order",
+      projects: "Projects",
+    },
+    panels: {
+      newRoadmap: "New roadmap",
+      attachProjects: "Attach projects",
+      roadmapProjects: "Roadmap projects",
+    },
+    empty: {
+      roadmaps: "No roadmaps",
+      projects: "No attached projects",
+      noDescription: "No description",
+      notSet: "Not set",
+    },
+    hints: {
+      availableProjects: "Available: {value}",
+      relationSortOrder: "Sort {value}",
+    },
+  },
+  customers: {
+    title: "Customers",
+    subtitle: "Customers and their delivery needs mapped to projects.",
+    actions: {
+      create: "Create customer",
+      createNeed: "Create need",
+      deleteNeed: "Delete",
+    },
+    fields: {
+      name: "Customer name",
+      needTitle: "Need title",
+      needDescription: "Need description",
+      projectId: "Project ID (optional)",
+    },
+    metrics: {
+      owner: "Owner",
+      status: "Status",
+      tier: "Tier",
+      needs: "Needs",
+    },
+    panels: {
+      newCustomer: "New customer",
+      newNeed: "New customer need",
+      needs: "Customer needs",
+    },
+    empty: {
+      customers: "No customers",
+      needs: "No customer needs",
+      noDomains: "No domains",
+      unlinked: "Unlinked",
+      notSet: "Not set",
+    },
+    hints: {
+      availableProjects: "Available projects: {value}",
+      needMeta: "{status} / {priority} / {project}",
     },
   },
 };

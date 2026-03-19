@@ -61,9 +61,6 @@ class RecurringIssueDefinition(
     @Column(nullable = false)
     var active: Boolean = true,
 
-    @Column(name = "legacy_payload", length = 4000)
-    var legacyPayload: String? = null,
-
     @Column(name = "custom_fields_json", length = 4000)
     var customFieldsJson: String? = null,
 

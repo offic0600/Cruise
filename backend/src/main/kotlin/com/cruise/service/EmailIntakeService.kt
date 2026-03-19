@@ -128,8 +128,7 @@ class EmailIntakeService(
                 plannedStartDate = template?.plannedStartDate,
                 plannedEndDate = template?.plannedEndDate,
                 sourceType = "EMAIL",
-                legacyPayload = template?.legacyPayload,
-                customFields = template?.customFields
+                customFields = template?.customFields?.filterKeys { it != "links" }
             )
         )
         val attachments = request.attachments ?: emptyList()

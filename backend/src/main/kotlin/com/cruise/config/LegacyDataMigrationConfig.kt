@@ -92,7 +92,6 @@ open class LegacyDataMigrationConfig {
                         plannedEndDate = row.expectedDeliveryDate,
                         sourceType = "REQUIREMENT",
                         sourceId = row.id,
-                        legacyPayload = buildRequirementLegacyPayload(row),
                         createdAt = row.createdAt,
                         updatedAt = row.updatedAt
                     )
@@ -136,7 +135,6 @@ open class LegacyDataMigrationConfig {
                         actualHours = row.actualHours,
                         sourceType = "TASK",
                         sourceId = row.id,
-                        legacyPayload = buildTaskLegacyPayload(row),
                         createdAt = row.createdAt,
                         updatedAt = row.updatedAt
                     )
@@ -173,7 +171,6 @@ open class LegacyDataMigrationConfig {
                         severity = row.severity,
                         sourceType = "DEFECT",
                         sourceId = row.id,
-                        legacyPayload = row.taskId?.let { """{"taskId":$it}""" },
                         createdAt = row.createdAt,
                         updatedAt = row.updatedAt
                     )
@@ -230,23 +227,6 @@ open class LegacyDataMigrationConfig {
         "LOW" -> "LOW"
         else -> "MEDIUM"
     }
-
-    private fun buildRequirementLegacyPayload(row: RequirementRow): String =
-        """
-        {"productOwnerId":${nullableNumber(row.productOwnerId)},"devOwnerId":${nullableNumber(row.devOwnerId)},"devParticipants":${quote(row.devParticipants)},"testOwnerId":${nullableNumber(row.testOwnerId)},"tags":${quote(row.tags)},"estimatedDays":${nullableFloat(row.estimatedDays)},"plannedDays":${nullableFloat(row.plannedDays)},"gapDays":${nullableFloat(row.gapDays)},"gapBudget":${nullableFloat(row.gapBudget)},"actualDays":${nullableFloat(row.actualDays)},"applicationCodes":${quote(row.applicationCodes)},"vendors":${quote(row.vendors)},"vendorStaff":${quote(row.vendorStaff)},"createdBy":${quote(row.createdBy)}}
-        """.trimIndent()
-
-    private fun buildTaskLegacyPayload(row: TaskRow): String =
-        """
-        {"estimatedDays":${nullableFloat(row.estimatedDays)},"plannedDays":${nullableFloat(row.plannedDays)},"remainingDays":${nullableFloat(row.remainingDays)}}
-        """.trimIndent()
-
-    private fun nullableNumber(value: Long?): String = value?.toString() ?: "null"
-
-    private fun nullableFloat(value: Float?): String = value?.toString() ?: "null"
-
-    private fun quote(value: String?): String =
-        value?.replace("\\", "\\\\")?.replace("\"", "\\\"")?.let { "\"$it\"" } ?: "null"
 
     private fun ResultSet.toIssueTag(): IssueTag = IssueTag(
         id = getLong("id"),

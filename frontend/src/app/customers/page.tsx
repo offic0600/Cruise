@@ -6,10 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { useI18n } from '@/i18n/useI18n';
 import type { Customer, Project } from '@/lib/api';
 import { useCustomerNeeds, useCustomersWorkspace, usePlanningHubMutations } from '@/lib/query/planning-hub';
 
 export default function CustomersPage() {
+  const { t } = useI18n();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [name, setName] = useState('');
   const [needTitle, setNeedTitle] = useState('');
@@ -28,16 +30,16 @@ export default function CustomersPage() {
     <AppLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-semibold text-ink-900">Customers</h1>
-          <p className="mt-2 text-sm text-ink-700">Customers and their delivery needs mapped to projects.</p>
+          <h1 className="text-3xl font-semibold text-ink-900">{t('customers.title')}</h1>
+          <p className="mt-2 text-sm text-ink-700">{t('customers.subtitle')}</p>
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
           <section className="space-y-3">
             <Card className="section-panel">
-              <CardHeader className="p-0 pb-4"><CardTitle>New customer</CardTitle></CardHeader>
+              <CardHeader className="p-0 pb-4"><CardTitle>{t('customers.panels.newCustomer')}</CardTitle></CardHeader>
               <CardContent className="space-y-3 p-0">
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Customer name" />
+                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('customers.fields.name')} />
                 <Button
                   className="w-full"
                   onClick={async () => {
@@ -46,7 +48,7 @@ export default function CustomersPage() {
                     setName('');
                   }}
                 >
-                  Create customer
+                  {t('customers.actions.create')}
                 </Button>
               </CardContent>
             </Card>
@@ -60,7 +62,7 @@ export default function CustomersPage() {
               >
                 <div className="text-sm font-semibold">{customer.name}</div>
                 <div className={`mt-2 text-xs ${selected?.id === customer.id ? 'text-slate-300' : 'text-ink-400'}`}>{customer.slugId ?? `#${customer.id}`}</div>
-                <div className={`mt-3 text-sm ${selected?.id === customer.id ? 'text-slate-300' : 'text-ink-700'}`}>{customer.domains ?? 'No domains'}</div>
+                <div className={`mt-3 text-sm ${selected?.id === customer.id ? 'text-slate-300' : 'text-ink-700'}`}>{customer.domains ?? t('customers.empty.noDomains')}</div>
               </button>
             ))}
           </section>
@@ -69,18 +71,18 @@ export default function CustomersPage() {
             {selected ? (
               <>
                 <div className="grid gap-4 md:grid-cols-4">
-                  <Metric label="Owner" value={selected.ownerId ? `#${selected.ownerId}` : 'Not set'} />
-                  <Metric label="Status" value={selected.statusId ? `#${selected.statusId}` : 'Not set'} />
-                  <Metric label="Tier" value={selected.tierId ? `#${selected.tierId}` : 'Not set'} />
-                  <Metric label="Needs" value={String(needs.length)} />
+                  <Metric label={t('customers.metrics.owner')} value={selected.ownerId ? `#${selected.ownerId}` : t('customers.empty.notSet')} />
+                  <Metric label={t('customers.metrics.status')} value={selected.statusId ? `#${selected.statusId}` : t('customers.empty.notSet')} />
+                  <Metric label={t('customers.metrics.tier')} value={selected.tierId ? `#${selected.tierId}` : t('customers.empty.notSet')} />
+                  <Metric label={t('customers.metrics.needs')} value={String(needs.length)} />
                 </div>
 
                 <Card className="section-panel">
-                  <CardHeader className="p-0 pb-4"><CardTitle>New customer need</CardTitle></CardHeader>
+                  <CardHeader className="p-0 pb-4"><CardTitle>{t('customers.panels.newNeed')}</CardTitle></CardHeader>
                   <CardContent className="space-y-3 p-0">
-                    <Input value={needTitle} onChange={(e) => setNeedTitle(e.target.value)} placeholder="Need title" />
-                    <Textarea value={needDescription} onChange={(e) => setNeedDescription(e.target.value)} placeholder="Need description" />
-                    <Input value={needProjectId} onChange={(e) => setNeedProjectId(e.target.value)} placeholder="Project ID (optional)" />
+                    <Input value={needTitle} onChange={(e) => setNeedTitle(e.target.value)} placeholder={t('customers.fields.needTitle')} />
+                    <Textarea value={needDescription} onChange={(e) => setNeedDescription(e.target.value)} placeholder={t('customers.fields.needDescription')} />
+                    <Input value={needProjectId} onChange={(e) => setNeedProjectId(e.target.value)} placeholder={t('customers.fields.projectId')} />
                     <Button
                       onClick={async () => {
                         if (!selected || !needTitle.trim()) return;
@@ -97,26 +99,26 @@ export default function CustomersPage() {
                         setNeedProjectId('');
                       }}
                     >
-                      Create need
+                      {t('customers.actions.createNeed')}
                     </Button>
-                    <div className="text-xs text-ink-400">Available projects: {projects.map((item) => `${item.id}:${item.name}`).join(' | ')}</div>
+                    <div className="text-xs text-ink-400">{t('customers.hints.availableProjects', { value: projects.map((item) => `${item.id}:${item.name}`).join(' | ') })}</div>
                   </CardContent>
                 </Card>
 
-                <Panel title="Customer needs">
+                <Panel title={t('customers.panels.needs')}>
                   {needs.length ? needs.map((need) => (
                     <div key={need.id} className="drawer-panel flex items-center justify-between gap-3">
                       <div>
                         <div className="text-sm font-medium text-ink-900">{need.title}</div>
-                        <div className="mt-1 text-xs text-ink-400">{need.status} · {need.priority} · {need.projectId ? `project #${need.projectId}` : 'unlinked'}</div>
+                        <div className="mt-1 text-xs text-ink-400">{t('customers.hints.needMeta', { status: need.status, priority: need.priority, project: need.projectId ? `project #${need.projectId}` : t('customers.empty.unlinked') })}</div>
                         {need.description ? <div className="mt-2 text-sm text-ink-700">{need.description}</div> : null}
                       </div>
-                      <Button variant="secondary" onClick={() => selected && deleteCustomerNeedMutation.mutate({ customerId: selected.id, needId: need.id })}>Delete</Button>
+                      <Button variant="secondary" onClick={() => selected && deleteCustomerNeedMutation.mutate({ customerId: selected.id, needId: need.id })}>{t('customers.actions.deleteNeed')}</Button>
                     </div>
-                  )) : <Empty label="No customer needs" />}
+                  )) : <Empty label={t('customers.empty.needs')} />}
                 </Panel>
               </>
-            ) : <Card className="section-panel p-10 text-center text-ink-400">No customers</Card>}
+            ) : <Card className="section-panel p-10 text-center text-ink-400">{t('customers.empty.customers')}</Card>}
           </section>
         </div>
       </div>

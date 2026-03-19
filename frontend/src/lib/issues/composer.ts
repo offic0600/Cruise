@@ -1,5 +1,4 @@
 import type { Issue, IssueDraft, IssueTemplate, Project, Team } from '@/lib/api';
-import { parseLegacyPayload, stringifyLegacyPayload } from '@/lib/api';
 
 export type IssueComposerDraft = {
   templateId: string;
@@ -54,6 +53,7 @@ export function applyTemplateToDraft(
   template: IssueTemplate | undefined | null
 ): IssueComposerDraft {
   if (!template) return draft;
+  const templateLinks = typeof template.customFields.links === 'string' ? template.customFields.links : draft.linksText;
   return {
     ...draft,
     templateId: String(template.id),
@@ -69,6 +69,7 @@ export function applyTemplateToDraft(
     plannedStartDate: template.plannedStartDate ?? draft.plannedStartDate,
     plannedEndDate: template.plannedEndDate ?? draft.plannedEndDate,
     labelIds: template.labelIds.map(String),
+    linksText: templateLinks,
     customFields: { ...draft.customFields, ...template.customFields },
   };
 }
@@ -78,7 +79,6 @@ export function applySavedDraftToComposer(
   draft: IssueDraft | null | undefined
 ): IssueComposerDraft {
   if (!draft) return current;
-  const legacy = parseLegacyPayload(draft.legacyPayload);
   return {
     ...current,
     templateId: draft.templateId ? String(draft.templateId) : current.templateId,
@@ -95,7 +95,7 @@ export function applySavedDraftToComposer(
     plannedStartDate: draft.plannedStartDate ?? current.plannedStartDate,
     plannedEndDate: draft.plannedEndDate ?? current.plannedEndDate,
     labelIds: draft.labelIds.map(String),
-    linksText: Array.isArray(legacy.links) ? legacy.links.join('\n') : current.linksText,
+    linksText: typeof draft.customFields.links === 'string' ? draft.customFields.links : current.linksText,
     customFields: { ...current.customFields, ...draft.customFields },
   };
 }
@@ -145,13 +145,26 @@ export function serializeDraftToQuery(draft: IssueComposerDraft): string {
   return params.toString();
 }
 
-export function buildLegacyPayloadFromDraft(draft: IssueComposerDraft, existingPayload?: string | null) {
-  const payload = parseLegacyPayload(existingPayload);
-  const links = draft.linksText.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  return stringifyLegacyPayload({
-    ...payload,
+export function buildPersistedCustomFields(
+  draft: IssueComposerDraft,
+  existingCustomFields?: Record<string, unknown> | null
+) {
+  const links = draft.linksText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join('\n');
+
+  return {
+    ...(existingCustomFields ?? {}),
+    ...draft.customFields,
     links,
-  });
+  };
+}
+
+export function buildIssueCustomFields(draft: IssueComposerDraft) {
+  const { links, ...customFields } = buildPersistedCustomFields(draft);
+  return customFields;
 }
 
 export function localDraftStorageKey(userId: number | undefined, localeScope: string) {

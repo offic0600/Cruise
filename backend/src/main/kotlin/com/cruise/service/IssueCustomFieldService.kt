@@ -3,6 +3,7 @@ package com.cruise.service
 import com.cruise.entity.CustomFieldDefinition
 import com.cruise.entity.CustomFieldValue
 import com.cruise.entity.Issue
+import com.cruise.repository.CustomFieldDefinitionRepository
 import com.cruise.repository.CustomFieldValueRepository
 import com.cruise.repository.TeamRepository
 import com.cruise.repository.UserRepository
@@ -19,6 +20,7 @@ import java.time.LocalDateTime
 @Transactional
 class IssueCustomFieldService(
     private val customFieldDefinitionService: CustomFieldDefinitionService,
+    private val customFieldDefinitionRepository: CustomFieldDefinitionRepository,
     private val customFieldValueRepository: CustomFieldValueRepository,
     private val userRepository: UserRepository,
     private val teamRepository: TeamRepository,
@@ -73,13 +75,11 @@ class IssueCustomFieldService(
         val sanitizedPayload = payload.orEmpty().filterValues { value ->
             value != null && !(value is String && value.isBlank())
         }
-        val unknownKeys = sanitizedPayload.keys - definitionsByKey.keys
-        if (unknownKeys.isNotEmpty()) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown custom fields: ${unknownKeys.joinToString(", ")}")
-        }
+        val missingDefinitions = ensureDefinitionsForUnknownKeys(issue, sanitizedPayload, definitionsByKey)
+        val allDefinitions = definitions + missingDefinitions
 
         val now = LocalDateTime.now()
-        val valuesToSave = definitions.mapNotNull { definition ->
+        val valuesToSave = allDefinitions.mapNotNull { definition ->
             val rawValue = sanitizedPayload[definition.key]
             if (rawValue == null) {
                 if (definition.required) {
@@ -96,6 +96,53 @@ class IssueCustomFieldService(
             customFieldValueRepository.saveAll(valuesToSave)
         }
     }
+
+    private fun ensureDefinitionsForUnknownKeys(
+        issue: Issue,
+        payload: Map<String, Any?>,
+        existingDefinitions: Map<String, CustomFieldDefinition>
+    ): List<CustomFieldDefinition> {
+        val unknownKeys = payload.keys - existingDefinitions.keys
+        if (unknownKeys.isEmpty()) return emptyList()
+
+        val now = LocalDateTime.now()
+        return unknownKeys.sorted().map { key ->
+            val rawValue = payload.getValue(key)
+            customFieldDefinitionRepository.save(
+                CustomFieldDefinition(
+                    organizationId = issue.organizationId,
+                    entityType = "ISSUE",
+                    scopeType = "GLOBAL",
+                    scopeId = null,
+                    key = key,
+                    name = key.split("_", "-", " ")
+                        .filter { it.isNotBlank() }
+                        .joinToString(" ") { token -> token.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() } },
+                    description = "Auto-provisioned during Linear object-model migration.",
+                    dataType = inferDataType(rawValue),
+                    required = false,
+                    multiple = false,
+                    isActive = true,
+                    isVisible = false,
+                    isFilterable = false,
+                    isSortable = false,
+                    showOnCreate = false,
+                    showOnDetail = false,
+                    showOnList = false,
+                    sortOrder = 10_000,
+                    createdAt = now,
+                    updatedAt = now
+                )
+            )
+        }
+    }
+
+    private fun inferDataType(value: Any?): String =
+        when (value) {
+            is Boolean -> "BOOLEAN"
+            is Number -> "NUMBER"
+            else -> "TEXTAREA"
+        }
 
     @Transactional
     fun deleteIssueValues(issueId: Long) {

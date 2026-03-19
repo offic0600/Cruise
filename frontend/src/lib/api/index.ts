@@ -3,6 +3,7 @@ export * from './auth';
 export * from './types';
 export * from './issues';
 export * from './planning';
+export * from './resources';
 export * from './views';
 export * from './collaboration';
 export * from './custom-fields';
