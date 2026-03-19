@@ -66,6 +66,10 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
     }
 }
 
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
+}
+
 tasks.withType<org.springframework.boot.gradle.tasks.bundling.BootJar>().configureEach {
     mainClass.set("com.cruise.CruiseApplication")
 }
