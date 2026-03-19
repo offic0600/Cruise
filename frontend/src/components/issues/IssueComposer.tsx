@@ -4,8 +4,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Calendar, CalendarPlus, CheckCircle2, ChevronDown, ChevronRight, Circle, CircleDashed, CircleEllipsis, Equal, Expand, Flame, Link2, ListPlus, LoaderCircle, Minus, MoreHorizontal, Paperclip, Repeat, Save, Tag, X, XCircle } from 'lucide-react';
+import { Calendar, CalendarPlus, CheckCircle2, ChevronDown, ChevronRight, Circle, CircleDashed, CircleEllipsis, Equal, Expand, Flame, Link2, LoaderCircle, Minimize2, Minus, MoreHorizontal, Paperclip, Repeat, Save, Tag, X, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/providers/ToastProvider';
 import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import {
   DropdownMenu,
@@ -60,9 +61,9 @@ import {
   type IssueComposerDraft,
   localDraftStorageKey,
   parseIssueCreateParams,
-  serializeDraftToQuery,
 } from '@/lib/issues/composer';
 import { queryKeys } from '@/lib/query/keys';
+import { buildIssueCreatedToast } from '@/lib/toast/issue-created';
 import { cn } from '@/lib/utils';
 
 type TeamMember = {
@@ -103,9 +104,11 @@ export default function IssueComposer({
   const { locale, t } = useI18n();
   const isZh = locale.startsWith('zh');
   const storedUser = getStoredUser();
-  const { currentOrganizationId, currentTeamId } = useCurrentWorkspace();
+  const { pushToast } = useToast();
+  const { currentOrganization, currentOrganizationId, currentTeam, currentTeamId } = useCurrentWorkspace();
   const organizationId = currentOrganizationId ?? storedUser?.organizationId ?? 1;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const modalContentRef = useRef<HTMLDivElement | null>(null);
   const composerEnabled = mode === 'page' ? true : open;
 
   const [draft, setDraft] = useState<IssueComposerDraft | null>(null);
@@ -114,6 +117,8 @@ export default function IssueComposer({
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templateName, setTemplateName] = useState('');
   const [createMore, setCreateMore] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [collapsedHeight, setCollapsedHeight] = useState<number | null>(null);
   const [recurringEnabled, setRecurringEnabled] = useState(false);
   const [recurringInterval, setRecurringInterval] = useState('1');
   const [recurringUnit, setRecurringUnit] = useState<'day' | 'week' | 'month'>('week');
@@ -205,6 +210,28 @@ export default function IssueComposer({
     setDraft((current) => (current ? { ...current, plannedEndDate: toDateInputValue(addDays(new Date(), 7)) } : current));
   }, [draft, recurringEnabled]);
 
+  useEffect(() => {
+    if (mode !== 'modal' || !modalContentRef.current) return;
+
+    const element = modalContentRef.current;
+    const updateHeight = () => {
+      if (isExpanded) return;
+      const viewportLimit = Math.max(window.innerHeight - 80, 480);
+      setCollapsedHeight(Math.min(element.scrollHeight, viewportLimit));
+    };
+
+    updateHeight();
+
+    const observer = new ResizeObserver(() => updateHeight());
+    observer.observe(element);
+    window.addEventListener('resize', updateHeight);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateHeight);
+    };
+  }, [isExpanded, mode]);
+
   const createIssueMutation = useMutation({ mutationFn: createIssue });
   const uploadAttachmentMutation = useMutation({
     mutationFn: ({ issueId, file }: { issueId: number; file: File }) =>
@@ -239,8 +266,7 @@ export default function IssueComposer({
 
   if (!open || !draft) return null;
 
-  const pageHref = `${localizePath(locale, '/issues/new')}?${serializeDraftToQuery(draft)}`;
-  const projectName = projects.find((project) => String(project.id) === draft.projectId)?.name ?? t('settings.composer.noProject');
+  const scopeName = currentTeam?.name ?? currentOrganization?.name ?? 'Workspace';
   const selectedLabelIds = draft.labelIds;
 
   const resetComposer = () => {
@@ -346,6 +372,8 @@ export default function IssueComposer({
 
     await queryClient.invalidateQueries({ queryKey: ['issues'] });
 
+    pushToast(buildIssueCreatedToast(issue, locale, t));
+
     if (mode === 'page') {
       onCreated?.(issue);
       router.push(localizePath(locale, `/issues/${issue.id}`));
@@ -423,8 +451,7 @@ export default function IssueComposer({
       labels={labels}
       labelCatalog={labelCatalog}
       members={members}
-      projectName={projectName}
-      pageHref={pageHref}
+      scopeName={scopeName}
       dirty={dirty}
       pendingFiles={pendingFiles}
       createMore={createMore}
@@ -438,8 +465,9 @@ export default function IssueComposer({
       currentUserName={storedUser?.username ?? null}
       t={t}
       locale={locale}
+      isExpanded={isExpanded}
       onClose={onClose ? handleClose : undefined}
-      onExpand={() => router.push(pageHref)}
+      onToggleExpanded={() => setIsExpanded((current) => !current)}
       onSaveDraft={handleSaveServerDraft}
       onSaveLocalDraft={handleSaveLocalDraft}
       onPickFiles={() => fileInputRef.current?.click()}
@@ -501,8 +529,18 @@ export default function IssueComposer({
         <div className="mx-auto max-w-5xl px-8 py-8">{fullBody}</div>
       ) : (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/16 px-6 py-10 backdrop-blur-[2px]">
-          <div className="w-full max-w-6xl rounded-[32px] border border-black/5 bg-white p-6 shadow-[0_28px_80px_rgba(15,23,42,0.18)]">
-            {quickBody}
+          <div
+            className={cn(
+              'w-full overflow-hidden rounded-[32px] border border-black/5 bg-white shadow-[0_28px_80px_rgba(15,23,42,0.18)] transition-[width,height,max-width] duration-200 ease-linear',
+              isExpanded
+                ? 'h-[calc(100vh-24px)] max-w-[min(1320px,calc(100vw-24px))]'
+                : 'max-w-6xl'
+            )}
+            style={isExpanded ? undefined : collapsedHeight != null ? { height: `${collapsedHeight}px` } : undefined}
+          >
+            <div ref={modalContentRef} className={cn('p-6', isExpanded ? 'h-full' : '')}>
+              {quickBody}
+            </div>
           </div>
         </div>
       )}
@@ -515,8 +553,7 @@ function QuickCreateView({
   labels,
   labelCatalog,
   members,
-  projectName,
-  pageHref,
+  scopeName,
   dirty,
   pendingFiles,
   createMore,
@@ -530,8 +567,9 @@ function QuickCreateView({
   currentUserName,
   t,
   locale,
+  isExpanded,
   onClose,
-  onExpand,
+  onToggleExpanded,
   onSaveDraft,
   onSaveLocalDraft,
   onPickFiles,
@@ -547,8 +585,7 @@ function QuickCreateView({
   labels: Label[];
   labelCatalog?: { teamLabels: Label[]; workspaceLabels: Label[] };
   members: TeamMember[];
-  projectName: string;
-  pageHref: string;
+  scopeName: string;
   dirty: boolean;
   pendingFiles: File[];
   createMore: boolean;
@@ -562,8 +599,9 @@ function QuickCreateView({
   currentUserName: string | null;
   t: (key: string, params?: Record<string, string | number>) => string;
   locale: Locale;
+  isExpanded: boolean;
   onClose?: () => void;
-  onExpand: () => void;
+  onToggleExpanded: () => void;
   onSaveDraft: () => Promise<void>;
   onSaveLocalDraft: () => void;
   onPickFiles: () => void;
@@ -587,11 +625,11 @@ function QuickCreateView({
   const dueDateInputRef = useRef<HTMLInputElement | null>(null);
 
   return (
-    <div className="flex min-h-[470px] flex-col">
+    <div className={cn('flex flex-col', isExpanded ? 'h-full min-h-0' : '')}>
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3 text-[15px] text-ink-700">
           <div className="inline-flex h-10 items-center rounded-full border border-border-soft px-3 text-sm font-medium text-ink-700">
-            {projectName}
+            {scopeName}
           </div>
           <span className="text-ink-300">&gt;</span>
           <span className="text-[18px] font-medium text-ink-900">{t('issues.actions.new')}</span>
@@ -608,11 +646,11 @@ function QuickCreateView({
           ) : null}
           <button
             type="button"
-            onClick={onExpand}
+            onClick={onToggleExpanded}
             className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border-soft text-ink-500 transition hover:bg-slate-50 hover:text-ink-900"
-            aria-label={t('settings.composer.openFullCreate')}
+            aria-label={isExpanded ? t('settings.composer.collapseComposer') : t('settings.composer.expandComposer')}
           >
-            <Expand className="h-4 w-4" />
+            {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Expand className="h-4 w-4" />}
           </button>
           {onClose ? (
             <button
@@ -627,7 +665,7 @@ function QuickCreateView({
         </div>
       </div>
 
-      <div className="mt-10 flex-1">
+      <div className={cn('mt-10', isExpanded ? 'flex-1' : '')}>
         <input
           value={draft.title}
           onChange={(event) => onDraftChange((current) => (current ? { ...current, title: event.target.value } : current))}
@@ -688,7 +726,7 @@ function QuickCreateView({
           draft={draft}
           templates={templates}
           locale={locale}
-          pageHref={pageHref}
+          isExpanded={isExpanded}
           onApplyTemplate={(templateId) =>
             onDraftChange((current) =>
               current
@@ -701,7 +739,7 @@ function QuickCreateView({
           }
           onSaveLocalDraft={onSaveLocalDraft}
           onDraftChange={onDraftChange}
-          onExpand={onExpand}
+          onToggleExpanded={onToggleExpanded}
           onToggleRecurring={() => onRecurringEnabledChange(true)}
           t={t}
         />
@@ -1418,22 +1456,22 @@ function QuickActionsPill({
   draft,
   templates,
   locale,
-  pageHref,
+  isExpanded,
   onApplyTemplate,
   onSaveLocalDraft,
   onDraftChange,
-  onExpand,
+  onToggleExpanded,
   onToggleRecurring,
   t,
 }: {
   draft: IssueComposerDraft;
   templates: IssueTemplate[];
   locale: Locale;
-  pageHref: string;
+  isExpanded: boolean;
   onApplyTemplate: (templateId: number) => void;
   onSaveLocalDraft: () => void;
   onDraftChange: React.Dispatch<React.SetStateAction<IssueComposerDraft | null>>;
-  onExpand: () => void;
+  onToggleExpanded: () => void;
   onToggleRecurring: () => void;
   t: (key: string, params?: Record<string, string | number>) => string;
 }) {
@@ -1550,9 +1588,9 @@ function QuickActionsPill({
           </DropdownMenuPortal>
         </DropdownMenuSub>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={onExpand} className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
-          <ListPlus className="h-5 w-5 text-ink-500" />
-          <span>{t('issues.detailPage.newSubIssue')}</span>
+        <DropdownMenuItem onSelect={onToggleExpanded} className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+          {isExpanded ? <Minimize2 className="h-5 w-5 text-ink-500" /> : <Expand className="h-5 w-5 text-ink-500" />}
+          <span>{isExpanded ? t('settings.composer.collapseComposer') : t('settings.composer.expandComposer')}</span>
           <ChevronRight className="ml-auto h-4 w-4 text-ink-300" />
         </DropdownMenuItem>
         {templates.length ? (
