@@ -7,23 +7,33 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   CalendarPlus,
   Clock3,
+  Check,
+  CheckCircle2,
+  ChevronDown,
   Copy,
   CopyPlus,
+  Circle,
+  CircleEllipsis,
   FileText,
   Flag,
   FolderKanban,
+  Flame,
   ArrowLeft,
   ArrowUp,
   ChevronRight,
   Download,
+  Equal,
   Link2,
+  LoaderCircle,
   MessageSquare,
+  Minus,
   MoreHorizontal,
   Paperclip,
   Plus,
   Repeat,
   SmilePlus,
   Star,
+  Tag,
   Trash2,
 } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
@@ -46,6 +56,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useI18n } from '@/i18n/useI18n';
@@ -56,6 +67,7 @@ import {
   createRecurringIssue,
   deleteIssue,
   downloadIssueAttachment,
+  type Label,
   type CustomFieldDefinition,
   type Issue,
   type Project,
@@ -64,6 +76,7 @@ import { getStoredUser } from '@/lib/auth';
 import { useIssueDetailWorkspace, useIssueMutations } from '@/lib/query/issues';
 import { queryKeys } from '@/lib/query/keys';
 import { issueDetailPath, teamActivePath } from '@/lib/routes';
+import { cn } from '@/lib/utils';
 
 const EMPTY = '__empty__';
 const ISSUE_STATES: Issue['state'][] = ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELED'];
@@ -93,6 +106,24 @@ interface DraftIssue {
   customFields: Record<string, unknown>;
 }
 
+interface SubIssueDraft {
+  title: string;
+  description: string;
+  state: Issue['state'];
+  priority: Issue['priority'];
+  assigneeId: number | null;
+  labelIds: number[];
+  plannedEndDate: string | null;
+}
+
+type InlinePillOption = {
+  value: string;
+  label: string;
+  icon?: ReactNode;
+  avatarText?: string;
+  avatarClassName?: string;
+};
+
 export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   const { locale, t } = useI18n();
   const router = useRouter();
@@ -100,6 +131,8 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   const { pushToast } = useToast();
   const { currentOrganizationSlug, currentTeamId, currentTeamKey } = useCurrentWorkspace();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const subIssueFileInputRef = useRef<HTMLInputElement | null>(null);
+  const subIssueTitleRef = useRef<HTMLInputElement | null>(null);
   const user = getStoredUser();
   const organizationId = user?.organizationId ?? 1;
   const {
@@ -148,7 +181,8 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
 
   const [draftIssue, setDraftIssue] = useState<DraftIssue | null>(null);
   const [commentBody, setCommentBody] = useState('');
-  const [childTitle, setChildTitle] = useState('');
+  const [subIssueDraft, setSubIssueDraft] = useState<SubIssueDraft>(() => createSubIssueDraft());
+  const [subIssueFiles, setSubIssueFiles] = useState<File[]>([]);
   const [docTitle, setDocTitle] = useState('');
   const [docContent, setDocContent] = useState('');
   const [relationTargetId, setRelationTargetId] = useState('');
@@ -161,9 +195,18 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   useEffect(() => {
     if (!issue) return;
     setDraftIssue(createDraft(issue));
+    setSubIssueDraft(createSubIssueDraft(issue));
+    setSubIssueFiles([]);
+    setIsAddingChild(false);
     setBodyMode('read');
     setActiveProperty(null);
   }, [issue]);
+
+  useEffect(() => {
+    if (!isAddingChild) return;
+    const frame = window.requestAnimationFrame(() => subIssueTitleRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [isAddingChild]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !issue) return;
@@ -221,27 +264,32 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
     return map;
   }, [issue?.reporterId, memberMap, user?.email, user?.id, user?.username]);
 
-  const feedItems = useMemo(() => {
-    const activityItems = activity.map((event) => ({
-      id: `activity-${event.id}`,
-      kind: 'activity' as const,
-      createdAt: event.createdAt,
-      authorId: event.actorId,
-      summary: event.summary,
-      body: null as string | null,
-    }));
-    const commentItems = comments.map((comment) => ({
-      id: `comment-${comment.id}`,
-      kind: 'comment' as const,
-      createdAt: comment.createdAt,
-      authorId: comment.authorId,
-      summary: '',
-      body: comment.body,
-    }));
-    return [...activityItems, ...commentItems].sort(
-      (left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
-    );
-  }, [activity, comments]);
+  const activityItems = useMemo(
+    () =>
+      activity
+        .map((event) => ({
+          id: `activity-${event.id}`,
+          kind: 'event' as const,
+          createdAt: event.createdAt,
+          authorId: event.actorId,
+          summary: event.summary,
+        }))
+        .sort((left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()),
+    [activity]
+  );
+  const commentItems = useMemo(
+    () =>
+      comments
+        .map((comment) => ({
+          id: `comment-${comment.id}`,
+          kind: 'comment' as const,
+          createdAt: comment.createdAt,
+          authorId: comment.authorId,
+          body: comment.body,
+        }))
+        .sort((left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()),
+    [comments]
+  );
 
   const visibleCustomFields = useMemo(
     () =>
@@ -490,20 +538,29 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   };
 
   const createChildIssue = async () => {
-    if (!issue || !childTitle.trim()) return;
-    await createIssueMutation.mutateAsync({
+    if (!issue || !subIssueDraft.title.trim()) return;
+    const created = await createIssueMutation.mutateAsync({
       organizationId: issue.organizationId,
       type: 'TASK',
-      title: childTitle.trim(),
-      description: '',
+      title: subIssueDraft.title.trim(),
+      description: subIssueDraft.description.trim(),
       projectId: issue.projectId,
       teamId: issue.teamId,
       parentIssueId: issue.id,
       reporterId: user?.id ?? 1,
-      state: 'TODO',
-      priority: 'MEDIUM',
+      state: subIssueDraft.state,
+      priority: subIssueDraft.priority,
+      assigneeId: subIssueDraft.assigneeId,
+      plannedEndDate: subIssueDraft.plannedEndDate,
+      labelIds: subIssueDraft.labelIds,
     });
-    setChildTitle('');
+    if (subIssueFiles.length) {
+      for (const file of subIssueFiles) {
+        await uploadAttachmentMutation.mutateAsync({ issueId: created.id, file, uploadedBy: user?.id ?? undefined });
+      }
+    }
+    setSubIssueDraft(createSubIssueDraft(issue));
+    setSubIssueFiles([]);
     setIsAddingChild(false);
   };
 
@@ -671,17 +728,169 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                   </button>
                 </div>
                 <div className="space-y-2.5">
-                  <Link
-                    href={
-                      currentOrganizationSlug && currentTeamKey
-                        ? `${teamActivePath(currentOrganizationSlug, currentTeamKey)}?create=true&parentIssueId=${issue.id}${issue.projectId != null ? `&projectId=${issue.projectId}` : ''}&teamId=${issue.teamId ?? ''}&title=`
-                        : '#'
-                    }
-                      className="inline-flex items-center gap-2 text-[20px] leading-none text-ink-700 transition hover:text-ink-900"
-                    >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddingChild((current) => {
+                        const next = !current;
+                        if (next) {
+                          setSubIssueDraft(createSubIssueDraft(issue));
+                          setSubIssueFiles([]);
+                        }
+                        return next;
+                      });
+                    }}
+                    className="inline-flex items-center gap-2 text-[20px] leading-none text-ink-700 transition hover:text-ink-900"
+                  >
                       <Plus className="h-3.5 w-3.5 stroke-[2.2]" />
                       <span className="text-[15px]">{t('issues.detailPage.newSubIssue')}</span>
-                    </Link>
+                  </button>
+                  <div
+                    className={cn(
+                      'grid transition-all duration-200 ease-out',
+                      isAddingChild ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+                    )}
+                  >
+                    <div className="overflow-hidden">
+                      <div className="rounded-[24px] border border-border-soft bg-white px-5 py-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
+                        <input
+                          ref={subIssueTitleRef}
+                          value={subIssueDraft.title}
+                          onChange={(event) =>
+                            setSubIssueDraft((current) => ({
+                              ...current,
+                              title: event.target.value,
+                            }))
+                          }
+                          placeholder={t('settings.composer.titlePlaceholder')}
+                          className="w-full border-0 bg-transparent px-0 py-0 text-[30px] font-semibold tracking-[-0.03em] text-ink-900 outline-none placeholder:text-ink-300"
+                        />
+                        <Textarea
+                          value={subIssueDraft.description}
+                          onChange={(event) =>
+                            setSubIssueDraft((current) => ({
+                              ...current,
+                              description: event.target.value,
+                            }))
+                          }
+                          placeholder={t('settings.composer.descriptionPlaceholder')}
+                          className="mt-2 min-h-[72px] resize-none border-0 px-0 py-0 text-[16px] leading-7 text-ink-700 shadow-none placeholder:text-ink-300 focus-visible:ring-0"
+                        />
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex flex-wrap items-center gap-2.5">
+                            <InlineIssuePill
+                              label={issueStateLabel(subIssueDraft.state, t)}
+                              value={subIssueDraft.state}
+                              options={ISSUE_STATES.map((value) => buildInlineStateOption(value, t))}
+                              onChange={(value) =>
+                                setSubIssueDraft((current) => ({ ...current, state: value as Issue['state'] }))
+                              }
+                            />
+                            <InlineIssuePill
+                              label={issuePriorityLabel(subIssueDraft.priority, t)}
+                              value={subIssueDraft.priority}
+                              options={ISSUE_PRIORITIES.map((value) => buildInlinePriorityOption(value, t))}
+                              onChange={(value) =>
+                                setSubIssueDraft((current) => ({ ...current, priority: value as Issue['priority'] }))
+                              }
+                            />
+                            <InlineIssuePill
+                              label={
+                                members.find((member) => member.id === subIssueDraft.assigneeId)?.name ?? t('common.notSet')
+                              }
+                              value={subIssueDraft.assigneeId != null ? String(subIssueDraft.assigneeId) : EMPTY}
+                              options={members.map((member) => ({
+                                value: String(member.id),
+                                label: member.name,
+                                avatarText: initialsForName(member.name),
+                                avatarClassName: 'bg-rose-100 text-rose-600',
+                              }))}
+                              onChange={(value) =>
+                                setSubIssueDraft((current) => ({
+                                  ...current,
+                                  assigneeId: value === EMPTY ? null : Number(value),
+                                }))
+                              }
+                              emptyLabel={t('common.notSet')}
+                              searchable
+                              searchPlaceholder={t('settings.composer.searchAssignee')}
+                              noSearchResultsLabel={t('settings.composer.noAssigneeResults')}
+                            />
+                            <InlineLabelsPill
+                              labels={labels}
+                              selectedLabelIds={subIssueDraft.labelIds}
+                              onToggle={(labelId) =>
+                                setSubIssueDraft((current) => ({
+                                  ...current,
+                                  labelIds: current.labelIds.includes(labelId)
+                                    ? current.labelIds.filter((value) => value !== labelId)
+                                    : [...current.labelIds, labelId],
+                                }))
+                              }
+                              t={t}
+                            />
+                            <InlineSubIssueMoreMenu
+                              dueDate={subIssueDraft.plannedEndDate}
+                              hasAttachments={subIssueFiles.length > 0}
+                              locale={locale}
+                              t={t}
+                              onClearDueDate={() =>
+                                setSubIssueDraft((current) => ({
+                                  ...current,
+                                  plannedEndDate: null,
+                                }))
+                              }
+                              onSetDueDate={(value) =>
+                                setSubIssueDraft((current) => ({
+                                  ...current,
+                                  plannedEndDate: value,
+                                }))
+                              }
+                            />
+                          </div>
+                          <div className="flex items-center gap-2.5">
+                            <input
+                              ref={subIssueFileInputRef}
+                              type="file"
+                              multiple
+                              className="hidden"
+                              onChange={(event) => setSubIssueFiles(Array.from(event.target.files ?? []))}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => subIssueFileInputRef.current?.click()}
+                              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-ink-400 transition hover:border-slate-200 hover:bg-slate-50 hover:text-ink-700"
+                              aria-label={t('issues.detailPage.uploadAttachment')}
+                            >
+                              <Paperclip className="h-4 w-4 stroke-[1.8]" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsAddingChild(false);
+                                setSubIssueDraft(createSubIssueDraft(issue));
+                                setSubIssueFiles([]);
+                              }}
+                              className="inline-flex h-10 items-center rounded-full px-3 text-[15px] font-medium text-ink-500 transition hover:text-ink-800"
+                            >
+                              {t('common.cancel')}
+                            </button>
+                            <Button
+                              type="button"
+                              onClick={() => void createChildIssue()}
+                              disabled={!subIssueDraft.title.trim() || createIssueMutation.isPending || uploadAttachmentMutation.isPending}
+                              className="h-10 rounded-full px-5"
+                            >
+                              {createIssueMutation.isPending || uploadAttachmentMutation.isPending ? (
+                                <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                              ) : null}
+                              {t('common.create')}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   {childIssues.length ? (
                     <div className="space-y-1 pl-6">
                       {childIssues.map((child) => (
@@ -718,47 +927,46 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                     </div>
                   </div>
 
-                <div className="space-y-0.5">
-                  {feedItems.length ? (
-                    feedItems.map((item, index) => {
-                      const actorName = valueFromMap(
-                        actorNameMap,
-                        item.authorId ?? null,
-                        item.kind === 'comment' ? `User ${item.authorId ?? ''}`.trim() : 'System'
-                      );
-                      return (
-                        <div key={item.id} className="grid grid-cols-[28px_minmax(0,1fr)] gap-3">
-                          <div className="relative flex justify-center">
-                            {index < feedItems.length - 1 ? (
-                              <span className="absolute top-7 h-[calc(100%-1rem)] w-px bg-border-soft" />
-                            ) : null}
-                            {item.kind === 'comment' ? (
-                              <div className="mt-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[#ff8a80] text-[8px] font-semibold uppercase text-white">
-                                {initialsForName(actorName)}
-                              </div>
-                            ) : (
-                              <div className="mt-1 h-4.5 w-4.5 rounded-full border border-slate-300 bg-white" />
-                            )}
-                          </div>
-                          <div className="min-w-0 pb-3">
-                            {item.kind === 'comment' ? (
-                              <div className="space-y-1.5">
-                                <div className="text-[14px] leading-6 text-ink-700">
-                                  <span className="font-medium text-ink-900">{actorName}</span>
-                                  <span className="ml-2 text-[13px] text-ink-400">{formatRelativeTime(item.createdAt, locale)}</span>
+                <div className="space-y-4">
+                  {activityItems.length || commentItems.length ? (
+                    <>
+                      {activityItems.length ? (
+                        <IssueActivityTimeline
+                          items={activityItems}
+                          actorNameMap={actorNameMap}
+                          locale={locale}
+                        />
+                      ) : null}
+                      {commentItems.length ? (
+                        <div className="space-y-3 pt-1">
+                          {commentItems.map((item) => {
+                            const actorName = valueFromMap(
+                              actorNameMap,
+                              item.authorId ?? null,
+                              `User ${item.authorId ?? ''}`.trim()
+                            );
+                            return (
+                              <div key={item.id} className="grid grid-cols-[24px_minmax(0,1fr)] gap-3">
+                                <div className="flex justify-center pt-1">
+                                  <div className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[#ff8a80] text-[8px] font-semibold uppercase text-white">
+                                    {initialsForName(actorName)}
+                                  </div>
                                 </div>
-                                <div className="whitespace-pre-wrap text-[14px] leading-6 text-ink-900">{item.body}</div>
+                                <div className="min-w-0">
+                                  <div className="text-[13px] leading-6 text-ink-700">
+                                    <span className="font-medium text-ink-900">{actorName}</span>
+                                    <span className="ml-2 text-[12px] text-ink-400">
+                                      {formatRelativeTime(item.createdAt, locale)}
+                                    </span>
+                                  </div>
+                                  <div className="whitespace-pre-wrap text-[14px] leading-6 text-ink-900">{item.body}</div>
+                                </div>
                               </div>
-                            ) : (
-                              <div className="text-[14px] leading-6 text-ink-700">
-                                <span className="font-medium text-ink-900">{item.summary}</span>
-                                <span className="ml-2 text-[13px] text-ink-400">{formatRelativeTime(item.createdAt, locale)}</span>
-                              </div>
-                            )}
-                          </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })
+                      ) : null}
+                    </>
                   ) : (
                     <EmptyState label={t('issues.emptyStates.activity')} />
                   )}
@@ -1548,6 +1756,46 @@ function EmptyState({ label, compact = false }: { label: string; compact?: boole
   return <div className={compact ? 'py-2 text-sm text-ink-400' : 'py-4 text-sm text-ink-400'}>{label}</div>;
 }
 
+function IssueActivityTimeline({
+  items,
+  actorNameMap,
+  locale,
+}: {
+  items: Array<{
+    id: string;
+    kind: 'event';
+    createdAt: string;
+    authorId: number | null;
+    summary: string;
+  }>;
+  actorNameMap: Map<number, string>;
+  locale: string;
+}) {
+  return (
+    <div className="space-y-0.5">
+      {items.map((item, index) => {
+        const actorName = valueFromMap(actorNameMap, item.authorId, 'System');
+        return (
+          <div key={item.id} className="grid grid-cols-[22px_minmax(0,1fr)] gap-3">
+            <div className="relative flex justify-center pt-[7px]">
+              {index < items.length - 1 ? (
+                <span className="absolute left-1/2 top-[15px] h-[calc(100%-6px)] w-px -translate-x-1/2 bg-slate-200" />
+              ) : null}
+              <span className="relative z-10 h-[14px] w-[14px] rounded-full border border-slate-300 bg-white" />
+            </div>
+            <div className="pb-[10px] pt-[1px] text-[13px] leading-6 text-ink-700">
+              <span className="font-medium text-ink-900">{actorName}</span>
+              <span className="ml-1">{stripActorName(item.summary, actorName)}</span>
+              <span className="mx-1.5 text-ink-300">·</span>
+              <span className="text-[12px] text-ink-400">{formatRelativeTime(item.createdAt, locale)}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function EditableTitle({
   value,
   onChange,
@@ -1777,6 +2025,351 @@ function CustomFieldInput({
   }
 }
 
+function InlineIssuePill({
+  label,
+  value,
+  options,
+  onChange,
+  emptyLabel,
+  searchable = false,
+  searchPlaceholder,
+  noSearchResultsLabel,
+}: {
+  label: string;
+  value: string;
+  options: InlinePillOption[];
+  onChange: (value: string) => void;
+  emptyLabel?: string;
+  searchable?: boolean;
+  searchPlaceholder?: string;
+  noSearchResultsLabel?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const selectedOption = options.find((option) => option.value === value);
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredOptions =
+    searchable && normalizedQuery
+      ? options.filter((option) => option.label.toLowerCase().includes(normalizedQuery))
+      : options;
+
+  const handleSelect = (nextValue: string) => {
+    onChange(nextValue);
+    setOpen(false);
+    setQuery('');
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
+        >
+          <InlinePillDisplay option={selectedOption} fallbackLabel={label || emptyLabel || ''} />
+          <ChevronDown className="h-4 w-4 text-ink-300" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[320px] overflow-hidden p-0">
+        {searchable ? (
+          <div className="border-b border-border-soft px-4 py-3">
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={searchPlaceholder}
+              className="h-auto border-0 bg-transparent px-0 py-0 text-[16px] shadow-none focus-visible:ring-0"
+            />
+          </div>
+        ) : null}
+        <div className="max-h-80 overflow-y-auto p-2">
+          <div className="space-y-1">
+            {emptyLabel ? (
+              <InlinePillOptionRow
+                label={emptyLabel}
+                selected={value === EMPTY}
+                onSelect={() => handleSelect(EMPTY)}
+              />
+            ) : null}
+            {filteredOptions.map((option) => (
+              <InlinePillOptionRow
+                key={option.value}
+                option={option}
+                selected={value === option.value}
+                onSelect={() => handleSelect(option.value)}
+              />
+            ))}
+          </div>
+          {searchable && !filteredOptions.length ? (
+            <div className="px-3 py-4 text-sm text-ink-400">{noSearchResultsLabel}</div>
+          ) : null}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function InlineLabelsPill({
+  labels,
+  selectedLabelIds,
+  onToggle,
+  t,
+}: {
+  labels: Label[];
+  selectedLabelIds: number[];
+  onToggle: (labelId: number) => void;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredLabels = normalizedQuery
+    ? labels.filter((label) => label.name.toLowerCase().includes(normalizedQuery))
+    : labels;
+  const selectedLabels = labels.filter((label) => selectedLabelIds.includes(label.id));
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
+        >
+          <Tag className="h-4 w-4 text-ink-400" />
+          <span className="max-w-[180px] truncate">
+            {selectedLabels.length ? selectedLabels.map((label) => label.name).join(', ') : t('settings.composer.labels')}
+          </span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[320px] overflow-hidden p-0">
+        <div className="border-b border-border-soft px-4 py-3">
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t('settings.composer.searchLabels')}
+            className="h-auto border-0 bg-transparent px-0 py-0 text-[16px] shadow-none focus-visible:ring-0"
+          />
+        </div>
+        <div className="max-h-80 overflow-y-auto p-2">
+          <div className="space-y-1">
+            {filteredLabels.map((label) => {
+              const selected = selectedLabelIds.includes(label.id);
+              return (
+                <button
+                  key={label.id}
+                  type="button"
+                  onClick={() => onToggle(label.id)}
+                  className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50"
+                >
+                  <span className="inline-flex h-2.5 w-2.5 rounded-full" style={{ backgroundColor: label.color || '#fb7185' }} />
+                  <span className="flex-1 truncate">{label.name}</span>
+                  {selected ? <Check className="h-4 w-4 text-ink-500" /> : null}
+                </button>
+              );
+            })}
+          </div>
+          {!filteredLabels.length ? <div className="px-3 py-4 text-sm text-ink-400">{t('common.empty')}</div> : null}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function InlineSubIssueMoreMenu({
+  dueDate,
+  hasAttachments,
+  locale,
+  t,
+  onSetDueDate,
+  onClearDueDate,
+}: {
+  dueDate: string | null;
+  hasAttachments: boolean;
+  locale: string;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+  onSetDueDate: (value: string | null) => void;
+  onClearDueDate: () => void;
+}) {
+  const suggestions = buildDueDateSuggestions(locale);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border-soft bg-white text-ink-700 shadow-sm transition hover:bg-slate-50"
+        >
+          <MoreHorizontal className="h-4.5 w-4.5 text-ink-500" strokeWidth={2} />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-[260px] p-2">
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+            <CalendarPlus className="h-4.5 w-4.5 text-ink-500" />
+            <span>{dueDate ? formatDate(dueDate, locale) : t('settings.composer.setDueDate')}</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuSubContent className="min-w-[240px] p-2">
+              {suggestions.map((suggestion) => (
+                <DropdownMenuItem
+                  key={suggestion.value}
+                  className="rounded-xl px-3 py-2 text-[14px]"
+                  onClick={() => onSetDueDate(suggestion.value)}
+                >
+                  {suggestion.label}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="rounded-xl px-3 py-2 text-[14px]" onClick={onClearDueDate}>
+                {t('common.clear')}
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
+        {hasAttachments ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="rounded-xl px-3 py-2 text-[14px]">
+              {t('issues.detailPage.uploadAttachment')}
+            </DropdownMenuItem>
+          </>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function InlinePillDisplay({ option, fallbackLabel }: { option?: InlinePillOption; fallbackLabel: string }) {
+  if (option?.avatarText) {
+    return (
+      <>
+        <span
+          className={cn(
+            'inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold uppercase',
+            option.avatarClassName ?? 'bg-rose-100 text-rose-600'
+          )}
+        >
+          {option.avatarText}
+        </span>
+        <span className="truncate">{option.label}</span>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {option?.icon ?? null}
+      <span className="truncate">{option?.label ?? fallbackLabel}</span>
+    </>
+  );
+}
+
+function InlinePillOptionRow({
+  option,
+  label,
+  selected,
+  onSelect,
+}: {
+  option?: InlinePillOption;
+  label?: string;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50"
+    >
+      {option ? <InlinePillDisplay option={option} fallbackLabel={option.label} /> : <span>{label}</span>}
+      {selected ? <Check className="ml-auto h-4 w-4 text-ink-500" /> : null}
+    </button>
+  );
+}
+
+function createSubIssueDraft(issue?: Issue): SubIssueDraft {
+  return {
+    title: '',
+    description: '',
+    state: 'TODO',
+    priority: 'MEDIUM',
+    assigneeId: issue?.assigneeId ?? null,
+    labelIds: issue?.labels.map((label) => label.id) ?? [],
+    plannedEndDate: issue?.plannedEndDate ?? null,
+  };
+}
+
+function issueStateLabel(state: Issue['state'], t: (key: string) => string) {
+  return translateIssueValue(t, `common.status.${state}`, state);
+}
+
+function issuePriorityLabel(priority: Issue['priority'], t: (key: string) => string) {
+  return translateIssueValue(t, `common.priority.${priority}`, priority);
+}
+
+function buildInlineStateOption(state: Issue['state'], t: (key: string) => string): InlinePillOption {
+  const iconClassName = 'h-4 w-4';
+  const icon =
+    state === 'TODO' ? (
+      <Circle className={cn(iconClassName, 'text-slate-400')} />
+    ) : state === 'IN_PROGRESS' ? (
+      <LoaderCircle className={cn(iconClassName, 'text-sky-500')} />
+    ) : state === 'IN_REVIEW' ? (
+      <CircleEllipsis className={cn(iconClassName, 'text-amber-500')} />
+    ) : state === 'DONE' ? (
+      <CheckCircle2 className={cn(iconClassName, 'text-emerald-500')} />
+    ) : state === 'CANCELED' ? (
+      <Circle className={cn(iconClassName, 'text-slate-300')} />
+    ) : (
+      <Circle className={cn(iconClassName, 'text-slate-300')} />
+    );
+  return {
+    value: state,
+    label: issueStateLabel(state, t),
+    icon,
+  };
+}
+
+function buildInlinePriorityOption(priority: Issue['priority'], t: (key: string) => string): InlinePillOption {
+  const icon =
+    priority === 'LOW' ? (
+      <Minus className="h-4 w-4 text-slate-400" />
+    ) : priority === 'MEDIUM' ? (
+      <Equal className="h-4 w-4 text-sky-500" />
+    ) : priority === 'HIGH' ? (
+      <Flag className="h-4 w-4 text-slate-700" />
+    ) : (
+      <Flame className="h-4 w-4 text-rose-500" />
+    );
+  return {
+    value: priority,
+    label: issuePriorityLabel(priority, t),
+    icon,
+  };
+}
+
+function buildDueDateSuggestions(locale: string) {
+  const now = new Date();
+  const today = new Date(now);
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+  const nextWeek = new Date(now);
+  nextWeek.setDate(now.getDate() + 7);
+  return [today, tomorrow, nextWeek].map((value, index) => ({
+    value: value.toISOString().slice(0, 10),
+    label:
+      index === 0
+        ? locale.startsWith('zh')
+          ? '今天'
+          : 'Today'
+        : index === 1
+          ? locale.startsWith('zh')
+            ? '明天'
+            : 'Tomorrow'
+          : locale.startsWith('zh')
+            ? '下周'
+            : 'Next week',
+  }));
+}
+
 function stringValue(value: number | null) {
   return value == null ? EMPTY : String(value);
 }
@@ -1836,6 +2429,17 @@ function translateIssueValue(t: (key: string) => string, key: string, fallback: 
 
 function valueFromMap(map: Map<number, string>, key: number | null, fallback: string) {
   return key == null ? fallback : map.get(key) ?? fallback;
+}
+
+function stripActorName(summary: string, actorName: string) {
+  const normalizedSummary = summary.trim();
+  if (!normalizedSummary) return '';
+  const lowerSummary = normalizedSummary.toLowerCase();
+  const lowerActor = actorName.trim().toLowerCase();
+  if (lowerActor && lowerSummary.startsWith(lowerActor)) {
+    return normalizedSummary.slice(actorName.length).trimStart();
+  }
+  return normalizedSummary;
 }
 
 function initialsForName(value: string) {

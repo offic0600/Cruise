@@ -194,6 +194,156 @@ class OrganizationAccessIntegrationTest {
             .andExpect(jsonPath("$.parentIssueId").doesNotExist())
     }
 
+    @Test
+    fun `issue activity events are recorded for create and tracked field changes`() {
+        val token = loginAndGetToken("admin", "admin123")
+        val workspaceSlug = "test-${UUID.randomUUID().toString().take(8)}"
+
+        val workspaceResponse = mockMvc.perform(
+            post("/api/organizations")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "name": "Issue Activity Workspace",
+                      "slug": "$workspaceSlug",
+                      "region": "Asia Pacific"
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isCreated)
+            .andReturn()
+            .response
+            .contentAsString
+
+        val workspacePayload = objectMapper.readTree(workspaceResponse)
+        val organizationId = workspacePayload["organization"]["id"].asLong()
+        val teamId = workspacePayload["initialTeam"]["id"].asLong()
+
+        val projectResponse = mockMvc.perform(
+            post("/api/projects")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "organizationId": $organizationId,
+                      "teamId": $teamId,
+                      "name": "Activity Project"
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isCreated)
+            .andReturn()
+            .response
+            .contentAsString
+
+        val projectId = objectMapper.readTree(projectResponse)["id"].asLong()
+
+        val labelResponse = mockMvc.perform(
+            post("/api/labels")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "organizationId": $organizationId,
+                      "scopeType": "TEAM",
+                      "scopeId": $teamId,
+                      "name": "Bug",
+                      "createdBy": 1
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isCreated)
+            .andReturn()
+            .response
+            .contentAsString
+
+        val labelId = objectMapper.readTree(labelResponse)["id"].asLong()
+
+        val createdIssueResponse = mockMvc.perform(
+            post("/api/issues")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "organizationId": $organizationId,
+                      "teamId": $teamId,
+                      "type": "TASK",
+                      "title": "Activity tracked issue",
+                      "reporterId": 1
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isCreated)
+            .andReturn()
+            .response
+            .contentAsString
+
+        val issueId = objectMapper.readTree(createdIssueResponse)["id"].asLong()
+
+        mockMvc.perform(
+            put("/api/issues/$issueId")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "reporterId": 1,
+                      "assigneeId": 1,
+                      "priority": "HIGH",
+                      "projectId": $projectId,
+                      "labelIds": [$labelId]
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isOk)
+
+        mockMvc.perform(
+            put("/api/issues/$issueId")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "reporterId": 1,
+                      "state": "IN_PROGRESS"
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isOk)
+
+        val activityPayload = mockMvc.perform(
+            get("/api/activity")
+                .header("Authorization", "Bearer $token")
+                .param("entityType", "ISSUE")
+                .param("entityId", issueId.toString())
+        )
+            .andExpect(status().isOk)
+            .andReturn()
+            .response
+            .contentAsString
+
+        val events = objectMapper.readTree(activityPayload)
+        val summaries = events.map { it["summary"].asText() }
+
+        assertThat(summaries).contains("created the issue")
+        assertThat(summaries).contains("changed assignee from Unassigned to Cruise Admin")
+        assertThat(summaries).contains("changed priority from Medium to High")
+        assertThat(summaries).contains("changed project from No project to Activity Project")
+        assertThat(summaries).contains("changed labels from no labels to Bug")
+        assertThat(summaries).contains("moved from Todo to In Progress")
+    }
+
     private fun loginAndGetToken(username: String, password: String): String {
         val response = mockMvc.perform(
             post("/api/auth/login")

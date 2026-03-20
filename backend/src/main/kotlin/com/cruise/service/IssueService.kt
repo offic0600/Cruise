@@ -2,6 +2,8 @@ package com.cruise.service
 
 import com.cruise.entity.Issue
 import com.cruise.repository.IssueRepository
+import com.cruise.repository.ProjectRepository
+import com.cruise.repository.UserRepository
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.http.HttpStatus
@@ -109,12 +111,22 @@ data class UpdateIssueRequest(
     val customFields: Map<String, Any?>? = null
 )
 
+private data class IssueActivitySnapshot(
+    val state: String,
+    val assigneeId: Long?,
+    val priority: String,
+    val projectId: Long?
+)
+
 @Service
 @Transactional
 open class IssueService(
     private val issueRepository: IssueRepository,
     private val issueCustomFieldService: IssueCustomFieldService,
     private val labelService: LabelService,
+    private val activityEventService: ActivityEventService,
+    private val userRepository: UserRepository,
+    private val projectRepository: ProjectRepository,
     private val objectMapper: ObjectMapper
 ) {
     fun findAll(query: IssueQuery = IssueQuery()): RestPageResponse<IssueDto> =
@@ -199,12 +211,20 @@ open class IssueService(
         )
         issueCustomFieldService.replaceIssueValues(saved, request.customFields)
         labelService.replaceIssueLabels(saved.id, saved.organizationId, saved.teamId, request.labelIds, request.reporterId)
+        recordIssueActivity(
+            actorId = saved.reporterId,
+            issueId = saved.id,
+            actionType = "ISSUE_CREATED",
+            summary = "created the issue"
+        )
         return findById(saved.id)
     }
 
     @Transactional
     fun update(id: Long, request: UpdateIssueRequest): IssueDto {
         val issue = getIssue(id)
+        val snapshot = issue.toActivitySnapshot()
+        val previousLabels = labelService.getLabelsForIssues(listOf(issue.id))[issue.id].orEmpty()
         val nextProjectId = request.projectId ?: issue.projectId
         val nextParentIssueId = normalizeNullableReference(request.parentIssueId, issue.parentIssueId)
         validateParent(nextParentIssueId, nextProjectId)
@@ -242,11 +262,20 @@ open class IssueService(
         val saved = issueRepository.save(updated)
         issueCustomFieldService.replaceIssueValues(saved, request.customFields ?: issueCustomFieldService.getValuesForIssue(issue))
         labelService.replaceIssueLabels(saved.id, saved.organizationId, saved.teamId, request.labelIds, request.reporterId ?: saved.reporterId)
+        val actorId = request.reporterId ?: saved.reporterId
+        recordUpdateEvents(
+            before = snapshot,
+            after = saved,
+            previousLabels = previousLabels,
+            nextLabels = labelService.getLabelsForIssues(listOf(saved.id))[saved.id].orEmpty(),
+            actorId = actorId
+        )
         return findById(saved.id)
     }
 
     fun updateState(id: Long, state: String, resolution: String? = null): IssueDto {
         val issue = getIssue(id)
+        val previousState = issue.state
         val saved = issueRepository.save(
             Issue(
                 id = issue.id,
@@ -277,6 +306,15 @@ open class IssueService(
                 archivedAt = issue.archivedAt
             )
         )
+        if (previousState != saved.state) {
+            recordIssueActivity(
+                actorId = saved.reporterId,
+                issueId = saved.id,
+                actionType = "ISSUE_STATE_CHANGED",
+                summary = "moved from ${displayState(previousState)} to ${displayState(saved.state)}",
+                payload = mapOf("from" to previousState, "to" to saved.state)
+            )
+        }
         return saved.toDto(
             customFields = issueCustomFieldService.getValuesForIssue(saved),
             labels = labelService.getLabelsForIssues(listOf(saved.id))[saved.id].orEmpty()
@@ -387,4 +425,115 @@ open class IssueService(
             objectMapper.readValue(raw, object : TypeReference<Map<String, Any?>>() {})
         }.getOrElse { emptyMap() }
     }
+
+    private fun recordUpdateEvents(
+        before: IssueActivitySnapshot,
+        after: Issue,
+        previousLabels: List<LabelDto>,
+        nextLabels: List<LabelDto>,
+        actorId: Long?
+    ) {
+        if (before.state != after.state) {
+            recordIssueActivity(
+                actorId = actorId,
+                issueId = after.id,
+                actionType = "ISSUE_STATE_CHANGED",
+                summary = "moved from ${displayState(before.state)} to ${displayState(after.state)}",
+                payload = mapOf("from" to before.state, "to" to after.state)
+            )
+        }
+        if (before.assigneeId != after.assigneeId) {
+            recordIssueActivity(
+                actorId = actorId,
+                issueId = after.id,
+                actionType = "ISSUE_ASSIGNEE_CHANGED",
+                summary = "changed assignee from ${displayAssignee(before.assigneeId)} to ${displayAssignee(after.assigneeId)}",
+                payload = mapOf("from" to before.assigneeId, "to" to after.assigneeId)
+            )
+        }
+        if (before.priority != after.priority) {
+            recordIssueActivity(
+                actorId = actorId,
+                issueId = after.id,
+                actionType = "ISSUE_PRIORITY_CHANGED",
+                summary = "changed priority from ${displayPriority(before.priority)} to ${displayPriority(after.priority)}",
+                payload = mapOf("from" to before.priority, "to" to after.priority)
+            )
+        }
+        if (before.projectId != after.projectId) {
+            recordIssueActivity(
+                actorId = actorId,
+                issueId = after.id,
+                actionType = "ISSUE_PROJECT_CHANGED",
+                summary = "changed project from ${displayProject(before.projectId)} to ${displayProject(after.projectId)}",
+                payload = mapOf("from" to before.projectId, "to" to after.projectId)
+            )
+        }
+        if (previousLabels.map { it.id } != nextLabels.map { it.id }) {
+            recordIssueActivity(
+                actorId = actorId,
+                issueId = after.id,
+                actionType = "ISSUE_LABELS_CHANGED",
+                summary = "changed labels from ${displayLabels(previousLabels)} to ${displayLabels(nextLabels)}",
+                payload = mapOf("from" to previousLabels.map { it.id }, "to" to nextLabels.map { it.id })
+            )
+        }
+    }
+
+    private fun recordIssueActivity(
+        actorId: Long?,
+        issueId: Long,
+        actionType: String,
+        summary: String,
+        payload: Map<String, Any?>? = null
+    ) {
+        activityEventService.create(
+            CreateActivityEventRequest(
+                actorId = actorId,
+                entityType = "ISSUE",
+                entityId = issueId,
+                actionType = actionType,
+                summary = summary,
+                payloadJson = payload?.let { objectMapper.writeValueAsString(it) }
+            )
+        )
+    }
+
+    private fun displayState(value: String): String = when (value) {
+        "BACKLOG" -> "Backlog"
+        "TODO" -> "Todo"
+        "IN_PROGRESS" -> "In Progress"
+        "IN_REVIEW" -> "In Review"
+        "DONE" -> "Done"
+        "CANCELED" -> "Canceled"
+        else -> value.lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase)
+    }
+
+    private fun displayPriority(value: String): String = when (value) {
+        "LOW" -> "Low"
+        "MEDIUM" -> "Medium"
+        "HIGH" -> "High"
+        "URGENT" -> "Urgent"
+        else -> value.lowercase().replaceFirstChar(Char::titlecase)
+    }
+
+    private fun displayAssignee(userId: Long?): String =
+        userId?.let {
+            userRepository.findById(it).orElse(null)?.let { user ->
+                user.displayName ?: user.username.ifBlank { user.email }
+            }
+        } ?: "Unassigned"
+
+    private fun displayProject(projectId: Long?): String =
+        projectId?.let { projectRepository.findById(it).orElse(null)?.name } ?: "No project"
+
+    private fun displayLabels(labels: List<LabelDto>): String =
+        if (labels.isEmpty()) "no labels" else labels.joinToString(", ") { it.name }
+
+    private fun Issue.toActivitySnapshot() = IssueActivitySnapshot(
+        state = state,
+        assigneeId = assigneeId,
+        priority = priority,
+        projectId = projectId
+    )
 }
