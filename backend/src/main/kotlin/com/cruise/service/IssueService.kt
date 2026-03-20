@@ -130,7 +130,7 @@ open class IssueService(
             .filter { query.priority == null || it.priority == query.priority }
             .filter { query.includeArchived || it.archivedAt == null }
             .filter {
-                query.q.isNullOrBlank() || listOfNotNull(it.title, it.description)
+                query.q.isNullOrBlank() || listOfNotNull(it.identifier, it.title, it.description)
                     .any { text -> text.contains(query.q, ignoreCase = true) }
             }
             .sortedBy { it.id }

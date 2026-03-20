@@ -25,7 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { localizePath, type Locale } from '@/i18n/config';
+import { type Locale } from '@/i18n/config';
 import { useI18n } from '@/i18n/useI18n';
 import {
   createLabel,
@@ -63,6 +63,7 @@ import {
   parseIssueCreateParams,
 } from '@/lib/issues/composer';
 import { queryKeys } from '@/lib/query/keys';
+import { issueDetailPath, teamSettingsPath, workspaceSectionPath } from '@/lib/routes';
 import { buildIssueCreatedToast } from '@/lib/toast/issue-created';
 import { cn } from '@/lib/utils';
 
@@ -105,7 +106,7 @@ export default function IssueComposer({
   const isZh = locale.startsWith('zh');
   const storedUser = getStoredUser();
   const { pushToast } = useToast();
-  const { currentOrganization, currentOrganizationId, currentTeam, currentTeamId } = useCurrentWorkspace();
+  const { currentOrganization, currentOrganizationId, currentOrganizationSlug, currentTeam, currentTeamId, currentTeamKey } = useCurrentWorkspace();
   const organizationId = currentOrganizationId ?? storedUser?.organizationId ?? 1;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const modalContentRef = useRef<HTMLDivElement | null>(null);
@@ -323,7 +324,9 @@ export default function IssueComposer({
       ]);
 
       if (mode === 'page') {
-        router.push(localizePath(locale, '/recurring'));
+        if (currentOrganizationSlug) {
+          router.push(workspaceSectionPath(currentOrganizationSlug, 'recurring'));
+        }
         return;
       }
 
@@ -372,11 +375,15 @@ export default function IssueComposer({
 
     await queryClient.invalidateQueries({ queryKey: ['issues'] });
 
-    pushToast(buildIssueCreatedToast(issue, locale, t));
+    if (currentOrganizationSlug) {
+      pushToast(buildIssueCreatedToast(issue, currentOrganizationSlug, locale, t));
+    }
 
     if (mode === 'page') {
       onCreated?.(issue);
-      router.push(localizePath(locale, `/issues/${issue.id}`));
+      if (currentOrganizationSlug) {
+        router.push(issueDetailPath(currentOrganizationSlug, issue));
+      }
       return;
     }
 
@@ -503,6 +510,8 @@ export default function IssueComposer({
       savingTemplate={savingTemplate}
       templateName={templateName}
       createPending={createIssueMutation.isPending}
+      currentOrganizationSlug={currentOrganizationSlug}
+      currentTeamKey={currentTeamKey}
       locale={locale}
       t={t}
       onDraftChange={setDraft}
@@ -856,6 +865,8 @@ function FullCreateView({
   savingTemplate,
   templateName,
   createPending,
+  currentOrganizationSlug,
+  currentTeamKey,
   locale,
   t,
   onDraftChange,
@@ -878,6 +889,8 @@ function FullCreateView({
   savingTemplate: boolean;
   templateName: string;
   createPending: boolean;
+  currentOrganizationSlug: string | null;
+  currentTeamKey: string | null;
   locale: Locale;
   t: (key: string, params?: Record<string, string | number>) => string;
   onDraftChange: React.Dispatch<React.SetStateAction<IssueComposerDraft | null>>;
@@ -900,7 +913,7 @@ function FullCreateView({
         </div>
         <div className="flex items-center gap-2">
           <Link
-            href={localizePath(locale, '/drafts')}
+                href={currentOrganizationSlug ? workspaceSectionPath(currentOrganizationSlug, 'drafts') : '#'}
             className="inline-flex h-10 items-center rounded-full border border-border-soft px-4 text-sm font-medium text-ink-700 transition hover:bg-slate-50"
           >
             {t('issues.actions.openDrafts')}
@@ -1077,7 +1090,11 @@ function FullCreateView({
               {t('settings.composer.saveAsTemplate')}
             </Button>
             <Link
-              href={localizePath(locale, '/teams/current/settings/templates')}
+                href={
+                  currentOrganizationSlug && currentTeamKey
+                    ? teamSettingsPath(currentOrganizationSlug, currentTeamKey, 'templates')
+                    : '#'
+                }
               className="inline-flex h-10 items-center rounded-full border border-border-soft px-4 text-sm font-medium text-ink-700 transition hover:bg-slate-50"
             >
               {t('issues.actions.manageTemplates')}

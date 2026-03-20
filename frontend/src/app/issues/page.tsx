@@ -15,9 +15,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetDismissButton, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
-import { localizePath } from '@/i18n/config';
 import { useI18n } from '@/i18n/useI18n';
 import type { CustomFieldDefinition, Issue, Project, Team } from '@/lib/api';
+import { issueDetailPath, workspaceSectionPath } from '@/lib/routes';
 import { useIssueMutations, useIssueWorkspace } from '@/lib/query/issues';
 
 type IssueView = 'all' | 'active' | 'backlog' | 'done';
@@ -63,7 +63,7 @@ export default function IssuesPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { organizationId, currentTeamId } = useCurrentWorkspace();
+  const { organizationId, currentOrganizationSlug, currentTeamId } = useCurrentWorkspace();
   const isZh = locale.startsWith('zh');
   const currentView = normalizeView(searchParams.get('view'));
   const searchParamsKey = searchParams.toString();
@@ -125,6 +125,12 @@ export default function IssuesPage() {
     if (!currentTeamId) return;
     setCreateDraft((current) => (current.teamId ? current : { ...current, teamId: String(currentTeamId) }));
   }, [currentTeamId]);
+
+  useEffect(() => {
+    if (searchParams.get('create') !== 'true') return;
+    setQuickCreateState(searchParams.get('state'));
+    setCreateOpen(true);
+  }, [searchParamsKey]);
 
   const viewCounts = useMemo(
     () => ({
@@ -298,7 +304,7 @@ export default function IssuesPage() {
               {t('issues.actions.advancedFilter')}
             </Button>
             <Link
-              href={localizePath(locale, '/drafts')}
+              href={currentOrganizationSlug ? workspaceSectionPath(currentOrganizationSlug, 'drafts') : '#'}
               className="inline-flex h-9 items-center justify-center rounded-full border border-border-soft bg-white px-3 text-[13px] font-medium text-ink-700 transition hover:bg-slate-50"
             >
               {t('issues.actions.drafts')}
@@ -360,7 +366,11 @@ export default function IssuesPage() {
                       isZh={isZh}
                       members={members}
                       projects={projects}
-                      onOpen={() => router.push(`/${locale}/issues/${issue.id}`)}
+                      onOpen={() => {
+                        if (currentOrganizationSlug) {
+                          router.push(issueDetailPath(currentOrganizationSlug, issue));
+                        }
+                      }}
                     />
                   ))}
                 </div>
@@ -405,8 +415,21 @@ export default function IssuesPage() {
       <IssueComposer
         mode="modal"
         open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        initialParams={new URLSearchParams(quickCreateState ? `state=${quickCreateState}` : '')}
+        onClose={() => {
+          setCreateOpen(false);
+          updateQuery({
+            create: null,
+            parentIssueId: null,
+            projectId: null,
+            teamId: null,
+            title: null,
+          });
+        }}
+        initialParams={
+          searchParams.get('create') === 'true'
+            ? new URLSearchParams(searchParams.toString())
+            : new URLSearchParams(quickCreateState ? `state=${quickCreateState}` : '')
+        }
         localeScope="issues-list-modal"
       />
     </AppLayout>

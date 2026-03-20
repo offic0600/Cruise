@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Check, ChevronDown, Languages } from "lucide-react";
 import {
   DropdownMenu,
@@ -8,20 +8,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { defaultLocale, localizePath, locales, type Locale } from "@/i18n/config";
+import { locales, type Locale } from "@/i18n/config";
 import { useI18n } from "@/i18n/useI18n";
 
 export default function LocaleSwitcher() {
   const { locale, setLocale, t } = useI18n();
-  const pathname = usePathname();
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const changeLocale = (nextLocale: Locale) => {
     setLocale(nextLocale);
-    const nextPath = localizePath(nextLocale, pathname || `/${defaultLocale}`);
-    const query = searchParams.toString();
-    router.push(query ? `${nextPath}?${query}` : nextPath);
+    router.refresh();
   };
 
   return (

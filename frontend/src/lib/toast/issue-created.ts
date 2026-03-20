@@ -1,6 +1,7 @@
 import type { Issue } from '@/lib/api';
 import type { AppToast } from '@/components/providers/ToastProvider';
-import { localizePath, type Locale } from '@/i18n/config';
+import { type Locale } from '@/i18n/config';
+import { issueDetailPath } from '@/lib/routes';
 
 type Translate = (key: string, params?: Record<string, string | number>) => string;
 
@@ -24,10 +25,11 @@ function issueDescription(issue: Pick<Issue, 'identifier' | 'title'>) {
 
 export function buildIssueCreatedToast(
   issue: Pick<Issue, 'id' | 'identifier' | 'title'>,
-  locale: Locale,
+  workspaceSlug: string,
+  _locale: Locale,
   t: Translate
 ): Omit<AppToast, 'id'> {
-  const href = localizePath(locale, `/issues/${issue.id}`);
+  const href = issueDetailPath(workspaceSlug, issue);
 
   return {
     type: 'success',
@@ -64,4 +66,3 @@ export function buildIssueCreatedToast(
     dismissible: true,
   };
 }
-

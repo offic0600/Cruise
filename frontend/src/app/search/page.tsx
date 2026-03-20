@@ -9,17 +9,17 @@ import AppLayout from '@/components/AppLayout';
 import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { type Locale, localizePath } from '@/i18n/config';
 import { useI18n } from '@/i18n/useI18n';
 import { getDocs, getIssues, getProjects, type Doc, type Issue, type Project } from '@/lib/api';
+import { issueDetailPath, workspaceSectionPath } from '@/lib/routes';
 
 type SearchTab = 'issues' | 'projects' | 'documents';
 
 const tabs: SearchTab[] = ['issues', 'projects', 'documents'];
 
 export default function SearchPage() {
-  const { locale, t } = useI18n();
-  const { organizationId, currentTeamId } = useCurrentWorkspace();
+  const { t } = useI18n();
+  const { organizationId, currentOrganizationSlug, currentTeamId } = useCurrentWorkspace();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -117,7 +117,7 @@ export default function SearchPage() {
               ? (results as Issue[]).map((issue) => (
                   <Link
                     key={issue.id}
-                    href={localizePath(locale, `/issues/${issue.id}`)}
+                    href={currentOrganizationSlug ? issueDetailPath(currentOrganizationSlug, issue) : '#'}
                     className="block rounded-panel border border-border-subtle bg-surface-raised p-5 transition hover:bg-slate-50"
                   >
                     <div className="flex items-start justify-between gap-4">
@@ -134,7 +134,7 @@ export default function SearchPage() {
                 ? (results as Project[]).map((project) => (
                     <Link
                       key={project.id}
-                      href={localizePath(locale, '/projects')}
+                      href={currentOrganizationSlug ? workspaceSectionPath(currentOrganizationSlug, 'projects') : '#'}
                       className="block rounded-panel border border-border-subtle bg-surface-raised p-5 transition hover:bg-slate-50"
                     >
                       <div className="text-xs uppercase tracking-[0.18em] text-ink-400">{project.key ?? `#${project.id}`}</div>
@@ -145,7 +145,7 @@ export default function SearchPage() {
                 : (results as Doc[]).map((doc) => (
                     <Link
                       key={doc.id}
-                      href={docHref(doc, locale)}
+                      href={docHref(doc, currentOrganizationSlug)}
                       className="block rounded-panel border border-border-subtle bg-surface-raised p-5 transition hover:bg-slate-50"
                     >
                       <div className="text-xs uppercase tracking-[0.18em] text-ink-400">{doc.slug}</div>
@@ -169,9 +169,9 @@ function normalizeTab(value: string | null): SearchTab {
   return 'issues';
 }
 
-function docHref(doc: Doc, locale: Locale) {
-  if (doc.issueId) return localizePath(locale, `/issues/${doc.issueId}`);
-  if (doc.projectId) return localizePath(locale, '/projects');
-  if (doc.initiativeId) return localizePath(locale, '/initiatives');
-  return localizePath(locale, '/projects');
+function docHref(doc: Doc, workspaceSlug: string | null) {
+  if (!workspaceSlug) return '#';
+  if (doc.projectId) return workspaceSectionPath(workspaceSlug, 'projects');
+  if (doc.initiativeId) return workspaceSectionPath(workspaceSlug, 'initiatives');
+  return workspaceSectionPath(workspaceSlug, 'projects');
 }

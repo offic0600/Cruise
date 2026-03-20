@@ -2,9 +2,10 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { getOrganizations, getTeams, type Organization, type Team } from '@/lib/api';
 import { getStoredSession, updateStoredSession } from '@/lib/auth';
+import { isPublicPath, parseTeamRoute, parseWorkspaceSlug, replaceTeamKeyInPath, teamActivePath, workspaceRootPath } from '@/lib/routes';
 
 const ORG_STORAGE_KEY = 'currentWorkspaceOrganizationId';
 const teamStorageKey = (organizationId: number | null) =>
@@ -13,11 +14,13 @@ const teamStorageKey = (organizationId: number | null) =>
 type WorkspaceContextValue = {
   organizations: Organization[];
   currentOrganization: Organization | null;
+  currentOrganizationSlug: string | null;
   organizationId: number | null;
   currentOrganizationId: number | null;
   setCurrentOrganizationId: (organizationId: number) => void;
   teams: Team[];
   currentTeam: Team | null;
+  currentTeamKey: string | null;
   currentTeamId: number | null;
   setCurrentTeamId: (teamId: number) => void;
   isLoading: boolean;
@@ -27,13 +30,18 @@ const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [sessionOrganizationId, setSessionOrganizationId] = useState<number | null>(null);
   const [storedOrganizationId, setStoredOrganizationId] = useState<number | null>(null);
   const [storedTeamId, setStoredTeamId] = useState<number | null>(null);
+  const teamRoute = useMemo(() => parseTeamRoute(pathname), [pathname]);
+  const routeWorkspaceSlug = useMemo(() => parseWorkspaceSlug(pathname), [pathname]);
+  const session = useMemo(() => getStoredSession(), [pathname]);
+  const isPublicRoute = isPublicPath(pathname);
+  const shouldLoadWorkspaceContext = !isPublicRoute;
 
   useEffect(() => {
-    const session = getStoredSession();
     setSessionOrganizationId(session?.user.organizationId ?? null);
 
     if (typeof window === 'undefined') return;
@@ -42,17 +50,21 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     setStoredOrganizationId(nextOrganizationId);
     const rawTeamId = window.localStorage.getItem(teamStorageKey(nextOrganizationId));
     setStoredTeamId(rawTeamId ? Number(rawTeamId) || null : null);
-  }, [pathname]);
+  }, [pathname, session]);
 
   const organizationsQuery = useQuery({
     queryKey: ['organizations', 'workspace'],
     queryFn: () => getOrganizations(),
-    enabled: sessionOrganizationId != null || getStoredSession() != null,
+    enabled: shouldLoadWorkspaceContext && session != null,
   });
 
   const organizations = organizationsQuery.data ?? [];
   const currentOrganization = useMemo(() => {
     if (!organizations.length) return null;
+    if (routeWorkspaceSlug) {
+      const matched = organizations.find((organization) => organization.slug === routeWorkspaceSlug);
+      if (matched) return matched;
+    }
     if (storedOrganizationId != null) {
       const matched = organizations.find((organization) => organization.id === storedOrganizationId);
       if (matched) return matched;
@@ -65,6 +77,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   }, [organizations, sessionOrganizationId, storedOrganizationId]);
 
   const organizationId = currentOrganization?.id ?? null;
+  const currentOrganizationSlug = currentOrganization?.slug ?? null;
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -88,12 +101,69 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const teams = teamsQuery.data ?? [];
   const currentTeam = useMemo(() => {
     if (!teams.length) return null;
+    if (teamRoute?.teamKey) {
+      const matched = teams.find((team) => team.key === teamRoute.teamKey);
+      if (matched) return matched;
+    }
     if (storedTeamId != null) {
       const matched = teams.find((team) => team.id === storedTeamId);
       if (matched) return matched;
     }
     return teams[0] ?? null;
   }, [storedTeamId, teams]);
+  const currentTeamKey = currentTeam?.key ?? null;
+
+  useEffect(() => {
+    if (!pathname || isPublicRoute) return;
+    if (organizationsQuery.isLoading || teamsQuery.isLoading) return;
+
+    if (!organizations.length) {
+      router.replace('/create-workspace');
+      return;
+    }
+
+    if (!currentOrganization || !currentOrganizationSlug) {
+      const fallbackOrganization = organizations.find((organization) => organization.id === storedOrganizationId) ?? organizations[0] ?? null;
+      if (!fallbackOrganization) {
+        router.replace('/create-workspace');
+        return;
+      }
+      router.replace(workspaceRootPath(fallbackOrganization.slug));
+      return;
+    }
+
+    if (routeWorkspaceSlug && routeWorkspaceSlug !== currentOrganizationSlug) {
+      router.replace(workspaceRootPath(currentOrganizationSlug));
+      return;
+    }
+
+    if (pathname === workspaceRootPath(currentOrganizationSlug)) {
+      if (currentTeam?.key) {
+        router.replace(teamActivePath(currentOrganizationSlug, currentTeam.key));
+      }
+      return;
+    }
+
+    if (teamRoute?.teamKey && !currentTeam && teams.length) {
+      const fallbackTeam = teams.find((team) => team.id === storedTeamId) ?? teams[0] ?? null;
+      if (!fallbackTeam) return;
+      router.replace(replaceTeamKeyInPath(pathname, fallbackTeam.key));
+    }
+  }, [
+    currentOrganization,
+    currentOrganizationSlug,
+    currentTeam,
+    organizations,
+    organizationsQuery.isLoading,
+    pathname,
+    routeWorkspaceSlug,
+    router,
+    storedOrganizationId,
+    storedTeamId,
+    teamRoute?.teamKey,
+    teams,
+    teamsQuery.isLoading,
+  ]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -112,6 +182,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     () => ({
       organizations,
       currentOrganization,
+      currentOrganizationSlug,
       organizationId,
       currentOrganizationId: organizationId,
       setCurrentOrganizationId: (nextOrganizationId: number) => {
@@ -126,6 +197,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       },
       teams,
       currentTeam,
+      currentTeamKey,
       currentTeamId: currentTeam?.id ?? null,
       setCurrentTeamId: (teamId: number) => {
         setStoredTeamId(teamId);
@@ -134,9 +206,21 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         }
         void queryClient.invalidateQueries();
       },
-      isLoading: organizationsQuery.isLoading || teamsQuery.isLoading,
+      isLoading: shouldLoadWorkspaceContext && (organizationsQuery.isLoading || teamsQuery.isLoading),
     }),
-    [organizations, currentOrganization, organizationId, teams, currentTeam, organizationsQuery.isLoading, teamsQuery.isLoading, queryClient]
+    [
+      organizations,
+      currentOrganization,
+      currentOrganizationSlug,
+      organizationId,
+      teams,
+      currentTeam,
+      currentTeamKey,
+      organizationsQuery.isLoading,
+      shouldLoadWorkspaceContext,
+      teamsQuery.isLoading,
+      queryClient,
+    ]
   );
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;

@@ -2,29 +2,64 @@
 
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import {
+  CalendarPlus,
+  Clock3,
+  Copy,
+  CopyPlus,
+  FileText,
+  Flag,
+  FolderKanban,
   ArrowLeft,
   ChevronRight,
   Download,
   Link2,
   MessageSquare,
+  MoreHorizontal,
   Paperclip,
   Plus,
+  Repeat,
+  Star,
   Trash2,
 } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import MarkdownEditor from '@/components/issues/MarkdownEditor';
 import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
+import { useToast } from '@/components/providers/ToastProvider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuPortal,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { localizePath } from '@/i18n/config';
 import { useI18n } from '@/i18n/useI18n';
-import { downloadIssueAttachment, type CustomFieldDefinition, type Issue } from '@/lib/api';
+import {
+  createIssue,
+  createIssueLinkAttachments,
+  createIssueTemplate,
+  createRecurringIssue,
+  deleteIssue,
+  downloadIssueAttachment,
+  type CustomFieldDefinition,
+  type Issue,
+  type Project,
+} from '@/lib/api';
 import { getStoredUser } from '@/lib/auth';
 import { useIssueDetailWorkspace, useIssueMutations } from '@/lib/query/issues';
+import { queryKeys } from '@/lib/query/keys';
+import { issueDetailPath, teamActivePath } from '@/lib/routes';
 
 const EMPTY = '__empty__';
 const ISSUE_STATES: Issue['state'][] = ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELED'];
@@ -55,7 +90,10 @@ interface DraftIssue {
 
 export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   const { locale, t } = useI18n();
-  const { currentTeamId } = useCurrentWorkspace();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const { pushToast } = useToast();
+  const { currentOrganizationSlug, currentTeamId, currentTeamKey } = useCurrentWorkspace();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const user = getStoredUser();
   const organizationId = user?.organizationId ?? 1;
@@ -74,6 +112,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   } = useIssueDetailWorkspace(issueId, organizationId);
   const {
     updateIssueMutation,
+    updateIssueStateMutation,
     createIssueMutation,
     createCommentMutation,
     createDocMutation,
@@ -110,6 +149,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   const [bodyMode, setBodyMode] = useState<'read' | 'edit'>('read');
   const [activeProperty, setActiveProperty] = useState<string | null>(null);
   const [isAddingChild, setIsAddingChild] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
 
   useEffect(() => {
     if (!issue) return;
@@ -117,6 +157,14 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
     setBodyMode('read');
     setActiveProperty(null);
   }, [issue]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !issue) return;
+    const key = `issue-favorites:${user?.id ?? 'anonymous'}`;
+    const saved = window.localStorage.getItem(key);
+    const favorites = saved ? JSON.parse(saved) as number[] : [];
+    setIsFavorite(favorites.includes(issue.id));
+  }, [issue, user?.id]);
 
   const initialSnapshot = useMemo(() => (issue ? normalizeDraft(createDraft(issue)) : ''), [issue]);
   const currentSnapshot = useMemo(() => (draftIssue ? normalizeDraft(draftIssue) : ''), [draftIssue]);
@@ -160,6 +208,209 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
         .sort((left, right) => left.sortOrder - right.sortOrder),
     [customFieldDefinitions]
   );
+
+  const showActionToast = (title: string, description: string) => {
+    pushToast({
+      type: 'success',
+      title,
+      description,
+      dismissLabel: t('issueCreatedToast.dismiss'),
+      durationMs: 3200,
+    });
+  };
+
+  const copyText = async (value: string, description: string) => {
+    if (!navigator.clipboard?.writeText) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      showActionToast(t('issues.more.actions.copied'), description);
+    } catch {
+      // no-op
+    }
+  };
+
+  const setDueDate = async (value: string | null) => {
+    if (!issue) return;
+    await updateIssueMutation.mutateAsync({
+      id: issue.id,
+      data: {
+        plannedEndDate: value,
+      },
+    });
+  };
+
+  const addLinkAttachment = async () => {
+    if (!issue) return;
+    const url = window.prompt(t('issues.more.prompts.link'));
+    if (!url?.trim()) return;
+    await createIssueLinkAttachments(issue.id, [{ url: url.trim(), uploadedBy: user?.id ?? undefined }]);
+    await queryClient.invalidateQueries({ queryKey: queryKeys.attachments(issue.id) });
+    showActionToast(t('issues.more.actions.linkAdded'), url.trim());
+  };
+
+  const quickCreateDoc = async () => {
+    if (!issue) return;
+    const title = window.prompt(t('issues.more.prompts.document'));
+    if (!title?.trim()) return;
+    await createDocMutation.mutateAsync({
+      organizationId: issue.organizationId,
+      teamId: issue.teamId,
+      projectId: issue.projectId,
+      issueId: issue.id,
+      authorId: user?.id ?? 1,
+      title: title.trim(),
+      slug: title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      content: '',
+    });
+    showActionToast(t('issues.more.actions.documentAdded'), title.trim());
+  };
+
+  const convertToTemplate = async () => {
+    if (!issue) return;
+    await createIssueTemplate({
+      organizationId: issue.organizationId,
+      teamId: issue.teamId,
+      projectId: issue.projectId,
+      name: `${issue.identifier} template`,
+      title: issue.title,
+      description: issue.description,
+      type: issue.type,
+      state: issue.state,
+      priority: issue.priority,
+      assigneeId: issue.assigneeId,
+      plannedStartDate: issue.plannedStartDate,
+      plannedEndDate: issue.plannedEndDate,
+      customFields: issue.customFields,
+    });
+    showActionToast(t('issues.more.actions.templateCreated'), issue.identifier);
+  };
+
+  const convertToRecurring = async () => {
+    if (!issue) return;
+    const fallbackProjectId = issue.projectId ?? projects[0]?.id ?? null;
+    if (fallbackProjectId == null) {
+      showActionToast(t('issues.more.actions.projectRequired'), t('issues.more.descriptions.projectRequired'));
+      return;
+    }
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(9, 0, 0, 0);
+    await createRecurringIssue({
+      organizationId: issue.organizationId,
+      teamId: issue.teamId,
+      projectId: fallbackProjectId,
+      name: issue.title,
+      title: issue.title,
+      description: issue.description,
+      type: issue.type,
+      state: issue.state,
+      priority: issue.priority,
+      assigneeId: issue.assigneeId,
+      nextRunAt: tomorrow.toISOString().slice(0, 19),
+      customFields: issue.customFields,
+    });
+    showActionToast(t('issues.more.actions.recurringCreated'), issue.identifier);
+  };
+
+  const duplicateIssue = async () => {
+    if (!issue) return;
+    const duplicated = await createIssue({
+      organizationId: issue.organizationId,
+      type: issue.type,
+      title: `${issue.title} (${t('issues.more.copySuffix')})`,
+      description: issue.description ?? '',
+      state: 'TODO',
+      priority: issue.priority,
+      projectId: issue.projectId,
+      teamId: issue.teamId,
+      assigneeId: issue.assigneeId,
+      plannedStartDate: issue.plannedStartDate,
+      plannedEndDate: issue.plannedEndDate,
+      customFields: issue.customFields,
+    });
+    await queryClient.invalidateQueries({ queryKey: ['issues'] });
+    if (currentOrganizationSlug) {
+      router.push(issueDetailPath(currentOrganizationSlug, duplicated));
+    }
+  };
+
+  const markIssueState = async (state: Issue['state']) => {
+    if (!issue) return;
+    await updateIssueStateMutation.mutateAsync({
+      id: issue.id,
+      state,
+      resolution: state === 'DONE' ? 'COMPLETED' : state === 'CANCELED' ? 'CANCELED' : null,
+    });
+  };
+
+  const createRelatedIssue = async (relation: 'subIssue' | 'related') => {
+    if (!issue) return;
+    const title = window.prompt(
+      relation === 'subIssue' ? t('issues.more.prompts.subIssue') : t('issues.more.prompts.relatedIssue')
+    );
+    if (!title?.trim()) return;
+    const created = await createIssueMutation.mutateAsync({
+      organizationId: issue.organizationId,
+      type: 'TASK',
+      title: title.trim(),
+      description: '',
+      projectId: issue.projectId,
+      teamId: issue.teamId,
+      parentIssueId: relation === 'subIssue' ? issue.id : null,
+      reporterId: user?.id ?? 1,
+      state: 'TODO',
+      priority: 'MEDIUM',
+    });
+    if (relation === 'related') {
+      await createRelationMutation.mutateAsync({ issueId: issue.id, toIssueId: created.id, relationType: 'RELATES_TO' });
+    }
+    if (currentOrganizationSlug) {
+      router.push(issueDetailPath(currentOrganizationSlug, created));
+    }
+  };
+
+  const toggleFavorite = () => {
+    if (!issue || typeof window === 'undefined') return;
+    const key = `issue-favorites:${user?.id ?? 'anonymous'}`;
+    const saved = window.localStorage.getItem(key);
+    const favorites = new Set(saved ? (JSON.parse(saved) as number[]) : []);
+    if (favorites.has(issue.id)) {
+      favorites.delete(issue.id);
+      setIsFavorite(false);
+    } else {
+      favorites.add(issue.id);
+      setIsFavorite(true);
+    }
+    window.localStorage.setItem(key, JSON.stringify([...favorites]));
+  };
+
+  const setReminder = (label: string, hoursFromNow: number) => {
+    if (!issue || typeof window === 'undefined') return;
+    const key = `issue-reminders:${user?.id ?? 'anonymous'}`;
+    const saved = window.localStorage.getItem(key);
+    const reminders = saved ? (JSON.parse(saved) as Array<Record<string, unknown>>) : [];
+    reminders.push({
+      issueId: issue.id,
+      remindAt: new Date(Date.now() + hoursFromNow * 60 * 60 * 1000).toISOString(),
+      label,
+    });
+    window.localStorage.setItem(key, JSON.stringify(reminders));
+    showActionToast(t('issues.more.actions.reminderSaved'), label);
+  };
+
+  const showVersionHistory = () => {
+    window.location.hash = 'activity';
+  };
+
+  const deleteCurrentIssue = async () => {
+    if (!issue) return;
+    if (!window.confirm(t('issues.more.prompts.delete'))) return;
+    await deleteIssue(issue.id);
+    await queryClient.invalidateQueries({ queryKey: ['issues'] });
+    if (currentOrganizationSlug && currentTeamKey) {
+      router.push(teamActivePath(currentOrganizationSlug, currentTeamKey));
+    }
+  };
 
   const createChildIssue = async () => {
     if (!issue || !childTitle.trim()) return;
@@ -239,21 +490,53 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
       <div className="mx-auto max-w-[1280px]">
         <div className="flex flex-col gap-8 pb-10">
           <header className="flex flex-col gap-6 border-b border-border-soft/80 pb-7">
-            <div className="min-w-0 space-y-4">
-              <div className="flex items-center gap-2 text-sm text-ink-500">
-                <Link
-                  href={localizePath(locale, '/issues')}
-                  className="inline-flex items-center gap-1.5 transition hover:text-ink-900"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  {t('issues.detailPage.backToIssues')}
-                </Link>
-                <ChevronRight className="h-4 w-4 text-ink-300" />
-                <span className="truncate text-ink-700">{issue.identifier}</span>
+            <div className="flex items-start justify-between gap-6">
+              <div className="min-w-0 space-y-4">
+                <div className="flex items-center gap-2 text-sm text-ink-500">
+                  <Link
+                    href={currentOrganizationSlug && currentTeamKey ? teamActivePath(currentOrganizationSlug, currentTeamKey) : '#'}
+                    className="inline-flex items-center gap-1.5 transition hover:text-ink-900"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    {t('issues.detailPage.backToIssues')}
+                  </Link>
+                  <ChevronRight className="h-4 w-4 text-ink-300" />
+                  <span className="truncate text-ink-700">{issue.identifier}</span>
+                </div>
+                <EditableTitle
+                  value={draftIssue.title}
+                  onChange={(value) => setDraftIssue((current) => (current ? { ...current, title: value } : current))}
+                />
               </div>
-              <EditableTitle
-                value={draftIssue.title}
-                onChange={(value) => setDraftIssue((current) => (current ? { ...current, title: value } : current))}
+              <IssueMoreMenu
+                issue={issue}
+                projects={projects}
+                isFavorite={isFavorite}
+                t={t}
+                onSetDueDate={setDueDate}
+                onAddLink={addLinkAttachment}
+                onAddDocument={quickCreateDoc}
+                onAssignProject={(projectId) =>
+                  updateIssueMutation.mutateAsync({
+                    id: issue.id,
+                    data: {
+                      projectId,
+                    },
+                  })
+                }
+                onConvertTemplate={convertToTemplate}
+                onConvertRecurring={convertToRecurring}
+                onMakeCopy={duplicateIssue}
+                onMarkState={markIssueState}
+                onCreateRelated={createRelatedIssue}
+                onToggleFavorite={toggleFavorite}
+                onCopyLink={() => copyText(`${window.location.origin}${currentOrganizationSlug ? issueDetailPath(currentOrganizationSlug, issue) : ''}`, issue.identifier)}
+                onCopyIdentifier={() => copyText(issue.identifier, issue.identifier)}
+                onCopyTitle={() => copyText(issue.title, issue.title)}
+                onRemindLater={() => setReminder(t('issues.more.reminders.laterToday'), 4)}
+                onRemindTomorrow={() => setReminder(t('issues.more.reminders.tomorrowMorning'), 18)}
+                onShowVersionHistory={showVersionHistory}
+                onDelete={deleteCurrentIssue}
               />
             </div>
           </header>
@@ -274,10 +557,11 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                 title={t('issues.detailPage.subIssues')}
                 action={
                   <Link
-                    href={localizePath(
-                      locale,
-                    `/issues/new?parentIssueId=${issue.id}${issue.projectId != null ? `&projectId=${issue.projectId}` : ''}&teamId=${issue.teamId ?? ''}&title=`
-                    )}
+                    href={
+                      currentOrganizationSlug && currentTeamKey
+                        ? `${teamActivePath(currentOrganizationSlug, currentTeamKey)}?create=true&parentIssueId=${issue.id}${issue.projectId != null ? `&projectId=${issue.projectId}` : ''}&teamId=${issue.teamId ?? ''}&title=`
+                        : '#'
+                    }
                     className="flex items-center gap-2 text-sm text-ink-400 transition hover:text-ink-700"
                   >
                     <Plus className="h-4 w-4" />
@@ -290,7 +574,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                     childIssues.map((child) => (
                       <Link
                         key={child.id}
-                        href={localizePath(locale, `/issues/${child.id}`)}
+                        href={currentOrganizationSlug ? issueDetailPath(currentOrganizationSlug, child) : '#'}
                         className="flex items-center justify-between gap-4 py-3 transition hover:bg-slate-50/60"
                       >
                         <div className="min-w-0">
@@ -848,6 +1132,224 @@ function DetailSection({
       </div>
       <div className="space-y-3">{children}</div>
     </section>
+  );
+}
+
+function IssueMoreMenu({
+  issue,
+  projects,
+  isFavorite,
+  t,
+  onSetDueDate,
+  onAddLink,
+  onAddDocument,
+  onAssignProject,
+  onConvertTemplate,
+  onConvertRecurring,
+  onMakeCopy,
+  onMarkState,
+  onCreateRelated,
+  onToggleFavorite,
+  onCopyLink,
+  onCopyIdentifier,
+  onCopyTitle,
+  onRemindLater,
+  onRemindTomorrow,
+  onShowVersionHistory,
+  onDelete,
+}: {
+  issue: Issue;
+  projects: Project[];
+  isFavorite: boolean;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+  onSetDueDate: (value: string | null) => Promise<void>;
+  onAddLink: () => Promise<void>;
+  onAddDocument: () => Promise<void>;
+  onAssignProject: (projectId: number | null) => Promise<unknown>;
+  onConvertTemplate: () => Promise<void>;
+  onConvertRecurring: () => Promise<void>;
+  onMakeCopy: () => Promise<void>;
+  onMarkState: (state: Issue['state']) => Promise<void>;
+  onCreateRelated: (relation: 'subIssue' | 'related') => Promise<void>;
+  onToggleFavorite: () => void;
+  onCopyLink: () => Promise<void>;
+  onCopyIdentifier: () => Promise<void>;
+  onCopyTitle: () => Promise<void>;
+  onRemindLater: () => void;
+  onRemindTomorrow: () => void;
+  onShowVersionHistory: () => void;
+  onDelete: () => Promise<void>;
+}) {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowValue = tomorrow.toISOString().slice(0, 10);
+  const nextWeek = new Date();
+  nextWeek.setDate(nextWeek.getDate() + 7);
+  const nextWeekValue = nextWeek.toISOString().slice(0, 10);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border-soft bg-white text-ink-500 transition hover:bg-slate-50 hover:text-ink-900"
+          aria-label={t('issues.more.menu')}
+        >
+          <MoreHorizontal className="h-4.5 w-4.5" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-[280px] rounded-[22px] p-2">
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+            <CalendarPlus className="h-4.5 w-4.5 text-ink-500" />
+            <span>{t('issues.more.setDueDate')}</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuSubContent className="min-w-[220px] rounded-[20px] p-2">
+              <DropdownMenuItem onSelect={() => void onSetDueDate(new Date().toISOString().slice(0, 10))} className="rounded-2xl px-4 py-3 text-[15px]">
+                {t('issues.more.dueDates.today')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void onSetDueDate(tomorrowValue)} className="rounded-2xl px-4 py-3 text-[15px]">
+                {t('issues.more.dueDates.tomorrow')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void onSetDueDate(nextWeekValue)} className="rounded-2xl px-4 py-3 text-[15px]">
+                {t('issues.more.dueDates.nextWeek')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void onSetDueDate(null)} className="rounded-2xl px-4 py-3 text-[15px]">
+                {t('issues.more.dueDates.clear')}
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
+        <DropdownMenuItem onSelect={() => void onAddLink()} className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+          <Link2 className="h-4.5 w-4.5 text-ink-500" />
+          <span>{t('issues.more.addLink')}</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void onAddDocument()} className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+          <FileText className="h-4.5 w-4.5 text-ink-500" />
+          <span>{t('issues.more.addDocument')}</span>
+        </DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+            <FolderKanban className="h-4.5 w-4.5 text-ink-500" />
+            <span>{t('issues.more.convertInto')}</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuSubContent className="min-w-[240px] rounded-[20px] p-2">
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+                  <FolderKanban className="h-4.5 w-4.5 text-ink-500" />
+                  <span>{t('issues.more.project')}</span>
+                </DropdownMenuSubTrigger>
+                <DropdownMenuPortal>
+                  <DropdownMenuSubContent className="min-w-[220px] rounded-[20px] p-2">
+                    <DropdownMenuItem onSelect={() => void onAssignProject(null)} className="rounded-2xl px-4 py-3 text-[15px]">
+                      {t('common.notSet')}
+                    </DropdownMenuItem>
+                    {projects.map((project) => (
+                      <DropdownMenuItem key={project.id} onSelect={() => void onAssignProject(project.id)} className="rounded-2xl px-4 py-3 text-[15px]">
+                        {project.name}{project.id === issue.projectId ? ` · ${t('issues.more.current')}` : ''}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+              </DropdownMenuSub>
+              <DropdownMenuItem onSelect={() => void onConvertTemplate()} className="rounded-2xl px-4 py-3 text-[15px]">
+                {t('issues.more.template')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void onConvertRecurring()} className="rounded-2xl px-4 py-3 text-[15px]">
+                {t('issues.more.recurringIssue')}
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
+        <DropdownMenuItem onSelect={() => void onMakeCopy()} className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+          <CopyPlus className="h-4.5 w-4.5 text-ink-500" />
+          <span>{t('issues.more.makeCopy')}</span>
+        </DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+            <Flag className="h-4.5 w-4.5 text-ink-500" />
+            <span>{t('issues.more.markAs')}</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuSubContent className="min-w-[220px] rounded-[20px] p-2">
+              {ISSUE_STATES.map((state) => (
+                <DropdownMenuItem key={state} onSelect={() => void onMarkState(state)} className="rounded-2xl px-4 py-3 text-[15px]">
+                  {t(`common.status.${state}`)}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+            <Plus className="h-4.5 w-4.5 text-ink-500" />
+            <span>{t('issues.more.createRelated')}</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuSubContent className="min-w-[220px] rounded-[20px] p-2">
+              <DropdownMenuItem onSelect={() => void onCreateRelated('subIssue')} className="rounded-2xl px-4 py-3 text-[15px]">
+                {t('issues.more.subIssue')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void onCreateRelated('related')} className="rounded-2xl px-4 py-3 text-[15px]">
+                {t('issues.more.relatedIssue')}
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={onToggleFavorite} className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+          <Star className={isFavorite ? 'h-4.5 w-4.5 fill-amber-400 text-amber-400' : 'h-4.5 w-4.5 text-ink-500'} />
+          <span>{isFavorite ? t('issues.more.unfavorite') : t('issues.more.favorite')}</span>
+        </DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+            <Copy className="h-4.5 w-4.5 text-ink-500" />
+            <span>{t('issues.more.copy')}</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuSubContent className="min-w-[220px] rounded-[20px] p-2">
+              <DropdownMenuItem onSelect={() => void onCopyLink()} className="rounded-2xl px-4 py-3 text-[15px]">
+                {t('issues.more.copyLink')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void onCopyIdentifier()} className="rounded-2xl px-4 py-3 text-[15px]">
+                {t('issues.more.copyIdentifier')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void onCopyTitle()} className="rounded-2xl px-4 py-3 text-[15px]">
+                {t('issues.more.copyTitle')}
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+            <Clock3 className="h-4.5 w-4.5 text-ink-500" />
+            <span>{t('issues.more.remindMe')}</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuSubContent className="min-w-[220px] rounded-[20px] p-2">
+              <DropdownMenuItem onSelect={onRemindLater} className="rounded-2xl px-4 py-3 text-[15px]">
+                {t('issues.more.reminders.laterToday')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onRemindTomorrow} className="rounded-2xl px-4 py-3 text-[15px]">
+                {t('issues.more.reminders.tomorrowMorning')}
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={onShowVersionHistory} className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+          <MessageSquare className="h-4.5 w-4.5 text-ink-500" />
+          <span>{t('issues.more.showVersionHistory')}</span>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => void onDelete()} className="gap-3 rounded-2xl px-4 py-3 text-[15px] text-rose-600 focus:text-rose-700">
+          <Trash2 className="h-4.5 w-4.5" />
+          <span>{t('issues.more.delete')}</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
