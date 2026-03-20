@@ -276,8 +276,7 @@ class OrganizationAccessIntegrationTest {
                       "organizationId": $organizationId,
                       "teamId": $teamId,
                       "type": "TASK",
-                      "title": "Activity tracked issue",
-                      "reporterId": 1
+                      "title": "Activity tracked issue"
                     }
                     """.trimIndent()
                 )
@@ -296,7 +295,6 @@ class OrganizationAccessIntegrationTest {
                 .content(
                     """
                     {
-                      "reporterId": 1,
                       "assigneeId": 1,
                       "priority": "HIGH",
                       "projectId": $projectId,
@@ -314,7 +312,6 @@ class OrganizationAccessIntegrationTest {
                 .content(
                     """
                     {
-                      "reporterId": 1,
                       "state": "IN_PROGRESS"
                     }
                     """.trimIndent()
@@ -335,6 +332,7 @@ class OrganizationAccessIntegrationTest {
 
         val events = objectMapper.readTree(activityPayload)
         val summaries = events.map { it["summary"].asText() }
+        val actorIds = events.map { it["actorId"]?.asLong() }
 
         assertThat(summaries).contains("created the issue")
         assertThat(summaries).contains("changed assignee from Unassigned to Cruise Admin")
@@ -342,6 +340,7 @@ class OrganizationAccessIntegrationTest {
         assertThat(summaries).contains("changed project from No project to Activity Project")
         assertThat(summaries).contains("changed labels from no labels to Bug")
         assertThat(summaries).contains("moved from Todo to In Progress")
+        assertThat(actorIds).allMatch { it == 1L }
     }
 
     private fun loginAndGetToken(username: String, password: String): String {

@@ -7,6 +7,7 @@ import com.cruise.repository.UserRepository
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.http.HttpStatus
+import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.server.ResponseStatusException
@@ -210,9 +211,10 @@ open class IssueService(
             )
         )
         issueCustomFieldService.replaceIssueValues(saved, request.customFields)
-        labelService.replaceIssueLabels(saved.id, saved.organizationId, saved.teamId, request.labelIds, request.reporterId)
+        val actorId = request.reporterId ?: currentActorId()
+        labelService.replaceIssueLabels(saved.id, saved.organizationId, saved.teamId, request.labelIds, actorId)
         recordIssueActivity(
-            actorId = saved.reporterId,
+            actorId = actorId,
             issueId = saved.id,
             actionType = "ISSUE_CREATED",
             summary = "created the issue"
@@ -261,8 +263,8 @@ open class IssueService(
         )
         val saved = issueRepository.save(updated)
         issueCustomFieldService.replaceIssueValues(saved, request.customFields ?: issueCustomFieldService.getValuesForIssue(issue))
-        labelService.replaceIssueLabels(saved.id, saved.organizationId, saved.teamId, request.labelIds, request.reporterId ?: saved.reporterId)
-        val actorId = request.reporterId ?: saved.reporterId
+        val actorId = request.reporterId ?: currentActorId() ?: saved.reporterId
+        labelService.replaceIssueLabels(saved.id, saved.organizationId, saved.teamId, request.labelIds, actorId)
         recordUpdateEvents(
             before = snapshot,
             after = saved,
@@ -308,7 +310,7 @@ open class IssueService(
         )
         if (previousState != saved.state) {
             recordIssueActivity(
-                actorId = saved.reporterId,
+                actorId = currentActorId() ?: saved.reporterId,
                 issueId = saved.id,
                 actionType = "ISSUE_STATE_CHANGED",
                 summary = "moved from ${displayState(previousState)} to ${displayState(saved.state)}",
@@ -536,4 +538,9 @@ open class IssueService(
         priority = priority,
         projectId = projectId
     )
+
+    private fun currentActorId(): Long? {
+        val username = SecurityContextHolder.getContext().authentication?.name ?: return null
+        return userRepository.findByUsername(username)?.id ?: userRepository.findByEmail(username)?.id
+    }
 }
