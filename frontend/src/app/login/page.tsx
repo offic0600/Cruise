@@ -68,7 +68,7 @@ export default function LoginPage() {
           organizationId: response.organizationId,
         },
       });
-      router.push(response.organizationId ? '/' : publicPath('/create-workspace'));
+      router.push('/');
     } catch (err: any) {
       setError(err.response?.data?.error || t('login.error'));
     } finally {

@@ -11,8 +11,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useI18n } from '@/i18n/useI18n';
-import { checkOrganizationSlugAvailability, createOrganization, joinWorkspaceInvite } from '@/lib/api';
-import { getStoredSession, storeSession } from '@/lib/auth';
+import { checkOrganizationSlugAvailability, createOrganization, getOrganizations, getTeams, joinWorkspaceInvite } from '@/lib/api';
+import { type AuthSession, getStoredSession, storeSession } from '@/lib/auth';
 import { publicPath, teamActivePath } from '@/lib/routes';
 
 const regions = ['Asia Pacific', 'United States', 'Europe'] as const;
@@ -41,7 +41,14 @@ export default function CreateWorkspacePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useI18n();
-  const { setCurrentOrganizationId, setCurrentTeamId } = useCurrentWorkspace();
+  const {
+    organizations,
+    currentOrganizationSlug,
+    currentTeamKey,
+    isLoading: isWorkspaceLoading,
+    setCurrentOrganizationId,
+    setCurrentTeamId,
+  } = useCurrentWorkspace();
   const [mode, setMode] = useState<'create' | 'join'>(searchParams.get('invite') ? 'join' : 'create');
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
@@ -50,13 +57,18 @@ export default function CreateWorkspacePage() {
   const [submitted, setSubmitted] = useState(false);
   const [serverError, setServerError] = useState('');
   const [inviteCodeOrLink, setInviteCodeOrLink] = useState(searchParams.get('invite') ?? '');
-  const session = getStoredSession();
+  const [session, setSession] = useState<AuthSession | null | undefined>(undefined);
 
   useEffect(() => {
+    setSession(getStoredSession());
+  }, []);
+
+  useEffect(() => {
+    if (session === undefined) return;
     if (!session?.user) {
       router.replace(publicPath('/login'));
     }
-  }, [router, session?.user]);
+  }, [router, session]);
 
   useEffect(() => {
     if (slugTouched) return;
@@ -74,6 +86,55 @@ export default function CreateWorkspacePage() {
   const normalizedSlug = useMemo(() => slugify(slug), [slug]);
   const slugFormatValid = normalizedSlug.length > 0 && normalizedSlug === slug;
   const normalizedInvite = useMemo(() => parseInvite(inviteCodeOrLink), [inviteCodeOrLink]);
+  const hasInvite = Boolean(searchParams.get('invite'));
+
+  const organizationsGuardQuery = useQuery({
+    queryKey: ['organizations', 'create-workspace-guard'],
+    queryFn: () => getOrganizations(),
+    enabled: session !== undefined && Boolean(session?.user) && !hasInvite,
+  });
+  const guardedOrganization = organizationsGuardQuery.data?.[0] ?? null;
+  const guardedTeamsQuery = useQuery({
+    queryKey: ['teams', 'create-workspace-guard', guardedOrganization?.id ?? null],
+    queryFn: () => getTeams({ organizationId: guardedOrganization?.id ?? undefined }),
+    enabled: guardedOrganization?.id != null,
+  });
+  const guardedTeam = guardedTeamsQuery.data?.[0] ?? null;
+
+  useEffect(() => {
+    if (
+      session === undefined ||
+      !session?.user ||
+      hasInvite ||
+      isWorkspaceLoading ||
+      organizationsGuardQuery.isLoading ||
+      guardedTeamsQuery.isLoading
+    ) return;
+    if (!guardedOrganization) return;
+
+    if (currentOrganizationSlug && currentTeamKey) {
+      router.replace(teamActivePath(currentOrganizationSlug, currentTeamKey));
+      return;
+    }
+
+    if (guardedOrganization.slug && guardedTeam?.key) {
+      router.replace(teamActivePath(guardedOrganization.slug, guardedTeam.key));
+      return;
+    }
+
+    router.replace('/');
+  }, [
+    currentOrganizationSlug,
+    currentTeamKey,
+    guardedOrganization,
+    guardedTeam,
+    guardedTeamsQuery.isLoading,
+    hasInvite,
+    isWorkspaceLoading,
+    organizationsGuardQuery.isLoading,
+    router,
+    session,
+  ]);
 
   const slugAvailabilityQuery = useQuery({
     queryKey: ['organizations', 'slug-availability', normalizedSlug],
@@ -137,9 +198,14 @@ export default function CreateWorkspacePage() {
     Boolean(name.trim()) &&
     Boolean(normalizedSlug) &&
     slugFormatValid &&
+    slugAvailabilityQuery.isSuccess &&
     slugAvailabilityQuery.data?.available !== false &&
     !createMutation.isPending;
   const canJoin = Boolean(normalizedInvite) && !joinMutation.isPending;
+
+  if (session === undefined) {
+    return <div className="flex min-h-screen items-center justify-center bg-page-glow text-ink-700">Loading workspace...</div>;
+  }
 
   if (!session?.user) return null;
 

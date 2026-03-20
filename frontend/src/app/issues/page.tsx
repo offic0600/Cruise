@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Ban, CheckCircle2, ChevronDown, ChevronRight, Circle, CircleDashed, CircleEllipsis, FilterX, LoaderCircle, Maximize2, Paperclip, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
@@ -68,7 +68,6 @@ export default function IssuesPage() {
   const currentView = normalizeView(searchParams.get('view'));
   const searchParamsKey = searchParams.toString();
   const collapsedStates = useMemo(() => readCollapsedStates(searchParams), [searchParamsKey]);
-  const collapseInitRef = useRef(new Set<string>());
 
   const apiFilters = useMemo(
     () => buildIssueFilters(searchParams, organizationId ?? 1, currentTeamId),
@@ -159,21 +158,6 @@ export default function IssuesPage() {
         issues: (map.get(state) ?? []).sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)),
       }));
   }, [currentView, issues]);
-  useEffect(() => {
-    const initKey = collapseInitializationKey(searchParams);
-    if (collapseInitRef.current.has(initKey)) return;
-    const missingEmptyStates = groupedIssues.filter((group) => group.issues.length === 0 && !collapsedStates.has(group.state)).map((group) => group.state);
-    collapseInitRef.current.add(initKey);
-    if (!missingEmptyStates.length) return;
-    updateQuery({ collapsed: serializeCollapsedStates(new Set([...collapsedStates, ...missingEmptyStates])) });
-  }, [collapsedStates, groupedIssues, searchParams]);
-  const effectiveCollapsedStates = useMemo(() => {
-    const next = new Set(collapsedStates);
-    for (const group of groupedIssues) {
-      if (group.issues.length === 0) next.add(group.state);
-    }
-    return next;
-  }, [collapsedStates, groupedIssues]);
 
   const filterSummary = useMemo(
     () => buildFilterSummary(draftFilters, projects, teams, members, customFieldDefinitions, isZh),
@@ -340,11 +324,11 @@ export default function IssuesPage() {
               <button
                 type="button"
                 onClick={() => toggleGroupCollapsed(group.state)}
-                aria-expanded={!effectiveCollapsedStates.has(group.state)}
+                aria-expanded={!collapsedStates.has(group.state)}
                 className="flex w-full items-center px-3 py-2.5 text-left transition hover:bg-slate-50/40"
               >
                 <div className="flex items-center gap-2 text-sm font-medium text-ink-900">
-                  {effectiveCollapsedStates.has(group.state) ? (
+                  {collapsedStates.has(group.state) ? (
                     <ChevronRight className="h-4 w-4 text-ink-400" />
                   ) : (
                     <ChevronDown className="h-4 w-4 text-ink-400" />
@@ -355,7 +339,7 @@ export default function IssuesPage() {
                 </div>
               </button>
 
-              {!effectiveCollapsedStates.has(group.state) ? group.issues.length ? (
+              {!collapsedStates.has(group.state) ? group.issues.length ? (
                 <div>
                   {group.issues.map((issue, index) => (
                     <IssueRow
@@ -1129,12 +1113,6 @@ function readCollapsedStates(searchParams: URLSearchParams) {
 function serializeCollapsedStates(states: Set<string>) {
   const values = GROUP_ORDER.filter((state) => states.has(state));
   return values.length ? values.join(',') : null;
-}
-
-function collapseInitializationKey(searchParams: URLSearchParams) {
-  const params = new URLSearchParams(searchParams.toString());
-  params.delete('collapsed');
-  return params.toString();
 }
 
 function groupBelongsToView(state: string, view: IssueView) {

@@ -136,8 +136,12 @@ export default function IssueComposer({
     enabled: composerEnabled,
   });
   const membersQuery = useQuery({
-    queryKey: queryKeys.teamMembers,
-    queryFn: () => getTeamMembers(),
+    queryKey: [...queryKeys.teamMembers, organizationId, draft?.teamId ?? currentTeamId ?? 'all'],
+    queryFn: () =>
+      getTeamMembers({
+        organizationId,
+        teamId: draft?.teamId ? Number(draft.teamId) : currentTeamId ?? undefined,
+      }),
     enabled: composerEnabled,
   });
   const templatesQuery = useQuery({

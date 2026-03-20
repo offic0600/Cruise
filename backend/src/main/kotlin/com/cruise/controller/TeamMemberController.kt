@@ -2,6 +2,7 @@ package com.cruise.controller
 
 import com.cruise.entity.TeamMember
 import com.cruise.service.CreateTeamMemberRequest
+import com.cruise.service.TeamMemberListItemDto
 import com.cruise.service.TeamMemberService
 import com.cruise.service.UpdateTeamMemberRequest
 import org.springframework.http.HttpStatus
@@ -15,7 +16,10 @@ class TeamMemberController(
 ) {
 
     @GetMapping
-    fun getAll(): List<TeamMember> = teamMemberService.findAll()
+    fun getAll(
+        @RequestParam(required = false) organizationId: Long?,
+        @RequestParam(required = false) teamId: Long?
+    ): List<TeamMemberListItemDto> = teamMemberService.findAll(organizationId, teamId)
 
     @GetMapping("/{id}")
     fun getById(@PathVariable id: Long): TeamMember = teamMemberService.findById(id)

@@ -39,7 +39,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const routeWorkspaceSlug = useMemo(() => parseWorkspaceSlug(pathname), [pathname]);
   const session = useMemo(() => getStoredSession(), [pathname]);
   const isPublicRoute = isPublicPath(pathname);
-  const shouldLoadWorkspaceContext = !isPublicRoute;
+  const shouldLoadWorkspaceContext = !isPublicRoute && session != null;
 
   useEffect(() => {
     setSessionOrganizationId(session?.user.organizationId ?? null);
@@ -115,6 +115,10 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!pathname || isPublicRoute) return;
+    if (!session?.user) {
+      router.replace('/login');
+      return;
+    }
     if (organizationsQuery.isLoading || teamsQuery.isLoading) return;
 
     if (!organizations.length) {
@@ -158,6 +162,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     pathname,
     routeWorkspaceSlug,
     router,
+    session,
     storedOrganizationId,
     storedTeamId,
     teamRoute?.teamKey,

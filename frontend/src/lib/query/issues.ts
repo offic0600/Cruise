@@ -31,8 +31,8 @@ export function useIssueWorkspace(filters?: Parameters<typeof getIssues>[0]) {
     queryFn: () => getTeams({ organizationId: organizationId ?? 1 }),
   });
   const membersQuery = useQuery({
-    queryKey: queryKeys.teamMembers,
-    queryFn: () => getTeamMembers(),
+    queryKey: [...queryKeys.teamMembers, organizationId ?? 1, currentTeamId ?? 'all'],
+    queryFn: () => getTeamMembers({ organizationId: organizationId ?? 1, teamId: currentTeamId ?? undefined }),
   });
 
   return {
@@ -126,8 +126,8 @@ export function useIssueDetailWorkspace(issueId: number, organizationId: number)
       queryFn: () => getTeams({ organizationId }),
     }),
     membersQuery: useQuery({
-      queryKey: queryKeys.teamMembers,
-      queryFn: () => getTeamMembers(),
+      queryKey: [...queryKeys.teamMembers, organizationId, currentTeamId ?? 'all'],
+      queryFn: () => getTeamMembers({ organizationId, teamId: currentTeamId ?? undefined }),
     }),
     workspaceCustomFieldDefinitions: (issue?.customFieldDefinitions as CustomFieldDefinition[] | undefined) ?? [],
   };
