@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useI18n } from '@/i18n/useI18n';
 import { checkOrganizationSlugAvailability, createOrganization, getOrganizations, getTeams, joinWorkspaceInvite } from '@/lib/api';
 import { type AuthSession, getStoredSession, storeSession } from '@/lib/auth';
-import { publicPath, teamActivePath } from '@/lib/routes';
+import { publicPath, teamActivePath, workspaceRootPath } from '@/lib/routes';
 
 const regions = ['Asia Pacific', 'United States', 'Europe'] as const;
 
@@ -64,9 +64,16 @@ export default function CreateWorkspacePage() {
   }, []);
 
   useEffect(() => {
+    const replace = (target: string) => {
+      if (typeof window !== 'undefined' && window.location.pathname !== target) {
+        window.location.replace(target);
+        return;
+      }
+      router.replace(target);
+    };
     if (session === undefined) return;
     if (!session?.user) {
-      router.replace(publicPath('/login'));
+      replace(publicPath('/login'));
     }
   }, [router, session]);
 
@@ -100,8 +107,25 @@ export default function CreateWorkspacePage() {
     enabled: guardedOrganization?.id != null,
   });
   const guardedTeam = guardedTeamsQuery.data?.[0] ?? null;
+  const isGuardCheckingExistingWorkspace =
+    session !== undefined &&
+    Boolean(session?.user) &&
+    !hasInvite &&
+    (isWorkspaceLoading || organizationsGuardQuery.isLoading || guardedTeamsQuery.isLoading);
+  const shouldBlockWorkspaceForm =
+    session !== undefined &&
+    Boolean(session?.user) &&
+    !hasInvite &&
+    (isGuardCheckingExistingWorkspace || Boolean(guardedOrganization));
 
   useEffect(() => {
+    const replace = (target: string) => {
+      if (typeof window !== 'undefined' && window.location.pathname !== target) {
+        window.location.replace(target);
+        return;
+      }
+      router.replace(target);
+    };
     if (
       session === undefined ||
       !session?.user ||
@@ -113,16 +137,16 @@ export default function CreateWorkspacePage() {
     if (!guardedOrganization) return;
 
     if (currentOrganizationSlug && currentTeamKey) {
-      router.replace(teamActivePath(currentOrganizationSlug, currentTeamKey));
+      replace(teamActivePath(currentOrganizationSlug, currentTeamKey));
       return;
     }
 
     if (guardedOrganization.slug && guardedTeam?.key) {
-      router.replace(teamActivePath(guardedOrganization.slug, guardedTeam.key));
+      replace(teamActivePath(guardedOrganization.slug, guardedTeam.key));
       return;
     }
 
-    router.replace('/');
+    replace(workspaceRootPath(guardedOrganization.slug));
   }, [
     currentOrganizationSlug,
     currentTeamKey,
@@ -208,6 +232,10 @@ export default function CreateWorkspacePage() {
   }
 
   if (!session?.user) return null;
+
+  if (shouldBlockWorkspaceForm) {
+    return <div className="flex min-h-screen items-center justify-center bg-page-glow text-ink-700">Loading workspace...</div>;
+  }
 
   function handleAuthOrMessage(error: any, fallback: string) {
     if (error?.response?.status === 401 || error?.response?.status === 403) {

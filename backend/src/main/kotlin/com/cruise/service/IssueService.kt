@@ -164,7 +164,8 @@ open class IssueService(
 
     @Transactional
     fun create(request: CreateIssueRequest): IssueDto {
-        validateParent(request.parentIssueId, request.projectId)
+        val normalizedParentIssueId = normalizeNullableReference(request.parentIssueId, null)
+        validateParent(normalizedParentIssueId, request.projectId)
         val saved = issueRepository.save(
             Issue(
                 organizationId = request.organizationId
@@ -181,7 +182,7 @@ open class IssueService(
                 priority = request.priority ?: defaultPriorityForType(request.type),
                 projectId = request.projectId,
                 teamId = request.teamId,
-                parentIssueId = request.parentIssueId,
+                parentIssueId = normalizedParentIssueId,
                 assigneeId = request.assigneeId,
                 reporterId = request.reporterId,
                 estimatePoints = request.estimatePoints,
@@ -205,7 +206,8 @@ open class IssueService(
     fun update(id: Long, request: UpdateIssueRequest): IssueDto {
         val issue = getIssue(id)
         val nextProjectId = request.projectId ?: issue.projectId
-        validateParent(request.parentIssueId, nextProjectId)
+        val nextParentIssueId = normalizeNullableReference(request.parentIssueId, issue.parentIssueId)
+        validateParent(nextParentIssueId, nextProjectId)
         val updated = Issue(
             id = issue.id,
             organizationId = request.organizationId ?: issue.organizationId,
@@ -221,7 +223,7 @@ open class IssueService(
             priority = request.priority ?: issue.priority,
             projectId = nextProjectId,
             teamId = normalizeNullableReference(request.teamId, issue.teamId),
-            parentIssueId = normalizeNullableReference(request.parentIssueId, issue.parentIssueId),
+            parentIssueId = nextParentIssueId,
             assigneeId = normalizeNullableReference(request.assigneeId, issue.assigneeId),
             reporterId = request.reporterId ?: issue.reporterId,
             estimatePoints = request.estimatePoints ?: issue.estimatePoints,

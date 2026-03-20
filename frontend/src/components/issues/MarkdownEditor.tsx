@@ -59,7 +59,7 @@ export default function MarkdownEditor({
     editorProps: {
       attributes: {
         class:
-          'min-h-[2lh] cursor-text px-0 py-0 text-[15px] leading-7 text-ink-900 focus:outline-none prose prose-slate max-w-none prose-p:my-3 prose-headings:mb-3 prose-headings:mt-5 prose-ul:my-3 prose-ol:my-3 prose-code:rounded prose-code:bg-slate-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-[0.92em]',
+          'min-h-[16rem] cursor-text px-0 py-0 text-[15px] leading-7 text-ink-900 focus:outline-none prose prose-slate max-w-none prose-p:my-3 prose-headings:mb-3 prose-headings:mt-5 prose-ul:my-3 prose-ol:my-3 prose-code:rounded prose-code:bg-slate-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-[0.92em]',
       },
     },
     onFocus() {

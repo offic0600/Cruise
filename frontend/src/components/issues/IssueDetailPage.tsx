@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -13,6 +13,7 @@ import {
   Flag,
   FolderKanban,
   ArrowLeft,
+  ArrowUp,
   ChevronRight,
   Download,
   Link2,
@@ -21,10 +22,13 @@ import {
   Paperclip,
   Plus,
   Repeat,
+  SmilePlus,
   Star,
   Trash2,
 } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
+import { IssueDetailActionBar } from '@/components/issues/issue-detail/IssueDetailActionBar';
+import { IssueDetailSidebar } from '@/components/issues/issue-detail/IssueDetailSidebar';
 import MarkdownEditor from '@/components/issues/MarkdownEditor';
 import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import { useToast } from '@/components/providers/ToastProvider';
@@ -85,6 +89,7 @@ interface DraftIssue {
   actualHours: number;
   plannedStartDate: string | null;
   plannedEndDate: string | null;
+  labelIds: number[];
   customFields: Record<string, unknown>;
 }
 
@@ -109,6 +114,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
     projectsQuery,
     teamsQuery,
     membersQuery,
+    labelsQuery,
   } = useIssueDetailWorkspace(issueId, organizationId);
   const {
     updateIssueMutation,
@@ -131,6 +137,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   const docs = docsQuery.data ?? [];
   const projects = projectsQuery.data ?? [];
   const teams = teamsQuery.data ?? [];
+  const labels = labelsQuery.data ?? [];
   const members = useMemo(() => {
     const allMembers = (membersQuery.data as Array<{ id: number; name: string; teamId?: number | null }> | undefined) ?? [];
     const scopedTeamId = issue?.teamId ?? currentTeamId ?? null;
@@ -189,6 +196,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
           actualHours: draftIssue.actualHours,
           plannedStartDate: draftIssue.plannedStartDate,
           plannedEndDate: draftIssue.plannedEndDate,
+          labelIds: draftIssue.labelIds,
           customFields: sanitizeCustomFields(draftIssue.customFields),
         },
       });
@@ -200,6 +208,40 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   const teamMap = useMemo(() => new Map(teams.map((team) => [team.id, team.name])), [teams]);
   const memberMap = useMemo(() => new Map(members.map((member) => [member.id, member.name])), [members]);
   const childMap = useMemo(() => new Map(childIssues.map((child) => [child.id, child.title])), [childIssues]);
+  const [isSubscribed, setIsSubscribed] = useState(true);
+
+  const actorNameMap = useMemo(() => {
+    const map = new Map(memberMap);
+    if (user?.id) {
+      map.set(user.id, user.username || user.email || `User ${user.id}`);
+    }
+    if (issue?.reporterId && !map.has(issue.reporterId)) {
+      map.set(issue.reporterId, `User ${issue.reporterId}`);
+    }
+    return map;
+  }, [issue?.reporterId, memberMap, user?.email, user?.id, user?.username]);
+
+  const feedItems = useMemo(() => {
+    const activityItems = activity.map((event) => ({
+      id: `activity-${event.id}`,
+      kind: 'activity' as const,
+      createdAt: event.createdAt,
+      authorId: event.actorId,
+      summary: event.summary,
+      body: null as string | null,
+    }));
+    const commentItems = comments.map((comment) => ({
+      id: `comment-${comment.id}`,
+      kind: 'comment' as const,
+      createdAt: comment.createdAt,
+      authorId: comment.authorId,
+      summary: '',
+      body: comment.body,
+    }));
+    return [...activityItems, ...commentItems].sort(
+      (left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
+    );
+  }, [activity, comments]);
 
   const visibleCustomFields = useMemo(
     () =>
@@ -246,6 +288,41 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
     await createIssueLinkAttachments(issue.id, [{ url: url.trim(), uploadedBy: user?.id ?? undefined }]);
     await queryClient.invalidateQueries({ queryKey: queryKeys.attachments(issue.id) });
     showActionToast(t('issues.more.actions.linkAdded'), url.trim());
+  };
+
+  const copyIssuePrompt = async () => {
+    if (!issue) return;
+    const labelMap = new Map(labels.map((label) => [label.id, label.name]));
+    issue.labels.forEach((label) => {
+      if (!labelMap.has(label.id)) {
+        labelMap.set(label.id, label.name);
+      }
+    });
+    const currentIssue = draftIssue
+      ? {
+          ...issue,
+          state: draftIssue.state,
+          priority: draftIssue.priority,
+          assigneeId: draftIssue.assigneeId,
+          projectId: draftIssue.projectId,
+        }
+      : issue;
+    const prompt = buildIssuePrompt({
+      issue: currentIssue,
+      projectName: projectMap.get(currentIssue.projectId ?? -1) ?? null,
+      assigneeName: memberMap.get(currentIssue.assigneeId ?? -1) ?? null,
+      stateLabel: translateIssueValue(t, `common.status.${currentIssue.state}`, currentIssue.state),
+      priorityLabel: translateIssueValue(t, `common.priority.${currentIssue.priority}`, currentIssue.priority),
+      labelNames: draftIssue?.labelIds.map((labelId) => labelMap.get(labelId)).filter(Boolean) as string[] | undefined,
+    });
+    await copyText(prompt, issue.identifier);
+  };
+
+  const showCodingToolsHint = () => {
+    showActionToast(
+      'Configure coding tools',
+      locale.startsWith('zh') ? '该入口暂时为占位交互。' : 'This entry is currently a placeholder.'
+    );
   };
 
   const quickCreateDoc = async () => {
@@ -508,36 +585,49 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                   onChange={(value) => setDraftIssue((current) => (current ? { ...current, title: value } : current))}
                 />
               </div>
-              <IssueMoreMenu
+              <IssueDetailActionBar
                 issue={issue}
-                projects={projects}
-                isFavorite={isFavorite}
-                t={t}
-                onSetDueDate={setDueDate}
-                onAddLink={addLinkAttachment}
-                onAddDocument={quickCreateDoc}
-                onAssignProject={(projectId) =>
-                  updateIssueMutation.mutateAsync({
-                    id: issue.id,
-                    data: {
-                      projectId,
-                    },
-                  })
-                }
-                onConvertTemplate={convertToTemplate}
-                onConvertRecurring={convertToRecurring}
-                onMakeCopy={duplicateIssue}
-                onMarkState={markIssueState}
-                onCreateRelated={createRelatedIssue}
-                onToggleFavorite={toggleFavorite}
                 onCopyLink={() => copyText(`${window.location.origin}${currentOrganizationSlug ? issueDetailPath(currentOrganizationSlug, issue) : ''}`, issue.identifier)}
                 onCopyIdentifier={() => copyText(issue.identifier, issue.identifier)}
                 onCopyTitle={() => copyText(issue.title, issue.title)}
-                onRemindLater={() => setReminder(t('issues.more.reminders.laterToday'), 4)}
-                onRemindTomorrow={() => setReminder(t('issues.more.reminders.tomorrowMorning'), 18)}
-                onShowVersionHistory={showVersionHistory}
-                onDelete={deleteCurrentIssue}
-              />
+                onCreateRelated={createRelatedIssue}
+                onAddLink={addLinkAttachment}
+                onCopyPrompt={copyIssuePrompt}
+                onConfigureCodingTools={showCodingToolsHint}
+                moreMenu={
+                  <IssueMoreMenu
+                    issue={issue}
+                    projects={projects}
+                    isFavorite={isFavorite}
+                    t={t}
+                    onSetDueDate={setDueDate}
+                    onAddLink={addLinkAttachment}
+                    onAddDocument={quickCreateDoc}
+                    onAssignProject={(projectId) =>
+                      updateIssueMutation.mutateAsync({
+                        id: issue.id,
+                        data: {
+                          projectId,
+                        },
+                      })
+                    }
+                    onConvertTemplate={convertToTemplate}
+                    onConvertRecurring={convertToRecurring}
+                    onMakeCopy={duplicateIssue}
+                    onMarkState={markIssueState}
+                    onCreateRelated={createRelatedIssue}
+                    onToggleFavorite={toggleFavorite}
+                    onCopyLink={() => copyText(`${window.location.origin}${currentOrganizationSlug ? issueDetailPath(currentOrganizationSlug, issue) : ''}`, issue.identifier)}
+                    onCopyIdentifier={() => copyText(issue.identifier, issue.identifier)}
+                    onCopyTitle={() => copyText(issue.title, issue.title)}
+                      onRemindLater={() => setReminder(t('issues.more.reminders.laterToday'), 4)}
+                      onRemindTomorrow={() => setReminder(t('issues.more.reminders.tomorrowMorning'), 18)}
+                      onShowVersionHistory={showVersionHistory}
+                      onDelete={deleteCurrentIssue}
+                      contentOnly
+                    />
+                  }
+                />
             </div>
           </header>
 
@@ -553,249 +643,205 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                 />
               </section>
 
-              <DetailSection
-                title={t('issues.detailPage.subIssues')}
-                action={
+              <section className="space-y-4 pt-1">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={(event) => uploadAttachment(event.target.files?.[0] ?? null)}
+                />
+                <div className="flex items-center gap-2.5 text-ink-400">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      showActionToast('Reactions', locale.startsWith('zh') ? '表情反馈即将支持。' : 'Reactions are coming soon.')
+                    }
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-transparent transition hover:border-slate-200 hover:bg-white hover:text-ink-900"
+                    aria-label="Add reaction"
+                  >
+                    <SmilePlus className="h-4 w-4 stroke-[1.8]" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-transparent transition hover:border-slate-200 hover:bg-white hover:text-ink-900"
+                    aria-label={t('issues.detailPage.uploadAttachment')}
+                  >
+                    <Paperclip className="h-4 w-4 stroke-[1.8]" />
+                  </button>
+                </div>
+                <div className="space-y-2.5">
                   <Link
                     href={
                       currentOrganizationSlug && currentTeamKey
                         ? `${teamActivePath(currentOrganizationSlug, currentTeamKey)}?create=true&parentIssueId=${issue.id}${issue.projectId != null ? `&projectId=${issue.projectId}` : ''}&teamId=${issue.teamId ?? ''}&title=`
                         : '#'
                     }
-                    className="flex items-center gap-2 text-sm text-ink-400 transition hover:text-ink-700"
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span>{t('issues.detailPage.newSubIssue')}</span>
-                  </Link>
-                }
-              >
-                <div className="divide-y divide-border-soft">
+                      className="inline-flex items-center gap-2 text-[20px] leading-none text-ink-700 transition hover:text-ink-900"
+                    >
+                      <Plus className="h-3.5 w-3.5 stroke-[2.2]" />
+                      <span className="text-[15px]">{t('issues.detailPage.newSubIssue')}</span>
+                    </Link>
                   {childIssues.length ? (
-                    childIssues.map((child) => (
-                      <Link
-                        key={child.id}
-                        href={currentOrganizationSlug ? issueDetailPath(currentOrganizationSlug, child) : '#'}
-                        className="flex items-center justify-between gap-4 py-3 transition hover:bg-slate-50/60"
-                      >
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-medium text-ink-900">{child.title}</div>
-                          <div className="mt-1 text-xs tracking-[0.18em] text-ink-400">{child.identifier}</div>
-                        </div>
-                        <div className="flex items-center gap-3">
+                    <div className="space-y-1 pl-6">
+                      {childIssues.map((child) => (
+                        <Link
+                          key={child.id}
+                          href={currentOrganizationSlug ? issueDetailPath(currentOrganizationSlug, child) : '#'}
+                          className="flex items-center justify-between gap-4 rounded-xl px-3 py-2 transition hover:bg-slate-50"
+                        >
+                          <div className="min-w-0">
+                            <div className="truncate text-sm text-ink-900">{child.title}</div>
+                            <div className="mt-1 text-xs text-ink-400">{child.identifier}</div>
+                          </div>
                           <IssueStateBadge state={child.state} t={t} />
-                          <ChevronRight className="h-4 w-4 text-ink-300" />
+                        </Link>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </section>
+              <section id="activity" className="space-y-6 border-t border-border-soft/80 pt-7">
+                <div className="flex items-center justify-between gap-4">
+                  <h2 className="text-[18px] font-semibold tracking-tight text-ink-900">{t('issues.tabs.activity')}</h2>
+                  <div className="flex items-center gap-3 text-sm text-ink-400">
+                    <button
+                      type="button"
+                      onClick={() => setIsSubscribed((current) => !current)}
+                      className="transition hover:text-ink-700"
+                    >
+                      {isSubscribed ? 'Unsubscribe' : 'Subscribe'}
+                    </button>
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#ff8a80] text-[9px] font-semibold uppercase text-white">
+                        {initialsForName(valueFromMap(actorNameMap, user?.id ?? issue.reporterId ?? null, issue.identifier))}
+                      </div>
+                    </div>
+                  </div>
+
+                <div className="space-y-0.5">
+                  {feedItems.length ? (
+                    feedItems.map((item, index) => {
+                      const actorName = valueFromMap(
+                        actorNameMap,
+                        item.authorId ?? null,
+                        item.kind === 'comment' ? `User ${item.authorId ?? ''}`.trim() : 'System'
+                      );
+                      return (
+                        <div key={item.id} className="grid grid-cols-[28px_minmax(0,1fr)] gap-3">
+                          <div className="relative flex justify-center">
+                            {index < feedItems.length - 1 ? (
+                              <span className="absolute top-7 h-[calc(100%-1rem)] w-px bg-border-soft" />
+                            ) : null}
+                            {item.kind === 'comment' ? (
+                              <div className="mt-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[#ff8a80] text-[8px] font-semibold uppercase text-white">
+                                {initialsForName(actorName)}
+                              </div>
+                            ) : (
+                              <div className="mt-1 h-4.5 w-4.5 rounded-full border border-slate-300 bg-white" />
+                            )}
+                          </div>
+                          <div className="min-w-0 pb-3">
+                            {item.kind === 'comment' ? (
+                              <div className="space-y-1.5">
+                                <div className="text-[14px] leading-6 text-ink-700">
+                                  <span className="font-medium text-ink-900">{actorName}</span>
+                                  <span className="ml-2 text-[13px] text-ink-400">{formatRelativeTime(item.createdAt, locale)}</span>
+                                </div>
+                                <div className="whitespace-pre-wrap text-[14px] leading-6 text-ink-900">{item.body}</div>
+                              </div>
+                            ) : (
+                              <div className="text-[14px] leading-6 text-ink-700">
+                                <span className="font-medium text-ink-900">{item.summary}</span>
+                                <span className="ml-2 text-[13px] text-ink-400">{formatRelativeTime(item.createdAt, locale)}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </Link>
-                    ))
+                      );
+                    })
                   ) : (
-                    <EmptyState label={t('issues.emptyStates.subIssues')} />
+                    <EmptyState label={t('issues.emptyStates.activity')} />
                   )}
                 </div>
-              </DetailSection>
 
-              <DetailSection
-                id="resources"
-                title={t('issues.detailPage.resources')}
-                action={
-                  <div className="flex items-center gap-2">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      className="hidden"
-                      onChange={(event) => uploadAttachment(event.target.files?.[0] ?? null)}
-                    />
+                {attachments.length ? (
+                  <div className="flex flex-wrap gap-2">
+                    {attachments.map((attachment) => (
+                      <div
+                        key={attachment.id}
+                        className="inline-flex items-center gap-2 rounded-full border border-border-soft bg-white px-3 py-1.5 text-sm text-ink-700"
+                      >
+                        <Paperclip className="h-3.5 w-3.5 text-ink-400" />
+                        <button
+                          type="button"
+                          onClick={() => downloadIssueAttachment(issue.id, attachment.id, attachment.filename)}
+                          className="max-w-[220px] truncate transition hover:text-ink-900"
+                        >
+                          {attachment.filename}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteAttachmentMutation.mutate({ issueId: issue.id, attachmentId: attachment.id })}
+                          className="text-ink-300 transition hover:text-rose-500"
+                          aria-label={`Delete ${attachment.filename}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className="rounded-[18px] border border-border-soft bg-white px-5 py-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+                  <Textarea
+                    value={commentBody}
+                    onChange={(event) => setCommentBody(event.target.value)}
+                    placeholder={t('issues.detail.commentPlaceholder')}
+                    className="min-h-[104px] resize-none border-0 px-0 py-0 text-[15px] leading-7 text-ink-900 placeholder:text-ink-300 focus-visible:ring-0"
+                  />
+                  <div className="mt-3 flex items-center justify-end gap-2">
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="flex items-center gap-2 py-1 text-sm text-ink-400 transition hover:text-ink-700"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-transparent text-ink-400 transition hover:border-slate-200 hover:bg-slate-50 hover:text-ink-700"
+                      aria-label={t('issues.detailPage.uploadAttachment')}
                     >
-                      <Paperclip className="h-4 w-4" />
-                      <span>{t('issues.detailPage.uploadAttachment')}</span>
+                      <Paperclip className="h-4 w-4 stroke-[1.8]" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void addComment()}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-ink-500 transition hover:bg-slate-50 hover:text-ink-900"
+                      aria-label={t('issues.detail.addComment')}
+                    >
+                      <ArrowUp className="h-3.5 w-3.5 stroke-[2.2]" />
                     </button>
                   </div>
-                }
-              >
-                <div className="divide-y divide-border-soft">
-                  {attachments.length ? (
-                    attachments.map((attachment) => (
-                      <div key={attachment.id} className="flex items-center justify-between gap-4 py-3">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-medium text-ink-900">{attachment.filename}</div>
-                          <div className="mt-1 text-xs text-ink-400">
-                            {formatSize(attachment.size)} · {formatDate(attachment.createdAt, locale)}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => downloadIssueAttachment(issue.id, attachment.id, attachment.filename)}
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => deleteAttachmentMutation.mutate({ issueId: issue.id, attachmentId: attachment.id })}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <EmptyState label={t('issues.emptyStates.attachments')} />
-                  )}
                 </div>
-              </DetailSection>
-
-              <DetailSection title={t('issues.detailPage.linkedDocs')}>
-                <div className="grid gap-3">
-                  <Input
-                    value={docTitle}
-                    onChange={(event) => setDocTitle(event.target.value)}
-                    placeholder={t('issues.detail.docTitle')}
-                    className="h-10 rounded-xl border-border-soft/70 bg-transparent"
-                  />
-                  <EditableSurface
-                    value={docContent}
-                    onChange={setDocContent}
-                    placeholder={t('issues.detail.docContent')}
-                    minHeight={92}
-                  />
-                  <div className="flex justify-end">
-                    <Button variant="ghost" onClick={createLinkedDoc}>
-                      {t('common.create')}
-                    </Button>
-                  </div>
-                </div>
-                <div className="divide-y divide-border-soft">
-                  {docs.length ? (
-                    docs.map((doc) => (
-                      <div key={doc.id} className="flex items-center justify-between gap-4 py-3">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-medium text-ink-900">{doc.title}</div>
-                          <div className="mt-1 text-xs text-ink-400">{doc.slug}</div>
-                        </div>
-                        <Badge variant="neutral">{doc.status}</Badge>
-                      </div>
-                    ))
-                  ) : (
-                    <EmptyState label={t('issues.emptyStates.docs')} />
-                  )}
-                </div>
-              </DetailSection>
-
-              <DetailSection id="relations" title={t('issues.tabs.relations')}>
-                <div className="grid gap-3 md:grid-cols-[1fr_220px_auto]">
-                  <Input
-                    value={relationTargetId}
-                    onChange={(event) => setRelationTargetId(event.target.value)}
-                    placeholder={t('issues.detail.relationTarget')}
-                    className="h-11 rounded-2xl border-border-soft bg-transparent"
-                  />
-                  <Select value={relationType} onValueChange={(value) => setRelationType(value as (typeof RELATION_TYPES)[number])}>
-                    <SelectTrigger className="h-11 rounded-2xl border-border-soft bg-transparent">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {RELATION_TYPES.map((option) => (
-                        <SelectItem key={option} value={option}>
-                          {t(`issues.relationType.${option}`)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button variant="ghost" onClick={addRelation}>
-                    <Link2 className="mr-2 h-4 w-4" />
-                    {t('common.create')}
-                  </Button>
-                </div>
-                <div className="divide-y divide-border-soft">
-                  {relations.length ? (
-                    relations.map((relation) => (
-                      <div key={relation.id} className="flex items-center justify-between gap-4 py-3">
-                        <div>
-                          <div className="text-sm font-medium text-ink-900">{t(`issues.relationType.${relation.relationType}`)}</div>
-                          <div className="mt-1 text-xs text-ink-400">
-                            {relation.fromIssueId} → {relation.toIssueId}
-                          </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteRelationMutation.mutate({ issueId: issue.id, relationId: relation.id })}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))
-                  ) : (
-                    <EmptyState label={t('issues.emptyStates.relations')} />
-                  )}
-                </div>
-              </DetailSection>
-
-              <DetailSection id="activity" title={t('issues.tabs.activity')}>
-                <div className="space-y-6">
-                  <div className="border-b border-border-soft pb-6">
-                    <div className="mb-3 text-xs uppercase tracking-[0.18em] text-ink-400">{t('issues.tabs.comments')}</div>
-                  <div className="flex items-start gap-3">
-                      <div className="mt-1 flex h-8 w-8 items-center justify-center rounded-full bg-brand-600/12 text-brand-600">
-                        <MessageSquare className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0 flex-1 space-y-3">
-                        <EditableSurface
-                          value={commentBody}
-                          onChange={setCommentBody}
-                          placeholder={t('issues.detail.commentPlaceholder')}
-                          minHeight={96}
-                        />
-                        <div className="flex justify-end">
-                          <Button variant="ghost" onClick={addComment}>
-                            {t('issues.detail.addComment')}
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-6 divide-y divide-border-soft">
-                      {comments.length ? (
-                        comments.map((comment) => (
-                          <div key={comment.id} className="py-3">
-                            <div className="text-sm leading-6 text-ink-900">{comment.body}</div>
-                            <div className="mt-2 text-xs text-ink-400">
-                              #{comment.authorId} · {formatDate(comment.createdAt, locale)}
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <EmptyState label={t('issues.emptyStates.comments')} />
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="mb-3 text-xs uppercase tracking-[0.18em] text-ink-400">Changes</div>
-                    <div className="divide-y divide-border-soft">
-                      {activity.length ? (
-                        activity.map((event) => (
-                          <div key={event.id} className="py-3">
-                            <div className="text-sm font-medium text-ink-900">{event.summary}</div>
-                            <div className="mt-1 text-xs text-ink-400">
-                              {event.actionType} · {formatDate(event.createdAt, locale)}
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <EmptyState label={t('issues.emptyStates.activity')} />
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </DetailSection>
+              </section>
             </main>
 
-            <aside className="space-y-5 xl:sticky xl:top-24 xl:self-start">
+            <IssueDetailSidebar
+              draftIssue={draftIssue}
+              issue={issue}
+              members={members}
+              projects={projects}
+              labels={labels}
+              visibleCustomFields={visibleCustomFields}
+              activeProperty={activeProperty}
+              locale={locale}
+              t={t}
+              onSetDraftIssue={(updater) =>
+                setDraftIssue((current) => (current ? ({ ...current, ...updater(current) } as DraftIssue) : current))
+              }
+              onSetActiveProperty={setActiveProperty}
+              renderCustomFieldInput={(field, value, onChange, onDone) => (
+                <CustomFieldInput field={field} value={value} onChange={onChange} onDone={onDone} />
+              )}
+              formatCustomFieldValue={formatCustomFieldValue}
+            />
+
+            <aside className="hidden">
               <PropertyPanel title={t('issues.detailPage.properties')}>
                 <PropertyGroup title="Properties">
                   <InlineSelectRow
@@ -831,7 +877,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                   />
                   {draftIssue.state === 'DONE' || draftIssue.state === 'CANCELED' ? (
                     <InlineSelectRow
-                      label={locale.startsWith('zh') ? '关闭原因' : 'Resolution'}
+                      label={locale.startsWith('zh') ? '鍏抽棴鍘熷洜' : 'Resolution'}
                       editor={
                         <Select
                           value={draftIssue.resolution ?? nextResolutionForState(draftIssue.state, draftIssue.resolution) ?? EMPTY}
@@ -1157,6 +1203,8 @@ function IssueMoreMenu({
   onRemindTomorrow,
   onShowVersionHistory,
   onDelete,
+  trigger,
+  contentOnly = false,
 }: {
   issue: Issue;
   projects: Project[];
@@ -1179,6 +1227,8 @@ function IssueMoreMenu({
   onRemindTomorrow: () => void;
   onShowVersionHistory: () => void;
   onDelete: () => Promise<void>;
+  trigger?: ReactNode;
+  contentOnly?: boolean;
 }) {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -1187,18 +1237,8 @@ function IssueMoreMenu({
   nextWeek.setDate(nextWeek.getDate() + 7);
   const nextWeekValue = nextWeek.toISOString().slice(0, 10);
 
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border-soft bg-white text-ink-500 transition hover:bg-slate-50 hover:text-ink-900"
-          aria-label={t('issues.more.menu')}
-        >
-          <MoreHorizontal className="h-4.5 w-4.5" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[280px] rounded-[22px] p-2">
+  const content = (
+    <>
         <DropdownMenuSub>
           <DropdownMenuSubTrigger className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
             <CalendarPlus className="h-4.5 w-4.5 text-ink-500" />
@@ -1248,7 +1288,7 @@ function IssueMoreMenu({
                     </DropdownMenuItem>
                     {projects.map((project) => (
                       <DropdownMenuItem key={project.id} onSelect={() => void onAssignProject(project.id)} className="rounded-2xl px-4 py-3 text-[15px]">
-                        {project.name}{project.id === issue.projectId ? ` · ${t('issues.more.current')}` : ''}
+                        {project.name}{project.id === issue.projectId ? ` 路 ${t('issues.more.current')}` : ''}
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuSubContent>
@@ -1348,6 +1388,28 @@ function IssueMoreMenu({
           <Trash2 className="h-4.5 w-4.5" />
           <span>{t('issues.more.delete')}</span>
         </DropdownMenuItem>
+    </>
+  );
+
+  if (contentOnly) {
+    return content;
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        {trigger ?? (
+          <button
+            type="button"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border-soft bg-white text-ink-500 transition hover:bg-slate-50 hover:text-ink-900"
+            aria-label={t('issues.more.menu')}
+          >
+            <MoreHorizontal className="h-4.5 w-4.5" />
+          </button>
+        )}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-[280px] rounded-[22px] p-2">
+        {content}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -1473,11 +1535,11 @@ function IssueStateBadge({
   t: (key: string, vars?: Record<string, string | number>) => string;
 }) {
   if (state === 'DONE') {
-    return <Badge variant="success">{resolution && resolution !== 'COMPLETED' ? `${t(`common.status.${state}`)} · ${t(`common.resolution.${resolution}`)}` : t(`common.status.${state}`)}</Badge>;
+    return <Badge variant="success">{resolution && resolution !== 'COMPLETED' ? `${t(`common.status.${state}`)} 路 ${t(`common.resolution.${resolution}`)}` : t(`common.status.${state}`)}</Badge>;
   }
   if (state === 'IN_PROGRESS' || state === 'IN_REVIEW') return <Badge variant="brand">{t(`common.status.${state}`)}</Badge>;
   if (state === 'CANCELED') {
-    return <Badge variant="danger">{resolution && resolution !== 'CANCELED' ? `${t(`common.status.${state}`)} · ${t(`common.resolution.${resolution}`)}` : t(`common.status.${state}`)}</Badge>;
+    return <Badge variant="danger">{resolution && resolution !== 'CANCELED' ? `${t(`common.status.${state}`)} 路 ${t(`common.resolution.${resolution}`)}` : t(`common.status.${state}`)}</Badge>;
   }
   return <Badge variant="neutral">{t(`common.status.${state}`)}</Badge>;
 }
@@ -1547,6 +1609,7 @@ function createDraft(issue: Issue): DraftIssue {
     actualHours: issue.actualHours,
     plannedStartDate: issue.plannedStartDate,
     plannedEndDate: issue.plannedEndDate,
+    labelIds: issue.labels.map((label) => label.id),
     customFields: issue.customFields ?? {},
   };
 }
@@ -1734,8 +1797,81 @@ function nextResolutionForState(state: Issue['state'], resolution: Issue['resolu
   return null;
 }
 
+function buildIssuePrompt({
+  issue,
+  projectName,
+  assigneeName,
+  stateLabel,
+  priorityLabel,
+  labelNames,
+}: {
+  issue: Issue;
+  projectName: string | null;
+  assigneeName: string | null;
+  stateLabel: string;
+  priorityLabel: string;
+  labelNames?: string[];
+}) {
+  const lines = [
+    `Issue: ${issue.identifier} ${issue.title}`,
+    `State: ${stateLabel}`,
+    `Priority: ${priorityLabel}`,
+    `Assignee: ${assigneeName ?? 'Not set'}`,
+    `Project: ${projectName ?? 'Not set'}`,
+    `Labels: ${labelNames?.length ? labelNames.join(', ') : 'None'}`,
+  ];
+
+  if (issue.description?.trim()) {
+    lines.push('', 'Description:', issue.description.trim());
+  }
+
+  lines.push('', 'Please help me work on this issue with the context above.');
+  return lines.join('\n');
+}
+
+function translateIssueValue(t: (key: string) => string, key: string, fallback: string) {
+  const value = t(key);
+  return value === key ? fallback : value;
+}
+
 function valueFromMap(map: Map<number, string>, key: number | null, fallback: string) {
   return key == null ? fallback : map.get(key) ?? fallback;
+}
+
+function initialsForName(value: string) {
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('') || 'U';
+}
+
+function formatRelativeTime(value: string, locale: string) {
+  const diffMs = new Date(value).getTime() - Date.now();
+  const diffMinutes = Math.round(diffMs / 60000);
+  const formatter = new Intl.RelativeTimeFormat(locale.startsWith('zh') ? 'zh-CN' : 'en', { numeric: 'auto' });
+
+  if (Math.abs(diffMinutes) < 60) {
+    return formatter.format(diffMinutes, 'minute');
+  }
+
+  const diffHours = Math.round(diffMinutes / 60);
+  if (Math.abs(diffHours) < 24) {
+    return formatter.format(diffHours, 'hour');
+  }
+
+  const diffDays = Math.round(diffHours / 24);
+  if (Math.abs(diffDays) < 7) {
+    return formatter.format(diffDays, 'day');
+  }
+
+  const diffWeeks = Math.round(diffDays / 7);
+  if (Math.abs(diffWeeks) < 5) {
+    return formatter.format(diffWeeks, 'week');
+  }
+
+  return formatDate(value, locale);
 }
 
 function formatCustomFieldValue(field: CustomFieldDefinition, value: unknown) {
@@ -1766,3 +1902,5 @@ function formatDate(value: string | null, locale: string) {
     minute: '2-digit',
   }).format(new Date(value));
 }
+
+

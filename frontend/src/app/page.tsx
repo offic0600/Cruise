@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import { getStoredSession } from '@/lib/auth';
-import { publicPath, teamActivePath } from '@/lib/routes';
+import { publicPath, teamActivePath, workspaceRootPath } from '@/lib/routes';
 
 export default function Home() {
   const router = useRouter();
@@ -16,18 +16,29 @@ export default function Home() {
   } = useCurrentWorkspace();
 
   useEffect(() => {
+    const replace = (target: string) => {
+      if (typeof window !== 'undefined' && window.location.pathname !== target) {
+        window.location.replace(target);
+        return;
+      }
+      router.replace(target);
+    };
     const session = getStoredSession();
     if (!session?.user) {
-      router.replace(publicPath('/login'));
+      replace(publicPath('/login'));
       return;
     }
     if (isLoading) return;
     if (!organizations.length) {
-      router.replace(publicPath('/create-workspace'));
+      replace(publicPath('/create-workspace'));
       return;
     }
     if (currentOrganizationSlug && currentTeamKey) {
-      router.replace(teamActivePath(currentOrganizationSlug, currentTeamKey));
+      replace(teamActivePath(currentOrganizationSlug, currentTeamKey));
+      return;
+    }
+    if (currentOrganizationSlug) {
+      replace(workspaceRootPath(currentOrganizationSlug));
     }
   }, [currentOrganizationSlug, currentTeamKey, isLoading, organizations.length, router]);
 
