@@ -41,7 +41,7 @@ data class CreateOrganizationRequest(
     val name: String,
     val slug: String,
     val region: String = "Asia Pacific",
-    val initialTeamName: String = "General"
+    val initialTeamName: String? = null
 )
 
 data class CreateOrganizationResponse(
@@ -112,7 +112,7 @@ class OrganizationService(
             )
         )
 
-        val initialTeamName = request.initialTeamName.trim().ifBlank { "General" }
+        val initialTeamName = request.initialTeamName?.trim().takeUnless { it.isNullOrBlank() } ?: name
         val team = teamRepository.save(
             Team(
                 organizationId = organization.id,

@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Ban, CheckCircle2, ChevronDown, ChevronRight, Circle, CircleDashed, CircleEllipsis, FilterX, LoaderCircle, Maximize2, Paperclip, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
@@ -15,9 +15,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetDismissButton, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
-import { localizePath } from '@/i18n/config';
 import { useI18n } from '@/i18n/useI18n';
 import type { CustomFieldDefinition, Issue, Project, Team } from '@/lib/api';
+import { issueDetailPath, workspaceSectionPath } from '@/lib/routes';
 import { useIssueMutations, useIssueWorkspace } from '@/lib/query/issues';
 
 type IssueView = 'all' | 'active' | 'backlog' | 'done';
@@ -63,12 +63,11 @@ export default function IssuesPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { organizationId, currentTeamId } = useCurrentWorkspace();
+  const { organizationId, currentOrganizationSlug, currentTeamId } = useCurrentWorkspace();
   const isZh = locale.startsWith('zh');
   const currentView = normalizeView(searchParams.get('view'));
   const searchParamsKey = searchParams.toString();
   const collapsedStates = useMemo(() => readCollapsedStates(searchParams), [searchParamsKey]);
-  const collapseInitRef = useRef(new Set<string>());
 
   const apiFilters = useMemo(
     () => buildIssueFilters(searchParams, organizationId ?? 1, currentTeamId),
@@ -119,7 +118,18 @@ export default function IssuesPage() {
   useEffect(() => {
     if (!createOpen) return;
     setCreateDraft(buildCreateDraft(projects, quickCreateState, customFieldDefinitions, currentTeamId));
-  }, [createOpen, projects, quickCreateState, customFieldDefinitions]);
+  }, [createOpen, projects, quickCreateState, customFieldDefinitions, currentTeamId]);
+
+  useEffect(() => {
+    if (!currentTeamId) return;
+    setCreateDraft((current) => (current.teamId ? current : { ...current, teamId: String(currentTeamId) }));
+  }, [currentTeamId]);
+
+  useEffect(() => {
+    if (searchParams.get('create') !== 'true') return;
+    setQuickCreateState(searchParams.get('state'));
+    setCreateOpen(true);
+  }, [searchParamsKey]);
 
   const viewCounts = useMemo(
     () => ({
@@ -148,21 +158,6 @@ export default function IssuesPage() {
         issues: (map.get(state) ?? []).sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)),
       }));
   }, [currentView, issues]);
-  useEffect(() => {
-    const initKey = collapseInitializationKey(searchParams);
-    if (collapseInitRef.current.has(initKey)) return;
-    const missingEmptyStates = groupedIssues.filter((group) => group.issues.length === 0 && !collapsedStates.has(group.state)).map((group) => group.state);
-    collapseInitRef.current.add(initKey);
-    if (!missingEmptyStates.length) return;
-    updateQuery({ collapsed: serializeCollapsedStates(new Set([...collapsedStates, ...missingEmptyStates])) });
-  }, [collapsedStates, groupedIssues, searchParams]);
-  const effectiveCollapsedStates = useMemo(() => {
-    const next = new Set(collapsedStates);
-    for (const group of groupedIssues) {
-      if (group.issues.length === 0) next.add(group.state);
-    }
-    return next;
-  }, [collapsedStates, groupedIssues]);
 
   const filterSummary = useMemo(
     () => buildFilterSummary(draftFilters, projects, teams, members, customFieldDefinitions, isZh),
@@ -293,7 +288,7 @@ export default function IssuesPage() {
               {t('issues.actions.advancedFilter')}
             </Button>
             <Link
-              href={localizePath(locale, '/drafts')}
+              href={currentOrganizationSlug ? workspaceSectionPath(currentOrganizationSlug, 'drafts') : '#'}
               className="inline-flex h-9 items-center justify-center rounded-full border border-border-soft bg-white px-3 text-[13px] font-medium text-ink-700 transition hover:bg-slate-50"
             >
               {t('issues.actions.drafts')}
@@ -329,11 +324,11 @@ export default function IssuesPage() {
               <button
                 type="button"
                 onClick={() => toggleGroupCollapsed(group.state)}
-                aria-expanded={!effectiveCollapsedStates.has(group.state)}
+                aria-expanded={!collapsedStates.has(group.state)}
                 className="flex w-full items-center px-3 py-2.5 text-left transition hover:bg-slate-50/40"
               >
                 <div className="flex items-center gap-2 text-sm font-medium text-ink-900">
-                  {effectiveCollapsedStates.has(group.state) ? (
+                  {collapsedStates.has(group.state) ? (
                     <ChevronRight className="h-4 w-4 text-ink-400" />
                   ) : (
                     <ChevronDown className="h-4 w-4 text-ink-400" />
@@ -344,7 +339,7 @@ export default function IssuesPage() {
                 </div>
               </button>
 
-              {!effectiveCollapsedStates.has(group.state) ? group.issues.length ? (
+              {!collapsedStates.has(group.state) ? group.issues.length ? (
                 <div>
                   {group.issues.map((issue, index) => (
                     <IssueRow
@@ -355,7 +350,11 @@ export default function IssuesPage() {
                       isZh={isZh}
                       members={members}
                       projects={projects}
-                      onOpen={() => router.push(`/${locale}/issues/${issue.id}`)}
+                      onOpen={() => {
+                        if (currentOrganizationSlug) {
+                          router.push(issueDetailPath(currentOrganizationSlug, issue));
+                        }
+                      }}
                     />
                   ))}
                 </div>
@@ -400,8 +399,21 @@ export default function IssuesPage() {
       <IssueComposer
         mode="modal"
         open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        initialParams={new URLSearchParams(quickCreateState ? `state=${quickCreateState}` : '')}
+        onClose={() => {
+          setCreateOpen(false);
+          updateQuery({
+            create: null,
+            parentIssueId: null,
+            projectId: null,
+            teamId: null,
+            title: null,
+          });
+        }}
+        initialParams={
+          searchParams.get('create') === 'true'
+            ? new URLSearchParams(searchParams.toString())
+            : new URLSearchParams(quickCreateState ? `state=${quickCreateState}` : '')
+        }
         localeScope="issues-list-modal"
       />
     </AppLayout>
@@ -1101,12 +1113,6 @@ function readCollapsedStates(searchParams: URLSearchParams) {
 function serializeCollapsedStates(states: Set<string>) {
   const values = GROUP_ORDER.filter((state) => states.has(state));
   return values.length ? values.join(',') : null;
-}
-
-function collapseInitializationKey(searchParams: URLSearchParams) {
-  const params = new URLSearchParams(searchParams.toString());
-  params.delete('collapsed');
-  return params.toString();
 }
 
 function groupBelongsToView(state: string, view: IssueView) {

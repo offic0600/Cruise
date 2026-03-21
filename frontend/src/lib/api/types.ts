@@ -422,6 +422,7 @@ export interface CreateOrganizationRequest {
   name: string;
   slug: string;
   region: string;
+  /** @deprecated New callers should omit this and let the backend create a same-name default team. */
   initialTeamName?: string;
 }
 

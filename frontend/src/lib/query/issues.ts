@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createComment, createDoc, createIssue, createIssueRelation, deleteIssueAttachment, deleteIssueRelation, getActivityEvents, getComments, getDocs, getIssue, getIssueAttachments, getIssueRelations, getIssues, getProjects, getTeamMembers, getTeams, updateIssue, updateIssueState, uploadIssueAttachment } from '@/lib/api';
+import { createComment, createDoc, createIssue, createIssueRelation, deleteIssueAttachment, deleteIssueRelation, getActivityEvents, getComments, getDocs, getIssue, getIssueAttachments, getIssueRelations, getIssues, getLabels, getProjects, getTeamMembers, getTeams, updateIssue, updateIssueState, uploadIssueAttachment } from '@/lib/api';
 import { getCustomFieldDefinitions } from '@/lib/api/custom-fields';
 import type { CustomFieldDefinition, Issue, Project, RestPageResponse } from '@/lib/api';
 import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
@@ -31,8 +31,8 @@ export function useIssueWorkspace(filters?: Parameters<typeof getIssues>[0]) {
     queryFn: () => getTeams({ organizationId: organizationId ?? 1 }),
   });
   const membersQuery = useQuery({
-    queryKey: queryKeys.teamMembers,
-    queryFn: () => getTeamMembers(),
+    queryKey: [...queryKeys.teamMembers, organizationId ?? 1, currentTeamId ?? 'all'],
+    queryFn: () => getTeamMembers({ organizationId: organizationId ?? 1, teamId: currentTeamId ?? undefined }),
   });
 
   return {
@@ -126,8 +126,13 @@ export function useIssueDetailWorkspace(issueId: number, organizationId: number)
       queryFn: () => getTeams({ organizationId }),
     }),
     membersQuery: useQuery({
-      queryKey: queryKeys.teamMembers,
-      queryFn: () => getTeamMembers(),
+      queryKey: [...queryKeys.teamMembers, organizationId, currentTeamId ?? 'all'],
+      queryFn: () => getTeamMembers({ organizationId, teamId: currentTeamId ?? undefined }),
+    }),
+    labelsQuery: useQuery({
+      queryKey: queryKeys.labels({ organizationId, teamId: issue?.teamId ?? currentTeamId ?? undefined }),
+      queryFn: () => getLabels({ organizationId, teamId: issue?.teamId ?? currentTeamId ?? undefined }),
+      select: (catalog) => [...catalog.workspaceLabels, ...catalog.teamLabels],
     }),
     workspaceCustomFieldDefinitions: (issue?.customFieldDefinitions as CustomFieldDefinition[] | undefined) ?? [],
   };

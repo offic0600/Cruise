@@ -2,13 +2,12 @@
 
 import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { defaultLocale, getLocaleFromPathname, localizePath } from '@/i18n/config';
 import { storeSession } from '@/lib/auth';
+import { publicPath } from '@/lib/routes';
 
 export default function LoginCallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const locale = typeof window === 'undefined' ? defaultLocale : getLocaleFromPathname(window.location.pathname) ?? defaultLocale;
 
   useEffect(() => {
     const token = searchParams.get('token');
@@ -20,7 +19,7 @@ export default function LoginCallbackPage() {
     const error = searchParams.get('error');
 
     if (error) {
-      router.replace(`${localizePath(locale, '/login')}?error=${encodeURIComponent(error)}`);
+      router.replace(`${publicPath('/login')}?error=${encodeURIComponent(error)}`);
       return;
     }
 
@@ -35,12 +34,12 @@ export default function LoginCallbackPage() {
           organizationId: organizationId ? Number(organizationId) : null,
         },
       });
-      router.replace(localizePath(locale, organizationId ? '/issues' : '/create-workspace'));
+      router.replace(organizationId ? '/' : publicPath('/create-workspace'));
       return;
     }
 
-    router.replace(localizePath(locale, '/login'));
-  }, [locale, router, searchParams]);
+    router.replace(publicPath('/login'));
+  }, [router, searchParams]);
 
   return <div className="flex min-h-screen items-center justify-center bg-page-glow text-ink-700">Signing you in...</div>;
 }

@@ -9,9 +9,9 @@ import WorkspaceHeader from '@/components/WorkspaceHeader';
 import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import IssueComposer from '@/components/issues/IssueComposer';
 import { Button } from '@/components/ui/button';
-import { localizePath } from '@/i18n/config';
 import { useI18n } from '@/i18n/useI18n';
 import { clearSession, getStoredSession, type StoredUser } from '@/lib/auth';
+import { publicPath, teamActivePath, teamSettingsPath, workspaceRootPath, workspaceSectionPath } from '@/lib/routes';
 
 interface NavItem {
   href: string;
@@ -30,12 +30,14 @@ function isTypingTarget(target: EventTarget | null) {
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { locale, t } = useI18n();
+  const { t } = useI18n();
   const {
     organizations,
     currentOrganization,
+    currentOrganizationSlug,
     currentOrganizationId,
     setCurrentOrganizationId,
+    currentTeamKey,
     currentTeamId,
     isLoading: workspaceLoading,
   } = useCurrentWorkspace();
@@ -49,7 +51,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const navItems = useMemo<NavItem[]>(
     () => [
-      { href: '/issues', label: t('nav.issues'), icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 7h6m-6 4h6m-7-8h.01M9 16h.01' },
+      { href: 'team-active', label: t('nav.issues'), icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 7h6m-6 4h6m-7-8h.01M9 16h.01' },
       { href: '/projects', label: t('nav.projects'), icon: 'M4 7a2 2 0 012-2h4l2 2h6a2 2 0 012 2v2H4V7zm0 4h16v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6z' },
       { href: '/initiatives', label: t('nav.initiatives'), icon: 'M5 4h14v4H5zm0 6h8v4H5zm0 6h14v4H5z' },
       { href: '/roadmaps', label: t('nav.roadmaps'), icon: 'M4 6h6v4H4zm10 0h6v4h-6zM4 14h10v4H4zm14 0h2v4h-2z' },
@@ -65,23 +67,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const session = getStoredSession();
     if (!session?.user) {
-      router.replace(localizePath(locale, '/login'));
+      router.replace(publicPath('/login'));
       return;
     }
     setUser(session.user);
-  }, [locale, router]);
+  }, [router]);
 
   useEffect(() => {
     if (!user) return;
-    if (pathname === localizePath(locale, '/create-workspace')) return;
+    if (pathname === publicPath('/create-workspace')) return;
     if (!workspaceLoading && !currentOrganizationId && organizations.length === 0) {
-      router.replace(localizePath(locale, '/create-workspace'));
+      router.replace(publicPath('/create-workspace'));
     }
-  }, [user, pathname, locale, router, currentOrganizationId, organizations.length, workspaceLoading]);
+  }, [user, pathname, router, currentOrganizationId, organizations.length, workspaceLoading]);
 
   const handleLogout = () => {
     clearSession();
-    router.push(localizePath(locale, '/login'));
+    router.push(publicPath('/login'));
   };
 
   useEffect(() => {
@@ -100,7 +102,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       if ((event.metaKey || event.ctrlKey) && key === 'k') {
         event.preventDefault();
-        router.push(localizePath(locale, '/search'));
+        if (currentOrganizationSlug) {
+          router.push(workspaceSectionPath(currentOrganizationSlug, 'search'));
+        }
         resetShortcutBuffer();
         return;
       }
@@ -122,7 +126,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       if (shortcutBuffer.current === 'gs') {
         event.preventDefault();
-        router.push(localizePath(locale, '/teams/current/settings/templates'));
+        if (currentOrganizationSlug && currentTeamKey) {
+          router.push(teamSettingsPath(currentOrganizationSlug, currentTeamKey, 'templates'));
+        }
         resetShortcutBuffer();
       } else if (shortcutBuffer.current === 'ow') {
         event.preventDefault();
@@ -137,9 +143,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       window.removeEventListener('keydown', handleKeyDown);
       resetShortcutBuffer();
     };
-  }, [locale, router]);
+  }, [currentOrganizationSlug, currentTeamKey, router]);
 
   if (!user) return null;
+
+  const searchHref = currentOrganizationSlug ? workspaceSectionPath(currentOrganizationSlug, 'search') : publicPath('/login');
+  const settingsHref =
+    currentOrganizationSlug && currentTeamKey
+      ? teamSettingsPath(currentOrganizationSlug, currentTeamKey, 'templates')
+      : publicPath('/create-workspace');
+  const membersHref = currentOrganizationSlug ? workspaceSectionPath(currentOrganizationSlug, 'team-members') : publicPath('/create-workspace');
+  const createWorkspaceHref = publicPath('/create-workspace');
 
   return (
     <div className="app-shell">
@@ -150,13 +164,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             organizations={organizations}
             menuOpen={workspaceMenuOpen}
             onMenuOpenChange={setWorkspaceMenuOpen}
-            onSearch={() => router.push(localizePath(locale, '/search'))}
+            onSearch={() => router.push(searchHref)}
             onNewIssue={() => setQuickCreateOpen(true)}
             onLogout={handleLogout}
-            onSelectOrganization={setCurrentOrganizationId}
-            settingsHref={localizePath(locale, '/teams/current/settings/templates')}
-            membersHref={localizePath(locale, '/team-members')}
-            createWorkspaceHref={localizePath(locale, '/create-workspace')}
+            onSelectOrganization={(organizationId) => {
+              setCurrentOrganizationId(organizationId);
+              const nextOrganization = organizations.find((organization) => organization.id === organizationId);
+              if (nextOrganization) {
+                router.push(workspaceRootPath(nextOrganization.slug));
+              }
+            }}
+            settingsHref={settingsHref}
+            membersHref={membersHref}
+            createWorkspaceHref={createWorkspaceHref}
             currentWorkspaceLabel={t('workspaceMenu.currentWorkspace')}
             settingsLabel={t('workspaceMenu.settings')}
             inviteMembersLabel={t('workspaceMenu.inviteMembers')}
@@ -175,8 +195,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           <nav className="flex-1 space-y-1 px-4 py-5">
             {navItems.map((item) => {
-              const href = localizePath(locale, item.href);
-              const isActive = pathname === href;
+              const href =
+                item.href === 'team-active'
+                  ? (currentOrganizationSlug && currentTeamKey ? teamActivePath(currentOrganizationSlug, currentTeamKey) : '#')
+                  : currentOrganizationSlug
+                    ? workspaceSectionPath(currentOrganizationSlug, item.href.replace(/^\//, ''))
+                    : '#';
+              const isActive =
+                href !== '#'
+                  && (pathname === href || (item.href !== 'team-active' && pathname.startsWith(`${href}/`)));
               return (
                 <Link
                   key={item.href}

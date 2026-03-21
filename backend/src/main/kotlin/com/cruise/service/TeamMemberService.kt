@@ -1,10 +1,22 @@
 package com.cruise.service
 
 import com.cruise.entity.TeamMember
+import com.cruise.repository.MembershipRepository
 import com.cruise.repository.TeamMemberRepository
+import com.cruise.repository.UserRepository
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
+
+data class TeamMemberListItemDto(
+    val id: Long,
+    val name: String,
+    val email: String?,
+    val role: String,
+    val skills: String?,
+    val teamId: Long?,
+    val createdAt: String
+)
 
 data class CreateTeamMemberRequest(
     val name: String,
@@ -24,9 +36,50 @@ data class UpdateTeamMemberRequest(
 
 @Service
 class TeamMemberService(
-    private val teamMemberRepository: TeamMemberRepository
+    private val teamMemberRepository: TeamMemberRepository,
+    private val membershipRepository: MembershipRepository,
+    private val userRepository: UserRepository
 ) {
-    fun findAll(): List<TeamMember> = teamMemberRepository.findAll()
+    fun findAll(organizationId: Long? = null, teamId: Long? = null): List<TeamMemberListItemDto> {
+        if (organizationId == null && teamId == null) {
+            return teamMemberRepository.findAll().map { member ->
+                TeamMemberListItemDto(
+                    id = member.id,
+                    name = member.name,
+                    email = member.email,
+                    role = member.role,
+                    skills = member.skills,
+                    teamId = member.teamId,
+                    createdAt = member.createdAt?.toString() ?: ""
+                )
+            }
+        }
+
+        val memberships = membershipRepository.findAll()
+            .asSequence()
+            .filter { it.active }
+            .filter { organizationId == null || it.organizationId == organizationId }
+            .filter { teamId == null || it.teamId == teamId }
+            .sortedBy { it.id }
+            .toList()
+
+        if (memberships.isEmpty()) return emptyList()
+
+        val usersById = userRepository.findAllById(memberships.map { it.userId }.distinct()).associateBy { it.id }
+
+        return memberships.mapNotNull { membership ->
+            val user = usersById[membership.userId] ?: return@mapNotNull null
+            TeamMemberListItemDto(
+                id = user.id,
+                name = user.displayName?.takeIf { it.isNotBlank() } ?: user.username,
+                email = user.email,
+                role = membership.role,
+                skills = null,
+                teamId = membership.teamId,
+                createdAt = membership.joinedAt.toString()
+            )
+        }
+    }
 
     fun findById(id: Long): TeamMember = teamMemberRepository.findById(id)
         .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Team member not found") }

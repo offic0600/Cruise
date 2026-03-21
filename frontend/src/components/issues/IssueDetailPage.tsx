@@ -1,30 +1,82 @@
-'use client';
+﻿'use client';
 
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import {
+  CalendarPlus,
+  Clock3,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  Copy,
+  CopyPlus,
+  Circle,
+  CircleEllipsis,
+  FileText,
+  Flag,
+  FolderKanban,
+  Flame,
   ArrowLeft,
+  ArrowUp,
   ChevronRight,
   Download,
+  Equal,
   Link2,
+  LoaderCircle,
   MessageSquare,
+  Minus,
+  MoreHorizontal,
   Paperclip,
   Plus,
+  Repeat,
+  SmilePlus,
+  Star,
+  Tag,
   Trash2,
 } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
+import { IssueDetailActionBar } from '@/components/issues/issue-detail/IssueDetailActionBar';
+import { IssueDetailSidebar } from '@/components/issues/issue-detail/IssueDetailSidebar';
 import MarkdownEditor from '@/components/issues/MarkdownEditor';
 import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
+import { useToast } from '@/components/providers/ToastProvider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuPortal,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { localizePath } from '@/i18n/config';
 import { useI18n } from '@/i18n/useI18n';
-import { downloadIssueAttachment, type CustomFieldDefinition, type Issue } from '@/lib/api';
+import {
+  createIssue,
+  createIssueLinkAttachments,
+  createIssueTemplate,
+  createRecurringIssue,
+  deleteIssue,
+  downloadIssueAttachment,
+  type Label,
+  type CustomFieldDefinition,
+  type Issue,
+  type Project,
+} from '@/lib/api';
 import { getStoredUser } from '@/lib/auth';
 import { useIssueDetailWorkspace, useIssueMutations } from '@/lib/query/issues';
+import { queryKeys } from '@/lib/query/keys';
+import { issueDetailPath, teamActivePath } from '@/lib/routes';
+import { cn } from '@/lib/utils';
 
 const EMPTY = '__empty__';
 const ISSUE_STATES: Issue['state'][] = ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELED'];
@@ -50,13 +102,37 @@ interface DraftIssue {
   actualHours: number;
   plannedStartDate: string | null;
   plannedEndDate: string | null;
+  labelIds: number[];
   customFields: Record<string, unknown>;
 }
 
+interface SubIssueDraft {
+  title: string;
+  description: string;
+  state: Issue['state'];
+  priority: Issue['priority'];
+  assigneeId: number | null;
+  labelIds: number[];
+  plannedEndDate: string | null;
+}
+
+type InlinePillOption = {
+  value: string;
+  label: string;
+  icon?: ReactNode;
+  avatarText?: string;
+  avatarClassName?: string;
+};
+
 export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   const { locale, t } = useI18n();
-  const { currentTeamId } = useCurrentWorkspace();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const { pushToast } = useToast();
+  const { currentOrganizationSlug, currentTeamId, currentTeamKey } = useCurrentWorkspace();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const subIssueFileInputRef = useRef<HTMLInputElement | null>(null);
+  const subIssueTitleRef = useRef<HTMLInputElement | null>(null);
   const user = getStoredUser();
   const organizationId = user?.organizationId ?? 1;
   const {
@@ -71,9 +147,11 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
     projectsQuery,
     teamsQuery,
     membersQuery,
+    labelsQuery,
   } = useIssueDetailWorkspace(issueId, organizationId);
   const {
     updateIssueMutation,
+    updateIssueStateMutation,
     createIssueMutation,
     createCommentMutation,
     createDocMutation,
@@ -92,6 +170,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   const docs = docsQuery.data ?? [];
   const projects = projectsQuery.data ?? [];
   const teams = teamsQuery.data ?? [];
+  const labels = labelsQuery.data ?? [];
   const members = useMemo(() => {
     const allMembers = (membersQuery.data as Array<{ id: number; name: string; teamId?: number | null }> | undefined) ?? [];
     const scopedTeamId = issue?.teamId ?? currentTeamId ?? null;
@@ -102,7 +181,8 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
 
   const [draftIssue, setDraftIssue] = useState<DraftIssue | null>(null);
   const [commentBody, setCommentBody] = useState('');
-  const [childTitle, setChildTitle] = useState('');
+  const [subIssueDraft, setSubIssueDraft] = useState<SubIssueDraft>(() => createSubIssueDraft());
+  const [subIssueFiles, setSubIssueFiles] = useState<File[]>([]);
   const [docTitle, setDocTitle] = useState('');
   const [docContent, setDocContent] = useState('');
   const [relationTargetId, setRelationTargetId] = useState('');
@@ -110,13 +190,31 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   const [bodyMode, setBodyMode] = useState<'read' | 'edit'>('read');
   const [activeProperty, setActiveProperty] = useState<string | null>(null);
   const [isAddingChild, setIsAddingChild] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
 
   useEffect(() => {
     if (!issue) return;
     setDraftIssue(createDraft(issue));
+    setSubIssueDraft(createSubIssueDraft(issue));
+    setSubIssueFiles([]);
+    setIsAddingChild(false);
     setBodyMode('read');
     setActiveProperty(null);
   }, [issue]);
+
+  useEffect(() => {
+    if (!isAddingChild) return;
+    const frame = window.requestAnimationFrame(() => subIssueTitleRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [isAddingChild]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !issue) return;
+    const key = `issue-favorites:${user?.id ?? 'anonymous'}`;
+    const saved = window.localStorage.getItem(key);
+    const favorites = saved ? JSON.parse(saved) as number[] : [];
+    setIsFavorite(favorites.includes(issue.id));
+  }, [issue, user?.id]);
 
   const initialSnapshot = useMemo(() => (issue ? normalizeDraft(createDraft(issue)) : ''), [issue]);
   const currentSnapshot = useMemo(() => (draftIssue ? normalizeDraft(draftIssue) : ''), [draftIssue]);
@@ -141,6 +239,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
           actualHours: draftIssue.actualHours,
           plannedStartDate: draftIssue.plannedStartDate,
           plannedEndDate: draftIssue.plannedEndDate,
+          labelIds: draftIssue.labelIds,
           customFields: sanitizeCustomFields(draftIssue.customFields),
         },
       });
@@ -152,6 +251,45 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   const teamMap = useMemo(() => new Map(teams.map((team) => [team.id, team.name])), [teams]);
   const memberMap = useMemo(() => new Map(members.map((member) => [member.id, member.name])), [members]);
   const childMap = useMemo(() => new Map(childIssues.map((child) => [child.id, child.title])), [childIssues]);
+  const [isSubscribed, setIsSubscribed] = useState(true);
+
+  const actorNameMap = useMemo(() => {
+    const map = new Map(memberMap);
+    if (user?.id) {
+      map.set(user.id, user.username || user.email || `User ${user.id}`);
+    }
+    if (issue?.reporterId && !map.has(issue.reporterId)) {
+      map.set(issue.reporterId, `User ${issue.reporterId}`);
+    }
+    return map;
+  }, [issue?.reporterId, memberMap, user?.email, user?.id, user?.username]);
+
+  const activityItems = useMemo(
+    () =>
+      activity
+        .map((event) => ({
+          id: `activity-${event.id}`,
+          kind: 'event' as const,
+          createdAt: event.createdAt,
+          authorId: event.actorId,
+          summary: event.summary,
+        }))
+        .sort((left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()),
+    [activity]
+  );
+  const commentItems = useMemo(
+    () =>
+      comments
+        .map((comment) => ({
+          id: `comment-${comment.id}`,
+          kind: 'comment' as const,
+          createdAt: comment.createdAt,
+          authorId: comment.authorId,
+          body: comment.body,
+        }))
+        .sort((left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()),
+    [comments]
+  );
 
   const visibleCustomFields = useMemo(
     () =>
@@ -161,21 +299,268 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
     [customFieldDefinitions]
   );
 
-  const createChildIssue = async () => {
-    if (!issue || !childTitle.trim()) return;
-    await createIssueMutation.mutateAsync({
+  const showActionToast = (title: string, description: string) => {
+    pushToast({
+      type: 'success',
+      title,
+      description,
+      dismissLabel: t('issueCreatedToast.dismiss'),
+      durationMs: 3200,
+    });
+  };
+
+  const copyText = async (value: string, description: string) => {
+    if (!navigator.clipboard?.writeText) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      showActionToast(t('issues.more.actions.copied'), description);
+    } catch {
+      // no-op
+    }
+  };
+
+  const setDueDate = async (value: string | null) => {
+    if (!issue) return;
+    await updateIssueMutation.mutateAsync({
+      id: issue.id,
+      data: {
+        plannedEndDate: value,
+      },
+    });
+  };
+
+  const addLinkAttachment = async () => {
+    if (!issue) return;
+    const url = window.prompt(t('issues.more.prompts.link'));
+    if (!url?.trim()) return;
+    await createIssueLinkAttachments(issue.id, [{ url: url.trim(), uploadedBy: user?.id ?? undefined }]);
+    await queryClient.invalidateQueries({ queryKey: queryKeys.attachments(issue.id) });
+    showActionToast(t('issues.more.actions.linkAdded'), url.trim());
+  };
+
+  const copyIssuePrompt = async () => {
+    if (!issue) return;
+    const labelMap = new Map(labels.map((label) => [label.id, label.name]));
+    issue.labels.forEach((label) => {
+      if (!labelMap.has(label.id)) {
+        labelMap.set(label.id, label.name);
+      }
+    });
+    const currentIssue = draftIssue
+      ? {
+          ...issue,
+          state: draftIssue.state,
+          priority: draftIssue.priority,
+          assigneeId: draftIssue.assigneeId,
+          projectId: draftIssue.projectId,
+        }
+      : issue;
+    const prompt = buildIssuePrompt({
+      issue: currentIssue,
+      projectName: projectMap.get(currentIssue.projectId ?? -1) ?? null,
+      assigneeName: memberMap.get(currentIssue.assigneeId ?? -1) ?? null,
+      stateLabel: translateIssueValue(t, `common.status.${currentIssue.state}`, currentIssue.state),
+      priorityLabel: translateIssueValue(t, `common.priority.${currentIssue.priority}`, currentIssue.priority),
+      labelNames: draftIssue?.labelIds.map((labelId) => labelMap.get(labelId)).filter(Boolean) as string[] | undefined,
+    });
+    await copyText(prompt, issue.identifier);
+  };
+
+  const showCodingToolsHint = () => {
+    showActionToast(
+      'Configure coding tools',
+      locale.startsWith('zh') ? '该入口暂时为占位交互。' : 'This entry is currently a placeholder.'
+    );
+  };
+
+  const quickCreateDoc = async () => {
+    if (!issue) return;
+    const title = window.prompt(t('issues.more.prompts.document'));
+    if (!title?.trim()) return;
+    await createDocMutation.mutateAsync({
+      organizationId: issue.organizationId,
+      teamId: issue.teamId,
+      projectId: issue.projectId,
+      issueId: issue.id,
+      authorId: user?.id ?? 1,
+      title: title.trim(),
+      slug: title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      content: '',
+    });
+    showActionToast(t('issues.more.actions.documentAdded'), title.trim());
+  };
+
+  const convertToTemplate = async () => {
+    if (!issue) return;
+    await createIssueTemplate({
+      organizationId: issue.organizationId,
+      teamId: issue.teamId,
+      projectId: issue.projectId,
+      name: `${issue.identifier} template`,
+      title: issue.title,
+      description: issue.description,
+      type: issue.type,
+      state: issue.state,
+      priority: issue.priority,
+      assigneeId: issue.assigneeId,
+      plannedStartDate: issue.plannedStartDate,
+      plannedEndDate: issue.plannedEndDate,
+      customFields: issue.customFields,
+    });
+    showActionToast(t('issues.more.actions.templateCreated'), issue.identifier);
+  };
+
+  const convertToRecurring = async () => {
+    if (!issue) return;
+    const fallbackProjectId = issue.projectId ?? projects[0]?.id ?? null;
+    if (fallbackProjectId == null) {
+      showActionToast(t('issues.more.actions.projectRequired'), t('issues.more.descriptions.projectRequired'));
+      return;
+    }
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(9, 0, 0, 0);
+    await createRecurringIssue({
+      organizationId: issue.organizationId,
+      teamId: issue.teamId,
+      projectId: fallbackProjectId,
+      name: issue.title,
+      title: issue.title,
+      description: issue.description,
+      type: issue.type,
+      state: issue.state,
+      priority: issue.priority,
+      assigneeId: issue.assigneeId,
+      nextRunAt: tomorrow.toISOString().slice(0, 19),
+      customFields: issue.customFields,
+    });
+    showActionToast(t('issues.more.actions.recurringCreated'), issue.identifier);
+  };
+
+  const duplicateIssue = async () => {
+    if (!issue) return;
+    const duplicated = await createIssue({
+      organizationId: issue.organizationId,
+      type: issue.type,
+      title: `${issue.title} (${t('issues.more.copySuffix')})`,
+      description: issue.description ?? '',
+      state: 'TODO',
+      priority: issue.priority,
+      projectId: issue.projectId,
+      teamId: issue.teamId,
+      assigneeId: issue.assigneeId,
+      plannedStartDate: issue.plannedStartDate,
+      plannedEndDate: issue.plannedEndDate,
+      customFields: issue.customFields,
+    });
+    await queryClient.invalidateQueries({ queryKey: ['issues'] });
+    if (currentOrganizationSlug) {
+      router.push(issueDetailPath(currentOrganizationSlug, duplicated));
+    }
+  };
+
+  const markIssueState = async (state: Issue['state']) => {
+    if (!issue) return;
+    await updateIssueStateMutation.mutateAsync({
+      id: issue.id,
+      state,
+      resolution: state === 'DONE' ? 'COMPLETED' : state === 'CANCELED' ? 'CANCELED' : null,
+    });
+  };
+
+  const createRelatedIssue = async (relation: 'subIssue' | 'related') => {
+    if (!issue) return;
+    const title = window.prompt(
+      relation === 'subIssue' ? t('issues.more.prompts.subIssue') : t('issues.more.prompts.relatedIssue')
+    );
+    if (!title?.trim()) return;
+    const created = await createIssueMutation.mutateAsync({
       organizationId: issue.organizationId,
       type: 'TASK',
-      title: childTitle.trim(),
+      title: title.trim(),
       description: '',
       projectId: issue.projectId,
       teamId: issue.teamId,
-      parentIssueId: issue.id,
+      parentIssueId: relation === 'subIssue' ? issue.id : null,
       reporterId: user?.id ?? 1,
       state: 'TODO',
       priority: 'MEDIUM',
     });
-    setChildTitle('');
+    if (relation === 'related') {
+      await createRelationMutation.mutateAsync({ issueId: issue.id, toIssueId: created.id, relationType: 'RELATES_TO' });
+    }
+    if (currentOrganizationSlug) {
+      router.push(issueDetailPath(currentOrganizationSlug, created));
+    }
+  };
+
+  const toggleFavorite = () => {
+    if (!issue || typeof window === 'undefined') return;
+    const key = `issue-favorites:${user?.id ?? 'anonymous'}`;
+    const saved = window.localStorage.getItem(key);
+    const favorites = new Set(saved ? (JSON.parse(saved) as number[]) : []);
+    if (favorites.has(issue.id)) {
+      favorites.delete(issue.id);
+      setIsFavorite(false);
+    } else {
+      favorites.add(issue.id);
+      setIsFavorite(true);
+    }
+    window.localStorage.setItem(key, JSON.stringify([...favorites]));
+  };
+
+  const setReminder = (label: string, hoursFromNow: number) => {
+    if (!issue || typeof window === 'undefined') return;
+    const key = `issue-reminders:${user?.id ?? 'anonymous'}`;
+    const saved = window.localStorage.getItem(key);
+    const reminders = saved ? (JSON.parse(saved) as Array<Record<string, unknown>>) : [];
+    reminders.push({
+      issueId: issue.id,
+      remindAt: new Date(Date.now() + hoursFromNow * 60 * 60 * 1000).toISOString(),
+      label,
+    });
+    window.localStorage.setItem(key, JSON.stringify(reminders));
+    showActionToast(t('issues.more.actions.reminderSaved'), label);
+  };
+
+  const showVersionHistory = () => {
+    window.location.hash = 'activity';
+  };
+
+  const deleteCurrentIssue = async () => {
+    if (!issue) return;
+    if (!window.confirm(t('issues.more.prompts.delete'))) return;
+    await deleteIssue(issue.id);
+    await queryClient.invalidateQueries({ queryKey: ['issues'] });
+    if (currentOrganizationSlug && currentTeamKey) {
+      router.push(teamActivePath(currentOrganizationSlug, currentTeamKey));
+    }
+  };
+
+  const createChildIssue = async () => {
+    if (!issue || !subIssueDraft.title.trim()) return;
+    const created = await createIssueMutation.mutateAsync({
+      organizationId: issue.organizationId,
+      type: 'TASK',
+      title: subIssueDraft.title.trim(),
+      description: subIssueDraft.description.trim(),
+      projectId: issue.projectId,
+      teamId: issue.teamId,
+      parentIssueId: issue.id,
+      reporterId: user?.id ?? 1,
+      state: subIssueDraft.state,
+      priority: subIssueDraft.priority,
+      assigneeId: subIssueDraft.assigneeId,
+      plannedEndDate: subIssueDraft.plannedEndDate,
+      labelIds: subIssueDraft.labelIds,
+    });
+    if (subIssueFiles.length) {
+      for (const file of subIssueFiles) {
+        await uploadAttachmentMutation.mutateAsync({ issueId: created.id, file, uploadedBy: user?.id ?? undefined });
+      }
+    }
+    setSubIssueDraft(createSubIssueDraft(issue));
+    setSubIssueFiles([]);
     setIsAddingChild(false);
   };
 
@@ -239,22 +624,67 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
       <div className="mx-auto max-w-[1280px]">
         <div className="flex flex-col gap-8 pb-10">
           <header className="flex flex-col gap-6 border-b border-border-soft/80 pb-7">
-            <div className="min-w-0 space-y-4">
-              <div className="flex items-center gap-2 text-sm text-ink-500">
-                <Link
-                  href={localizePath(locale, '/issues')}
-                  className="inline-flex items-center gap-1.5 transition hover:text-ink-900"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  {t('issues.detailPage.backToIssues')}
-                </Link>
-                <ChevronRight className="h-4 w-4 text-ink-300" />
-                <span className="truncate text-ink-700">{issue.identifier}</span>
+            <div className="flex items-start justify-between gap-6">
+              <div className="min-w-0 space-y-4">
+                <div className="flex items-center gap-2 text-sm text-ink-500">
+                  <Link
+                    href={currentOrganizationSlug && currentTeamKey ? teamActivePath(currentOrganizationSlug, currentTeamKey) : '#'}
+                    className="inline-flex items-center gap-1.5 transition hover:text-ink-900"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    {t('issues.detailPage.backToIssues')}
+                  </Link>
+                  <ChevronRight className="h-4 w-4 text-ink-300" />
+                  <span className="truncate text-ink-700">{issue.identifier}</span>
+                </div>
+                <EditableTitle
+                  value={draftIssue.title}
+                  onChange={(value) => setDraftIssue((current) => (current ? { ...current, title: value } : current))}
+                />
               </div>
-              <EditableTitle
-                value={draftIssue.title}
-                onChange={(value) => setDraftIssue((current) => (current ? { ...current, title: value } : current))}
-              />
+              <IssueDetailActionBar
+                issue={issue}
+                onCopyLink={() => copyText(`${window.location.origin}${currentOrganizationSlug ? issueDetailPath(currentOrganizationSlug, issue) : ''}`, issue.identifier)}
+                onCopyIdentifier={() => copyText(issue.identifier, issue.identifier)}
+                onCopyTitle={() => copyText(issue.title, issue.title)}
+                onCreateRelated={createRelatedIssue}
+                onAddLink={addLinkAttachment}
+                onCopyPrompt={copyIssuePrompt}
+                onConfigureCodingTools={showCodingToolsHint}
+                moreMenu={
+                  <IssueMoreMenu
+                    issue={issue}
+                    projects={projects}
+                    isFavorite={isFavorite}
+                    t={t}
+                    onSetDueDate={setDueDate}
+                    onAddLink={addLinkAttachment}
+                    onAddDocument={quickCreateDoc}
+                    onAssignProject={(projectId) =>
+                      updateIssueMutation.mutateAsync({
+                        id: issue.id,
+                        data: {
+                          projectId,
+                        },
+                      })
+                    }
+                    onConvertTemplate={convertToTemplate}
+                    onConvertRecurring={convertToRecurring}
+                    onMakeCopy={duplicateIssue}
+                    onMarkState={markIssueState}
+                    onCreateRelated={createRelatedIssue}
+                    onToggleFavorite={toggleFavorite}
+                    onCopyLink={() => copyText(`${window.location.origin}${currentOrganizationSlug ? issueDetailPath(currentOrganizationSlug, issue) : ''}`, issue.identifier)}
+                    onCopyIdentifier={() => copyText(issue.identifier, issue.identifier)}
+                    onCopyTitle={() => copyText(issue.title, issue.title)}
+                      onRemindLater={() => setReminder(t('issues.more.reminders.laterToday'), 4)}
+                      onRemindTomorrow={() => setReminder(t('issues.more.reminders.tomorrowMorning'), 18)}
+                      onShowVersionHistory={showVersionHistory}
+                      onDelete={deleteCurrentIssue}
+                      contentOnly
+                    />
+                  }
+                />
             </div>
           </header>
 
@@ -270,248 +700,356 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                 />
               </section>
 
-              <DetailSection
-                title={t('issues.detailPage.subIssues')}
-                action={
-                  <Link
-                    href={localizePath(
-                      locale,
-                    `/issues/new?parentIssueId=${issue.id}${issue.projectId != null ? `&projectId=${issue.projectId}` : ''}&teamId=${issue.teamId ?? ''}&title=`
-                    )}
-                    className="flex items-center gap-2 text-sm text-ink-400 transition hover:text-ink-700"
+              <section className="space-y-4 pt-1">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={(event) => uploadAttachment(event.target.files?.[0] ?? null)}
+                />
+                <div className="flex items-center gap-2.5 text-ink-400">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      showActionToast('Reactions', locale.startsWith('zh') ? '表情反馈即将支持。' : 'Reactions are coming soon.')
+                    }
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-transparent transition hover:border-slate-200 hover:bg-white hover:text-ink-900"
+                    aria-label="Add reaction"
                   >
-                    <Plus className="h-4 w-4" />
-                    <span>{t('issues.detailPage.newSubIssue')}</span>
-                  </Link>
-                }
-              >
-                <div className="divide-y divide-border-soft">
+                    <SmilePlus className="h-4 w-4 stroke-[1.8]" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-transparent transition hover:border-slate-200 hover:bg-white hover:text-ink-900"
+                    aria-label={t('issues.detailPage.uploadAttachment')}
+                  >
+                    <Paperclip className="h-4 w-4 stroke-[1.8]" />
+                  </button>
+                </div>
+                <div className="space-y-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddingChild((current) => {
+                        const next = !current;
+                        if (next) {
+                          setSubIssueDraft(createSubIssueDraft(issue));
+                          setSubIssueFiles([]);
+                        }
+                        return next;
+                      });
+                    }}
+                    className="inline-flex items-center gap-2 text-[20px] leading-none text-ink-700 transition hover:text-ink-900"
+                  >
+                      <Plus className="h-3.5 w-3.5 stroke-[2.2]" />
+                      <span className="text-[15px]">{t('issues.detailPage.newSubIssue')}</span>
+                  </button>
+                  <div
+                    className={cn(
+                      'grid transition-all duration-200 ease-out',
+                      isAddingChild ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+                    )}
+                  >
+                    <div className="overflow-hidden">
+                      <div className="rounded-[24px] border border-border-soft bg-white px-5 py-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
+                        <input
+                          ref={subIssueTitleRef}
+                          value={subIssueDraft.title}
+                          onChange={(event) =>
+                            setSubIssueDraft((current) => ({
+                              ...current,
+                              title: event.target.value,
+                            }))
+                          }
+                          placeholder={t('settings.composer.titlePlaceholder')}
+                          className="w-full border-0 bg-transparent px-0 py-0 text-[30px] font-semibold tracking-[-0.03em] text-ink-900 outline-none placeholder:text-ink-300"
+                        />
+                        <Textarea
+                          value={subIssueDraft.description}
+                          onChange={(event) =>
+                            setSubIssueDraft((current) => ({
+                              ...current,
+                              description: event.target.value,
+                            }))
+                          }
+                          placeholder={t('settings.composer.descriptionPlaceholder')}
+                          className="mt-2 min-h-[72px] resize-none border-0 px-0 py-0 text-[16px] leading-7 text-ink-700 shadow-none placeholder:text-ink-300 focus-visible:ring-0"
+                        />
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex flex-wrap items-center gap-2.5">
+                            <InlineIssuePill
+                              label={issueStateLabel(subIssueDraft.state, t)}
+                              value={subIssueDraft.state}
+                              options={ISSUE_STATES.map((value) => buildInlineStateOption(value, t))}
+                              onChange={(value) =>
+                                setSubIssueDraft((current) => ({ ...current, state: value as Issue['state'] }))
+                              }
+                            />
+                            <InlineIssuePill
+                              label={issuePriorityLabel(subIssueDraft.priority, t)}
+                              value={subIssueDraft.priority}
+                              options={ISSUE_PRIORITIES.map((value) => buildInlinePriorityOption(value, t))}
+                              onChange={(value) =>
+                                setSubIssueDraft((current) => ({ ...current, priority: value as Issue['priority'] }))
+                              }
+                            />
+                            <InlineIssuePill
+                              label={
+                                members.find((member) => member.id === subIssueDraft.assigneeId)?.name ?? t('common.notSet')
+                              }
+                              value={subIssueDraft.assigneeId != null ? String(subIssueDraft.assigneeId) : EMPTY}
+                              options={members.map((member) => ({
+                                value: String(member.id),
+                                label: member.name,
+                                avatarText: initialsForName(member.name),
+                                avatarClassName: 'bg-rose-100 text-rose-600',
+                              }))}
+                              onChange={(value) =>
+                                setSubIssueDraft((current) => ({
+                                  ...current,
+                                  assigneeId: value === EMPTY ? null : Number(value),
+                                }))
+                              }
+                              emptyLabel={t('common.notSet')}
+                              searchable
+                              searchPlaceholder={t('settings.composer.searchAssignee')}
+                              noSearchResultsLabel={t('settings.composer.noAssigneeResults')}
+                            />
+                            <InlineLabelsPill
+                              labels={labels}
+                              selectedLabelIds={subIssueDraft.labelIds}
+                              onToggle={(labelId) =>
+                                setSubIssueDraft((current) => ({
+                                  ...current,
+                                  labelIds: current.labelIds.includes(labelId)
+                                    ? current.labelIds.filter((value) => value !== labelId)
+                                    : [...current.labelIds, labelId],
+                                }))
+                              }
+                              t={t}
+                            />
+                            <InlineSubIssueMoreMenu
+                              dueDate={subIssueDraft.plannedEndDate}
+                              hasAttachments={subIssueFiles.length > 0}
+                              locale={locale}
+                              t={t}
+                              onClearDueDate={() =>
+                                setSubIssueDraft((current) => ({
+                                  ...current,
+                                  plannedEndDate: null,
+                                }))
+                              }
+                              onSetDueDate={(value) =>
+                                setSubIssueDraft((current) => ({
+                                  ...current,
+                                  plannedEndDate: value,
+                                }))
+                              }
+                            />
+                          </div>
+                          <div className="flex items-center gap-2.5">
+                            <input
+                              ref={subIssueFileInputRef}
+                              type="file"
+                              multiple
+                              className="hidden"
+                              onChange={(event) => setSubIssueFiles(Array.from(event.target.files ?? []))}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => subIssueFileInputRef.current?.click()}
+                              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-ink-400 transition hover:border-slate-200 hover:bg-slate-50 hover:text-ink-700"
+                              aria-label={t('issues.detailPage.uploadAttachment')}
+                            >
+                              <Paperclip className="h-4 w-4 stroke-[1.8]" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsAddingChild(false);
+                                setSubIssueDraft(createSubIssueDraft(issue));
+                                setSubIssueFiles([]);
+                              }}
+                              className="inline-flex h-10 items-center rounded-full px-3 text-[15px] font-medium text-ink-500 transition hover:text-ink-800"
+                            >
+                              {t('common.cancel')}
+                            </button>
+                            <Button
+                              type="button"
+                              onClick={() => void createChildIssue()}
+                              disabled={!subIssueDraft.title.trim() || createIssueMutation.isPending || uploadAttachmentMutation.isPending}
+                              className="h-10 rounded-full px-5"
+                            >
+                              {createIssueMutation.isPending || uploadAttachmentMutation.isPending ? (
+                                <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                              ) : null}
+                              {t('common.create')}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   {childIssues.length ? (
-                    childIssues.map((child) => (
-                      <Link
-                        key={child.id}
-                        href={localizePath(locale, `/issues/${child.id}`)}
-                        className="flex items-center justify-between gap-4 py-3 transition hover:bg-slate-50/60"
-                      >
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-medium text-ink-900">{child.title}</div>
-                          <div className="mt-1 text-xs tracking-[0.18em] text-ink-400">{child.identifier}</div>
-                        </div>
-                        <div className="flex items-center gap-3">
+                    <div className="space-y-1 pl-6">
+                      {childIssues.map((child) => (
+                        <Link
+                          key={child.id}
+                          href={currentOrganizationSlug ? issueDetailPath(currentOrganizationSlug, child) : '#'}
+                          className="flex items-center justify-between gap-4 rounded-xl px-3 py-2 transition hover:bg-slate-50"
+                        >
+                          <div className="min-w-0">
+                            <div className="truncate text-sm text-ink-900">{child.title}</div>
+                            <div className="mt-1 text-xs text-ink-400">{child.identifier}</div>
+                          </div>
                           <IssueStateBadge state={child.state} t={t} />
-                          <ChevronRight className="h-4 w-4 text-ink-300" />
+                        </Link>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </section>
+              <section id="activity" className="space-y-6 border-t border-border-soft/80 pt-7">
+                <div className="flex items-center justify-between gap-4">
+                  <h2 className="text-[18px] font-semibold tracking-tight text-ink-900">{t('issues.tabs.activity')}</h2>
+                  <div className="flex items-center gap-3 text-sm text-ink-400">
+                    <button
+                      type="button"
+                      onClick={() => setIsSubscribed((current) => !current)}
+                      className="transition hover:text-ink-700"
+                    >
+                      {isSubscribed ? 'Unsubscribe' : 'Subscribe'}
+                    </button>
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#ff8a80] text-[9px] font-semibold uppercase text-white">
+                        {initialsForName(valueFromMap(actorNameMap, user?.id ?? issue.reporterId ?? null, issue.identifier))}
+                      </div>
+                    </div>
+                  </div>
+
+                <div className="space-y-4">
+                  {activityItems.length || commentItems.length ? (
+                    <>
+                      {activityItems.length ? (
+                        <IssueActivityTimeline
+                          items={activityItems}
+                          actorNameMap={actorNameMap}
+                          locale={locale}
+                        />
+                      ) : null}
+                      {commentItems.length ? (
+                        <div className="space-y-3 pt-1">
+                          {commentItems.map((item) => {
+                            const actorName = valueFromMap(
+                              actorNameMap,
+                              item.authorId ?? null,
+                              `User ${item.authorId ?? ''}`.trim()
+                            );
+                            return (
+                              <div key={item.id} className="grid grid-cols-[24px_minmax(0,1fr)] gap-3">
+                                <div className="flex justify-center pt-1">
+                                  <div className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[#ff8a80] text-[8px] font-semibold uppercase text-white">
+                                    {initialsForName(actorName)}
+                                  </div>
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="text-[13px] leading-6 text-ink-700">
+                                    <span className="font-medium text-ink-900">{actorName}</span>
+                                    <span className="ml-2 text-[12px] text-ink-400">
+                                      {formatRelativeTime(item.createdAt, locale)}
+                                    </span>
+                                  </div>
+                                  <div className="whitespace-pre-wrap text-[14px] leading-6 text-ink-900">{item.body}</div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      </Link>
-                    ))
+                      ) : null}
+                    </>
                   ) : (
-                    <EmptyState label={t('issues.emptyStates.subIssues')} />
+                    <EmptyState label={t('issues.emptyStates.activity')} />
                   )}
                 </div>
-              </DetailSection>
 
-              <DetailSection
-                id="resources"
-                title={t('issues.detailPage.resources')}
-                action={
-                  <div className="flex items-center gap-2">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      className="hidden"
-                      onChange={(event) => uploadAttachment(event.target.files?.[0] ?? null)}
-                    />
+                {attachments.length ? (
+                  <div className="flex flex-wrap gap-2">
+                    {attachments.map((attachment) => (
+                      <div
+                        key={attachment.id}
+                        className="inline-flex items-center gap-2 rounded-full border border-border-soft bg-white px-3 py-1.5 text-sm text-ink-700"
+                      >
+                        <Paperclip className="h-3.5 w-3.5 text-ink-400" />
+                        <button
+                          type="button"
+                          onClick={() => downloadIssueAttachment(issue.id, attachment.id, attachment.filename)}
+                          className="max-w-[220px] truncate transition hover:text-ink-900"
+                        >
+                          {attachment.filename}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteAttachmentMutation.mutate({ issueId: issue.id, attachmentId: attachment.id })}
+                          className="text-ink-300 transition hover:text-rose-500"
+                          aria-label={`Delete ${attachment.filename}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className="rounded-[18px] border border-border-soft bg-white px-5 py-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+                  <Textarea
+                    value={commentBody}
+                    onChange={(event) => setCommentBody(event.target.value)}
+                    placeholder={t('issues.detail.commentPlaceholder')}
+                    className="min-h-[104px] resize-none border-0 px-0 py-0 text-[15px] leading-7 text-ink-900 placeholder:text-ink-300 focus-visible:ring-0"
+                  />
+                  <div className="mt-3 flex items-center justify-end gap-2">
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="flex items-center gap-2 py-1 text-sm text-ink-400 transition hover:text-ink-700"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-transparent text-ink-400 transition hover:border-slate-200 hover:bg-slate-50 hover:text-ink-700"
+                      aria-label={t('issues.detailPage.uploadAttachment')}
                     >
-                      <Paperclip className="h-4 w-4" />
-                      <span>{t('issues.detailPage.uploadAttachment')}</span>
+                      <Paperclip className="h-4 w-4 stroke-[1.8]" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void addComment()}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-ink-500 transition hover:bg-slate-50 hover:text-ink-900"
+                      aria-label={t('issues.detail.addComment')}
+                    >
+                      <ArrowUp className="h-3.5 w-3.5 stroke-[2.2]" />
                     </button>
                   </div>
-                }
-              >
-                <div className="divide-y divide-border-soft">
-                  {attachments.length ? (
-                    attachments.map((attachment) => (
-                      <div key={attachment.id} className="flex items-center justify-between gap-4 py-3">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-medium text-ink-900">{attachment.filename}</div>
-                          <div className="mt-1 text-xs text-ink-400">
-                            {formatSize(attachment.size)} · {formatDate(attachment.createdAt, locale)}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => downloadIssueAttachment(issue.id, attachment.id, attachment.filename)}
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => deleteAttachmentMutation.mutate({ issueId: issue.id, attachmentId: attachment.id })}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <EmptyState label={t('issues.emptyStates.attachments')} />
-                  )}
                 </div>
-              </DetailSection>
-
-              <DetailSection title={t('issues.detailPage.linkedDocs')}>
-                <div className="grid gap-3">
-                  <Input
-                    value={docTitle}
-                    onChange={(event) => setDocTitle(event.target.value)}
-                    placeholder={t('issues.detail.docTitle')}
-                    className="h-10 rounded-xl border-border-soft/70 bg-transparent"
-                  />
-                  <EditableSurface
-                    value={docContent}
-                    onChange={setDocContent}
-                    placeholder={t('issues.detail.docContent')}
-                    minHeight={92}
-                  />
-                  <div className="flex justify-end">
-                    <Button variant="ghost" onClick={createLinkedDoc}>
-                      {t('common.create')}
-                    </Button>
-                  </div>
-                </div>
-                <div className="divide-y divide-border-soft">
-                  {docs.length ? (
-                    docs.map((doc) => (
-                      <div key={doc.id} className="flex items-center justify-between gap-4 py-3">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-medium text-ink-900">{doc.title}</div>
-                          <div className="mt-1 text-xs text-ink-400">{doc.slug}</div>
-                        </div>
-                        <Badge variant="neutral">{doc.status}</Badge>
-                      </div>
-                    ))
-                  ) : (
-                    <EmptyState label={t('issues.emptyStates.docs')} />
-                  )}
-                </div>
-              </DetailSection>
-
-              <DetailSection id="relations" title={t('issues.tabs.relations')}>
-                <div className="grid gap-3 md:grid-cols-[1fr_220px_auto]">
-                  <Input
-                    value={relationTargetId}
-                    onChange={(event) => setRelationTargetId(event.target.value)}
-                    placeholder={t('issues.detail.relationTarget')}
-                    className="h-11 rounded-2xl border-border-soft bg-transparent"
-                  />
-                  <Select value={relationType} onValueChange={(value) => setRelationType(value as (typeof RELATION_TYPES)[number])}>
-                    <SelectTrigger className="h-11 rounded-2xl border-border-soft bg-transparent">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {RELATION_TYPES.map((option) => (
-                        <SelectItem key={option} value={option}>
-                          {t(`issues.relationType.${option}`)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button variant="ghost" onClick={addRelation}>
-                    <Link2 className="mr-2 h-4 w-4" />
-                    {t('common.create')}
-                  </Button>
-                </div>
-                <div className="divide-y divide-border-soft">
-                  {relations.length ? (
-                    relations.map((relation) => (
-                      <div key={relation.id} className="flex items-center justify-between gap-4 py-3">
-                        <div>
-                          <div className="text-sm font-medium text-ink-900">{t(`issues.relationType.${relation.relationType}`)}</div>
-                          <div className="mt-1 text-xs text-ink-400">
-                            {relation.fromIssueId} → {relation.toIssueId}
-                          </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteRelationMutation.mutate({ issueId: issue.id, relationId: relation.id })}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))
-                  ) : (
-                    <EmptyState label={t('issues.emptyStates.relations')} />
-                  )}
-                </div>
-              </DetailSection>
-
-              <DetailSection id="activity" title={t('issues.tabs.activity')}>
-                <div className="space-y-6">
-                  <div className="border-b border-border-soft pb-6">
-                    <div className="mb-3 text-xs uppercase tracking-[0.18em] text-ink-400">{t('issues.tabs.comments')}</div>
-                  <div className="flex items-start gap-3">
-                      <div className="mt-1 flex h-8 w-8 items-center justify-center rounded-full bg-brand-600/12 text-brand-600">
-                        <MessageSquare className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0 flex-1 space-y-3">
-                        <EditableSurface
-                          value={commentBody}
-                          onChange={setCommentBody}
-                          placeholder={t('issues.detail.commentPlaceholder')}
-                          minHeight={96}
-                        />
-                        <div className="flex justify-end">
-                          <Button variant="ghost" onClick={addComment}>
-                            {t('issues.detail.addComment')}
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-6 divide-y divide-border-soft">
-                      {comments.length ? (
-                        comments.map((comment) => (
-                          <div key={comment.id} className="py-3">
-                            <div className="text-sm leading-6 text-ink-900">{comment.body}</div>
-                            <div className="mt-2 text-xs text-ink-400">
-                              #{comment.authorId} · {formatDate(comment.createdAt, locale)}
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <EmptyState label={t('issues.emptyStates.comments')} />
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="mb-3 text-xs uppercase tracking-[0.18em] text-ink-400">Changes</div>
-                    <div className="divide-y divide-border-soft">
-                      {activity.length ? (
-                        activity.map((event) => (
-                          <div key={event.id} className="py-3">
-                            <div className="text-sm font-medium text-ink-900">{event.summary}</div>
-                            <div className="mt-1 text-xs text-ink-400">
-                              {event.actionType} · {formatDate(event.createdAt, locale)}
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <EmptyState label={t('issues.emptyStates.activity')} />
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </DetailSection>
+              </section>
             </main>
 
-            <aside className="space-y-5 xl:sticky xl:top-24 xl:self-start">
+            <IssueDetailSidebar
+              draftIssue={draftIssue}
+              issue={issue}
+              members={members}
+              projects={projects}
+              labels={labels}
+              visibleCustomFields={visibleCustomFields}
+              activeProperty={activeProperty}
+              locale={locale}
+              t={t}
+              onSetDraftIssue={(updater) =>
+                setDraftIssue((current) => (current ? ({ ...current, ...updater(current) } as DraftIssue) : current))
+              }
+              onSetActiveProperty={setActiveProperty}
+              renderCustomFieldInput={(field, value, onChange, onDone) => (
+                <CustomFieldInput field={field} value={value} onChange={onChange} onDone={onDone} />
+              )}
+              formatCustomFieldValue={formatCustomFieldValue}
+            />
+
+            <aside className="hidden">
               <PropertyPanel title={t('issues.detailPage.properties')}>
                 <PropertyGroup title="Properties">
                   <InlineSelectRow
@@ -547,7 +1085,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                   />
                   {draftIssue.state === 'DONE' || draftIssue.state === 'CANCELED' ? (
                     <InlineSelectRow
-                      label={locale.startsWith('zh') ? '关闭原因' : 'Resolution'}
+                      label={locale.startsWith('zh') ? '鍏抽棴鍘熷洜' : 'Resolution'}
                       editor={
                         <Select
                           value={draftIssue.resolution ?? nextResolutionForState(draftIssue.state, draftIssue.resolution) ?? EMPTY}
@@ -851,6 +1389,240 @@ function DetailSection({
   );
 }
 
+function IssueMoreMenu({
+  issue,
+  projects,
+  isFavorite,
+  t,
+  onSetDueDate,
+  onAddLink,
+  onAddDocument,
+  onAssignProject,
+  onConvertTemplate,
+  onConvertRecurring,
+  onMakeCopy,
+  onMarkState,
+  onCreateRelated,
+  onToggleFavorite,
+  onCopyLink,
+  onCopyIdentifier,
+  onCopyTitle,
+  onRemindLater,
+  onRemindTomorrow,
+  onShowVersionHistory,
+  onDelete,
+  trigger,
+  contentOnly = false,
+}: {
+  issue: Issue;
+  projects: Project[];
+  isFavorite: boolean;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+  onSetDueDate: (value: string | null) => Promise<void>;
+  onAddLink: () => Promise<void>;
+  onAddDocument: () => Promise<void>;
+  onAssignProject: (projectId: number | null) => Promise<unknown>;
+  onConvertTemplate: () => Promise<void>;
+  onConvertRecurring: () => Promise<void>;
+  onMakeCopy: () => Promise<void>;
+  onMarkState: (state: Issue['state']) => Promise<void>;
+  onCreateRelated: (relation: 'subIssue' | 'related') => Promise<void>;
+  onToggleFavorite: () => void;
+  onCopyLink: () => Promise<void>;
+  onCopyIdentifier: () => Promise<void>;
+  onCopyTitle: () => Promise<void>;
+  onRemindLater: () => void;
+  onRemindTomorrow: () => void;
+  onShowVersionHistory: () => void;
+  onDelete: () => Promise<void>;
+  trigger?: ReactNode;
+  contentOnly?: boolean;
+}) {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowValue = tomorrow.toISOString().slice(0, 10);
+  const nextWeek = new Date();
+  nextWeek.setDate(nextWeek.getDate() + 7);
+  const nextWeekValue = nextWeek.toISOString().slice(0, 10);
+
+  const content = (
+    <>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+            <CalendarPlus className="h-4.5 w-4.5 text-ink-500" />
+            <span>{t('issues.more.setDueDate')}</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuSubContent className="min-w-[220px] rounded-[20px] p-2">
+              <DropdownMenuItem onSelect={() => void onSetDueDate(new Date().toISOString().slice(0, 10))} className="rounded-2xl px-4 py-3 text-[15px]">
+                {t('issues.more.dueDates.today')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void onSetDueDate(tomorrowValue)} className="rounded-2xl px-4 py-3 text-[15px]">
+                {t('issues.more.dueDates.tomorrow')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void onSetDueDate(nextWeekValue)} className="rounded-2xl px-4 py-3 text-[15px]">
+                {t('issues.more.dueDates.nextWeek')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void onSetDueDate(null)} className="rounded-2xl px-4 py-3 text-[15px]">
+                {t('issues.more.dueDates.clear')}
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
+        <DropdownMenuItem onSelect={() => void onAddLink()} className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+          <Link2 className="h-4.5 w-4.5 text-ink-500" />
+          <span>{t('issues.more.addLink')}</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void onAddDocument()} className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+          <FileText className="h-4.5 w-4.5 text-ink-500" />
+          <span>{t('issues.more.addDocument')}</span>
+        </DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+            <FolderKanban className="h-4.5 w-4.5 text-ink-500" />
+            <span>{t('issues.more.convertInto')}</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuSubContent className="min-w-[240px] rounded-[20px] p-2">
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+                  <FolderKanban className="h-4.5 w-4.5 text-ink-500" />
+                  <span>{t('issues.more.project')}</span>
+                </DropdownMenuSubTrigger>
+                <DropdownMenuPortal>
+                  <DropdownMenuSubContent className="min-w-[220px] rounded-[20px] p-2">
+                    <DropdownMenuItem onSelect={() => void onAssignProject(null)} className="rounded-2xl px-4 py-3 text-[15px]">
+                      {t('common.notSet')}
+                    </DropdownMenuItem>
+                    {projects.map((project) => (
+                      <DropdownMenuItem key={project.id} onSelect={() => void onAssignProject(project.id)} className="rounded-2xl px-4 py-3 text-[15px]">
+                        {project.name}{project.id === issue.projectId ? ` 路 ${t('issues.more.current')}` : ''}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+              </DropdownMenuSub>
+              <DropdownMenuItem onSelect={() => void onConvertTemplate()} className="rounded-2xl px-4 py-3 text-[15px]">
+                {t('issues.more.template')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void onConvertRecurring()} className="rounded-2xl px-4 py-3 text-[15px]">
+                {t('issues.more.recurringIssue')}
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
+        <DropdownMenuItem onSelect={() => void onMakeCopy()} className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+          <CopyPlus className="h-4.5 w-4.5 text-ink-500" />
+          <span>{t('issues.more.makeCopy')}</span>
+        </DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+            <Flag className="h-4.5 w-4.5 text-ink-500" />
+            <span>{t('issues.more.markAs')}</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuSubContent className="min-w-[220px] rounded-[20px] p-2">
+              {ISSUE_STATES.map((state) => (
+                <DropdownMenuItem key={state} onSelect={() => void onMarkState(state)} className="rounded-2xl px-4 py-3 text-[15px]">
+                  {t(`common.status.${state}`)}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+            <Plus className="h-4.5 w-4.5 text-ink-500" />
+            <span>{t('issues.more.createRelated')}</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuSubContent className="min-w-[220px] rounded-[20px] p-2">
+              <DropdownMenuItem onSelect={() => void onCreateRelated('subIssue')} className="rounded-2xl px-4 py-3 text-[15px]">
+                {t('issues.more.subIssue')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void onCreateRelated('related')} className="rounded-2xl px-4 py-3 text-[15px]">
+                {t('issues.more.relatedIssue')}
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={onToggleFavorite} className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+          <Star className={isFavorite ? 'h-4.5 w-4.5 fill-amber-400 text-amber-400' : 'h-4.5 w-4.5 text-ink-500'} />
+          <span>{isFavorite ? t('issues.more.unfavorite') : t('issues.more.favorite')}</span>
+        </DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+            <Copy className="h-4.5 w-4.5 text-ink-500" />
+            <span>{t('issues.more.copy')}</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuSubContent className="min-w-[220px] rounded-[20px] p-2">
+              <DropdownMenuItem onSelect={() => void onCopyLink()} className="rounded-2xl px-4 py-3 text-[15px]">
+                {t('issues.more.copyLink')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void onCopyIdentifier()} className="rounded-2xl px-4 py-3 text-[15px]">
+                {t('issues.more.copyIdentifier')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void onCopyTitle()} className="rounded-2xl px-4 py-3 text-[15px]">
+                {t('issues.more.copyTitle')}
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+            <Clock3 className="h-4.5 w-4.5 text-ink-500" />
+            <span>{t('issues.more.remindMe')}</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuSubContent className="min-w-[220px] rounded-[20px] p-2">
+              <DropdownMenuItem onSelect={onRemindLater} className="rounded-2xl px-4 py-3 text-[15px]">
+                {t('issues.more.reminders.laterToday')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onRemindTomorrow} className="rounded-2xl px-4 py-3 text-[15px]">
+                {t('issues.more.reminders.tomorrowMorning')}
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={onShowVersionHistory} className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+          <MessageSquare className="h-4.5 w-4.5 text-ink-500" />
+          <span>{t('issues.more.showVersionHistory')}</span>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => void onDelete()} className="gap-3 rounded-2xl px-4 py-3 text-[15px] text-rose-600 focus:text-rose-700">
+          <Trash2 className="h-4.5 w-4.5" />
+          <span>{t('issues.more.delete')}</span>
+        </DropdownMenuItem>
+    </>
+  );
+
+  if (contentOnly) {
+    return content;
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        {trigger ?? (
+          <button
+            type="button"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border-soft bg-white text-ink-500 transition hover:bg-slate-50 hover:text-ink-900"
+            aria-label={t('issues.more.menu')}
+          >
+            <MoreHorizontal className="h-4.5 w-4.5" />
+          </button>
+        )}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-[280px] rounded-[22px] p-2">
+        {content}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function PropertyPanel({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="border-t border-border-soft/70 px-1 pt-4 first:border-t-0 first:pt-0">
@@ -971,17 +1743,57 @@ function IssueStateBadge({
   t: (key: string, vars?: Record<string, string | number>) => string;
 }) {
   if (state === 'DONE') {
-    return <Badge variant="success">{resolution && resolution !== 'COMPLETED' ? `${t(`common.status.${state}`)} · ${t(`common.resolution.${resolution}`)}` : t(`common.status.${state}`)}</Badge>;
+    return <Badge variant="success">{resolution && resolution !== 'COMPLETED' ? `${t(`common.status.${state}`)} 路 ${t(`common.resolution.${resolution}`)}` : t(`common.status.${state}`)}</Badge>;
   }
   if (state === 'IN_PROGRESS' || state === 'IN_REVIEW') return <Badge variant="brand">{t(`common.status.${state}`)}</Badge>;
   if (state === 'CANCELED') {
-    return <Badge variant="danger">{resolution && resolution !== 'CANCELED' ? `${t(`common.status.${state}`)} · ${t(`common.resolution.${resolution}`)}` : t(`common.status.${state}`)}</Badge>;
+    return <Badge variant="danger">{resolution && resolution !== 'CANCELED' ? `${t(`common.status.${state}`)} 路 ${t(`common.resolution.${resolution}`)}` : t(`common.status.${state}`)}</Badge>;
   }
   return <Badge variant="neutral">{t(`common.status.${state}`)}</Badge>;
 }
 
 function EmptyState({ label, compact = false }: { label: string; compact?: boolean }) {
   return <div className={compact ? 'py-2 text-sm text-ink-400' : 'py-4 text-sm text-ink-400'}>{label}</div>;
+}
+
+function IssueActivityTimeline({
+  items,
+  actorNameMap,
+  locale,
+}: {
+  items: Array<{
+    id: string;
+    kind: 'event';
+    createdAt: string;
+    authorId: number | null;
+    summary: string;
+  }>;
+  actorNameMap: Map<number, string>;
+  locale: string;
+}) {
+  return (
+    <div className="space-y-0.5">
+      {items.map((item, index) => {
+        const actorName = valueFromMap(actorNameMap, item.authorId, 'System');
+        return (
+          <div key={item.id} className="grid grid-cols-[22px_minmax(0,1fr)] gap-3">
+            <div className="relative flex justify-center pt-[7px]">
+              {index < items.length - 1 ? (
+                <span className="absolute left-1/2 top-[15px] h-[calc(100%-6px)] w-px -translate-x-1/2 bg-slate-200" />
+              ) : null}
+              <span className="relative z-10 h-[14px] w-[14px] rounded-full border border-slate-300 bg-white" />
+            </div>
+            <div className="pb-[10px] pt-[1px] text-[13px] leading-6 text-ink-700">
+              <span className="font-medium text-ink-900">{actorName}</span>
+              <span className="ml-1">{stripActorName(item.summary, actorName)}</span>
+              <span className="mx-1.5 text-ink-300">·</span>
+              <span className="text-[12px] text-ink-400">{formatRelativeTime(item.createdAt, locale)}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function EditableTitle({
@@ -1045,6 +1857,7 @@ function createDraft(issue: Issue): DraftIssue {
     actualHours: issue.actualHours,
     plannedStartDate: issue.plannedStartDate,
     plannedEndDate: issue.plannedEndDate,
+    labelIds: issue.labels.map((label) => label.id),
     customFields: issue.customFields ?? {},
   };
 }
@@ -1212,6 +2025,351 @@ function CustomFieldInput({
   }
 }
 
+function InlineIssuePill({
+  label,
+  value,
+  options,
+  onChange,
+  emptyLabel,
+  searchable = false,
+  searchPlaceholder,
+  noSearchResultsLabel,
+}: {
+  label: string;
+  value: string;
+  options: InlinePillOption[];
+  onChange: (value: string) => void;
+  emptyLabel?: string;
+  searchable?: boolean;
+  searchPlaceholder?: string;
+  noSearchResultsLabel?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const selectedOption = options.find((option) => option.value === value);
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredOptions =
+    searchable && normalizedQuery
+      ? options.filter((option) => option.label.toLowerCase().includes(normalizedQuery))
+      : options;
+
+  const handleSelect = (nextValue: string) => {
+    onChange(nextValue);
+    setOpen(false);
+    setQuery('');
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
+        >
+          <InlinePillDisplay option={selectedOption} fallbackLabel={label || emptyLabel || ''} />
+          <ChevronDown className="h-4 w-4 text-ink-300" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[320px] overflow-hidden p-0">
+        {searchable ? (
+          <div className="border-b border-border-soft px-4 py-3">
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={searchPlaceholder}
+              className="h-auto border-0 bg-transparent px-0 py-0 text-[16px] shadow-none focus-visible:ring-0"
+            />
+          </div>
+        ) : null}
+        <div className="max-h-80 overflow-y-auto p-2">
+          <div className="space-y-1">
+            {emptyLabel ? (
+              <InlinePillOptionRow
+                label={emptyLabel}
+                selected={value === EMPTY}
+                onSelect={() => handleSelect(EMPTY)}
+              />
+            ) : null}
+            {filteredOptions.map((option) => (
+              <InlinePillOptionRow
+                key={option.value}
+                option={option}
+                selected={value === option.value}
+                onSelect={() => handleSelect(option.value)}
+              />
+            ))}
+          </div>
+          {searchable && !filteredOptions.length ? (
+            <div className="px-3 py-4 text-sm text-ink-400">{noSearchResultsLabel}</div>
+          ) : null}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function InlineLabelsPill({
+  labels,
+  selectedLabelIds,
+  onToggle,
+  t,
+}: {
+  labels: Label[];
+  selectedLabelIds: number[];
+  onToggle: (labelId: number) => void;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredLabels = normalizedQuery
+    ? labels.filter((label) => label.name.toLowerCase().includes(normalizedQuery))
+    : labels;
+  const selectedLabels = labels.filter((label) => selectedLabelIds.includes(label.id));
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
+        >
+          <Tag className="h-4 w-4 text-ink-400" />
+          <span className="max-w-[180px] truncate">
+            {selectedLabels.length ? selectedLabels.map((label) => label.name).join(', ') : t('settings.composer.labels')}
+          </span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[320px] overflow-hidden p-0">
+        <div className="border-b border-border-soft px-4 py-3">
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t('settings.composer.searchLabels')}
+            className="h-auto border-0 bg-transparent px-0 py-0 text-[16px] shadow-none focus-visible:ring-0"
+          />
+        </div>
+        <div className="max-h-80 overflow-y-auto p-2">
+          <div className="space-y-1">
+            {filteredLabels.map((label) => {
+              const selected = selectedLabelIds.includes(label.id);
+              return (
+                <button
+                  key={label.id}
+                  type="button"
+                  onClick={() => onToggle(label.id)}
+                  className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50"
+                >
+                  <span className="inline-flex h-2.5 w-2.5 rounded-full" style={{ backgroundColor: label.color || '#fb7185' }} />
+                  <span className="flex-1 truncate">{label.name}</span>
+                  {selected ? <Check className="h-4 w-4 text-ink-500" /> : null}
+                </button>
+              );
+            })}
+          </div>
+          {!filteredLabels.length ? <div className="px-3 py-4 text-sm text-ink-400">{t('common.empty')}</div> : null}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function InlineSubIssueMoreMenu({
+  dueDate,
+  hasAttachments,
+  locale,
+  t,
+  onSetDueDate,
+  onClearDueDate,
+}: {
+  dueDate: string | null;
+  hasAttachments: boolean;
+  locale: string;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+  onSetDueDate: (value: string | null) => void;
+  onClearDueDate: () => void;
+}) {
+  const suggestions = buildDueDateSuggestions(locale);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border-soft bg-white text-ink-700 shadow-sm transition hover:bg-slate-50"
+        >
+          <MoreHorizontal className="h-4.5 w-4.5 text-ink-500" strokeWidth={2} />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-[260px] p-2">
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="gap-3 rounded-2xl px-4 py-3 text-[15px]">
+            <CalendarPlus className="h-4.5 w-4.5 text-ink-500" />
+            <span>{dueDate ? formatDate(dueDate, locale) : t('settings.composer.setDueDate')}</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuSubContent className="min-w-[240px] p-2">
+              {suggestions.map((suggestion) => (
+                <DropdownMenuItem
+                  key={suggestion.value}
+                  className="rounded-xl px-3 py-2 text-[14px]"
+                  onClick={() => onSetDueDate(suggestion.value)}
+                >
+                  {suggestion.label}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="rounded-xl px-3 py-2 text-[14px]" onClick={onClearDueDate}>
+                {t('common.clear')}
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
+        {hasAttachments ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="rounded-xl px-3 py-2 text-[14px]">
+              {t('issues.detailPage.uploadAttachment')}
+            </DropdownMenuItem>
+          </>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function InlinePillDisplay({ option, fallbackLabel }: { option?: InlinePillOption; fallbackLabel: string }) {
+  if (option?.avatarText) {
+    return (
+      <>
+        <span
+          className={cn(
+            'inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold uppercase',
+            option.avatarClassName ?? 'bg-rose-100 text-rose-600'
+          )}
+        >
+          {option.avatarText}
+        </span>
+        <span className="truncate">{option.label}</span>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {option?.icon ?? null}
+      <span className="truncate">{option?.label ?? fallbackLabel}</span>
+    </>
+  );
+}
+
+function InlinePillOptionRow({
+  option,
+  label,
+  selected,
+  onSelect,
+}: {
+  option?: InlinePillOption;
+  label?: string;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50"
+    >
+      {option ? <InlinePillDisplay option={option} fallbackLabel={option.label} /> : <span>{label}</span>}
+      {selected ? <Check className="ml-auto h-4 w-4 text-ink-500" /> : null}
+    </button>
+  );
+}
+
+function createSubIssueDraft(issue?: Issue): SubIssueDraft {
+  return {
+    title: '',
+    description: '',
+    state: 'TODO',
+    priority: 'MEDIUM',
+    assigneeId: issue?.assigneeId ?? null,
+    labelIds: issue?.labels.map((label) => label.id) ?? [],
+    plannedEndDate: issue?.plannedEndDate ?? null,
+  };
+}
+
+function issueStateLabel(state: Issue['state'], t: (key: string) => string) {
+  return translateIssueValue(t, `common.status.${state}`, state);
+}
+
+function issuePriorityLabel(priority: Issue['priority'], t: (key: string) => string) {
+  return translateIssueValue(t, `common.priority.${priority}`, priority);
+}
+
+function buildInlineStateOption(state: Issue['state'], t: (key: string) => string): InlinePillOption {
+  const iconClassName = 'h-4 w-4';
+  const icon =
+    state === 'TODO' ? (
+      <Circle className={cn(iconClassName, 'text-slate-400')} />
+    ) : state === 'IN_PROGRESS' ? (
+      <LoaderCircle className={cn(iconClassName, 'text-sky-500')} />
+    ) : state === 'IN_REVIEW' ? (
+      <CircleEllipsis className={cn(iconClassName, 'text-amber-500')} />
+    ) : state === 'DONE' ? (
+      <CheckCircle2 className={cn(iconClassName, 'text-emerald-500')} />
+    ) : state === 'CANCELED' ? (
+      <Circle className={cn(iconClassName, 'text-slate-300')} />
+    ) : (
+      <Circle className={cn(iconClassName, 'text-slate-300')} />
+    );
+  return {
+    value: state,
+    label: issueStateLabel(state, t),
+    icon,
+  };
+}
+
+function buildInlinePriorityOption(priority: Issue['priority'], t: (key: string) => string): InlinePillOption {
+  const icon =
+    priority === 'LOW' ? (
+      <Minus className="h-4 w-4 text-slate-400" />
+    ) : priority === 'MEDIUM' ? (
+      <Equal className="h-4 w-4 text-sky-500" />
+    ) : priority === 'HIGH' ? (
+      <Flag className="h-4 w-4 text-slate-700" />
+    ) : (
+      <Flame className="h-4 w-4 text-rose-500" />
+    );
+  return {
+    value: priority,
+    label: issuePriorityLabel(priority, t),
+    icon,
+  };
+}
+
+function buildDueDateSuggestions(locale: string) {
+  const now = new Date();
+  const today = new Date(now);
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+  const nextWeek = new Date(now);
+  nextWeek.setDate(now.getDate() + 7);
+  return [today, tomorrow, nextWeek].map((value, index) => ({
+    value: value.toISOString().slice(0, 10),
+    label:
+      index === 0
+        ? locale.startsWith('zh')
+          ? '今天'
+          : 'Today'
+        : index === 1
+          ? locale.startsWith('zh')
+            ? '明天'
+            : 'Tomorrow'
+          : locale.startsWith('zh')
+            ? '下周'
+            : 'Next week',
+  }));
+}
+
 function stringValue(value: number | null) {
   return value == null ? EMPTY : String(value);
 }
@@ -1232,8 +2390,92 @@ function nextResolutionForState(state: Issue['state'], resolution: Issue['resolu
   return null;
 }
 
+function buildIssuePrompt({
+  issue,
+  projectName,
+  assigneeName,
+  stateLabel,
+  priorityLabel,
+  labelNames,
+}: {
+  issue: Issue;
+  projectName: string | null;
+  assigneeName: string | null;
+  stateLabel: string;
+  priorityLabel: string;
+  labelNames?: string[];
+}) {
+  const lines = [
+    `Issue: ${issue.identifier} ${issue.title}`,
+    `State: ${stateLabel}`,
+    `Priority: ${priorityLabel}`,
+    `Assignee: ${assigneeName ?? 'Not set'}`,
+    `Project: ${projectName ?? 'Not set'}`,
+    `Labels: ${labelNames?.length ? labelNames.join(', ') : 'None'}`,
+  ];
+
+  if (issue.description?.trim()) {
+    lines.push('', 'Description:', issue.description.trim());
+  }
+
+  lines.push('', 'Please help me work on this issue with the context above.');
+  return lines.join('\n');
+}
+
+function translateIssueValue(t: (key: string) => string, key: string, fallback: string) {
+  const value = t(key);
+  return value === key ? fallback : value;
+}
+
 function valueFromMap(map: Map<number, string>, key: number | null, fallback: string) {
   return key == null ? fallback : map.get(key) ?? fallback;
+}
+
+function stripActorName(summary: string, actorName: string) {
+  const normalizedSummary = summary.trim();
+  if (!normalizedSummary) return '';
+  const lowerSummary = normalizedSummary.toLowerCase();
+  const lowerActor = actorName.trim().toLowerCase();
+  if (lowerActor && lowerSummary.startsWith(lowerActor)) {
+    return normalizedSummary.slice(actorName.length).trimStart();
+  }
+  return normalizedSummary;
+}
+
+function initialsForName(value: string) {
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('') || 'U';
+}
+
+function formatRelativeTime(value: string, locale: string) {
+  const diffMs = new Date(value).getTime() - Date.now();
+  const diffMinutes = Math.round(diffMs / 60000);
+  const formatter = new Intl.RelativeTimeFormat(locale.startsWith('zh') ? 'zh-CN' : 'en', { numeric: 'auto' });
+
+  if (Math.abs(diffMinutes) < 60) {
+    return formatter.format(diffMinutes, 'minute');
+  }
+
+  const diffHours = Math.round(diffMinutes / 60);
+  if (Math.abs(diffHours) < 24) {
+    return formatter.format(diffHours, 'hour');
+  }
+
+  const diffDays = Math.round(diffHours / 24);
+  if (Math.abs(diffDays) < 7) {
+    return formatter.format(diffDays, 'day');
+  }
+
+  const diffWeeks = Math.round(diffDays / 7);
+  if (Math.abs(diffWeeks) < 5) {
+    return formatter.format(diffWeeks, 'week');
+  }
+
+  return formatDate(value, locale);
 }
 
 function formatCustomFieldValue(field: CustomFieldDefinition, value: unknown) {
@@ -1264,3 +2506,5 @@ function formatDate(value: string | null, locale: string) {
     minute: '2-digit',
   }).format(new Date(value));
 }
+
+

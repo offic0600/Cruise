@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { QueryProvider } from '@/components/providers/QueryProvider';
+import { ToastProvider } from '@/components/providers/ToastProvider';
 import { WorkspaceProvider } from '@/components/providers/WorkspaceProvider';
 import { I18nProvider } from '@/i18n/I18nProvider';
 import { defaultLocale, isValidLocale } from '@/i18n/config';
@@ -28,7 +29,7 @@ export default async function RootLayout({
         <QueryProvider>
           <WorkspaceProvider>
             <I18nProvider locale={locale} messages={messages}>
-              {children}
+              <ToastProvider>{children}</ToastProvider>
             </I18nProvider>
           </WorkspaceProvider>
         </QueryProvider>

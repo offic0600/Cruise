@@ -33,6 +33,7 @@ export const queryKeys = {
   dashboard: ['dashboard'] as const,
   dashboardAgent: ['dashboard', 'agent'] as const,
   teamMembers: ['team-members'] as const,
+  labels: (params?: Record<string, unknown>) => ['labels', params ?? {}] as const,
   skills: ['skills'] as const,
   skillAnalytics: (name: string) => ['skills', name, 'analytics'] as const,
   views: ['views'] as const,

@@ -7,14 +7,14 @@ import LocaleSwitcher from '@/components/LocaleSwitcher';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { localizePath } from '@/i18n/config';
 import { useI18n } from '@/i18n/useI18n';
 import { getAuthProviders, login, sendMagicLink, type AuthProvider } from '@/lib/api';
 import { storeSession } from '@/lib/auth';
+import { publicPath } from '@/lib/routes';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { locale, t } = useI18n();
+  const { t } = useI18n();
   const [activeMethod, setActiveMethod] = useState<'email' | 'password' | null>(null);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -68,7 +68,7 @@ export default function LoginPage() {
           organizationId: response.organizationId,
         },
       });
-      router.push(localizePath(locale, response.organizationId ? '/issues' : '/create-workspace'));
+      router.push('/');
     } catch (err: any) {
       setError(err.response?.data?.error || t('login.error'));
     } finally {

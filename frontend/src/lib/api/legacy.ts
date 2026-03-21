@@ -1,7 +1,8 @@
 import apiClient from './client';
 import type { Label, LabelCatalog } from './types';
 
-export const getTeamMembers = () => apiClient.get('/team-members').then((r) => r.data);
+export const getTeamMembers = (params?: { organizationId?: number; teamId?: number }) =>
+  apiClient.get('/team-members', { params }).then((r) => r.data);
 export const getTeamMember = (id: number) => apiClient.get(`/team-members/${id}`).then((r) => r.data);
 export const createTeamMember = (data: { name: string; email?: string; role?: string; skills?: string; teamId?: number }) =>
   apiClient.post('/team-members', data).then((r) => r.data);

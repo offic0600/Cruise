@@ -10,10 +10,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { localizePath } from '@/i18n/config';
 import { useI18n } from '@/i18n/useI18n';
-import { checkOrganizationSlugAvailability, createOrganization, joinWorkspaceInvite } from '@/lib/api';
-import { getStoredSession, storeSession } from '@/lib/auth';
+import { checkOrganizationSlugAvailability, createOrganization, getOrganizations, getTeams, joinWorkspaceInvite } from '@/lib/api';
+import { type AuthSession, getStoredSession, storeSession } from '@/lib/auth';
+import { publicPath, teamActivePath, workspaceRootPath } from '@/lib/routes';
 
 const regions = ['Asia Pacific', 'United States', 'Europe'] as const;
 
@@ -40,24 +40,42 @@ function parseInvite(value: string) {
 export default function CreateWorkspacePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { locale, t } = useI18n();
-  const { setCurrentOrganizationId, setCurrentTeamId } = useCurrentWorkspace();
+  const { t } = useI18n();
+  const {
+    organizations,
+    currentOrganizationSlug,
+    currentTeamKey,
+    isLoading: isWorkspaceLoading,
+    setCurrentOrganizationId,
+    setCurrentTeamId,
+  } = useCurrentWorkspace();
   const [mode, setMode] = useState<'create' | 'join'>(searchParams.get('invite') ? 'join' : 'create');
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [region, setRegion] = useState<(typeof regions)[number]>('Asia Pacific');
-  const [initialTeamName, setInitialTeamName] = useState('General');
   const [slugTouched, setSlugTouched] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [serverError, setServerError] = useState('');
   const [inviteCodeOrLink, setInviteCodeOrLink] = useState(searchParams.get('invite') ?? '');
-  const session = getStoredSession();
+  const [session, setSession] = useState<AuthSession | null | undefined>(undefined);
 
   useEffect(() => {
+    setSession(getStoredSession());
+  }, []);
+
+  useEffect(() => {
+    const replace = (target: string) => {
+      if (typeof window !== 'undefined' && window.location.pathname !== target) {
+        window.location.replace(target);
+        return;
+      }
+      router.replace(target);
+    };
+    if (session === undefined) return;
     if (!session?.user) {
-      router.replace(localizePath(locale, '/login'));
+      replace(publicPath('/login'));
     }
-  }, [locale, router, session?.user]);
+  }, [router, session]);
 
   useEffect(() => {
     if (slugTouched) return;
@@ -75,6 +93,72 @@ export default function CreateWorkspacePage() {
   const normalizedSlug = useMemo(() => slugify(slug), [slug]);
   const slugFormatValid = normalizedSlug.length > 0 && normalizedSlug === slug;
   const normalizedInvite = useMemo(() => parseInvite(inviteCodeOrLink), [inviteCodeOrLink]);
+  const hasInvite = Boolean(searchParams.get('invite'));
+
+  const organizationsGuardQuery = useQuery({
+    queryKey: ['organizations', 'create-workspace-guard'],
+    queryFn: () => getOrganizations(),
+    enabled: session !== undefined && Boolean(session?.user) && !hasInvite,
+  });
+  const guardedOrganization = organizationsGuardQuery.data?.[0] ?? null;
+  const guardedTeamsQuery = useQuery({
+    queryKey: ['teams', 'create-workspace-guard', guardedOrganization?.id ?? null],
+    queryFn: () => getTeams({ organizationId: guardedOrganization?.id ?? undefined }),
+    enabled: guardedOrganization?.id != null,
+  });
+  const guardedTeam = guardedTeamsQuery.data?.[0] ?? null;
+  const isGuardCheckingExistingWorkspace =
+    session !== undefined &&
+    Boolean(session?.user) &&
+    !hasInvite &&
+    (isWorkspaceLoading || organizationsGuardQuery.isLoading || guardedTeamsQuery.isLoading);
+  const shouldBlockWorkspaceForm =
+    session !== undefined &&
+    Boolean(session?.user) &&
+    !hasInvite &&
+    (isGuardCheckingExistingWorkspace || Boolean(guardedOrganization));
+
+  useEffect(() => {
+    const replace = (target: string) => {
+      if (typeof window !== 'undefined' && window.location.pathname !== target) {
+        window.location.replace(target);
+        return;
+      }
+      router.replace(target);
+    };
+    if (
+      session === undefined ||
+      !session?.user ||
+      hasInvite ||
+      isWorkspaceLoading ||
+      organizationsGuardQuery.isLoading ||
+      guardedTeamsQuery.isLoading
+    ) return;
+    if (!guardedOrganization) return;
+
+    if (currentOrganizationSlug && currentTeamKey) {
+      replace(teamActivePath(currentOrganizationSlug, currentTeamKey));
+      return;
+    }
+
+    if (guardedOrganization.slug && guardedTeam?.key) {
+      replace(teamActivePath(guardedOrganization.slug, guardedTeam.key));
+      return;
+    }
+
+    replace(workspaceRootPath(guardedOrganization.slug));
+  }, [
+    currentOrganizationSlug,
+    currentTeamKey,
+    guardedOrganization,
+    guardedTeam,
+    guardedTeamsQuery.isLoading,
+    hasInvite,
+    isWorkspaceLoading,
+    organizationsGuardQuery.isLoading,
+    router,
+    session,
+  ]);
 
   const slugAvailabilityQuery = useQuery({
     queryKey: ['organizations', 'slug-availability', normalizedSlug],
@@ -89,7 +173,6 @@ export default function CreateWorkspacePage() {
         name: name.trim(),
         slug: normalizedSlug,
         region,
-        initialTeamName: initialTeamName.trim() || 'General',
       }),
     onSuccess: (response) => {
       applySessionAndRedirect({
@@ -100,6 +183,8 @@ export default function CreateWorkspacePage() {
         role: response.authSession.role,
         organizationId: response.authSession.organizationId,
         teamId: response.initialTeam.id,
+        organizationSlug: response.organization.slug,
+        teamKey: response.initialTeam.key,
       });
     },
     onError: (error: any) => handleAuthOrMessage(error, t('createWorkspace.errors.generic')),
@@ -116,6 +201,8 @@ export default function CreateWorkspacePage() {
         role: response.authSession.role,
         organizationId: response.authSession.organizationId,
         teamId: response.team.id,
+        organizationSlug: response.organization.slug,
+        teamKey: response.team.key,
       });
     },
     onError: (error: any) => handleAuthOrMessage(error, t('createWorkspace.errors.joinGeneric')),
@@ -135,15 +222,24 @@ export default function CreateWorkspacePage() {
     Boolean(name.trim()) &&
     Boolean(normalizedSlug) &&
     slugFormatValid &&
+    slugAvailabilityQuery.isSuccess &&
     slugAvailabilityQuery.data?.available !== false &&
     !createMutation.isPending;
   const canJoin = Boolean(normalizedInvite) && !joinMutation.isPending;
 
+  if (session === undefined) {
+    return <div className="flex min-h-screen items-center justify-center bg-page-glow text-ink-700">Loading workspace...</div>;
+  }
+
   if (!session?.user) return null;
+
+  if (shouldBlockWorkspaceForm) {
+    return <div className="flex min-h-screen items-center justify-center bg-page-glow text-ink-700">Loading workspace...</div>;
+  }
 
   function handleAuthOrMessage(error: any, fallback: string) {
     if (error?.response?.status === 401 || error?.response?.status === 403) {
-      router.replace(localizePath(locale, '/login'));
+      router.replace(publicPath('/login'));
       return;
     }
     const message = error?.response?.data?.message || error?.response?.data?.error || error?.message || fallback;
@@ -158,6 +254,8 @@ export default function CreateWorkspacePage() {
     role: string;
     organizationId: number | null;
     teamId: number;
+    organizationSlug?: string | null;
+    teamKey?: string | null;
   }) {
     storeSession({
       token: next.token,
@@ -173,13 +271,17 @@ export default function CreateWorkspacePage() {
       setCurrentOrganizationId(next.organizationId);
     }
     setCurrentTeamId(next.teamId);
-    router.push(localizePath(locale, '/issues'));
+    if (next.organizationSlug && next.teamKey) {
+      router.push(teamActivePath(next.organizationSlug, next.teamKey));
+      return;
+    }
+    router.push('/');
   }
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.10),_transparent_22%),radial-gradient(circle_at_bottom_right,_rgba(14,165,233,0.10),_transparent_18%),linear-gradient(180deg,_#f8fafc_0%,_#eef2ff_46%,_#ffffff_100%)]">
       <div className="absolute inset-x-0 top-0 flex items-center justify-between px-10 py-8 text-sm text-ink-600">
-        <Link href={localizePath(locale, session.user.organizationId ? '/issues' : '/login')} className="inline-flex items-center gap-2 hover:text-ink-900">
+        <Link href={session.user.organizationId ? '/' : publicPath('/login')} className="inline-flex items-center gap-2 hover:text-ink-900">
           <ArrowLeft className="h-4 w-4" />
           <span>{t('createWorkspace.back')}</span>
         </Link>
@@ -286,14 +388,6 @@ export default function CreateWorkspacePage() {
                     </button>
                   </div>
 
-                  <div className="space-y-3">
-                    <label className="text-lg font-medium text-ink-900">{t('createWorkspace.fields.initialTeamName')}</label>
-                    <Input
-                      value={initialTeamName}
-                      onChange={(event) => setInitialTeamName(event.target.value)}
-                      className="h-12 rounded-[1rem] px-4"
-                    />
-                  </div>
                 </>
               ) : (
                 <div className="space-y-3">

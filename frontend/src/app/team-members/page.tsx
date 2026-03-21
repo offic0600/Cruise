@@ -53,8 +53,8 @@ export default function TeamMembersPage() {
   const [latestInvite, setLatestInvite] = useState<WorkspaceInvite | null>(null);
 
   const membersQuery = useQuery({
-    queryKey: ['team-members'],
-    queryFn: () => getTeamMembers(),
+    queryKey: ['team-members', currentOrganizationId ?? 'none', currentTeamId ?? 'all'],
+    queryFn: () => getTeamMembers({ organizationId: currentOrganizationId ?? undefined, teamId: currentTeamId ?? undefined }),
   });
 
   const members = useMemo(() => {

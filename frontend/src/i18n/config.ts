@@ -10,21 +10,16 @@ export function isValidLocale(value: string | null | undefined): value is Locale
 }
 
 export function getLocaleFromPathname(pathname: string): Locale | null {
-  const [candidate] = pathname.split("/").filter(Boolean);
-  return isValidLocale(candidate) ? candidate : null;
+  return null;
 }
 
 export function stripLocale(pathname: string): string {
-  const locale = getLocaleFromPathname(pathname);
-  if (!locale) return pathname || "/";
-  const stripped = pathname.replace(`/${locale}`, "");
-  return stripped.length > 0 ? stripped : "/";
+  return pathname || "/";
 }
 
 export function localizePath(locale: Locale, pathname: string): string {
   const normalized = pathname.startsWith("/") ? pathname : `/${pathname}`;
-  const withoutLocale = stripLocale(normalized);
-  return withoutLocale === "/" ? `/${locale}` : `/${locale}${withoutLocale}`;
+  return normalized.replace(/\/{2,}/g, "/");
 }
 
 export function getPreferredLocale(input?: {

@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { localizePath } from '@/i18n/config';
+import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import { useI18n } from '@/i18n/useI18n';
+import { teamSettingsPath, workspaceSectionPath } from '@/lib/routes';
 
 const tabs = [
   { href: '/teams/current/settings/templates', label: 'Templates' },
@@ -13,7 +14,8 @@ const tabs = [
 
 export default function TeamSettingsShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { locale, t } = useI18n();
+  const { t } = useI18n();
+  const { currentOrganizationSlug, currentTeamKey } = useCurrentWorkspace();
 
   return (
     <div className="space-y-6">
@@ -26,7 +28,7 @@ export default function TeamSettingsShell({ children }: { children: React.ReactN
           </p>
         </div>
         <Link
-          href={localizePath(locale, '/team-members')}
+          href={currentOrganizationSlug ? workspaceSectionPath(currentOrganizationSlug, 'team-members') : '#'}
           className="inline-flex h-10 items-center justify-center rounded-xl border border-border-soft bg-white px-4 text-sm font-medium text-ink-700 transition hover:bg-slate-50"
         >
           {t('settings.team.teamMembers')}
@@ -35,7 +37,11 @@ export default function TeamSettingsShell({ children }: { children: React.ReactN
 
       <div className="flex flex-wrap gap-2">
         {tabs.map((tab) => {
-          const href = localizePath(locale, tab.href);
+          const section = tab.href.split('/').pop();
+          const href =
+            currentOrganizationSlug && currentTeamKey && section
+              ? teamSettingsPath(currentOrganizationSlug, currentTeamKey, section)
+              : '#';
           const active = pathname === href;
           const label =
             tab.href.endsWith('/templates')

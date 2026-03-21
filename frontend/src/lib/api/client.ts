@@ -1,6 +1,6 @@
 import axios from 'axios';
-import { defaultLocale, getLocaleFromPathname, localizePath } from '@/i18n/config';
 import { clearSession, getStoredToken } from '@/lib/auth';
+import { publicPath } from '@/lib/routes';
 
 const API_BASE = 'http://localhost:8080/api';
 
@@ -22,10 +22,9 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if ((error.response?.status === 401 || error.response?.status === 403) && typeof window !== 'undefined') {
+    if (error.response?.status === 401 && typeof window !== 'undefined') {
       clearSession();
-      const locale = getLocaleFromPathname(window.location.pathname) ?? defaultLocale;
-      window.location.href = localizePath(locale, '/login');
+      window.location.href = publicPath('/login');
     }
     return Promise.reject(error);
   }
