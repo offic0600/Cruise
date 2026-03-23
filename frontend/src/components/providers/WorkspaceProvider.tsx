@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePathname, useRouter } from 'next/navigation';
 import { getOrganizations, getTeams, type Organization, type Team } from '@/lib/api';
-import { getStoredSession, updateStoredSession } from '@/lib/auth';
+import { clearSession, getStoredSession, updateStoredSession } from '@/lib/auth';
 import { isPublicPath, parseTeamRoute, parseWorkspaceSlug, replaceTeamKeyInPath, teamActivePath, workspaceRootPath } from '@/lib/routes';
 
 const ORG_STORAGE_KEY = 'currentWorkspaceOrganizationId';
@@ -24,9 +24,15 @@ type WorkspaceContextValue = {
   currentTeamId: number | null;
   setCurrentTeamId: (teamId: number) => void;
   isLoading: boolean;
+  error: unknown | null;
 };
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
+
+function isAuthError(error: unknown) {
+  const status = (error as { response?: { status?: number } } | null)?.response?.status;
+  return status === 401 || status === 403;
+}
 
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -99,6 +105,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   });
 
   const teams = teamsQuery.data ?? [];
+  const workspaceBootstrapError = organizationsQuery.error ?? teamsQuery.error ?? null;
   const currentTeam = useMemo(() => {
     if (!teams.length) return null;
     if (teamRoute?.teamKey) {
@@ -117,6 +124,13 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     if (!pathname || isPublicRoute) return;
     if (!session?.user) {
       router.replace('/login');
+      return;
+    }
+    if (workspaceBootstrapError) {
+      if (isAuthError(workspaceBootstrapError)) {
+        clearSession();
+        router.replace('/login');
+      }
       return;
     }
     if (organizationsQuery.isLoading || teamsQuery.isLoading) return;
@@ -168,6 +182,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     teamRoute?.teamKey,
     teams,
     teamsQuery.isLoading,
+    workspaceBootstrapError,
   ]);
 
   useEffect(() => {
@@ -211,7 +226,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         }
         void queryClient.invalidateQueries();
       },
-      isLoading: shouldLoadWorkspaceContext && (organizationsQuery.isLoading || teamsQuery.isLoading),
+      isLoading: shouldLoadWorkspaceContext && !workspaceBootstrapError && (organizationsQuery.isLoading || teamsQuery.isLoading),
+      error: workspaceBootstrapError,
     }),
     [
       organizations,
@@ -225,6 +241,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       shouldLoadWorkspaceContext,
       teamsQuery.isLoading,
       queryClient,
+      workspaceBootstrapError,
     ]
   );
 

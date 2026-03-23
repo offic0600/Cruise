@@ -13,6 +13,7 @@ export default function Home() {
     currentOrganizationSlug,
     currentTeamKey,
     isLoading,
+    error,
   } = useCurrentWorkspace();
 
   useEffect(() => {
@@ -28,6 +29,7 @@ export default function Home() {
       replace(publicPath('/login'));
       return;
     }
+    if (error) return;
     if (isLoading) return;
     if (!organizations.length) {
       replace(publicPath('/create-workspace'));
@@ -40,7 +42,22 @@ export default function Home() {
     if (currentOrganizationSlug) {
       replace(workspaceRootPath(currentOrganizationSlug));
     }
-  }, [currentOrganizationSlug, currentTeamKey, isLoading, organizations.length, router]);
+  }, [currentOrganizationSlug, currentTeamKey, error, isLoading, organizations.length, router]);
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-page-glow text-ink-700">
+        <div>Failed to load workspace.</div>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="rounded-full border border-border-soft bg-white px-4 py-2 text-sm transition hover:bg-slate-50"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return <div className="flex min-h-screen items-center justify-center bg-page-glow text-ink-700">Loading workspace...</div>;
 }
