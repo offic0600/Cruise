@@ -22,6 +22,9 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Only clear the local session on authentication failure.
+    // A 403 means the user is authenticated but forbidden from a specific action,
+    // and treating it as logout causes unexpected redirects while navigating.
     if (error.response?.status === 401 && typeof window !== 'undefined') {
       clearSession();
       window.location.href = publicPath('/login');
