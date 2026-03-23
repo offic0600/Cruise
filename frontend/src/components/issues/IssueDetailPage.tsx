@@ -3,7 +3,7 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CalendarPlus,
   Clock3,
@@ -61,6 +61,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useI18n } from '@/i18n/useI18n';
 import {
+  createLabel,
   createIssue,
   createIssueLinkAttachments,
   createIssueTemplate,
@@ -161,6 +162,14 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
     createRelationMutation,
     deleteRelationMutation,
   } = useIssueMutations();
+  const createLabelMutation = useMutation({
+    mutationFn: createLabel,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.labels({ organizationId, teamId: issue?.teamId ?? currentTeamId ?? undefined }),
+      });
+    },
+  });
 
   const issue = issueQuery.data;
   const parentIssueQuery = useQuery({
@@ -848,6 +857,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                             />
                             <InlineLabelsPill
                               labels={labels}
+                              teamId={issue.teamId}
                               selectedLabelIds={subIssueDraft.labelIds}
                               onToggle={(labelId) =>
                                 setSubIssueDraft((current) => ({
@@ -858,6 +868,15 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                                 }))
                               }
                               t={t}
+                              onCreateLabel={async (scopeType, name) => {
+                                await createLabelMutation.mutateAsync({
+                                  organizationId,
+                                  scopeType,
+                                  scopeId: scopeType === 'TEAM' ? issue.teamId : null,
+                                  name,
+                                  createdBy: user?.id ?? null,
+                                });
+                              }}
                             />
                             <InlineSubIssueMoreMenu
                               dueDate={subIssueDraft.plannedEndDate}
@@ -1084,6 +1103,15 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                 setDraftIssue((current) => (current ? ({ ...current, ...updater(current) } as DraftIssue) : current))
               }
               onSetActiveProperty={setActiveProperty}
+              onCreateLabel={async (scopeType, name) => {
+                await createLabelMutation.mutateAsync({
+                  organizationId,
+                  scopeType,
+                  scopeId: scopeType === 'TEAM' ? issue.teamId : null,
+                  name,
+                  createdBy: user?.id ?? null,
+                });
+              }}
               renderCustomFieldInput={(field, value, onChange, onDone) => (
                 <CustomFieldInput field={field} value={value} onChange={onChange} onDone={onDone} />
               )}
@@ -2184,22 +2212,40 @@ function InlineIssuePill({
 
 function InlineLabelsPill({
   labels,
+  teamId,
   selectedLabelIds,
   onToggle,
   t,
+  onCreateLabel,
 }: {
   labels: Label[];
+  teamId: number | null;
   selectedLabelIds: number[];
   onToggle: (labelId: number) => void;
   t: (key: string, vars?: Record<string, string | number>) => string;
+  onCreateLabel: (scopeType: 'TEAM' | 'WORKSPACE', name: string) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [creating, setCreating] = useState<'TEAM' | 'WORKSPACE' | null>(null);
   const normalizedQuery = query.trim().toLowerCase();
   const filteredLabels = normalizedQuery
     ? labels.filter((label) => label.name.toLowerCase().includes(normalizedQuery))
     : labels;
   const selectedLabels = labels.filter((label) => selectedLabelIds.includes(label.id));
+  const canCreate = Boolean(normalizedQuery) && !labels.some((label) => label.name.toLowerCase() === normalizedQuery);
+
+  const handleCreate = async (scopeType: 'TEAM' | 'WORKSPACE') => {
+    const name = query.trim();
+    if (!name) return;
+    setCreating(scopeType);
+    try {
+      await onCreateLabel(scopeType, name);
+      setQuery('');
+    } finally {
+      setCreating(null);
+    }
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -2223,8 +2269,33 @@ function InlineLabelsPill({
             className="h-auto border-0 bg-transparent px-0 py-0 text-[16px] shadow-none focus-visible:ring-0"
           />
         </div>
-        <div className="max-h-80 overflow-y-auto p-2">
-          <div className="space-y-1">
+        <div className="max-h-80 overflow-y-auto py-2">
+          {canCreate ? (
+            <div className="space-y-1 px-2 pb-3">
+              {teamId ? (
+                <button
+                  type="button"
+                  onClick={() => void handleCreate('TEAM')}
+                  className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50"
+                  disabled={creating != null}
+                >
+                  <span className="text-xl leading-none text-ink-500">+</span>
+                  <span>{t('settings.composer.createTeamLabel', { value: query.trim() })}</span>
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => void handleCreate('WORKSPACE')}
+                className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50"
+                disabled={creating != null}
+              >
+                <span className="text-xl leading-none text-ink-500">+</span>
+                <span>{t('settings.composer.createWorkspaceLabel', { value: query.trim() })}</span>
+              </button>
+            </div>
+          ) : null}
+
+          <div className="space-y-1 px-2">
             {filteredLabels.map((label) => {
               const selected = selectedLabelIds.includes(label.id);
               return (
@@ -2241,7 +2312,9 @@ function InlineLabelsPill({
               );
             })}
           </div>
-          {!filteredLabels.length ? <div className="px-3 py-4 text-sm text-ink-400">{t('common.empty')}</div> : null}
+          {!filteredLabels.length && !canCreate ? (
+            <div className="px-3 py-4 text-sm text-ink-400">{t('common.empty')}</div>
+          ) : null}
         </div>
       </PopoverContent>
     </Popover>

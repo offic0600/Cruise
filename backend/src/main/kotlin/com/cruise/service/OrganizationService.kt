@@ -60,6 +60,7 @@ class OrganizationService(
     private val workflowStateRepository: WorkflowStateRepository,
     private val workflowTransitionRepository: WorkflowTransitionRepository,
     private val userRepository: UserRepository,
+    private val labelService: LabelService,
     private val customUserDetailsService: CustomUserDetailsService,
     private val jwtTokenProvider: JwtTokenProvider
 ) {
@@ -161,6 +162,8 @@ class OrganizationService(
             )
         )
 
+        createDefaultWorkspaceLabels(organization.id, user.id)
+
         val userDetails = customUserDetailsService.loadUserByUsername(user.username)
         val token = jwtTokenProvider.generateToken(userDetails, user.id, organization.id, user.role)
 
@@ -200,6 +203,25 @@ class OrganizationService(
             counter += 1
         }
         return candidate
+    }
+
+    private fun createDefaultWorkspaceLabels(organizationId: Long, userId: Long) {
+        listOf(
+            Triple("Bug", "#EF4444", 1),
+            Triple("Feature", "#8B5CF6", 2),
+            Triple("Improvement", "#10B981", 3)
+        ).forEach { (name, color, sortOrder) ->
+            labelService.create(
+                CreateLabelRequest(
+                    organizationId = organizationId,
+                    scopeType = "WORKSPACE",
+                    name = name,
+                    color = color,
+                    sortOrder = sortOrder,
+                    createdBy = userId
+                )
+            )
+        }
     }
 
     private fun Organization.toDto(): OrganizationDto = OrganizationDto(
