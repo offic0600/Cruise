@@ -153,3 +153,22 @@ export async function getIssueFromCurrentDetailRoute(page: Page, request: APIReq
   expect(response.ok(), `issue by identifier failed: ${response.status()} ${await response.text()}`).toBeTruthy();
   return response.json();
 }
+
+export async function updateCurrentIssueViaApi(
+  page: Page,
+  request: APIRequestContext,
+  data: Record<string, unknown>,
+) {
+  const session = await getStoredSessionSnapshot(page);
+  const issue = await getIssueFromCurrentDetailRoute(page, request);
+
+  const response = await request.put(`${apiBaseURL}/issues/${issue.id}`, {
+    headers: {
+      Authorization: `Bearer ${session.token}`,
+    },
+    data,
+  });
+
+  expect(response.ok(), `update issue failed: ${response.status()} ${await response.text()}`).toBeTruthy();
+  return response.json();
+}

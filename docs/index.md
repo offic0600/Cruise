@@ -23,6 +23,7 @@
 | 文档 | 路径 | 说明 |
 |------|------|------|
 | 设计基线 | `docs/baselines/design-baseline.md` | 我们造了什么 |
+| 设计对比汇报 | `docs/baselines/design-comparison-report.md` | 原设计与当前实现的正式对比说明 |
 
 ## 验收测试
 
