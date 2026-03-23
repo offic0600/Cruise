@@ -204,6 +204,15 @@ const zhCNMessages = {
       plannedStart: '计划开始',
       plannedEnd: '计划结束',
     },
+    activityEvent: {
+      system: '系统',
+      issueCreated: '创建了该事项',
+      issueStateChanged: '将状态从 {from} 改为 {to}',
+      issueAssigneeChanged: '将负责人从 {from} 改为 {to}',
+      issuePriorityChanged: '将优先级从 {from} 改为 {to}',
+      issueProjectChanged: '将项目从 {from} 改为 {to}',
+      issueLabelsChanged: '将标签从 {from} 改为 {to}',
+    },
     more: {
       menu: '更多操作',
       setDueDate: '设置截止时间',

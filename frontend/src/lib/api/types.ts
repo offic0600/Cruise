@@ -687,8 +687,9 @@ export interface ActivityEvent {
   actorId: number | null;
   entityType: 'ISSUE' | 'DOC' | 'COMMENT' | string;
   entityId: number;
-  actionType: string;
-  summary: string;
+  eventType: string;
+  payload: Record<string, unknown> | null;
+  summary: string | null;
   payloadJson: string | null;
   createdAt: string;
 }

@@ -331,15 +331,30 @@ class OrganizationAccessIntegrationTest {
             .contentAsString
 
         val events = objectMapper.readTree(activityPayload)
-        val summaries = events.map { it["summary"].asText() }
+        val eventTypes = events.map { it["eventType"].asText() }
         val actorIds = events.map { it["actorId"]?.asLong() }
+        val stateChanged = events.first { it["eventType"].asText() == "ISSUE_STATE_CHANGED" }
+        val assigneeChanged = events.first { it["eventType"].asText() == "ISSUE_ASSIGNEE_CHANGED" }
+        val priorityChanged = events.first { it["eventType"].asText() == "ISSUE_PRIORITY_CHANGED" }
+        val projectChanged = events.first { it["eventType"].asText() == "ISSUE_PROJECT_CHANGED" }
+        val labelsChanged = events.first { it["eventType"].asText() == "ISSUE_LABELS_CHANGED" }
 
-        assertThat(summaries).contains("created the issue")
-        assertThat(summaries).contains("changed assignee from Unassigned to Cruise Admin")
-        assertThat(summaries).contains("changed priority from Medium to High")
-        assertThat(summaries).contains("changed project from No project to Activity Project")
-        assertThat(summaries).contains("changed labels from no labels to Bug")
-        assertThat(summaries).contains("moved from Todo to In Progress")
+        assertThat(eventTypes).contains("ISSUE_CREATED")
+        assertThat(eventTypes).contains("ISSUE_ASSIGNEE_CHANGED")
+        assertThat(eventTypes).contains("ISSUE_PRIORITY_CHANGED")
+        assertThat(eventTypes).contains("ISSUE_PROJECT_CHANGED")
+        assertThat(eventTypes).contains("ISSUE_LABELS_CHANGED")
+        assertThat(eventTypes).contains("ISSUE_STATE_CHANGED")
+        assertThat(stateChanged["payload"]["from"].asText()).isEqualTo("TODO")
+        assertThat(stateChanged["payload"]["to"].asText()).isEqualTo("IN_PROGRESS")
+        assertThat(assigneeChanged["payload"]["fromName"].asText()).isEqualTo("Unassigned")
+        assertThat(assigneeChanged["payload"]["toName"].asText()).isEqualTo("Cruise Admin")
+        assertThat(priorityChanged["payload"]["from"].asText()).isEqualTo("MEDIUM")
+        assertThat(priorityChanged["payload"]["to"].asText()).isEqualTo("HIGH")
+        assertThat(projectChanged["payload"]["fromName"].asText()).isEqualTo("No project")
+        assertThat(projectChanged["payload"]["toName"].asText()).isEqualTo("Activity Project")
+        assertThat(labelsChanged["payload"]["from"].isArray).isTrue()
+        assertThat(labelsChanged["payload"]["to"][0]["name"].asText()).isEqualTo("Bug")
         assertThat(actorIds).allMatch { it == 1L }
     }
 

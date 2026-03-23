@@ -3,7 +3,7 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CalendarPlus,
   Clock3,
@@ -67,6 +67,7 @@ import {
   createRecurringIssue,
   deleteIssue,
   downloadIssueAttachment,
+  getIssue,
   type Label,
   type CustomFieldDefinition,
   type Issue,
@@ -162,6 +163,11 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   } = useIssueMutations();
 
   const issue = issueQuery.data;
+  const parentIssueQuery = useQuery({
+    queryKey: issue?.parentIssueId ? queryKeys.issueDetail(issue.parentIssueId) : ['issues', 'parent', 'none'],
+    queryFn: () => getIssue(issue!.parentIssueId!),
+    enabled: Boolean(issue?.parentIssueId),
+  });
   const comments = commentsQuery.data ?? [];
   const activity = activityQuery.data ?? [];
   const relations = relationsQuery.data ?? [];
@@ -178,6 +184,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
     return allMembers.filter((member) => member.teamId == null || member.teamId === scopedTeamId);
   }, [currentTeamId, issue?.teamId, membersQuery.data]);
   const customFieldDefinitions = (issue?.customFieldDefinitions ?? customFieldDefinitionsQuery.data ?? []) as CustomFieldDefinition[];
+  const parentIssue = parentIssueQuery.data ?? null;
 
   const [draftIssue, setDraftIssue] = useState<DraftIssue | null>(null);
   const [commentBody, setCommentBody] = useState('');
@@ -272,6 +279,8 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
           kind: 'event' as const,
           createdAt: event.createdAt,
           authorId: event.actorId,
+          eventType: event.eventType,
+          payload: event.payload,
           summary: event.summary,
         }))
         .sort((left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()),
@@ -562,6 +571,10 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
     setSubIssueDraft(createSubIssueDraft(issue));
     setSubIssueFiles([]);
     setIsAddingChild(false);
+    await queryClient.invalidateQueries({ queryKey: queryKeys.issueDetail(issue.id) });
+    if (currentOrganizationSlug && typeof window !== 'undefined') {
+      window.history.replaceState(window.history.state, '', issueDetailPath(currentOrganizationSlug, issue));
+    }
   };
 
   const addComment = async () => {
@@ -635,6 +648,17 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                     {t('issues.detailPage.backToIssues')}
                   </Link>
                   <ChevronRight className="h-4 w-4 text-ink-300" />
+                  {parentIssue && currentOrganizationSlug ? (
+                    <>
+                      <Link
+                        href={issueDetailPath(currentOrganizationSlug, parentIssue)}
+                        className="truncate transition hover:text-ink-900"
+                      >
+                        {parentIssue.identifier}
+                      </Link>
+                      <ChevronRight className="h-4 w-4 text-ink-300" />
+                    </>
+                  ) : null}
                   <span className="truncate text-ink-700">{issue.identifier}</span>
                 </div>
                 <EditableTitle
@@ -930,13 +954,14 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                 <div className="space-y-4">
                   {activityItems.length || commentItems.length ? (
                     <>
-                      {activityItems.length ? (
-                        <IssueActivityTimeline
-                          items={activityItems}
-                          actorNameMap={actorNameMap}
-                          locale={locale}
-                        />
-                      ) : null}
+              {activityItems.length ? (
+                <IssueActivityTimeline
+                  items={activityItems}
+                  actorNameMap={actorNameMap}
+                  locale={locale}
+                  t={t}
+                />
+              ) : null}
                       {commentItems.length ? (
                         <div className="space-y-3 pt-1">
                           {commentItems.map((item) => {
@@ -1760,21 +1785,26 @@ function IssueActivityTimeline({
   items,
   actorNameMap,
   locale,
+  t,
 }: {
   items: Array<{
     id: string;
     kind: 'event';
     createdAt: string;
     authorId: number | null;
-    summary: string;
+    eventType: string;
+    payload: Record<string, unknown> | null;
+    summary: string | null;
   }>;
   actorNameMap: Map<number, string>;
   locale: string;
+  t: (key: string, vars?: Record<string, string | number>) => string;
 }) {
   return (
     <div className="space-y-0.5">
       {items.map((item, index) => {
-        const actorName = valueFromMap(actorNameMap, item.authorId, 'System');
+        const actorName = valueFromMap(actorNameMap, item.authorId, t('issues.activityEvent.system'));
+        const translatedSummary = renderActivitySummary(item, t);
         return (
           <div key={item.id} className="grid grid-cols-[22px_minmax(0,1fr)] gap-3">
             <div className="relative flex justify-center pt-[7px]">
@@ -1785,7 +1815,7 @@ function IssueActivityTimeline({
             </div>
             <div className="pb-[10px] pt-[1px] text-[13px] leading-6 text-ink-700">
               <span className="font-medium text-ink-900">{actorName}</span>
-              <span className="ml-1">{stripActorName(item.summary, actorName)}</span>
+              <span className="ml-1">{translatedSummary}</span>
               <span className="mx-1.5 text-ink-300">·</span>
               <span className="text-[12px] text-ink-400">{formatRelativeTime(item.createdAt, locale)}</span>
             </div>
@@ -2431,15 +2461,69 @@ function valueFromMap(map: Map<number, string>, key: number | null, fallback: st
   return key == null ? fallback : map.get(key) ?? fallback;
 }
 
-function stripActorName(summary: string, actorName: string) {
-  const normalizedSummary = summary.trim();
-  if (!normalizedSummary) return '';
-  const lowerSummary = normalizedSummary.toLowerCase();
-  const lowerActor = actorName.trim().toLowerCase();
-  if (lowerActor && lowerSummary.startsWith(lowerActor)) {
-    return normalizedSummary.slice(actorName.length).trimStart();
+function renderActivitySummary(
+  item: {
+    eventType: string;
+    payload: Record<string, unknown> | null;
+    summary: string | null;
+  },
+  t: (key: string, vars?: Record<string, string | number>) => string
+) {
+  const payload = item.payload ?? {};
+
+  switch (item.eventType) {
+    case 'ISSUE_CREATED':
+      return t('issues.activityEvent.issueCreated');
+    case 'ISSUE_STATE_CHANGED':
+      return t('issues.activityEvent.issueStateChanged', {
+        from: translateActivityStateValue(payload.from, t),
+        to: translateActivityStateValue(payload.to, t),
+      });
+    case 'ISSUE_ASSIGNEE_CHANGED':
+      return t('issues.activityEvent.issueAssigneeChanged', {
+        from: translateActivityDisplayValue(payload.fromName, t('common.notSet')),
+        to: translateActivityDisplayValue(payload.toName, t('common.notSet')),
+      });
+    case 'ISSUE_PRIORITY_CHANGED':
+      return t('issues.activityEvent.issuePriorityChanged', {
+        from: translateActivityPriorityValue(payload.from, t),
+        to: translateActivityPriorityValue(payload.to, t),
+      });
+    case 'ISSUE_PROJECT_CHANGED':
+      return t('issues.activityEvent.issueProjectChanged', {
+        from: translateActivityDisplayValue(payload.fromName, t('settings.composer.noProject')),
+        to: translateActivityDisplayValue(payload.toName, t('settings.composer.noProject')),
+      });
+    case 'ISSUE_LABELS_CHANGED':
+      return t('issues.activityEvent.issueLabelsChanged', {
+        from: translateActivityLabels(payload.from, t),
+        to: translateActivityLabels(payload.to, t),
+      });
+    default:
+      return item.summary ?? item.eventType;
   }
-  return normalizedSummary;
+}
+
+function translateActivityStateValue(value: unknown, t: (key: string) => string) {
+  return typeof value === 'string' ? issueStateLabel(value as Issue['state'], t) : String(value ?? '');
+}
+
+function translateActivityPriorityValue(value: unknown, t: (key: string) => string) {
+  return typeof value === 'string' ? issuePriorityLabel(value as Issue['priority'], t) : String(value ?? '');
+}
+
+function translateActivityDisplayValue(value: unknown, fallback: string) {
+  return typeof value === 'string' && value.trim() ? value : fallback;
+}
+
+function translateActivityLabels(value: unknown, t: (key: string) => string) {
+  if (!Array.isArray(value) || value.length === 0) {
+    return t('settings.composer.noLabels');
+  }
+  const names = value
+    .map((entry) => (entry && typeof entry === 'object' && 'name' in entry ? String(entry.name ?? '') : ''))
+    .filter(Boolean);
+  return names.length ? names.join(', ') : t('settings.composer.noLabels');
 }
 
 function initialsForName(value: string) {

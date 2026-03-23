@@ -472,6 +472,15 @@ const enMessages = {
       plannedStart: "Planned start",
       plannedEnd: "Planned end",
     },
+    activityEvent: {
+      system: "System",
+      issueCreated: "created the issue",
+      issueStateChanged: "moved from {from} to {to}",
+      issueAssigneeChanged: "changed assignee from {from} to {to}",
+      issuePriorityChanged: "changed priority from {from} to {to}",
+      issueProjectChanged: "changed project from {from} to {to}",
+      issueLabelsChanged: "changed labels from {from} to {to}",
+    },
     customFields: {
       filtersTitle: "Custom field filters",
       sectionTitle: "Custom fields",

@@ -216,8 +216,8 @@ open class IssueService(
         recordIssueActivity(
             actorId = actorId,
             issueId = saved.id,
-            actionType = "ISSUE_CREATED",
-            summary = "created the issue"
+            eventType = "ISSUE_CREATED",
+            payload = emptyMap()
         )
         return findById(saved.id)
     }
@@ -312,8 +312,7 @@ open class IssueService(
             recordIssueActivity(
                 actorId = currentActorId() ?: saved.reporterId,
                 issueId = saved.id,
-                actionType = "ISSUE_STATE_CHANGED",
-                summary = "moved from ${displayState(previousState)} to ${displayState(saved.state)}",
+                eventType = "ISSUE_STATE_CHANGED",
                 payload = mapOf("from" to previousState, "to" to saved.state)
             )
         }
@@ -439,45 +438,59 @@ open class IssueService(
             recordIssueActivity(
                 actorId = actorId,
                 issueId = after.id,
-                actionType = "ISSUE_STATE_CHANGED",
-                summary = "moved from ${displayState(before.state)} to ${displayState(after.state)}",
-                payload = mapOf("from" to before.state, "to" to after.state)
+                eventType = "ISSUE_STATE_CHANGED",
+                payload = mapOf(
+                    "from" to before.state,
+                    "to" to after.state
+                )
             )
         }
         if (before.assigneeId != after.assigneeId) {
             recordIssueActivity(
                 actorId = actorId,
                 issueId = after.id,
-                actionType = "ISSUE_ASSIGNEE_CHANGED",
-                summary = "changed assignee from ${displayAssignee(before.assigneeId)} to ${displayAssignee(after.assigneeId)}",
-                payload = mapOf("from" to before.assigneeId, "to" to after.assigneeId)
+                eventType = "ISSUE_ASSIGNEE_CHANGED",
+                payload = mapOf(
+                    "fromId" to before.assigneeId,
+                    "toId" to after.assigneeId,
+                    "fromName" to displayAssignee(before.assigneeId),
+                    "toName" to displayAssignee(after.assigneeId)
+                )
             )
         }
         if (before.priority != after.priority) {
             recordIssueActivity(
                 actorId = actorId,
                 issueId = after.id,
-                actionType = "ISSUE_PRIORITY_CHANGED",
-                summary = "changed priority from ${displayPriority(before.priority)} to ${displayPriority(after.priority)}",
-                payload = mapOf("from" to before.priority, "to" to after.priority)
+                eventType = "ISSUE_PRIORITY_CHANGED",
+                payload = mapOf(
+                    "from" to before.priority,
+                    "to" to after.priority
+                )
             )
         }
         if (before.projectId != after.projectId) {
             recordIssueActivity(
                 actorId = actorId,
                 issueId = after.id,
-                actionType = "ISSUE_PROJECT_CHANGED",
-                summary = "changed project from ${displayProject(before.projectId)} to ${displayProject(after.projectId)}",
-                payload = mapOf("from" to before.projectId, "to" to after.projectId)
+                eventType = "ISSUE_PROJECT_CHANGED",
+                payload = mapOf(
+                    "fromId" to before.projectId,
+                    "toId" to after.projectId,
+                    "fromName" to displayProject(before.projectId),
+                    "toName" to displayProject(after.projectId)
+                )
             )
         }
         if (previousLabels.map { it.id } != nextLabels.map { it.id }) {
             recordIssueActivity(
                 actorId = actorId,
                 issueId = after.id,
-                actionType = "ISSUE_LABELS_CHANGED",
-                summary = "changed labels from ${displayLabels(previousLabels)} to ${displayLabels(nextLabels)}",
-                payload = mapOf("from" to previousLabels.map { it.id }, "to" to nextLabels.map { it.id })
+                eventType = "ISSUE_LABELS_CHANGED",
+                payload = mapOf(
+                    "from" to previousLabels.map { label -> mapOf("id" to label.id, "name" to label.name) },
+                    "to" to nextLabels.map { label -> mapOf("id" to label.id, "name" to label.name) }
+                )
             )
         }
     }
@@ -485,8 +498,7 @@ open class IssueService(
     private fun recordIssueActivity(
         actorId: Long?,
         issueId: Long,
-        actionType: String,
-        summary: String,
+        eventType: String,
         payload: Map<String, Any?>? = null
     ) {
         activityEventService.create(
@@ -494,9 +506,8 @@ open class IssueService(
                 actorId = actorId,
                 entityType = "ISSUE",
                 entityId = issueId,
-                actionType = actionType,
-                summary = summary,
-                payloadJson = payload?.let { objectMapper.writeValueAsString(it) }
+                eventType = eventType,
+                payload = payload
             )
         )
     }
