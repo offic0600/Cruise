@@ -1,6 +1,7 @@
 'use client';
 
 import { type ReactNode, useEffect } from 'react';
+import type { JSONContent } from '@tiptap/core';
 import Link from '@tiptap/extension-link';
 import TaskItem from '@tiptap/extension-task-item';
 import TaskList from '@tiptap/extension-task-list';
@@ -22,11 +23,29 @@ const turndown = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fen
 
 turndown.addRule('taskListItems', {
   filter(node) {
-    return node.nodeName === 'LI' && (node as HTMLElement).dataset.checked != null;
+    return node.nodeName === 'UL' && (
+      (node as HTMLElement).dataset.type === 'taskList' ||
+      Boolean((node as HTMLElement).querySelector('li[data-type="taskItem"], input[type="checkbox"]'))
+    );
   },
   replacement(content, node) {
-    const checked = (node as HTMLElement).dataset.checked === 'true';
-    return `\n- [${checked ? 'x' : ' '}] ${content.trim()}`;
+    const items = Array.from((node as HTMLUListElement).children)
+      .filter((child): child is HTMLLIElement => child instanceof HTMLLIElement)
+      .map((item) => {
+        const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
+        const checked = item.dataset.checked === 'true' || checkbox?.checked === true;
+        const text = (item.textContent ?? '').replace(/\s+/g, ' ').trim();
+        return `- [${checked ? 'x' : ' '}] ${text}`;
+      });
+
+    return `\n${items.join('\n')}\n`;
+  },
+});
+
+turndown.addRule('strikethrough', {
+  filter: ['del', 's', 'strike'],
+  replacement(content) {
+    return `~~${content}~~`;
   },
 });
 
@@ -55,9 +74,10 @@ export default function MarkdownEditor({
       TaskList,
       TaskItem.configure({ nested: true }),
     ],
-    content: value ? markdownParser.render(value) : '<p></p>',
+    content: renderMarkdownToEditorHtml(value),
     editorProps: {
       attributes: {
+        'data-testid': 'markdown-editor-content',
         class:
           'min-h-[16rem] cursor-text px-0 py-0 text-[15px] leading-7 text-ink-900 focus:outline-none prose prose-slate max-w-none prose-p:my-3 prose-headings:mb-3 prose-headings:mt-5 prose-ul:my-3 prose-ol:my-3 prose-code:rounded prose-code:bg-slate-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-[0.92em]',
       },
@@ -77,7 +97,7 @@ export default function MarkdownEditor({
 
   useEffect(() => {
     if (!editor) return;
-    const nextHtml = value ? markdownParser.render(value) : '<p></p>';
+    const nextHtml = renderMarkdownToEditorHtml(value);
     if (turndown.turndown(editor.getHTML()).trim() !== value.trim()) {
       editor.commands.setContent(nextHtml, false);
     }
@@ -96,6 +116,28 @@ export default function MarkdownEditor({
     editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
   };
 
+  const toggleTaskListForSelection = () => {
+    const { from, to } = editor.state.selection;
+    const selectedText = editor.state.doc.textBetween(from, to, '\n').replace(/\s+/g, ' ').trim();
+    const taskContent: JSONContent = {
+      type: 'taskList',
+      content: [
+        {
+          type: 'taskItem',
+          attrs: { checked: false },
+          content: [
+            {
+              type: 'paragraph',
+              content: selectedText ? [{ type: 'text', text: selectedText }] : undefined,
+            },
+          ],
+        },
+      ],
+    };
+
+    editor.chain().focus().insertContentAt({ from, to }, taskContent).run();
+  };
+
   return (
     <div className="relative">
       <BubbleMenu
@@ -103,19 +145,85 @@ export default function MarkdownEditor({
         tippyOptions={{ duration: 100, placement: 'top', offset: [0, 10] }}
         shouldShow={({ editor: currentEditor }) => currentEditor.isFocused && !currentEditor.state.selection.empty}
       >
-        <div className="flex flex-wrap items-center gap-1 rounded-2xl border border-border-soft bg-white px-2 py-2 shadow-[0_14px_36px_rgba(15,23,42,0.10)]">
-          <ToolbarButton active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()} icon={<Bold className="h-4 w-4" />} />
-          <ToolbarButton active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()} icon={<Italic className="h-4 w-4" />} />
-          <ToolbarButton active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()} icon={<Strikethrough className="h-4 w-4" />} />
+        <div data-testid="markdown-editor-toolbar" className="flex flex-wrap items-center gap-1 rounded-2xl border border-border-soft bg-white px-2 py-2 shadow-[0_14px_36px_rgba(15,23,42,0.10)]">
+          <ToolbarButton
+            testId="markdown-toolbar-bold"
+            label="Bold"
+            active={editor.isActive('bold')}
+            onClick={() => editor.chain().focus().toggleBold().run()}
+            icon={<Bold className="h-4 w-4" />}
+          />
+          <ToolbarButton
+            testId="markdown-toolbar-italic"
+            label="Italic"
+            active={editor.isActive('italic')}
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+            icon={<Italic className="h-4 w-4" />}
+          />
+          <ToolbarButton
+            testId="markdown-toolbar-strike"
+            label="Strikethrough"
+            active={editor.isActive('strike')}
+            onClick={() => editor.chain().focus().toggleStrike().run()}
+            icon={<Strikethrough className="h-4 w-4" />}
+          />
           <div className="mx-1 h-5 w-px bg-border-soft" />
-          <ToolbarButton active={editor.isActive('heading', { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} icon={<Heading1 className="h-4 w-4" />} />
-          <ToolbarButton active={editor.isActive('heading', { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} icon={<Heading2 className="h-4 w-4" />} />
-          <ToolbarButton active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()} icon={<List className="h-4 w-4" />} />
-          <ToolbarButton active={editor.isActive('taskList')} onClick={() => editor.chain().focus().toggleTaskList().run()} icon={<ListTodo className="h-4 w-4" />} />
-          <ToolbarButton active={editor.isActive('blockquote')} onClick={() => editor.chain().focus().toggleBlockquote().run()} icon={<Quote className="h-4 w-4" />} />
-          <ToolbarButton active={editor.isActive('codeBlock')} onClick={() => editor.chain().focus().toggleCodeBlock().run()} icon={<Code2 className="h-4 w-4" />} />
-          <ToolbarButton active={editor.isActive('link')} onClick={promptForLink} icon={<Link2 className="h-4 w-4" />} />
-          <ToolbarButton active={false} onClick={() => editor.chain().focus().setHorizontalRule().run()} icon={<SeparatorHorizontal className="h-4 w-4" />} />
+          <ToolbarButton
+            testId="markdown-toolbar-heading-1"
+            label="Heading 1"
+            active={editor.isActive('heading', { level: 1 })}
+            onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+            icon={<Heading1 className="h-4 w-4" />}
+          />
+          <ToolbarButton
+            testId="markdown-toolbar-heading-2"
+            label="Heading 2"
+            active={editor.isActive('heading', { level: 2 })}
+            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+            icon={<Heading2 className="h-4 w-4" />}
+          />
+          <ToolbarButton
+            testId="markdown-toolbar-bullet-list"
+            label="Bullet list"
+            active={editor.isActive('bulletList')}
+            onClick={() => editor.chain().focus().toggleBulletList().run()}
+            icon={<List className="h-4 w-4" />}
+          />
+          <ToolbarButton
+            testId="markdown-toolbar-task-list"
+            label="Task list"
+            active={editor.isActive('taskList')}
+            onClick={toggleTaskListForSelection}
+            icon={<ListTodo className="h-4 w-4" />}
+          />
+          <ToolbarButton
+            testId="markdown-toolbar-blockquote"
+            label="Block quote"
+            active={editor.isActive('blockquote')}
+            onClick={() => editor.chain().focus().toggleBlockquote().run()}
+            icon={<Quote className="h-4 w-4" />}
+          />
+          <ToolbarButton
+            testId="markdown-toolbar-code-block"
+            label="Code block"
+            active={editor.isActive('codeBlock')}
+            onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+            icon={<Code2 className="h-4 w-4" />}
+          />
+          <ToolbarButton
+            testId="markdown-toolbar-link"
+            label="Link"
+            active={editor.isActive('link')}
+            onClick={promptForLink}
+            icon={<Link2 className="h-4 w-4" />}
+          />
+          <ToolbarButton
+            testId="markdown-toolbar-horizontal-rule"
+            label="Horizontal rule"
+            active={false}
+            onClick={() => editor.chain().focus().setHorizontalRule().run()}
+            icon={<SeparatorHorizontal className="h-4 w-4" />}
+          />
         </div>
       </BubbleMenu>
       <div className="px-0 py-0">
@@ -126,10 +234,14 @@ export default function MarkdownEditor({
 }
 
 function ToolbarButton({
+  testId,
+  label,
   active,
   onClick,
   icon,
 }: {
+  testId: string;
+  label: string;
   active: boolean;
   onClick: () => void;
   icon: ReactNode;
@@ -137,6 +249,8 @@ function ToolbarButton({
   return (
     <Button
       type="button"
+      data-testid={testId}
+      aria-label={label}
       variant="ghost"
       size="icon"
       onClick={onClick}
@@ -145,4 +259,68 @@ function ToolbarButton({
       {icon}
     </Button>
   );
+}
+
+function renderMarkdownToEditorHtml(value: string) {
+  if (!value.trim()) {
+    return '<p></p>';
+  }
+
+  return upgradeTaskListHtml(markdownParser.render(value));
+}
+
+function upgradeTaskListHtml(html: string) {
+  if (typeof window === 'undefined' || !html.includes('task-list-item')) {
+    return html;
+  }
+
+  const parser = new window.DOMParser();
+  const document = parser.parseFromString(html, 'text/html');
+
+  document.querySelectorAll('ul').forEach((list) => {
+    const taskItems = Array.from(list.children).filter(
+      (child): child is HTMLLIElement =>
+        child instanceof HTMLLIElement &&
+        (child.classList.contains('task-list-item') || Boolean(child.querySelector('input[type="checkbox"]')))
+    );
+
+    if (!taskItems.length) return;
+
+    list.setAttribute('data-type', 'taskList');
+
+    taskItems.forEach((item) => {
+      const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
+      const checked = checkbox?.checked === true;
+      item.setAttribute('data-type', 'taskItem');
+      item.setAttribute('data-checked', checked ? 'true' : 'false');
+
+      const content = document.createElement('div');
+      const children = Array.from(item.childNodes).filter((child) => child !== checkbox && child.parentNode === item);
+      children.forEach((child) => {
+        if (child === checkbox) return;
+        if (child.nodeType === Node.TEXT_NODE && !child.textContent?.trim()) return;
+        content.appendChild(child);
+      });
+
+      if (!content.childNodes.length) {
+        const paragraph = document.createElement('p');
+        paragraph.textContent = item.textContent?.trim() ?? '';
+        content.appendChild(paragraph);
+      }
+
+      const label = document.createElement('label');
+      label.setAttribute('contenteditable', 'false');
+      const input = document.createElement('input');
+      input.setAttribute('type', 'checkbox');
+      if (checked) {
+        input.setAttribute('checked', 'checked');
+      }
+      const span = document.createElement('span');
+      label.append(input, span);
+
+      item.replaceChildren(label, content);
+    });
+  });
+
+  return document.body.innerHTML;
 }

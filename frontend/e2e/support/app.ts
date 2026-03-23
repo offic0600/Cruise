@@ -19,6 +19,13 @@ export type E2eIssue = {
   commentBody: string;
 };
 
+export type StoredSessionSnapshot = {
+  token: string;
+  user: {
+    organizationId?: number | null;
+  };
+};
+
 export function uniqueSuffix() {
   const time = Date.now().toString(36);
   const random = Math.random().toString(36).slice(2, 8);
@@ -100,4 +107,49 @@ export async function openIssueDetail(page: Page, issueTitle: string, workspaceS
 
 export async function selectMenuItem(page: Page, label: RegExp) {
   await page.getByRole('menuitemradio', { name: label }).click();
+}
+
+export async function getStoredSessionSnapshot(page: Page): Promise<StoredSessionSnapshot> {
+  return page.evaluate(() => {
+    const token = window.localStorage.getItem('token');
+    const rawUser = window.localStorage.getItem('user');
+
+    if (!token || !rawUser) {
+      throw new Error('Missing stored auth session');
+    }
+
+    return {
+      token,
+      user: JSON.parse(rawUser) as { organizationId?: number | null },
+    };
+  });
+}
+
+export async function getIssueFromCurrentDetailRoute(page: Page, request: APIRequestContext) {
+  const session = await getStoredSessionSnapshot(page);
+  const url = new URL(page.url());
+  const match = url.pathname.match(/\/issue\/([^/]+)\//);
+
+  if (!match) {
+    throw new Error(`Unable to extract issue identifier from URL: ${url.pathname}`);
+  }
+
+  const identifier = decodeURIComponent(match[1]);
+  const organizationId = session.user.organizationId;
+  if (!organizationId) {
+    throw new Error('Missing organizationId in stored session');
+  }
+
+  const response = await request.get(`${apiBaseURL}/issues/by-identifier`, {
+    headers: {
+      Authorization: `Bearer ${session.token}`,
+    },
+    params: {
+      organizationId,
+      identifier,
+    },
+  });
+
+  expect(response.ok(), `issue by identifier failed: ${response.status()} ${await response.text()}`).toBeTruthy();
+  return response.json();
 }

@@ -12,6 +12,9 @@ This suite targets the existing local services by default:
 - Issue creation from the main composer
 - Issue detail navigation
 - Issue property edits from the right sidebar
+- Issue detail markdown editor toolbar
+  - DOM rendering checks for bold, italic, strike, headings, bullet list, task list, blockquote, code block, link, and horizontal rule
+  - API-level verification of the persisted raw Markdown string after autosave
 - Inline sub-issue creation
 - Activity timeline verification
 - Comment creation
