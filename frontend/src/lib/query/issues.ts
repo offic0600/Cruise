@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createComment, createDoc, createIssue, createIssueRelation, deleteIssueAttachment, deleteIssueRelation, getActivityEvents, getComments, getDocs, getIssue, getIssueAttachments, getIssueRelations, getIssues, getLabels, getProjects, getTeamMembers, getTeams, updateIssue, updateIssueState, uploadIssueAttachment } from '@/lib/api';
+import { createComment, createDoc, createIssue, createIssueRelation, deleteIssueAttachment, deleteIssueRelation, getActivityEvents, getComments, getDocs, getIssue, getIssueAttachments, getIssueByIdentifier, getIssueRelations, getIssues, getLabels, getProjects, getTeamMembers, getTeams, updateIssue, updateIssueState, uploadIssueAttachment } from '@/lib/api';
 import { getCustomFieldDefinitions } from '@/lib/api/custom-fields';
 import type { CustomFieldDefinition, Issue, Project, RestPageResponse } from '@/lib/api';
 import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
@@ -115,27 +115,42 @@ export function useIssueDetailWorkspace(issueId: number, organizationId: number)
     customFieldDefinitionsQuery: useQuery({
       queryKey: queryKeys.customFields({ organizationId, entityType: 'ISSUE' }),
       queryFn: () => getCustomFieldDefinitions({ organizationId, entityType: 'ISSUE' }),
+      staleTime: 5 * 60 * 1000,
     }),
     projectsQuery: useQuery({
       queryKey: [...queryKeys.projects, organizationId, currentTeamId ?? 'all'],
       queryFn: () => getProjects({ organizationId, teamId: currentTeamId ?? undefined }),
       select: (response) => response.items,
+      staleTime: 60 * 1000,
     }),
     teamsQuery: useQuery({
       queryKey: [...queryKeys.teams, organizationId],
       queryFn: () => getTeams({ organizationId }),
+      staleTime: 5 * 60 * 1000,
     }),
     membersQuery: useQuery({
       queryKey: [...queryKeys.teamMembers, organizationId, currentTeamId ?? 'all'],
       queryFn: () => getTeamMembers({ organizationId, teamId: currentTeamId ?? undefined }),
+      staleTime: 60 * 1000,
     }),
     labelsQuery: useQuery({
       queryKey: queryKeys.labels({ organizationId, teamId: issue?.teamId ?? currentTeamId ?? undefined }),
       queryFn: () => getLabels({ organizationId, teamId: issue?.teamId ?? currentTeamId ?? undefined }),
       select: (catalog) => [...catalog.workspaceLabels, ...catalog.teamLabels],
+      staleTime: 60 * 1000,
     }),
     workspaceCustomFieldDefinitions: (issue?.customFieldDefinitions as CustomFieldDefinition[] | undefined) ?? [],
   };
+}
+
+export function useIssueByIdentifier(organizationId: number | null, identifier: string | null, initialIssue?: Issue | null) {
+  return useQuery({
+    queryKey: organizationId != null && identifier ? queryKeys.issueByIdentifier(organizationId, identifier) : ['issues', 'identifier', 'unknown'],
+    queryFn: () => getIssueByIdentifier({ organizationId: organizationId!, identifier: identifier! }),
+    enabled: organizationId != null && Boolean(identifier),
+    initialData: initialIssue ?? undefined,
+    staleTime: 30 * 1000,
+  });
 }
 
 function updateIssueInCache(issueList: Issue[] | undefined, updated: Issue) {

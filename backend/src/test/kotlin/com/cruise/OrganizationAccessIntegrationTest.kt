@@ -125,6 +125,69 @@ class OrganizationAccessIntegrationTest {
     }
 
     @Test
+    fun `issue can be fetched directly by organization and identifier`() {
+        val token = loginAndGetToken("admin", "admin123")
+        val workspaceSlug = "test-${UUID.randomUUID().toString().take(8)}"
+
+        val workspaceResponse = mockMvc.perform(
+            post("/api/organizations")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "name": "Issue Direct Lookup Workspace",
+                      "slug": "$workspaceSlug",
+                      "region": "Asia Pacific"
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isCreated)
+            .andReturn()
+            .response
+            .contentAsString
+
+        val workspacePayload = objectMapper.readTree(workspaceResponse)
+        val organizationId = workspacePayload["organization"]["id"].asLong()
+        val teamId = workspacePayload["initialTeam"]["id"].asLong()
+
+        val createdIssueResponse = mockMvc.perform(
+            post("/api/issues")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "organizationId": $organizationId,
+                      "teamId": $teamId,
+                      "type": "TASK",
+                      "title": "Direct identifier issue"
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isCreated)
+            .andReturn()
+            .response
+            .contentAsString
+
+        val createdIssuePayload = objectMapper.readTree(createdIssueResponse)
+        val identifier = createdIssuePayload["identifier"].asText()
+        val issueId = createdIssuePayload["id"].asLong()
+
+        mockMvc.perform(
+            get("/api/issues/by-identifier")
+                .header("Authorization", "Bearer $token")
+                .param("organizationId", organizationId.toString())
+                .param("identifier", identifier)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.id").value(issueId))
+            .andExpect(jsonPath("$.identifier").value(identifier))
+    }
+
+    @Test
     fun `issue update treats parentIssueId zero as no parent`() {
         val token = loginAndGetToken("admin", "admin123")
         val workspaceSlug = "test-${UUID.randomUUID().toString().take(8)}"

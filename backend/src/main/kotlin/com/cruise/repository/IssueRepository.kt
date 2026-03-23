@@ -12,4 +12,5 @@ interface IssueRepository : JpaRepository<Issue, Long> {
     fun findByParentIssueId(parentIssueId: Long): List<Issue>
     fun findByAssigneeId(assigneeId: Long): List<Issue>
     fun findByAssigneeIdAndType(assigneeId: Long, type: String): List<Issue>
+    fun findByOrganizationIdAndIdentifier(organizationId: Long, identifier: String): Issue?
 }

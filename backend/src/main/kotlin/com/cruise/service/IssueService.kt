@@ -172,6 +172,16 @@ open class IssueService(
         )
     }
 
+    fun findByIdentifier(organizationId: Long, identifier: String): IssueDto {
+        val issue = issueRepository.findByOrganizationIdAndIdentifier(organizationId, identifier)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Issue not found")
+        return issue.toDto(
+            customFields = issueCustomFieldService.getValuesForIssue(issue),
+            labels = labelService.getLabelsForIssues(listOf(issue.id))[issue.id].orEmpty(),
+            customFieldDefinitions = issueCustomFieldService.getDefinitionsForIssue(issue)
+        )
+    }
+
     fun getIssue(id: Long): Issue = issueRepository.findById(id)
         .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Issue not found") }
 

@@ -30,6 +30,9 @@ export const getIssues = (params?: {
 
 export const getIssue = (id: number) => apiClient.get<Issue>(`/issues/${id}`).then((r) => r.data);
 
+export const getIssueByIdentifier = (params: { organizationId: number; identifier: string }) =>
+  apiClient.get<Issue>('/issues/by-identifier', { params }).then((r) => r.data);
+
 export const createIssue = (data: {
   organizationId?: number;
   type: string;

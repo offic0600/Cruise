@@ -106,6 +106,7 @@ export function IssueDetailSidebar({
     <aside className="space-y-3 xl:sticky xl:top-24 xl:self-start">
       <SidebarCard title="Properties" bodyClassName="flex flex-col items-start gap-2.5">
         <SingleValuePill
+          testId="issue-detail-sidebar-state-pill"
           label={stateOptions.find((option) => option.value === draftIssue.state)?.label ?? ''}
           value={draftIssue.state}
           options={stateOptions}
@@ -118,6 +119,7 @@ export function IssueDetailSidebar({
           }
         />
         <SingleValuePill
+          testId="issue-detail-sidebar-priority-pill"
           label={priorityOptions.find((option) => option.value === draftIssue.priority)?.label ?? ''}
           value={draftIssue.priority}
           options={priorityOptions}
@@ -129,6 +131,7 @@ export function IssueDetailSidebar({
           }
         />
         <SingleValuePill
+          testId="issue-detail-sidebar-assignee-pill"
           label={selectedAssignee?.name ?? notSetLabel}
           value={draftIssue.assigneeId == null ? EMPTY : String(draftIssue.assigneeId)}
           options={assigneeOptions}
@@ -150,6 +153,7 @@ export function IssueDetailSidebar({
           <DropdownMenuTrigger asChild>
             <button
               type="button"
+              data-testid="issue-detail-sidebar-labels-pill"
               className="inline-flex min-h-11 flex-wrap items-center gap-2 rounded-full border border-border-soft bg-white px-4 py-2 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
             >
               {selectedLabels.length ? (
@@ -207,6 +211,7 @@ export function IssueDetailSidebar({
 
       <SidebarCard title="Project" bodyClassName="flex flex-col items-start gap-2.5">
         <SingleValuePill
+          testId="issue-detail-sidebar-project-pill"
           label={selectedProject?.name ?? (isZh ? 'Add to project' : 'Add to project')}
           value={draftIssue.projectId == null ? EMPTY : String(draftIssue.projectId)}
           emptyLabel={notSetLabel}
@@ -290,6 +295,7 @@ function SidebarCard({
 }
 
 function SingleValuePill({
+  testId,
   label,
   value,
   options,
@@ -300,6 +306,7 @@ function SingleValuePill({
   searchPlaceholder,
   noSearchResultsLabel,
 }: {
+  testId?: string;
   label: string;
   value: string;
   options: SidebarOption[];
@@ -321,6 +328,7 @@ function SingleValuePill({
   const trigger = (
     <button
       type="button"
+      data-testid={testId}
       className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
     >
       <SingleValueDisplay option={selectedOption} fallbackLabel={label || emptyLabel || ''} />

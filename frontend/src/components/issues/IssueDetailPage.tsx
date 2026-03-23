@@ -185,6 +185,9 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   }, [currentTeamId, issue?.teamId, membersQuery.data]);
   const customFieldDefinitions = (issue?.customFieldDefinitions ?? customFieldDefinitionsQuery.data ?? []) as CustomFieldDefinition[];
   const parentIssue = parentIssueQuery.data ?? null;
+  const isActivityLoading = commentsQuery.isLoading || activityQuery.isLoading;
+  const isAttachmentsLoading = attachmentsQuery.isLoading;
+  const isChildIssuesLoading = childIssuesQuery.isLoading;
 
   const [draftIssue, setDraftIssue] = useState<DraftIssue | null>(null);
   const [commentBody, setCommentBody] = useState('');
@@ -754,6 +757,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                 <div className="space-y-2.5">
                   <button
                     type="button"
+                    data-testid="issue-detail-add-subissue-button"
                     onClick={() => {
                       setIsAddingChild((current) => {
                         const next = !current;
@@ -780,6 +784,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                         <input
                           ref={subIssueTitleRef}
                           value={subIssueDraft.title}
+                          data-testid="issue-detail-subissue-title-input"
                           onChange={(event) =>
                             setSubIssueDraft((current) => ({
                               ...current,
@@ -791,6 +796,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                         />
                         <Textarea
                           value={subIssueDraft.description}
+                          data-testid="issue-detail-subissue-description-input"
                           onChange={(event) =>
                             setSubIssueDraft((current) => ({
                               ...current,
@@ -890,6 +896,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                             </button>
                             <button
                               type="button"
+                              data-testid="issue-detail-subissue-cancel-button"
                               onClick={() => {
                                 setIsAddingChild(false);
                                 setSubIssueDraft(createSubIssueDraft(issue));
@@ -901,6 +908,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                             </button>
                             <Button
                               type="button"
+                              data-testid="issue-detail-subissue-create-button"
                               onClick={() => void createChildIssue()}
                               disabled={!subIssueDraft.title.trim() || createIssueMutation.isPending || uploadAttachmentMutation.isPending}
                               className="h-10 rounded-full px-5"
@@ -915,7 +923,9 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                       </div>
                     </div>
                   </div>
-                  {childIssues.length ? (
+                  {isChildIssuesLoading ? (
+                    <SectionLoadingRows rows={2} />
+                  ) : childIssues.length ? (
                     <div className="space-y-1 pl-6">
                       {childIssues.map((child) => (
                         <Link
@@ -934,7 +944,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                   ) : null}
                 </div>
               </section>
-              <section id="activity" className="space-y-6 border-t border-border-soft/80 pt-7">
+              <section id="activity" data-testid="issue-detail-activity-section" className="space-y-6 border-t border-border-soft/80 pt-7">
                 <div className="flex items-center justify-between gap-4">
                   <h2 className="text-[18px] font-semibold tracking-tight text-ink-900">{t('issues.tabs.activity')}</h2>
                   <div className="flex items-center gap-3 text-sm text-ink-400">
@@ -952,7 +962,9 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                   </div>
 
                 <div className="space-y-4">
-                  {activityItems.length || commentItems.length ? (
+                  {isActivityLoading ? (
+                    <SectionLoadingRows rows={3} />
+                  ) : activityItems.length || commentItems.length ? (
                     <>
               {activityItems.length ? (
                 <IssueActivityTimeline
@@ -997,7 +1009,9 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                   )}
                 </div>
 
-                {attachments.length ? (
+                {isAttachmentsLoading ? (
+                  <SectionLoadingChips count={2} />
+                ) : attachments.length ? (
                   <div className="flex flex-wrap gap-2">
                     {attachments.map((attachment) => (
                       <div
@@ -1029,6 +1043,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                   <Textarea
                     value={commentBody}
                     onChange={(event) => setCommentBody(event.target.value)}
+                    data-testid="issue-detail-comment-input"
                     placeholder={t('issues.detail.commentPlaceholder')}
                     className="min-h-[104px] resize-none border-0 px-0 py-0 text-[15px] leading-7 text-ink-900 placeholder:text-ink-300 focus-visible:ring-0"
                   />
@@ -1044,6 +1059,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                     <button
                       type="button"
                       onClick={() => void addComment()}
+                      data-testid="issue-detail-comment-submit-button"
                       className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-ink-500 transition hover:bg-slate-50 hover:text-ink-900"
                       aria-label={t('issues.detail.addComment')}
                     >
@@ -1779,6 +1795,34 @@ function IssueStateBadge({
 
 function EmptyState({ label, compact = false }: { label: string; compact?: boolean }) {
   return <div className={compact ? 'py-2 text-sm text-ink-400' : 'py-4 text-sm text-ink-400'}>{label}</div>;
+}
+
+function SectionLoadingRows({ rows = 3 }: { rows?: number }) {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: rows }).map((_, index) => (
+        <div key={index} className="grid grid-cols-[22px_minmax(0,1fr)] gap-3">
+          <div className="flex justify-center pt-[7px]">
+            <div className="h-[14px] w-[14px] animate-pulse rounded-full border border-slate-200 bg-slate-100" />
+          </div>
+          <div className="space-y-2 pb-[10px] pt-[1px]">
+            <div className="h-3.5 w-3/4 animate-pulse rounded-full bg-slate-100" />
+            <div className="h-3.5 w-1/3 animate-pulse rounded-full bg-slate-100" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SectionLoadingChips({ count = 2 }: { count?: number }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {Array.from({ length: count }).map((_, index) => (
+        <div key={index} className="h-8 w-28 animate-pulse rounded-full bg-slate-100" />
+      ))}
+    </div>
+  );
 }
 
 function IssueActivityTimeline({

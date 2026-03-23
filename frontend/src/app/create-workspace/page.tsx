@@ -352,6 +352,7 @@ export default function CreateWorkspacePage() {
                     <Input
                       value={name}
                       onChange={(event) => setName(event.target.value)}
+                      data-testid="create-workspace-name-input"
                       className="h-14 rounded-[1rem] border-brand-500/40 px-4 text-lg"
                       autoFocus
                     />
@@ -368,6 +369,7 @@ export default function CreateWorkspacePage() {
                           setSlugTouched(true);
                           setSlug(slugify(event.target.value));
                         }}
+                        data-testid="create-workspace-slug-input"
                         className="min-w-0 flex-1 bg-transparent outline-none"
                       />
                     </div>
@@ -432,6 +434,7 @@ export default function CreateWorkspacePage() {
           <Button
             type="button"
             className="mt-8 h-14 min-w-80 rounded-full px-10 text-lg"
+            data-testid="create-workspace-submit-button"
             disabled={mode === 'create' ? !canCreate : !canJoin}
             onClick={() => {
               setSubmitted(true);
