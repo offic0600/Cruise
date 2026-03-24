@@ -645,6 +645,29 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const handleEditorCommandAction = (action: 'attachment' | 'subIssue' | 'relatedIssue' | 'projectRelation' | 'documentRelation') => {
+    if (action === 'attachment') {
+      fileInputRef.current?.click();
+      return;
+    }
+    if (action === 'subIssue') {
+      setIsAddingChild(true);
+      return;
+    }
+    if (action === 'relatedIssue') {
+      void createRelatedIssue('related');
+      return;
+    }
+    if (action === 'documentRelation') {
+      void quickCreateDoc();
+      return;
+    }
+    showActionToast(
+      locale.startsWith('zh') ? '项目关联' : 'Project relation',
+      locale.startsWith('zh') ? '项目关联入口暂时为占位交互。' : 'Project relation is currently a placeholder.'
+    );
+  };
+
   if (issueQuery.isLoading || !draftIssue) {
     return (
       <AppLayout>
@@ -749,6 +772,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                   issueId={issue.id}
                   initialValue={draftIssue.description}
                   onCommit={handleDescriptionCommit}
+                  onCommandAction={handleEditorCommandAction}
                 />
               </section>
 

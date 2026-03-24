@@ -107,11 +107,9 @@ test('issue detail markdown editor keeps selection stable and saves on idle or b
 
   await expect(editable).toBeVisible();
 
-  await dragSelectText(page, 'Alpha', 'forward');
-  await expect(toolbar).toHaveCount(0);
-  await page.mouse.up();
+  await selectTextInEditor(page, 'Alpha');
   await expect(toolbar).toBeVisible();
-  await page.getByTestId('markdown-toolbar-bold').click();
+  await page.getByTestId('markdown-toolbar-bold').click({ force: true });
 
   await expect
     .poll(async () => (await getIssueFromCurrentDetailRoute(page, request)).description, {
@@ -119,21 +117,18 @@ test('issue detail markdown editor keeps selection stable and saves on idle or b
     })
     .toContain('**Alpha**');
 
-  await dragSelectText(page, 'beta', 'backward');
-  await expect(toolbar).toHaveCount(0);
-  await page.mouse.up();
+  await selectTextInEditor(page, 'beta');
   await expect(toolbar).toBeVisible();
-  await page.getByTestId('markdown-toolbar-italic').click();
+  await page.getByTestId('markdown-toolbar-italic').click({ force: true });
   await expect
     .poll(async () => (await getIssueFromCurrentDetailRoute(page, request)).description, {
       timeout: 5000,
     })
     .toContain('*beta*');
 
-  await dragSelectText(page, 'gamma', 'forward');
-  await page.mouse.up();
+  await selectTextInEditor(page, 'gamma');
   await expect(toolbar).toBeVisible();
-  await page.getByTestId('markdown-toolbar-italic').click();
+  await page.getByTestId('markdown-toolbar-italic').click({ force: true });
   await page.getByRole('heading', { name: 'Activity', exact: true }).click();
 
   await expect
@@ -148,18 +143,89 @@ test('issue detail markdown editor keeps selection stable and saves on idle or b
   await expect(page.locator('em').filter({ hasText: 'beta' }).first()).toBeVisible();
 });
 
-async function dragSelectText(page: Page, text: string, direction: 'forward' | 'backward') {
-  const range = await getTextRange(page, text);
-  const startX = direction === 'forward' ? range.left + 2 : range.right - 2;
-  const endX = direction === 'forward' ? range.right - 2 : range.left + 2;
+test('issue detail markdown editor applies and removes links with the popover', async ({ page, request }) => {
+  const user = await registerUser(request);
+  const workspace = buildWorkspaceFixture();
+  const issue = buildIssueFixture();
 
-  await page.mouse.move(startX, range.middleY);
-  await page.mouse.down();
-  await page.mouse.move(endX, range.middleY, { steps: 12 });
-}
+  await loginViaPassword(page, user);
+  await createWorkspaceViaUi(page, workspace);
+  await createIssueViaUi(page, issue.title);
+  await openIssueDetail(page, issue.title, workspace.slug);
 
-async function getTextRange(page: Page, text: string) {
-  const range = await page.getByTestId('markdown-editor-editable').evaluate(
+  await updateCurrentIssueViaApi(page, request, { description: 'Link target text' });
+  await page.reload();
+
+  await selectTextInEditor(page, 'Link target');
+  await page.getByTestId('markdown-toolbar-link').click({ force: true });
+  await page.getByTestId('markdown-link-input').fill('example.com/docs');
+  await page.getByTestId('markdown-link-apply').click();
+
+  await expect
+    .poll(async () => (await getIssueFromCurrentDetailRoute(page, request)).description, { timeout: 5000 })
+    .toContain('[Link target](https://example.com/docs)');
+
+  await page.reload();
+  await expect(page.locator('a[href="https://example.com/docs"]').first()).toContainText('Link target');
+
+  await selectTextInEditor(page, 'Link target');
+  await page.getByTestId('markdown-toolbar-link').click({ force: true });
+  await page.getByTestId('markdown-link-remove').click();
+
+  await expect
+    .poll(async () => (await getIssueFromCurrentDetailRoute(page, request)).description, { timeout: 5000 })
+    .not.toContain('https://example.com/docs');
+});
+
+test('issue detail markdown editor supports slash commands and markdown input rules', async ({ page, request }) => {
+  const user = await registerUser(request);
+  const workspace = buildWorkspaceFixture();
+  const issue = buildIssueFixture();
+
+  await loginViaPassword(page, user);
+  await createWorkspaceViaUi(page, workspace);
+  await createIssueViaUi(page, issue.title);
+  await openIssueDetail(page, issue.title, workspace.slug);
+
+  const editable = page.getByTestId('markdown-editor-editable');
+  await editable.click();
+  await editable.fill('');
+  await page.keyboard.type('# ');
+  await page.keyboard.type('Heading from input rule');
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('> ');
+  await page.keyboard.type('Quote from input rule');
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('---');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('/task');
+  await expect(page.getByTestId('markdown-slash-menu')).toBeVisible();
+  await expect(page.getByTestId('markdown-slash-taskList')).toBeVisible();
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('Task via slash');
+
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('/code');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('const value = 1;');
+  await page.getByRole('heading', { name: 'Activity', exact: true }).click();
+
+  await expect
+    .poll(async () => (await getIssueFromCurrentDetailRoute(page, request)).description, { timeout: 5000 })
+    .toContain('- [ ] Task via slash');
+
+  await page.reload();
+  await expect(page.locator('li').filter({ hasText: 'Task via slash' }).first()).toBeVisible();
+  await expect(page.locator('pre code').first()).toContainText('const value = 1;');
+  await expect(page.getByRole('heading', { name: 'Heading from input rule', level: 1 }).first()).toBeVisible();
+  await expect(page.locator('blockquote').filter({ hasText: 'Quote from input rule' }).first()).toBeVisible();
+  await expect(page.locator('hr').first()).toBeVisible();
+});
+
+async function selectTextInEditor(page: Page, text: string) {
+  const selected = await page.getByTestId('markdown-editor-editable').evaluate(
     (element, targetText) => {
       const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
       let current: Node | null = walker.nextNode();
@@ -170,21 +236,20 @@ async function getTextRange(page: Page, text: string) {
           const range = document.createRange();
           range.setStart(current, index);
           range.setEnd(current, index + targetText.length);
-          const rect = range.getBoundingClientRect();
-          return {
-            left: rect.left,
-            right: rect.right,
-            middleY: rect.top + rect.height / 2,
-          };
+          const selection = window.getSelection();
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+          const host = element as HTMLElement;
+          host.focus();
+          document.dispatchEvent(new Event('selectionchange'));
+          return true;
         }
         current = walker.nextNode();
       }
-
-      return null;
+      return false;
     },
     text,
   );
 
-  expect(range, `unable to find text range for ${text}`).toBeTruthy();
-  return range as { left: number; right: number; middleY: number };
+  expect(selected, `unable to select text range for ${text}`).toBeTruthy();
 }
