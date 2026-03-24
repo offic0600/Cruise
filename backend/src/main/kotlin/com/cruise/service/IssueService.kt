@@ -5,6 +5,7 @@ import com.cruise.repository.IssueRepository
 import com.cruise.repository.ProjectRepository
 import com.cruise.repository.UserRepository
 import com.fasterxml.jackson.core.type.TypeReference
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.context.SecurityContextHolder
@@ -21,6 +22,9 @@ data class IssueDto(
     val type: String,
     val title: String,
     val description: String?,
+    val contentJson: JsonNode?,
+    val contentRevision: Long?,
+    val contentFormat: String?,
     val state: String,
     val stateCategory: String,
     val resolution: String?,
@@ -68,6 +72,8 @@ data class CreateIssueRequest(
     val type: String,
     val title: String,
     val description: String? = null,
+    val contentJson: JsonNode? = null,
+    val descriptionExport: String? = null,
     val state: String? = null,
     val resolution: String? = null,
     val priority: String? = null,
@@ -94,6 +100,9 @@ data class UpdateIssueRequest(
     val projectId: Long? = null,
     val title: String? = null,
     val description: String? = null,
+    val contentJson: JsonNode? = null,
+    val expectedRevision: Long? = null,
+    val descriptionExport: String? = null,
     val state: String? = null,
     val resolution: String? = null,
     val priority: String? = null,
@@ -189,6 +198,8 @@ open class IssueService(
     fun create(request: CreateIssueRequest): IssueDto {
         val normalizedParentIssueId = normalizeNullableReference(request.parentIssueId, null)
         validateParent(normalizedParentIssueId, request.projectId)
+        val serializedContentJson = serializeContentJson(request.contentJson)
+        val now = LocalDateTime.now()
         val saved = issueRepository.save(
             Issue(
                 organizationId = request.organizationId
@@ -196,7 +207,11 @@ open class IssueService(
                 identifier = nextIdentifier(),
                 type = request.type,
                 title = request.title,
-                description = request.description,
+                description = request.descriptionExport ?: request.description,
+                contentJson = serializedContentJson,
+                contentFormat = serializedContentJson?.let { CONTENT_FORMAT_PROSEMIRROR_JSON },
+                contentRevision = serializedContentJson?.let { 1L },
+                contentMigratedAt = serializedContentJson?.let { now },
                 state = request.state ?: defaultStateForType(request.type),
                 resolution = normalizeResolution(
                     state = request.state ?: defaultStateForType(request.type),
@@ -240,13 +255,27 @@ open class IssueService(
         val nextProjectId = request.projectId ?: issue.projectId
         val nextParentIssueId = normalizeNullableReference(request.parentIssueId, issue.parentIssueId)
         validateParent(nextParentIssueId, nextProjectId)
+        val currentContentRevision = issue.contentRevision ?: 0L
+        val serializedContentJson = serializeContentJson(request.contentJson)
+        if (serializedContentJson != null && request.expectedRevision != null && request.expectedRevision != currentContentRevision) {
+            throw ResponseStatusException(HttpStatus.CONFLICT, "Issue content is out of date")
+        }
+        val nextContentRevision = if (serializedContentJson != null) currentContentRevision + 1 else issue.contentRevision
         val updated = Issue(
             id = issue.id,
             organizationId = request.organizationId ?: issue.organizationId,
             identifier = issue.identifier,
             type = issue.type,
             title = request.title ?: issue.title,
-            description = request.description ?: issue.description,
+            description = when {
+                serializedContentJson != null -> request.descriptionExport ?: request.description ?: issue.description
+                request.description != null -> request.description
+                else -> issue.description
+            },
+            contentJson = serializedContentJson ?: issue.contentJson,
+            contentFormat = serializedContentJson?.let { CONTENT_FORMAT_PROSEMIRROR_JSON } ?: issue.contentFormat,
+            contentRevision = nextContentRevision,
+            contentMigratedAt = serializedContentJson?.let { issue.contentMigratedAt ?: LocalDateTime.now() } ?: issue.contentMigratedAt,
             state = request.state ?: issue.state,
             resolution = normalizeResolution(
                 state = request.state ?: issue.state,
@@ -296,6 +325,10 @@ open class IssueService(
                 type = issue.type,
                 title = issue.title,
                 description = issue.description,
+                contentJson = issue.contentJson,
+                contentFormat = issue.contentFormat,
+                contentRevision = issue.contentRevision,
+                contentMigratedAt = issue.contentMigratedAt,
                 state = state,
                 resolution = normalizeResolution(state, resolution ?: issue.resolution),
                 priority = issue.priority,
@@ -359,6 +392,9 @@ open class IssueService(
         type = type,
         title = title,
         description = description,
+        contentJson = readContentJson(contentJson),
+        contentRevision = contentRevision,
+        contentFormat = contentFormat,
         state = state,
         stateCategory = stateCategoryFor(state),
         resolution = resolution ?: defaultResolutionForState(state),
@@ -387,8 +423,18 @@ open class IssueService(
 
     private fun parseDate(value: String?): LocalDate? = value?.let { LocalDate.parse(it) }
 
+    private fun serializeContentJson(contentJson: JsonNode?): String? =
+        contentJson?.takeUnless { it.isNull }?.let { objectMapper.writeValueAsString(it) }
+
+    private fun readContentJson(contentJson: String?): JsonNode? =
+        contentJson?.takeIf { it.isNotBlank() }?.let { objectMapper.readTree(it) }
+
     private fun nextIdentifier(): String =
         "ISSUE-${(issueRepository.findAll().maxOfOrNull { it.id } ?: 0L) + 1}"
+
+    private companion object {
+        const val CONTENT_FORMAT_PROSEMIRROR_JSON = "PROSEMIRROR_JSON"
+    }
 
     private fun defaultStateForType(type: String): String =
         if (type == "FEATURE") "BACKLOG" else "TODO"

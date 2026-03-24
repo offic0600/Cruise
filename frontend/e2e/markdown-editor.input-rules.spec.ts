@@ -2,7 +2,8 @@ import { expect, test } from '@playwright/test';
 import {
   bootstrapIssueDetail,
   clearEditor,
-  getCurrentIssueDescription,
+  findProseMirrorNodes,
+  getCurrentIssueContentJson,
   getEditor,
   waitForAutosave,
 } from './support/app';
@@ -34,14 +35,14 @@ test('converts heading, quote, divider, ordered list, bullet list, and task list
   await page.keyboard.press('Enter');
 
   await waitForAutosave(page, request);
-  const markdown = await getCurrentIssueDescription(page, request);
-  expect(markdown).toContain('# Heading one');
-  expect(markdown).toContain('## Heading two');
-  expect(markdown).toContain('> Quoted line');
-  expect(markdown).toContain('- Bullet item');
-  expect(markdown).toContain('1. Ordered item');
-  expect(markdown).toContain('- [ ] Task item');
-  expect(markdown).toContain('---');
+  const contentJson = await getCurrentIssueContentJson(page, request);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'heading' && (node.attrs as { level?: number } | undefined)?.level === 1 && getNodeText(node) === 'Heading one')).toHaveLength(1);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'heading' && (node.attrs as { level?: number } | undefined)?.level === 2 && getNodeText(node) === 'Heading two')).toHaveLength(1);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'blockquote' && getNodeText(node).includes('Quoted line'))).toHaveLength(1);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'bulletList')).toHaveLength(1);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'orderedList')).toHaveLength(1);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'taskList')).toHaveLength(1);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'horizontalRule')).toHaveLength(1);
 
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Heading one', level: 1 })).toBeVisible();
@@ -79,12 +80,11 @@ test('converts fenced code blocks and structures pasted markdown', async ({ page
   }, '# Pasted heading\n\n- Pasted bullet\n\n> Pasted quote');
 
   await waitForAutosave(page, request);
-  const markdown = await getCurrentIssueDescription(page, request);
-  expect(markdown).toContain('```');
-  expect(markdown).toContain('const pasted = true;');
-  expect(markdown).toContain('# Pasted heading');
-  expect(markdown).toContain('- Pasted bullet');
-  expect(markdown).toContain('> Pasted quote');
+  const contentJson = await getCurrentIssueContentJson(page, request);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'codeBlock' && getNodeText(node).includes('const pasted = true;'))).toHaveLength(1);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'heading' && (node.attrs as { level?: number } | undefined)?.level === 1 && getNodeText(node) === 'Pasted heading')).toHaveLength(1);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'bulletList')).toHaveLength(1);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'blockquote' && getNodeText(node).includes('Pasted quote'))).toHaveLength(1);
 
   await page.reload();
   await expect(page.locator('pre code').first()).toContainText('const pasted = true;');
@@ -124,10 +124,10 @@ test('converts heading, quote, and task-list triggers through real character-by-
   await page.keyboard.type('Task boundary');
 
   await waitForAutosave(page, request);
-  const markdown = await getCurrentIssueDescription(page, request);
-  expect(markdown).toContain('# Heading boundary');
-  expect(markdown).toContain('> Quote boundary');
-  expect(markdown).toContain('- [ ] Task boundary');
+  const contentJson = await getCurrentIssueContentJson(page, request);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'heading' && (node.attrs as { level?: number } | undefined)?.level === 1 && getNodeText(node) === 'Heading boundary')).toHaveLength(1);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'blockquote' && getNodeText(node).includes('Quote boundary'))).toHaveLength(1);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'taskList')).toHaveLength(1);
 });
 
 test.fail('keeps bullet-list trigger stable when typing dash then space at block start', async ({ page, request }) => {
@@ -163,10 +163,9 @@ test('pressing backspace on an empty bullet item clears the current bullet and k
   await page.keyboard.type('Paragraph after backspace');
 
   await waitForAutosave(page, request);
-  const markdown = await getCurrentIssueDescription(page, request);
-  expect(markdown).toContain('- First bullet');
-  expect(markdown).toContain('Paragraph after backspace');
-  expect(markdown).not.toContain('- Paragraph after backspace');
+  const contentJson = await getCurrentIssueContentJson(page, request);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'listItem' && getNodeText(node).includes('First bullet'))).toHaveLength(1);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'paragraph' && getNodeText(node).includes('Paragraph after backspace'))).toHaveLength(1);
 
   await page.reload();
   await expect(page.locator('li').filter({ hasText: 'First bullet' }).first()).toBeVisible();
@@ -179,4 +178,12 @@ async function getEditorText(page: Parameters<typeof getEditor>[0]) {
 
 async function getEditorHtml(page: Parameters<typeof getEditor>[0]) {
   return getEditor(page).evaluate((element) => element.innerHTML);
+}
+
+function getNodeText(node: Record<string, unknown>): string {
+  const text = typeof node.text === 'string' ? node.text : '';
+  const content = Array.isArray(node.content)
+    ? node.content.map((child) => (child && typeof child === 'object' ? getNodeText(child as Record<string, unknown>) : '')).join('')
+    : '';
+  return `${text}${content}`;
 }

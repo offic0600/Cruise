@@ -206,7 +206,7 @@ export async function waitForAutosave(page: Page, request: APIRequestContext, ex
     await expect
       .poll(async () => {
         const issue = await getIssueFromCurrentDetailRoute(page, request);
-        return String(issue.description ?? '');
+        return getIssueBodyText(issue);
       }, { timeout: 8_000 })
       .toContain(expectedSubstring);
     return;
@@ -215,7 +215,7 @@ export async function waitForAutosave(page: Page, request: APIRequestContext, ex
   await expect
     .poll(async () => {
       const issue = await getIssueFromCurrentDetailRoute(page, request);
-      return typeof issue.description === 'string';
+      return Boolean(getIssueBodyText(issue));
     }, { timeout: 8_000 })
     .toBeTruthy();
 }
@@ -307,28 +307,93 @@ export async function measureVisibility(page: Page, locatorGetter: () => ReturnT
 }
 
 export async function failNextIssueUpdate(page: Page, status = 500) {
-  let used = false;
-  await page.route('**/api/issues/*', async (route, request) => {
-    if (used || request.method() !== 'PUT') {
+  const pattern = '**/api/issues/*';
+  const handler = async (route: any, request: any) => {
+    if (request.method() !== 'PUT') {
       await route.fallback();
       return;
     }
-    used = true;
-    if (status <= 0) {
-      await route.abort('failed');
-      return;
+    try {
+      if (status <= 0) {
+        await route.abort('failed');
+        return;
+      }
+      await route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({ message: 'forced failure' }),
+      });
+    } finally {
+      void page.unroute(pattern, handler as never);
     }
-    await route.fulfill({
-      status,
-      contentType: 'application/json',
-      body: JSON.stringify({ message: 'forced failure' }),
-    });
-  });
+  };
+  await page.route(pattern, handler as never);
 }
 
 export async function getCurrentIssueDescription(page: Page, request: APIRequestContext) {
   const issue = await getIssueFromCurrentDetailRoute(page, request);
-  return String(issue.description ?? '');
+  return getIssueBodyText(issue);
+}
+
+export async function getCurrentIssueContentJson(page: Page, request: APIRequestContext) {
+  const issue = await getIssueFromCurrentDetailRoute(page, request);
+  return parseContentJson(issue.contentJson);
+}
+
+export function findProseMirrorNodes(
+  node: unknown,
+  predicate: (candidate: Record<string, unknown>) => boolean,
+): Array<Record<string, unknown>> {
+  const content = parseContentJson(node);
+  const results: Array<Record<string, unknown>> = [];
+
+  const visit = (candidate: unknown) => {
+    if (!candidate || typeof candidate !== 'object') return;
+    const record = candidate as Record<string, unknown>;
+    if (predicate(record)) {
+      results.push(record);
+    }
+    const children = Array.isArray(record.content) ? record.content : [];
+    children.forEach(visit);
+  };
+
+  visit(content);
+  return results;
+}
+
+function getIssueBodyText(issue: Record<string, unknown>) {
+  const structured = flattenProseMirrorText(issue.contentJson);
+  if (structured.trim().length > 0) return structured;
+  return typeof issue.description === 'string' ? issue.description : '';
+}
+
+function parseContentJson(node: unknown): Record<string, unknown> | null {
+  if (typeof node === 'string') {
+    try {
+      return parseContentJson(JSON.parse(node) as unknown);
+    } catch {
+      return null;
+    }
+  }
+  if (!node || typeof node !== 'object') return null;
+  return node as Record<string, unknown>;
+}
+
+function flattenProseMirrorText(node: unknown): string {
+  if (typeof node === 'string') {
+    try {
+      return flattenProseMirrorText(JSON.parse(node) as unknown);
+    } catch {
+      return node;
+    }
+  }
+  if (!node || typeof node !== 'object') return '';
+  const text = typeof (node as { text?: unknown }).text === 'string' ? ((node as { text: string }).text) : '';
+  const content = Array.isArray((node as { content?: unknown[] }).content)
+    ? (node as { content: unknown[] }).content.map(flattenProseMirrorText).join('')
+    : '';
+  const separator = text || !content ? '' : '\n';
+  return `${text}${separator}${content}`;
 }
 
 export async function getCaretOffset(page: Page) {

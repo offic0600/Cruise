@@ -3,7 +3,7 @@ import {
   bootstrapIssueDetail,
   failNextIssueUpdate,
   getCaretOffset,
-  getCurrentIssueDescription,
+  getCurrentIssueContentJson,
   getEditor,
   getSelectedText,
   getToolbar,
@@ -50,8 +50,8 @@ test('survives rapid typing and keeps the caret near the typing position after a
   const caretAfterFirstSave = await getCaretOffset(page);
   await page.keyboard.type(' tail-fragment', { delay: 8 });
   await waitForAutosave(page, request, 'tail-fragment');
-  const markdown = await getCurrentIssueDescription(page, request);
-  expect(markdown).toContain('rapid-one rapid-two rapid-three rapid-four tail-fragment');
+  const contentJson = await pollIssueContentJson(page, request);
+  expect(getNodeText(contentJson)).toContain('rapid-one rapid-two rapid-three rapid-four tail-fragment');
   const caretAfterSecondSave = await getCaretOffset(page);
   expect(caretAfterFirstSave).not.toBe(0);
   expect(caretAfterSecondSave).not.toBe(0);
@@ -68,16 +68,29 @@ test('supports blur save and save failure recovery without losing edited content
     await waitForAutosave(page, request, 'blur-save text');
   });
 
-  const beforeFailure = await getCurrentIssueDescription(page, request);
+  const beforeFailure = getNodeText(await pollIssueContentJson(page, request));
   await failNextIssueUpdate(page, -1);
   await editor.click();
   await page.keyboard.type(' fail-once');
   await page.waitForTimeout(1200);
-  expect(await getCurrentIssueDescription(page, request)).toBe(beforeFailure);
+  expect(getNodeText(await pollIssueContentJson(page, request))).toBe(beforeFailure);
 
   await page.keyboard.type(' recover');
   await waitForAutosave(page, request, 'recover');
 
-  const markdown = await getCurrentIssueDescription(page, request);
-  expect(markdown).toContain('blur-save text fail-once recover');
+  const contentJson = await pollIssueContentJson(page, request);
+  expect(getNodeText(contentJson)).toContain('blur-save text fail-once recover');
 });
+
+async function pollIssueContentJson(page: Parameters<typeof getEditor>[0], request: Parameters<typeof getCurrentIssueContentJson>[1]) {
+  await expect.poll(async () => await getCurrentIssueContentJson(page, request), { timeout: 8_000 }).not.toBeNull();
+  return (await getCurrentIssueContentJson(page, request)) as Record<string, unknown>;
+}
+
+function getNodeText(node: Record<string, unknown>): string {
+  const text = typeof node.text === 'string' ? node.text : '';
+  const content = Array.isArray(node.content)
+    ? node.content.map((child) => (child && typeof child === 'object' ? getNodeText(child as Record<string, unknown>) : '')).join('')
+    : '';
+  return `${text}${content}`;
+}

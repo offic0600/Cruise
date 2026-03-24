@@ -258,6 +258,194 @@ class OrganizationAccessIntegrationTest {
     }
 
     @Test
+    fun `issue body content json is stored with revision and description export`() {
+        val token = loginAndGetToken("admin", "admin123")
+        val workspaceSlug = "test-${UUID.randomUUID().toString().take(8)}"
+
+        val workspaceResponse = mockMvc.perform(
+            post("/api/organizations")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "name": "Issue Content Workspace",
+                      "slug": "$workspaceSlug",
+                      "region": "Asia Pacific"
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isCreated)
+            .andReturn()
+            .response
+            .contentAsString
+
+        val workspacePayload = objectMapper.readTree(workspaceResponse)
+        val organizationId = workspacePayload["organization"]["id"].asLong()
+        val teamId = workspacePayload["initialTeam"]["id"].asLong()
+
+        val createdIssueResponse = mockMvc.perform(
+            post("/api/issues")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "organizationId": $organizationId,
+                      "teamId": $teamId,
+                      "type": "TASK",
+                      "title": "Content backed issue",
+                      "description": "Legacy body"
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isCreated)
+            .andReturn()
+            .response
+            .contentAsString
+
+        val issueId = objectMapper.readTree(createdIssueResponse)["id"].asLong()
+
+        mockMvc.perform(
+            put("/api/issues/$issueId")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "expectedRevision": 0,
+                      "descriptionExport": "# Migrated body",
+                      "contentJson": {
+                        "type": "doc",
+                        "content": [
+                          {
+                            "type": "heading",
+                            "attrs": { "level": 1 },
+                            "content": [
+                              { "type": "text", "text": "Migrated body" }
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.description").value("# Migrated body"))
+            .andExpect(jsonPath("$.contentFormat").value("PROSEMIRROR_JSON"))
+            .andExpect(jsonPath("$.contentRevision").value(1))
+            .andExpect(jsonPath("$.contentJson.type").value("doc"))
+            .andExpect(jsonPath("$.contentJson.content[0].type").value("heading"))
+    }
+
+    @Test
+    fun `issue body content revision conflicts return conflict`() {
+        val token = loginAndGetToken("admin", "admin123")
+        val workspaceSlug = "test-${UUID.randomUUID().toString().take(8)}"
+
+        val workspaceResponse = mockMvc.perform(
+            post("/api/organizations")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "name": "Issue Revision Workspace",
+                      "slug": "$workspaceSlug",
+                      "region": "Asia Pacific"
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isCreated)
+            .andReturn()
+            .response
+            .contentAsString
+
+        val workspacePayload = objectMapper.readTree(workspaceResponse)
+        val organizationId = workspacePayload["organization"]["id"].asLong()
+        val teamId = workspacePayload["initialTeam"]["id"].asLong()
+
+        val createdIssueResponse = mockMvc.perform(
+            post("/api/issues")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "organizationId": $organizationId,
+                      "teamId": $teamId,
+                      "type": "TASK",
+                      "title": "Revision checked issue"
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isCreated)
+            .andReturn()
+            .response
+            .contentAsString
+
+        val issueId = objectMapper.readTree(createdIssueResponse)["id"].asLong()
+
+        mockMvc.perform(
+            put("/api/issues/$issueId")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "expectedRevision": 0,
+                      "descriptionExport": "First save",
+                      "contentJson": {
+                        "type": "doc",
+                        "content": [
+                          {
+                            "type": "paragraph",
+                            "content": [
+                              { "type": "text", "text": "First save" }
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.contentRevision").value(1))
+
+        mockMvc.perform(
+            put("/api/issues/$issueId")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "expectedRevision": 0,
+                      "descriptionExport": "Stale save",
+                      "contentJson": {
+                        "type": "doc",
+                        "content": [
+                          {
+                            "type": "paragraph",
+                            "content": [
+                              { "type": "text", "text": "Stale save" }
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isConflict)
+    }
+
+    @Test
     fun `issue activity events are recorded for create and tracked field changes`() {
         val token = loginAndGetToken("admin", "admin123")
         val workspaceSlug = "test-${UUID.randomUUID().toString().take(8)}"

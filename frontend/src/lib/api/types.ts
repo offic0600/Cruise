@@ -18,6 +18,9 @@ export interface Issue {
   type: 'FEATURE' | 'TASK' | 'BUG' | 'TECH_DEBT';
   title: string;
   description: string | null;
+  contentJson: Record<string, unknown> | null;
+  contentRevision: number | null;
+  contentFormat: string | null;
   state: 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE' | 'CANCELED';
   stateCategory: 'BACKLOG' | 'ACTIVE' | 'REVIEW' | 'COMPLETED' | 'CANCELED' | string;
   resolution: 'COMPLETED' | 'CANCELED' | 'DUPLICATE' | 'OBSOLETE' | 'WONT_DO' | null;

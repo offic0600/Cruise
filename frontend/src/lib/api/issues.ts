@@ -38,6 +38,8 @@ export const createIssue = (data: {
   type: string;
   title: string;
   description?: string;
+  contentJson?: Record<string, unknown> | null;
+  descriptionExport?: string | null;
   state?: string;
   resolution?: string | null;
   priority?: string;
@@ -63,6 +65,9 @@ export const updateIssue = (
     organizationId?: number;
     title?: string;
     description?: string;
+    contentJson?: Record<string, unknown> | null;
+    expectedRevision?: number | null;
+    descriptionExport?: string | null;
     state?: string;
     resolution?: string | null;
     priority?: string;

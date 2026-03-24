@@ -2,7 +2,8 @@ import { expect, test } from '@playwright/test';
 import {
   bootstrapIssueDetail,
   clearEditor,
-  getCurrentIssueDescription,
+  findProseMirrorNodes,
+  getCurrentIssueContentJson,
   getEditor,
   measureSoftMetric,
   waitForAutosave,
@@ -43,12 +44,11 @@ test('opens slash menu, filters commands, and executes structural commands with 
   await page.keyboard.press('Enter');
 
   await waitForAutosave(page, request);
-  const markdown = await getCurrentIssueDescription(page, request);
-  expect(markdown).toContain('# Heading from slash');
-  expect(markdown).toContain('- [ ] Task from slash');
-  expect(markdown).toContain('```');
-  expect(markdown).toContain('const slash = true;');
-  expect(markdown).toContain('---');
+  const contentJson = await getCurrentIssueContentJson(page, request);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'heading' && (node.attrs as { level?: number } | undefined)?.level === 1 && getNodeText(node) === 'Heading from slash')).toHaveLength(1);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'taskList')).toHaveLength(1);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'codeBlock' && getNodeText(node).includes('const slash = true;'))).toHaveLength(1);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'horizontalRule')).toHaveLength(1);
 });
 
 test('supports slash menu filtering, navigation, and escape dismissal', async ({ page, request }) => {
@@ -73,7 +73,15 @@ test('supports slash menu filtering, navigation, and escape dismissal', async ({
   await editor.type('Task from navigation');
 
   await waitForAutosave(page, request);
-  await expect
-    .poll(async () => await getCurrentIssueDescription(page, request), { timeout: 8_000 })
-    .toContain('- [ ] Task from navigation');
+  const contentJson = await getCurrentIssueContentJson(page, request);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'taskList')).toHaveLength(1);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'taskItem' && getNodeText(node).includes('Task from navigation'))).toHaveLength(1);
 });
+
+function getNodeText(node: Record<string, unknown>): string {
+  const text = typeof node.text === 'string' ? node.text : '';
+  const content = Array.isArray(node.content)
+    ? node.content.map((child) => (child && typeof child === 'object' ? getNodeText(child as Record<string, unknown>) : '')).join('')
+    : '';
+  return `${text}${content}`;
+}

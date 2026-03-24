@@ -2,7 +2,7 @@
 
 import { type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Extension, InputRule, type Range } from '@tiptap/core';
+import { Extension, InputRule, type JSONContent, type Range } from '@tiptap/core';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import TaskItem from '@tiptap/extension-task-item';
@@ -78,8 +78,14 @@ type CommandDescriptor = {
 
 interface MarkdownEditorProps {
   issueId: number | string;
-  initialValue: string;
-  onCommit: (markdown: string) => Promise<void> | void;
+  initialMarkdown?: string | null;
+  initialContentJson?: JSONContent | null;
+  initialRevision?: number | null;
+  onCommit: (payload: {
+    contentJson: JSONContent;
+    revision: number;
+    markdownExport?: string;
+  }) => Promise<number | void> | number | void;
   onDirtyChange?: (dirty: boolean) => void;
   onSelectionChange?: (hasSelection: boolean) => void;
   onCommandAction?: (action: CommandActionType, payload?: unknown) => void;
@@ -113,7 +119,9 @@ const LinearMarkdownInputRules = Extension.create({
 
 export default function MarkdownEditor({
   issueId,
-  initialValue,
+  initialMarkdown,
+  initialContentJson,
+  initialRevision,
   onCommit,
   onDirtyChange,
   onSelectionChange,
@@ -126,8 +134,10 @@ export default function MarkdownEditor({
   const pointerSelectingRef = useRef(false);
   const suppressBlurCommitRef = useRef(false);
   const editorRef = useRef<TiptapEditor | null>(null);
-  const committedMarkdownRef = useRef(normalizeMarkdown(initialValue));
-  const latestMarkdownRef = useRef(normalizeMarkdown(initialValue));
+  const initialSerializedJson = useMemo(() => serializeContentJson(initialContentJson), [initialContentJson]);
+  const committedJsonRef = useRef(initialSerializedJson);
+  const latestJsonRef = useRef(initialSerializedJson);
+  const currentRevisionRef = useRef(initialRevision ?? 0);
   const dirtyRef = useRef(false);
   const onCommitRef = useRef(onCommit);
   const onDirtyChangeRef = useRef(onDirtyChange);
@@ -163,32 +173,44 @@ export default function MarkdownEditor({
       normalizeMarkdown(((editor.storage as unknown) as { markdown: { getMarkdown: () => string } }).markdown.getMarkdown()),
     [],
   );
+  const getJson = useCallback((editor: TiptapEditor) => editor.getJSON(), []);
 
   const scheduleCommit = useCallback(() => {
     if (commitTimeoutRef.current) window.clearTimeout(commitTimeoutRef.current);
     commitTimeoutRef.current = window.setTimeout(async () => {
       const instance = editorRef.current;
       if (!instance) return;
-      const markdown = getMarkdown(instance);
-      if (markdown === committedMarkdownRef.current) {
+      const contentJson = getJson(instance);
+      const serializedContent = serializeContentJson(contentJson);
+      if (serializedContent === committedJsonRef.current) {
         markDirty(false);
         setSaveState('idle');
         return;
       }
       setSaveState('saving');
       try {
-        await onCommitRef.current(markdown);
-        committedMarkdownRef.current = markdown;
-        latestMarkdownRef.current = markdown;
+        const nextRevision =
+          (await onCommitRef.current({
+            contentJson,
+            revision: currentRevisionRef.current,
+            markdownExport: getMarkdown(instance),
+          })) ?? currentRevisionRef.current + 1;
+        currentRevisionRef.current = nextRevision;
+        committedJsonRef.current = serializedContent;
+        latestJsonRef.current = serializedContent;
         markDirty(false);
         setSaveState('saved');
         if (savedTimeoutRef.current) window.clearTimeout(savedTimeoutRef.current);
         savedTimeoutRef.current = window.setTimeout(() => setSaveState('idle'), 1000);
       } catch {
+        markDirty(true);
         setSaveState('error');
+        window.setTimeout(() => {
+          editorRef.current?.commands.focus();
+        }, 0);
       }
     }, 500);
-  }, [getMarkdown, markDirty]);
+  }, [getJson, getMarkdown, markDirty]);
 
   const commitNow = useCallback(async () => {
     if (commitTimeoutRef.current) {
@@ -197,25 +219,36 @@ export default function MarkdownEditor({
     }
     const instance = editorRef.current;
     if (!instance) return;
-    const markdown = getMarkdown(instance);
-    if (markdown === committedMarkdownRef.current) {
+    const contentJson = getJson(instance);
+    const serializedContent = serializeContentJson(contentJson);
+    if (serializedContent === committedJsonRef.current) {
       markDirty(false);
       setSaveState('idle');
       return;
     }
     setSaveState('saving');
     try {
-      await onCommitRef.current(markdown);
-      committedMarkdownRef.current = markdown;
-      latestMarkdownRef.current = markdown;
+      const nextRevision =
+        (await onCommitRef.current({
+          contentJson,
+          revision: currentRevisionRef.current,
+          markdownExport: getMarkdown(instance),
+        })) ?? currentRevisionRef.current + 1;
+      currentRevisionRef.current = nextRevision;
+      committedJsonRef.current = serializedContent;
+      latestJsonRef.current = serializedContent;
       markDirty(false);
       setSaveState('saved');
       if (savedTimeoutRef.current) window.clearTimeout(savedTimeoutRef.current);
       savedTimeoutRef.current = window.setTimeout(() => setSaveState('idle'), 1000);
     } catch {
+      markDirty(true);
       setSaveState('error');
+      window.setTimeout(() => {
+        editorRef.current?.commands.focus();
+      }, 0);
     }
-  }, [getMarkdown, markDirty]);
+  }, [getJson, getMarkdown, markDirty]);
 
   const updateSlashMenu = useCallback(
     (instance: TiptapEditor) => {
@@ -254,7 +287,7 @@ export default function MarkdownEditor({
   const editor = useEditor({
     immediatelyRender: false,
     autofocus: false,
-    content: committedMarkdownRef.current,
+    content: initialContentJson ?? normalizeMarkdown(initialMarkdown),
     editorProps: {
       attributes: {
         class: editorClassName,
@@ -337,9 +370,9 @@ export default function MarkdownEditor({
       updateToolbar(instance);
     },
     onUpdate: ({ editor: instance }) => {
-      const markdown = getMarkdown(instance);
-      latestMarkdownRef.current = markdown;
-      const dirty = markdown !== committedMarkdownRef.current;
+      const serializedContent = serializeContentJson(getJson(instance));
+      latestJsonRef.current = serializedContent;
+      const dirty = serializedContent !== committedJsonRef.current;
       markDirty(dirty);
       setSaveState(dirty ? 'dirty' : 'idle');
       scheduleCommit();
@@ -446,14 +479,18 @@ export default function MarkdownEditor({
 
   useEffect(() => {
     if (!editor) return;
-    const normalized = normalizeMarkdown(initialValue);
-    if (normalized === committedMarkdownRef.current || normalized === latestMarkdownRef.current) return;
-    committedMarkdownRef.current = normalized;
-    latestMarkdownRef.current = normalized;
+    const nextRevision = initialRevision ?? 0;
+    currentRevisionRef.current = nextRevision;
+    const normalizedMarkdown = normalizeMarkdown(initialMarkdown);
+    const normalizedJson = serializeContentJson(initialContentJson);
+    const nextContent = initialContentJson ?? normalizedMarkdown;
+    if (normalizedJson === committedJsonRef.current || normalizedJson === latestJsonRef.current) return;
+    committedJsonRef.current = normalizedJson;
+    latestJsonRef.current = normalizedJson;
     markDirty(false);
     setSaveState('idle');
-    (editor.commands.setContent as (content: string, emitUpdate?: boolean) => boolean)(normalized, false);
-  }, [editor, initialValue, issueId, markDirty]);
+    (editor.commands.setContent as (content: JSONContent | string, emitUpdate?: boolean) => boolean)(nextContent, false);
+  }, [editor, initialContentJson, initialMarkdown, initialRevision, issueId, markDirty]);
 
   useEffect(() => {
     editorRef.current = editor;
@@ -493,29 +530,34 @@ export default function MarkdownEditor({
     if (!editor || !linkState.range) return;
     const href = normalizeHref(linkState.url);
     suppressBlurCommitRef.current = true;
-    editor.chain().focus().setTextSelection(linkState.range).extendMarkRange('link').run();
     if (!href) {
-      editor.chain().focus().unsetLink().run();
+      editor.chain().focus().setTextSelection(linkState.range).extendMarkRange('link').unsetLink().run();
     } else {
-      editor.chain().focus().setLink({ href }).run();
+      editor.chain().focus().setTextSelection(linkState.range).extendMarkRange('link').unsetLink().setLink({ href }).run();
     }
+    markDirty(true);
+    setSaveState('dirty');
+    scheduleCommit();
     setLinkState({ open: false, url: 'https://', mode: 'selection', range: null, position: { top: 0, left: 0 } });
     window.setTimeout(() => {
       suppressBlurCommitRef.current = false;
       editor.commands.focus();
     }, 0);
-  }, [editor, linkState]);
+  }, [editor, linkState, markDirty, scheduleCommit]);
 
   const removeLink = useCallback(() => {
     if (!editor || !linkState.range) return;
     suppressBlurCommitRef.current = true;
-    editor.chain().focus().setTextSelection(linkState.range).unsetLink().run();
+    editor.chain().focus().setTextSelection(linkState.range).extendMarkRange('link').unsetLink().run();
+    markDirty(true);
+    setSaveState('dirty');
+    scheduleCommit();
     setLinkState({ open: false, url: 'https://', mode: 'selection', range: null, position: { top: 0, left: 0 } });
     window.setTimeout(() => {
       suppressBlurCommitRef.current = false;
       editor.commands.focus();
     }, 0);
-  }, [editor, linkState.range]);
+  }, [editor, linkState.range, markDirty, scheduleCommit]);
 
   if (!editor) {
     return <div className="min-h-[16rem]" />;
@@ -651,6 +693,10 @@ export default function MarkdownEditor({
 
 function normalizeMarkdown(value: string | null | undefined) {
   return (value ?? '').replace(/\r\n/g, '\n');
+}
+
+function serializeContentJson(value?: JSONContent | null) {
+  return JSON.stringify(value ?? null);
 }
 
 function normalizeHref(value: string) {

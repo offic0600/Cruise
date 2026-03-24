@@ -93,6 +93,8 @@ interface IssueDetailPageProps {
 interface DraftIssue {
   title: string;
   description: string;
+  contentJson: Record<string, unknown> | null;
+  contentRevision: number | null;
   state: Issue['state'];
   resolution: Issue['resolution'];
   priority: Issue['priority'];
@@ -267,20 +269,52 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   }, [currentSnapshot, initialSnapshot, draftIssue, issue, updateIssueMutation]);
 
   const handleDescriptionCommit = useCallback(
-    (description: string) => {
+    async ({
+      contentJson,
+      revision,
+      markdownExport,
+    }: {
+      contentJson: Record<string, unknown>;
+      revision: number;
+      markdownExport?: string;
+    }) => {
       if (!issue) return;
-      const normalizedDescription = description.trim();
-      if ((draftIssue?.description ?? '') === normalizedDescription) return;
-
-      setDraftIssue((current) => (current ? { ...current, description: normalizedDescription } : current));
-      void updateIssueMutation.mutateAsync({
-        id: issue.id,
-        data: {
-          description: normalizedDescription,
-        },
-      });
+      const nextDescription = markdownExport ?? draftIssue?.description ?? '';
+      let updated: Issue;
+      try {
+        updated = await updateIssueMutation.mutateAsync({
+          id: issue.id,
+          data: {
+            contentJson,
+            expectedRevision: revision,
+            descriptionExport: markdownExport,
+          },
+        });
+      } catch (error) {
+        const status = (error as { response?: { status?: number } })?.response?.status;
+        if (status === 409) {
+          pushToast({
+            title: locale.startsWith('zh') ? '正文已过期' : 'Content is out of date',
+            description: locale.startsWith('zh')
+              ? '该正文已在其他位置更新，请刷新后重试。'
+              : 'This issue body was updated elsewhere. Refresh before editing again.',
+          });
+        }
+        throw error;
+      }
+      setDraftIssue((current) =>
+        current
+          ? {
+              ...current,
+              description: updated.description ?? nextDescription,
+              contentJson: updated.contentJson,
+              contentRevision: updated.contentRevision,
+            }
+          : current
+      );
+      return updated.contentRevision ?? revision + 1;
     },
-    [draftIssue?.description, issue, updateIssueMutation],
+    [draftIssue?.description, issue, locale, pushToast, updateIssueMutation],
   );
 
   const projectMap = useMemo(() => new Map(projects.map((project) => [project.id, project.name])), [projects]);
@@ -770,7 +804,9 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                 <MarkdownEditor
                   key={issue.id}
                   issueId={issue.id}
-                  initialValue={draftIssue.description}
+                  initialMarkdown={draftIssue.description}
+                  initialContentJson={draftIssue.contentJson}
+                  initialRevision={draftIssue.contentRevision}
                   onCommit={handleDescriptionCommit}
                   onCommandAction={handleEditorCommandAction}
                 />
@@ -1988,6 +2024,8 @@ function createDraft(issue: Issue): DraftIssue {
   return {
     title: issue.title,
     description: issue.description ?? '',
+    contentJson: issue.contentJson ?? null,
+    contentRevision: issue.contentRevision ?? null,
     state: issue.state,
     resolution: issue.resolution,
     priority: issue.priority,
@@ -2008,6 +2046,8 @@ function normalizeDraftWithoutDescription(draft: DraftIssue) {
   return JSON.stringify({
     ...draft,
     description: undefined,
+    contentJson: undefined,
+    contentRevision: undefined,
     customFields: sanitizeCustomFields(draft.customFields),
   });
 }
