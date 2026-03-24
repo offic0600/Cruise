@@ -1,6 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000';
+const port = Number(process.env.PLAYWRIGHT_PORT ?? '3001');
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${port}`;
 
 export default defineConfig({
   testDir: './e2e',
@@ -20,5 +21,12 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
+  },
+  webServer: {
+    command: `npm run dev -- --port ${port}`,
+    url: baseURL,
+    cwd: __dirname,
+    reuseExistingServer: true,
+    timeout: 120_000,
   },
 });

@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -135,6 +135,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const subIssueFileInputRef = useRef<HTMLInputElement | null>(null);
   const subIssueTitleRef = useRef<HTMLInputElement | null>(null);
+  const lastHydratedIssueIdRef = useRef<number | null>(null);
   const user = getStoredUser();
   const organizationId = user?.organizationId ?? 1;
   const {
@@ -206,18 +207,18 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   const [docContent, setDocContent] = useState('');
   const [relationTargetId, setRelationTargetId] = useState('');
   const [relationType, setRelationType] = useState<(typeof RELATION_TYPES)[number]>('RELATES_TO');
-  const [bodyMode, setBodyMode] = useState<'read' | 'edit'>('read');
   const [activeProperty, setActiveProperty] = useState<string | null>(null);
   const [isAddingChild, setIsAddingChild] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
 
   useEffect(() => {
     if (!issue) return;
+    if (lastHydratedIssueIdRef.current === issue.id) return;
+    lastHydratedIssueIdRef.current = issue.id;
     setDraftIssue(createDraft(issue));
     setSubIssueDraft(createSubIssueDraft(issue));
     setSubIssueFiles([]);
     setIsAddingChild(false);
-    setBodyMode('read');
     setActiveProperty(null);
   }, [issue]);
 
@@ -235,8 +236,8 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
     setIsFavorite(favorites.includes(issue.id));
   }, [issue, user?.id]);
 
-  const initialSnapshot = useMemo(() => (issue ? normalizeDraft(createDraft(issue)) : ''), [issue]);
-  const currentSnapshot = useMemo(() => (draftIssue ? normalizeDraft(draftIssue) : ''), [draftIssue]);
+  const initialSnapshot = useMemo(() => (issue ? normalizeDraftWithoutDescription(createDraft(issue)) : ''), [issue]);
+  const currentSnapshot = useMemo(() => (draftIssue ? normalizeDraftWithoutDescription(draftIssue) : ''), [draftIssue]);
 
   useEffect(() => {
     if (!issue || !draftIssue) return;
@@ -246,7 +247,6 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
         id: issue.id,
         data: {
           title: draftIssue.title,
-          description: draftIssue.description,
           state: draftIssue.state,
           resolution: draftIssue.resolution,
           priority: draftIssue.priority,
@@ -265,6 +265,23 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
     }, 350);
     return () => window.clearTimeout(handle);
   }, [currentSnapshot, initialSnapshot, draftIssue, issue, updateIssueMutation]);
+
+  const handleDescriptionCommit = useCallback(
+    (description: string) => {
+      if (!issue) return;
+      const normalizedDescription = description.trim();
+      if ((draftIssue?.description ?? '') === normalizedDescription) return;
+
+      setDraftIssue((current) => (current ? { ...current, description: normalizedDescription } : current));
+      void updateIssueMutation.mutateAsync({
+        id: issue.id,
+        data: {
+          description: normalizedDescription,
+        },
+      });
+    },
+    [draftIssue?.description, issue, updateIssueMutation],
+  );
 
   const projectMap = useMemo(() => new Map(projects.map((project) => [project.id, project.name])), [projects]);
   const teamMap = useMemo(() => new Map(teams.map((team) => [team.id, team.name])), [teams]);
@@ -728,11 +745,10 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
             <main className="min-w-0 space-y-8">
               <section className="pb-2">
                 <MarkdownEditor
-                  value={draftIssue.description}
-                  onChange={(value) => setDraftIssue((current) => (current ? { ...current, description: value } : current))}
-                  mode={bodyMode}
-                  onEnterEdit={() => setBodyMode('edit')}
-                  onCancelEdit={() => setBodyMode('read')}
+                  key={issue.id}
+                  issueId={issue.id}
+                  initialValue={draftIssue.description}
+                  onCommit={handleDescriptionCommit}
                 />
               </section>
 
@@ -1964,9 +1980,10 @@ function createDraft(issue: Issue): DraftIssue {
   };
 }
 
-function normalizeDraft(draft: DraftIssue) {
+function normalizeDraftWithoutDescription(draft: DraftIssue) {
   return JSON.stringify({
     ...draft,
+    description: undefined,
     customFields: sanitizeCustomFields(draft.customFields),
   });
 }
