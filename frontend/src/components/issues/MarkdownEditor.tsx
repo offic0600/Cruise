@@ -87,7 +87,7 @@ interface MarkdownEditorProps {
 
 const TOOLBAR_GROUPS: CommandGroup[] = ['text', 'headings', 'lists', 'structure'];
 const editorClassName =
-  'min-h-[16rem] cursor-text px-0 py-0 text-[15px] leading-7 text-ink-900 outline-none prose prose-slate max-w-none prose-p:my-3 prose-headings:mb-3 prose-headings:mt-5 prose-ul:my-3 prose-ol:my-3 prose-blockquote:border-slate-200 prose-blockquote:text-ink-700 prose-code:rounded prose-code:bg-slate-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-[0.92em]';
+  'markdown-editor-content min-h-[16rem] cursor-text px-0 py-0 text-[15px] leading-7 text-ink-900 outline-none';
 
 const LinearMarkdownInputRules = Extension.create({
   name: 'linearMarkdownInputRules',
@@ -282,6 +282,22 @@ export default function MarkdownEditor({
       },
       handleKeyDown: (_view, event) => {
         const state = slashStateRef.current;
+        if (event.key === 'Escape') {
+          if (state.open) {
+            event.preventDefault();
+            closeSlashMenu();
+            return true;
+          }
+          if (linkState.open) {
+            return false;
+          }
+          const handled = exitEmptyListItem(editorRef.current);
+          if (handled) {
+            event.preventDefault();
+            return true;
+          }
+          return false;
+        }
         if (!state.open) return false;
         if (event.key === 'ArrowDown') {
           event.preventDefault();
@@ -291,11 +307,6 @@ export default function MarkdownEditor({
         if (event.key === 'ArrowUp') {
           event.preventDefault();
           setSlashState((current) => ({ ...current, selectedIndex: Math.max(current.selectedIndex - 1, 0) }));
-          return true;
-        }
-        if (event.key === 'Escape') {
-          event.preventDefault();
-          closeSlashMenu();
           return true;
         }
         if (event.key === 'Enter') {
@@ -700,4 +711,22 @@ function getSlashMenuState(editor: TiptapEditor, pointerSelecting: boolean): Sla
     position: { top: coords.bottom + 10, left: coords.left - 8 },
     range: { from: start, to: from },
   };
+}
+
+function exitEmptyListItem(editor: TiptapEditor | null) {
+  if (!editor) return false;
+  const { selection } = editor.state;
+  if (!selection.empty) return false;
+  const { $from } = selection;
+  if ($from.parent.textContent.length > 0) return false;
+
+  if (editor.isActive('taskItem')) {
+    return editor.chain().focus().liftListItem('taskItem').run();
+  }
+
+  if (editor.isActive('listItem')) {
+    return editor.chain().focus().liftListItem('listItem').run();
+  }
+
+  return false;
 }

@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 
 const apiBaseURL = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://localhost:8080/api';
 
@@ -171,4 +171,189 @@ export async function updateCurrentIssueViaApi(
 
   expect(response.ok(), `update issue failed: ${response.status()} ${await response.text()}`).toBeTruthy();
   return response.json();
+}
+
+export async function bootstrapIssueDetail(page: Page, request: APIRequestContext) {
+  const user = await registerUser(request);
+  const workspace = buildWorkspaceFixture();
+  const issue = buildIssueFixture();
+
+  await loginViaPassword(page, user);
+  await createWorkspaceViaUi(page, workspace);
+  await createIssueViaUi(page, issue.title);
+  await openIssueDetail(page, issue.title, workspace.slug);
+
+  return { user, workspace, issue };
+}
+
+export async function clearEditor(page: Page) {
+  const editable = getEditor(page);
+  await editable.click();
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+  await page.keyboard.press('Backspace');
+}
+
+export function getEditor(page: Page) {
+  return page.getByTestId('markdown-editor-editable');
+}
+
+export function getToolbar(page: Page) {
+  return page.getByTestId('markdown-editor-toolbar');
+}
+
+export function getSaveState(page: Page) {
+  return page.getByTestId('markdown-save-state');
+}
+
+export async function waitForAutosave(page: Page, request: APIRequestContext, expectedSubstring?: string) {
+  if (expectedSubstring) {
+    await expect
+      .poll(async () => {
+        const issue = await getIssueFromCurrentDetailRoute(page, request);
+        return String(issue.description ?? '');
+      }, { timeout: 8_000 })
+      .toContain(expectedSubstring);
+    return;
+  }
+
+  await expect
+    .poll(async () => {
+      const issue = await getIssueFromCurrentDetailRoute(page, request);
+      return typeof issue.description === 'string';
+    }, { timeout: 8_000 })
+    .toBeTruthy();
+}
+
+export async function waitForSaveStateToSettle(page: Page) {
+  const saveState = getSaveState(page);
+  await expect(saveState).not.toHaveText('Saving…', { timeout: 8_000 });
+}
+
+export async function selectTextInEditor(page: Page, text: string, direction: 'forward' | 'backward' | 'programmatic' = 'programmatic') {
+  if (direction === 'programmatic') {
+    const selected = await getEditor(page).evaluate(
+      (element, targetText) => {
+        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+        let current: Node | null = walker.nextNode();
+        while (current) {
+          const value = current.textContent ?? '';
+          const index = value.indexOf(targetText);
+          if (index >= 0) {
+            const range = document.createRange();
+            range.setStart(current, index);
+            range.setEnd(current, index + targetText.length);
+            const selection = window.getSelection();
+            selection?.removeAllRanges();
+            selection?.addRange(range);
+            (element as HTMLElement).focus();
+            document.dispatchEvent(new Event('selectionchange'));
+            return true;
+          }
+          current = walker.nextNode();
+        }
+        return false;
+      },
+      text,
+    );
+    expect(selected, `unable to select text range for ${text}`).toBeTruthy();
+    return;
+  }
+
+  const range = await getEditor(page).evaluate(
+    (element, targetText) => {
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      let current: Node | null = walker.nextNode();
+      while (current) {
+        const value = current.textContent ?? '';
+        const index = value.indexOf(targetText);
+        if (index >= 0) {
+          const range = document.createRange();
+          range.setStart(current, index);
+          range.setEnd(current, index + targetText.length);
+          const rect = range.getBoundingClientRect();
+          return {
+            left: rect.left,
+            right: rect.right,
+            y: rect.top + rect.height / 2,
+          };
+        }
+        current = walker.nextNode();
+      }
+      return null;
+    },
+    text,
+  );
+
+  expect(range, `unable to find text range for ${text}`).toBeTruthy();
+  const startX = direction === 'forward' ? (range as { left: number }).left + 2 : (range as { right: number }).right - 2;
+  const endX = direction === 'forward' ? (range as { right: number }).right - 2 : (range as { left: number }).left + 2;
+  await page.mouse.move(startX, (range as { y: number }).y);
+  await page.mouse.down();
+  await page.mouse.move(endX, (range as { y: number }).y, { steps: 12 });
+  await page.mouse.up();
+}
+
+export async function measureSoftMetric<T>(
+  name: string,
+  thresholdMs: number,
+  action: () => Promise<T>,
+) {
+  const start = Date.now();
+  const result = await action();
+  const durationMs = Date.now() - start;
+  const message = `${name}: ${durationMs}ms (soft threshold ${thresholdMs}ms)`;
+  test.info().annotations.push({ type: 'metric', description: message });
+  if (durationMs > thresholdMs) {
+    console.warn(`[soft-threshold] ${message}`);
+  }
+  return { result, durationMs };
+}
+
+export async function measureVisibility(page: Page, locatorGetter: () => ReturnType<Page['locator']> | any, name: string, thresholdMs: number) {
+  return measureSoftMetric(name, thresholdMs, async () => {
+    await expect(locatorGetter()).toBeVisible();
+  });
+}
+
+export async function failNextIssueUpdate(page: Page, status = 500) {
+  let used = false;
+  await page.route('**/api/issues/*', async (route, request) => {
+    if (used || request.method() !== 'PUT') {
+      await route.fallback();
+      return;
+    }
+    used = true;
+    if (status <= 0) {
+      await route.abort('failed');
+      return;
+    }
+    await route.fulfill({
+      status,
+      contentType: 'application/json',
+      body: JSON.stringify({ message: 'forced failure' }),
+    });
+  });
+}
+
+export async function getCurrentIssueDescription(page: Page, request: APIRequestContext) {
+  const issue = await getIssueFromCurrentDetailRoute(page, request);
+  return String(issue.description ?? '');
+}
+
+export async function getCaretOffset(page: Page) {
+  return getEditor(page).evaluate((element) => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return null;
+    if (!element.contains(selection.anchorNode)) return null;
+    return selection.anchorOffset;
+  });
+}
+
+export async function getSelectedText(page: Page) {
+  return getEditor(page).evaluate((element) => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return '';
+    if (!element.contains(selection.anchorNode) && !element.contains(selection.focusNode)) return '';
+    return selection.toString();
+  });
 }

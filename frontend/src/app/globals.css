@@ -23,6 +23,64 @@
 }
 
 @layer components {
+  .markdown-editor-content {
+    @apply max-w-none;
+  }
+
+  .markdown-editor-content p {
+    @apply my-3;
+  }
+
+  .markdown-editor-content h1 {
+    @apply mb-3 mt-5 text-[1.65rem] font-semibold leading-tight text-ink-900;
+  }
+
+  .markdown-editor-content h2 {
+    @apply mb-3 mt-5 text-[1.3rem] font-semibold leading-tight text-ink-900;
+  }
+
+  .markdown-editor-content ul,
+  .markdown-editor-content ol {
+    @apply my-3 pl-6;
+  }
+
+  .markdown-editor-content ul {
+    list-style: disc;
+  }
+
+  .markdown-editor-content ol {
+    list-style: decimal;
+  }
+
+  .markdown-editor-content li {
+    @apply my-1;
+  }
+
+  .markdown-editor-content li > p {
+    @apply my-0;
+  }
+
+  .markdown-editor-content ul[data-type='taskList'] {
+    list-style: none;
+    padding-left: 0;
+  }
+
+  .markdown-editor-content ul[data-type='taskList'] li {
+    @apply flex items-start gap-2;
+  }
+
+  .markdown-editor-content ul[data-type='taskList'] li > label {
+    @apply mt-1 shrink-0;
+  }
+
+  .markdown-editor-content blockquote {
+    @apply my-3 border-l-2 border-slate-200 pl-4 text-ink-700;
+  }
+
+  .markdown-editor-content code {
+    @apply rounded bg-slate-100 px-1 py-0.5 text-[0.92em];
+  }
+
   .app-shell {
     @apply min-h-screen bg-page-glow text-ink-900;
   }
