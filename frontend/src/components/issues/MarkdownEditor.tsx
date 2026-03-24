@@ -270,9 +270,10 @@ export default function MarkdownEditor({
   );
 
   const updateToolbar = useCallback((instance: TiptapEditor) => {
-    const domSelection = typeof window !== 'undefined' ? window.getSelection() : null;
-    const hasDomSelection = Boolean(domSelection && !domSelection.isCollapsed && domSelection.toString().trim().length > 0);
-    if (!allowBubbleMenu || pointerSelectingRef.current || linkState.open || !hasDomSelection) {
+    const domSelection = getEditorDomSelection(containerRef.current);
+    const hasPmSelection = !instance.state.selection.empty;
+    const hasEditorSelection = Boolean(domSelection && domSelection.text.trim().length > 0);
+    if (!allowBubbleMenu || pointerSelectingRef.current || linkState.open || (!hasPmSelection && !hasEditorSelection)) {
       setToolbarState({ open: false, position: { top: 0, left: 0 } });
       return;
     }
@@ -355,7 +356,14 @@ export default function MarkdownEditor({
       StarterKit.configure({
         heading: { levels: [1, 2] },
       }),
-      Placeholder.configure({ placeholder: t('issues.editor.placeholder') }),
+      Placeholder.configure({
+        includeChildren: true,
+        showOnlyCurrent: true,
+        placeholder: ({ node, editor: instance }) =>
+          node.type.name === 'paragraph'
+            ? (instance.isEmpty ? t('issues.editor.placeholder') : t('issues.editor.commandHint'))
+            : t('issues.editor.placeholder'),
+      }),
       Link.configure({ autolink: true, openOnClick: false, linkOnPaste: true }),
       TaskList,
       TaskItem.configure({ nested: true }),
@@ -366,6 +374,10 @@ export default function MarkdownEditor({
       const hasSelection = !instance.state.selection.empty;
       onSelectionChangeRef.current?.(hasSelection);
       if (!pointerSelectingRef.current) setAllowBubbleMenu(true);
+      updateSlashMenu(instance);
+      updateToolbar(instance);
+    },
+    onFocus: ({ editor: instance }) => {
       updateSlashMenu(instance);
       updateToolbar(instance);
     },
@@ -507,6 +519,11 @@ export default function MarkdownEditor({
     };
     const handleSelectionChange = () => {
       if (editorRef.current) {
+        const domSelection = getEditorDomSelection(containerRef.current);
+        if (domSelection && domSelection.text.trim().length > 0) {
+          pointerSelectingRef.current = false;
+          setAllowBubbleMenu(true);
+        }
         updateToolbar(editorRef.current);
       }
     };
@@ -719,6 +736,18 @@ function getToolbarPosition(editor: TiptapEditor) {
   const preferredTop = rect.top - toolbarHeight - 12;
   const top = preferredTop > 16 ? preferredTop : rect.bottom + 12;
   return { top, left: clampedLeft };
+}
+
+function getEditorDomSelection(container: HTMLDivElement | null) {
+  if (!container) return null;
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null;
+  const anchorNode = selection.anchorNode;
+  const focusNode = selection.focusNode;
+  if (!anchorNode || !focusNode || !container.contains(anchorNode) || !container.contains(focusNode)) {
+    return null;
+  }
+  return { text: selection.toString() };
 }
 
 function getSlashMenuState(editor: TiptapEditor, pointerSelecting: boolean): SlashMenuState {

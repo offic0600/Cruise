@@ -1,9 +1,11 @@
 import { expect, test } from '@playwright/test';
 import {
   bootstrapIssueDetail,
+  clearEditor,
   failNextIssueUpdate,
   getCaretOffset,
   getCurrentIssueContentJson,
+  getEmptyParagraphPlaceholderSnapshot,
   getEditor,
   getSelectedText,
   getToolbar,
@@ -35,6 +37,48 @@ test('keeps selection stable for forward, backward, and programmatic selection f
     await expect(toolbar).toBeVisible();
   });
   await expect.poll(async () => await getSelectedText(page)).toContain('gamma');
+});
+
+test('shows the floating toolbar for real mouse selection', async ({ page, request }) => {
+  await bootstrapIssueDetail(page, request);
+  await updateCurrentIssueViaApi(page, request, { description: 'Alpha beta gamma' });
+  await page.reload();
+
+  const editor = getEditor(page);
+  const toolbar = getToolbar(page);
+
+  await measureSoftMetric('toolbar-open-forward-selection-visual', 900, async () => {
+    await selectTextInEditor(page, 'Alpha', 'forward');
+    await expect(toolbar).toBeVisible();
+  });
+
+  await measureSoftMetric('toolbar-open-backward-selection-visual', 900, async () => {
+    await selectTextInEditor(page, 'beta', 'backward');
+    await expect(toolbar).toBeVisible();
+  });
+});
+
+test('shows slash command hint on a new empty paragraph after existing content and clears it after typing', async ({ page, request }) => {
+  await bootstrapIssueDetail(page, request);
+  await updateCurrentIssueViaApi(page, request, { description: 'Existing paragraph' });
+  await page.reload();
+
+  const editor = getEditor(page);
+  await editor.click();
+  await page.keyboard.press('End');
+  await page.keyboard.press('Enter');
+  await expect
+    .poll(async () => await getEmptyParagraphPlaceholderSnapshot(page), { timeout: 5_000 })
+    .not.toBeNull();
+
+  const beforeTyping = (await getEmptyParagraphPlaceholderSnapshot(page))!;
+  expect(beforeTyping.dataPlaceholder).toBeTruthy();
+  expect(beforeTyping.beforeContent).toContain('/');
+
+  await page.keyboard.type('typed');
+  await expect
+    .poll(async () => await getEmptyParagraphPlaceholderSnapshot(page), { timeout: 5_000 })
+    .toBeNull();
 });
 
 test('survives rapid typing and keeps the caret near the typing position after autosave', async ({ page, request }) => {

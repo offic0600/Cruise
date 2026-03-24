@@ -31,6 +31,12 @@
     @apply my-3;
   }
 
+  .markdown-editor-content p.is-editor-empty:first-child::before,
+  .markdown-editor-content p.is-empty[data-placeholder]::before {
+    content: attr(data-placeholder);
+    @apply pointer-events-none float-left h-0 text-[15px] text-slate-400;
+  }
+
   .markdown-editor-content h1 {
     @apply mb-3 mt-5 text-[1.65rem] font-semibold leading-tight text-ink-900;
   }

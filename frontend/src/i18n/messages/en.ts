@@ -559,6 +559,7 @@ const enMessages = {
     },
     editor: {
       placeholder: "Add description…",
+      commandHint: "Type / for commands…",
       status: {
         pending: "Saving soon",
         saving: "Saving…",

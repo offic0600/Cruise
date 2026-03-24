@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { bootstrapIssueDetail, clearEditor, getEditor } from './support/app';
+import { bootstrapIssueDetail, clearEditor, getEditor, getEmptyParagraphPlaceholderSnapshot } from './support/app';
 
 type BulletSnapshot = {
   label: string;
@@ -71,6 +71,32 @@ test('diagnoses visual bullet-list trigger behavior after typing dash and space'
     expect.soft(snapshot.ulListStyleType, `${snapshot.label} list should restore bullet styling`).not.toBe('none');
     expect.soft(snapshot.ulPaddingLeft, `${snapshot.label} list should restore left padding`).not.toBe('0px');
   }
+});
+
+test('renders a visible slash-command hint for a new empty paragraph after existing content', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'This visual diagnosis is only pinned for Chromium.');
+
+  await bootstrapIssueDetail(page, page.request);
+  const editor = getEditor(page);
+  await editor.click();
+  await page.keyboard.type('Existing paragraph');
+  await page.keyboard.press('Enter');
+  await editor.click();
+
+  await expect
+    .poll(async () => await getEmptyParagraphPlaceholderSnapshot(page), { timeout: 5_000 })
+    .not.toBeNull();
+
+  const hint = (await getEmptyParagraphPlaceholderSnapshot(page))!;
+  test.info().annotations.push({
+    type: 'slash-placeholder',
+    description: JSON.stringify(hint),
+  });
+
+  expect.soft(hint.dataPlaceholder).toBeTruthy();
+  expect.soft(hint.dataPlaceholder).toContain('/');
+  expect.soft(hint.beforeContent).toContain('/');
+  expect.soft(hint.beforeDisplay).not.toBe('none');
 });
 
 async function captureBulletSnapshot(page: Parameters<typeof getEditor>[0], label: string): Promise<BulletSnapshot> {

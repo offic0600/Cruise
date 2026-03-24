@@ -201,6 +201,23 @@ export function getToolbar(page: Page) {
   return page.getByTestId('markdown-editor-toolbar');
 }
 
+export async function getEmptyParagraphPlaceholderSnapshot(page: Page) {
+  return getEditor(page).evaluate((element) => {
+    const paragraph = element.querySelector('p.is-editor-empty, p.is-empty[data-placeholder]') as HTMLElement | null;
+    if (!paragraph) {
+      return null;
+    }
+    const computed = window.getComputedStyle(paragraph, '::before');
+    return {
+      textContent: (paragraph.textContent ?? '').replace(/\u200b/g, ''),
+      dataPlaceholder: paragraph.getAttribute('data-placeholder'),
+      beforeContent: computed.content,
+      beforeColor: computed.color,
+      beforeDisplay: computed.display,
+    };
+  });
+}
+
 export async function waitForAutosave(page: Page, request: APIRequestContext, expectedSubstring?: string) {
   if (expectedSubstring) {
     await expect
