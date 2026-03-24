@@ -288,15 +288,14 @@ export default function MarkdownEditor({
             closeSlashMenu();
             return true;
           }
-          if (linkState.open) {
-            return false;
-          }
+          return false;
+        }
+        if (event.key === 'Backspace') {
           const handled = exitEmptyListItem(editorRef.current);
           if (handled) {
             event.preventDefault();
             return true;
           }
-          return false;
         }
         if (!state.open) return false;
         if (event.key === 'ArrowDown') {
@@ -529,10 +528,6 @@ export default function MarkdownEditor({
     <div ref={containerRef} className="relative" data-testid="markdown-editor-root">
       <EditorContent editor={editor} />
 
-      <div className="mt-3 flex items-center justify-end text-xs text-ink-400">
-        <span data-testid="markdown-save-state">{renderSaveState(saveState, t)}</span>
-      </div>
-
       {slashMenuMounted && slashState.open && filteredCommands.length
         ? createPortal(
             <div
@@ -663,14 +658,6 @@ function normalizeHref(value: string) {
   if (!trimmed) return '';
   if (/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(trimmed)) return trimmed;
   return `https://${trimmed}`;
-}
-
-function renderSaveState(saveState: SaveState, t: (key: string) => string) {
-  if (saveState === 'saving') return t('issues.editor.status.saving');
-  if (saveState === 'saved') return t('issues.editor.status.saved');
-  if (saveState === 'error') return t('issues.editor.status.error');
-  if (saveState === 'dirty') return t('issues.editor.status.pending');
-  return '';
 }
 
 function getToolbarPosition(editor: TiptapEditor) {

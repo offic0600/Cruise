@@ -201,10 +201,6 @@ export function getToolbar(page: Page) {
   return page.getByTestId('markdown-editor-toolbar');
 }
 
-export function getSaveState(page: Page) {
-  return page.getByTestId('markdown-save-state');
-}
-
 export async function waitForAutosave(page: Page, request: APIRequestContext, expectedSubstring?: string) {
   if (expectedSubstring) {
     await expect
@@ -222,11 +218,6 @@ export async function waitForAutosave(page: Page, request: APIRequestContext, ex
       return typeof issue.description === 'string';
     }, { timeout: 8_000 })
     .toBeTruthy();
-}
-
-export async function waitForSaveStateToSettle(page: Page) {
-  const saveState = getSaveState(page);
-  await expect(saveState).not.toHaveText('Saving…', { timeout: 8_000 });
 }
 
 export async function selectTextInEditor(page: Page, text: string, direction: 'forward' | 'backward' | 'programmatic' = 'programmatic') {

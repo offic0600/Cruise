@@ -147,7 +147,7 @@ test.fail('keeps bullet-list trigger stable when typing dash then space at block
   expect(html).not.toContain('<p><br');
 });
 
-test('pressing escape on an empty bullet item clears the current bullet and keeps typing on the new line', async ({ page, request }) => {
+test('pressing backspace on an empty bullet item clears the current bullet and keeps typing on the new line', async ({ page, request }) => {
   await bootstrapIssueDetail(page, request);
   await clearEditor(page);
 
@@ -159,18 +159,18 @@ test('pressing escape on an empty bullet item clears the current bullet and keep
   let html = await getEditorHtml(page);
   expect(html).toContain('<ul');
 
-  await page.keyboard.press('Escape');
-  await page.keyboard.type('Paragraph after escape');
+  await page.keyboard.press('Backspace');
+  await page.keyboard.type('Paragraph after backspace');
 
   await waitForAutosave(page, request);
   const markdown = await getCurrentIssueDescription(page, request);
   expect(markdown).toContain('- First bullet');
-  expect(markdown).toContain('Paragraph after escape');
-  expect(markdown).not.toContain('- Paragraph after escape');
+  expect(markdown).toContain('Paragraph after backspace');
+  expect(markdown).not.toContain('- Paragraph after backspace');
 
   await page.reload();
   await expect(page.locator('li').filter({ hasText: 'First bullet' }).first()).toBeVisible();
-  await expect(page.locator('p').filter({ hasText: 'Paragraph after escape' }).first()).toBeVisible();
+  await expect(page.locator('p').filter({ hasText: 'Paragraph after backspace' }).first()).toBeVisible();
 });
 
 async function getEditorText(page: Parameters<typeof getEditor>[0]) {

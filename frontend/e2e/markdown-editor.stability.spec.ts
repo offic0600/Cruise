@@ -5,7 +5,6 @@ import {
   getCaretOffset,
   getCurrentIssueDescription,
   getEditor,
-  getSaveState,
   getSelectedText,
   getToolbar,
   measureSoftMetric,
