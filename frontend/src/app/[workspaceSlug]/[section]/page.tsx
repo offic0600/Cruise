@@ -16,9 +16,8 @@ import SearchPage from '@/app/search/page';
 import SkillsPage from '@/app/skills/page';
 import TasksPage from '@/app/tasks/page';
 import TeamMembersPage from '@/app/team-members/page';
-import ViewsPage from '@/app/views/page';
 import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
-import { teamSettingsPath } from '@/lib/routes';
+import { teamSettingsPath, workspaceViewsPath } from '@/lib/routes';
 
 const SECTION_COMPONENTS = {
   agent: AgentPage,
@@ -35,10 +34,10 @@ const SECTION_COMPONENTS = {
   skills: SkillsPage,
   tasks: TasksPage,
   'team-members': TeamMembersPage,
-  views: ViewsPage,
 } as const;
 
 const TEAM_SETTINGS_SECTIONS = new Set(['email-intake', 'recurring', 'templates']);
+const REDIRECT_SECTIONS = new Set(['views']);
 
 export default function WorkspaceSectionPage() {
   const params = useParams<{ section: string }>();
@@ -47,9 +46,16 @@ export default function WorkspaceSectionPage() {
   const section = Array.isArray(params.section) ? params.section[0] : params.section;
 
   useEffect(() => {
-    if (!section || !TEAM_SETTINGS_SECTIONS.has(section)) return;
-    if (!currentOrganizationSlug || !currentTeamKey) return;
-    router.replace(teamSettingsPath(currentOrganizationSlug, currentTeamKey, section));
+    if (!section) return;
+    if (TEAM_SETTINGS_SECTIONS.has(section)) {
+      if (!currentOrganizationSlug || !currentTeamKey) return;
+      router.replace(teamSettingsPath(currentOrganizationSlug, currentTeamKey, section));
+      return;
+    }
+    if (REDIRECT_SECTIONS.has(section)) {
+      if (!currentOrganizationSlug) return;
+      router.replace(workspaceViewsPath(currentOrganizationSlug, 'issues'));
+    }
   }, [currentOrganizationSlug, currentTeamKey, router, section]);
 
   if (!section) {
@@ -58,6 +64,10 @@ export default function WorkspaceSectionPage() {
 
   if (TEAM_SETTINGS_SECTIONS.has(section)) {
     return <div className="flex min-h-screen items-center justify-center bg-page-glow text-ink-700">Loading settings...</div>;
+  }
+
+  if (REDIRECT_SECTIONS.has(section)) {
+    return <div className="flex min-h-screen items-center justify-center bg-page-glow text-ink-700">Loading views...</div>;
   }
 
   const Component = SECTION_COMPONENTS[section as keyof typeof SECTION_COMPONENTS];

@@ -62,6 +62,9 @@ class ProjectService(
     private val projectRepository: ProjectRepository
 ) {
     fun findAll(query: ProjectQuery = ProjectQuery()): RestPageResponse<ProjectDto> =
+        findAllMatching(query).toRestPage(query.page, query.size)
+
+    fun findAllMatching(query: ProjectQuery = ProjectQuery()): List<ProjectDto> =
         projectRepository.findAll()
             .asSequence()
             .filter { query.organizationId == null || it.organizationId == query.organizationId }
@@ -75,7 +78,6 @@ class ProjectService(
             .sortedBy { it.id }
             .map { it.toDto() }
             .toList()
-            .toRestPage(query.page, query.size)
 
     fun findById(id: Long): ProjectDto = getProject(id).toDto()
 

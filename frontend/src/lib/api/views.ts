@@ -1,11 +1,21 @@
 import apiClient from './client';
-import type { View } from './types';
+import type {
+  View,
+  ViewLayout,
+  ViewQueryState,
+  ViewResourceType,
+  ViewResultsResponse,
+  ViewScopeType,
+  ViewVisibility,
+} from './types';
 
 export const getViews = (params?: {
   organizationId?: number;
-  teamId?: number;
-  projectId?: number;
-  visibility?: string;
+  resourceType?: ViewResourceType;
+  scopeType?: ViewScopeType;
+  scopeId?: number;
+  includeSystem?: boolean;
+  includeFavorites?: boolean;
   q?: string;
 }) => apiClient.get<View[]>('/views', { params }).then((r) => r.data);
 
@@ -13,26 +23,41 @@ export const getView = (id: number) => apiClient.get<View>(`/views/${id}`).then(
 
 export const createView = (data: {
   organizationId: number;
-  teamId?: number | null;
-  projectId?: number | null;
+  resourceType: ViewResourceType;
+  scopeType: ViewScopeType;
+  scopeId?: number | null;
   name: string;
   description?: string | null;
-  filterJson?: string | null;
-  groupBy?: string | null;
-  sortJson?: string | null;
-  visibility?: string;
+  icon?: string | null;
+  color?: string | null;
+  visibility?: ViewVisibility;
+  layout?: ViewLayout;
+  queryState?: ViewQueryState | null;
   isSystem?: boolean;
+  systemKey?: string | null;
 }) => apiClient.post<View>('/views', data).then((r) => r.data);
 
 export const updateView = (id: number, data: {
-  teamId?: number | null;
-  projectId?: number | null;
   name?: string;
   description?: string | null;
-  filterJson?: string | null;
-  groupBy?: string | null;
-  sortJson?: string | null;
-  visibility?: string;
+  icon?: string | null;
+  color?: string | null;
+  visibility?: ViewVisibility;
+  layout?: ViewLayout;
+  position?: number;
+  queryState?: ViewQueryState | null;
 }) => apiClient.put<View>(`/views/${id}`, data).then((r) => r.data);
 
+export const duplicateView = (id: number) =>
+  apiClient.post<View>(`/views/${id}/duplicate`).then((r) => r.data);
+
+export const favoriteView = (id: number) =>
+  apiClient.post<View>(`/views/${id}/favorite`).then((r) => r.data);
+
+export const unfavoriteView = (id: number) =>
+  apiClient.delete<View>(`/views/${id}/favorite`).then((r) => r.data);
+
 export const deleteView = (id: number) => apiClient.delete(`/views/${id}`);
+
+export const getViewResults = <T = unknown>(id: number, data?: { page?: number; size?: number; queryState?: ViewQueryState | null }) =>
+  apiClient.post<ViewResultsResponse<T>>(`/views/${id}/results`, data ?? {}).then((r) => r.data);

@@ -140,6 +140,9 @@ open class IssueService(
     private val objectMapper: ObjectMapper
 ) {
     fun findAll(query: IssueQuery = IssueQuery()): RestPageResponse<IssueDto> =
+        findAllMatching(query).toRestPage(query.page, query.size)
+
+    fun findAllMatching(query: IssueQuery = IssueQuery()): List<IssueDto> =
         issueRepository.findAll()
             .asSequence()
             .filter { query.type == null || it.type == query.type }
@@ -170,7 +173,6 @@ open class IssueService(
                     .map { issue -> issue.toDto(customValues[issue.id].orEmpty(), labels = labelsByIssue[issue.id].orEmpty()) }
             }
             .toList()
-            .toRestPage(query.page, query.size)
 
     fun findById(id: Long): IssueDto {
         val issue = getIssue(id)

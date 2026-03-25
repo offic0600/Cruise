@@ -486,20 +486,102 @@ export interface JoinWorkspaceInviteResponse {
   };
 }
 
+export type ViewResourceType = 'ISSUE' | 'PROJECT';
+export type ViewScopeType = 'WORKSPACE' | 'TEAM' | 'PROJECT';
+export type ViewVisibility = 'PERSONAL' | 'WORKSPACE' | 'TEAM';
+export type ViewLayout = 'LIST' | 'BOARD';
+
+export interface FilterCondition {
+  field: string;
+  operator:
+    | 'is'
+    | 'isNot'
+    | 'in'
+    | 'notIn'
+    | 'contains'
+    | 'notContains'
+    | 'lt'
+    | 'lte'
+    | 'gt'
+    | 'gte'
+    | 'isEmpty'
+    | 'isNotEmpty'
+    | 'between'
+    | 'relativeDate';
+  value?: unknown;
+}
+
+export interface FilterGroup {
+  operator: 'AND' | 'OR';
+  children: Array<FilterGroup | FilterCondition>;
+}
+
+export interface ViewQueryState {
+  filters: FilterGroup;
+  display: {
+    layout: ViewLayout;
+    visibleColumns: string[];
+    columnWidths?: Record<string, number>;
+    density?: 'comfortable' | 'compact';
+    showSubIssues?: boolean;
+    showEmptyGroups?: boolean;
+  };
+  grouping: {
+    field: string | null;
+    direction?: 'asc' | 'desc';
+  };
+  sorting: Array<{
+    field: string;
+    direction: 'asc' | 'desc';
+    nulls?: 'first' | 'last';
+  }>;
+  pinning?: {
+    top?: string[];
+  };
+}
+
 export interface View {
   id: number;
   organizationId: number;
-  teamId: number | null;
-  projectId: number | null;
+  resourceType: ViewResourceType;
+  scopeType: ViewScopeType;
+  scopeId: number | null;
+  ownerUserId: number | null;
   name: string;
   description: string | null;
+  icon: string | null;
+  color: string | null;
+  isSystem: boolean;
+  systemKey: string | null;
+  visibility: ViewVisibility;
+  position: number;
+  layout: ViewLayout;
+  queryState: ViewQueryState | null;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  isFavorite: boolean;
+  isEditable: boolean;
+  isDeletable: boolean;
+  teamId: number | null;
+  projectId: number | null;
   filterJson: string | null;
   groupBy: string | null;
   sortJson: string | null;
-  visibility: string;
-  isSystem: boolean;
-  createdAt: string;
-  updatedAt: string;
+}
+
+export interface ViewResultGroup {
+  key: string;
+  label: string;
+  count: number;
+}
+
+export interface ViewResultsResponse<T = Issue | Project> {
+  items: T[];
+  pageInfo: RestPageInfo;
+  totalCount: number;
+  appliedQueryState: ViewQueryState | null;
+  groups: ViewResultGroup[];
 }
 
 export interface Membership {

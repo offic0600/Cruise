@@ -12,6 +12,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import java.util.UUID
@@ -607,6 +608,260 @@ class OrganizationAccessIntegrationTest {
         assertThat(labelsChanged["payload"]["from"].isArray).isTrue()
         assertThat(labelsChanged["payload"]["to"][0]["name"].asText()).isEqualTo("Bug")
         assertThat(actorIds).allMatch { it == 1L }
+    }
+
+    @Test
+    fun `system issue views are initialized and active results are server filtered`() {
+        val token = loginAndGetToken("admin", "admin123")
+        val workspacePayload = createWorkspace(token, "views-${UUID.randomUUID().toString().take(8)}", "Views Workspace")
+        val organizationId = workspacePayload["organization"]["id"].asLong()
+        val teamId = workspacePayload["initialTeam"]["id"].asLong()
+
+        mockMvc.perform(
+            post("/api/issues")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "organizationId": $organizationId,
+                      "teamId": $teamId,
+                      "type": "TASK",
+                      "title": "Visible active issue",
+                      "state": "TODO"
+                    }
+                    """.trimIndent()
+                )
+        ).andExpect(status().isCreated)
+
+        mockMvc.perform(
+            post("/api/issues")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "organizationId": $organizationId,
+                      "teamId": $teamId,
+                      "type": "TASK",
+                      "title": "Hidden completed issue",
+                      "state": "DONE"
+                    }
+                    """.trimIndent()
+                )
+        ).andExpect(status().isCreated)
+
+        val viewsPayload = mockMvc.perform(
+            get("/api/views")
+                .header("Authorization", "Bearer $token")
+                .param("organizationId", organizationId.toString())
+                .param("resourceType", "ISSUE")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[?(@.systemKey=='active')]").exists())
+            .andExpect(jsonPath("$[?(@.systemKey=='all')]").exists())
+            .andReturn()
+            .response
+            .contentAsString
+
+        val activeViewId = objectMapper.readTree(viewsPayload)
+            .first { it["systemKey"]?.asText() == "active" }["id"].asLong()
+
+        mockMvc.perform(
+            post("/api/views/$activeViewId/results")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{ "page": 0, "size": 50 }""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.totalCount").value(1))
+            .andExpect(jsonPath("$.items[0].title").value("Visible active issue"))
+    }
+
+    @Test
+    fun `custom views can be created favorited duplicated and deleted while system views cannot`() {
+        val token = loginAndGetToken("admin", "admin123")
+        val workspacePayload = createWorkspace(token, "views-${UUID.randomUUID().toString().take(8)}", "Views Lifecycle Workspace")
+        val organizationId = workspacePayload["organization"]["id"].asLong()
+        val teamId = workspacePayload["initialTeam"]["id"].asLong()
+
+        val createdViewPayload = mockMvc.perform(
+            post("/api/views")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "organizationId": $organizationId,
+                      "resourceType": "ISSUE",
+                      "scopeType": "TEAM",
+                      "scopeId": $teamId,
+                      "name": "My critical work",
+                      "visibility": "PERSONAL",
+                      "queryState": {
+                        "filters": {
+                          "operator": "AND",
+                          "children": [
+                            {
+                              "field": "priority",
+                              "operator": "is",
+                              "value": "HIGH"
+                            }
+                          ]
+                        },
+                        "display": {
+                          "layout": "LIST",
+                          "visibleColumns": ["identifier", "title", "priority", "state"]
+                        },
+                        "grouping": { "field": null },
+                        "sorting": [{ "field": "updatedAt", "direction": "desc", "nulls": "last" }]
+                      }
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.resourceType").value("ISSUE"))
+            .andExpect(jsonPath("$.scopeType").value("TEAM"))
+            .andExpect(jsonPath("$.isFavorite").value(false))
+            .andReturn()
+            .response
+            .contentAsString
+
+        val createdViewId = objectMapper.readTree(createdViewPayload)["id"].asLong()
+
+        mockMvc.perform(
+            post("/api/views/$createdViewId/favorite")
+                .header("Authorization", "Bearer $token")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.isFavorite").value(true))
+
+        val duplicatedPayload = mockMvc.perform(
+            post("/api/views/$createdViewId/duplicate")
+                .header("Authorization", "Bearer $token")
+        )
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.name").value("My critical work Copy"))
+            .andReturn()
+            .response
+            .contentAsString
+
+        val duplicatedViewId = objectMapper.readTree(duplicatedPayload)["id"].asLong()
+
+        mockMvc.perform(
+            delete("/api/views/$createdViewId")
+                .header("Authorization", "Bearer $token")
+        )
+            .andExpect(status().isNoContent)
+
+        val systemViewsPayload = mockMvc.perform(
+            get("/api/views")
+                .header("Authorization", "Bearer $token")
+                .param("organizationId", organizationId.toString())
+                .param("resourceType", "ISSUE")
+        )
+            .andExpect(status().isOk)
+            .andReturn()
+            .response
+            .contentAsString
+
+        val systemViewId = objectMapper.readTree(systemViewsPayload)
+            .first { it["systemKey"]?.asText() == "all" }["id"].asLong()
+
+        mockMvc.perform(
+            delete("/api/views/$systemViewId")
+                .header("Authorization", "Bearer $token")
+        )
+            .andExpect(status().isConflict)
+
+        mockMvc.perform(
+            get("/api/views/$duplicatedViewId")
+                .header("Authorization", "Bearer $token")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.name").value("My critical work Copy"))
+    }
+
+    @Test
+    fun `view visibility must match scope type`() {
+        val token = loginAndGetToken("admin", "admin123")
+        val workspacePayload = createWorkspace(token, "views-${UUID.randomUUID().toString().take(8)}", "Views Scope Workspace")
+        val organizationId = workspacePayload["organization"]["id"].asLong()
+        val teamId = workspacePayload["initialTeam"]["id"].asLong()
+
+        mockMvc.perform(
+            post("/api/views")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "organizationId": $organizationId,
+                      "resourceType": "ISSUE",
+                      "scopeType": "WORKSPACE",
+                      "name": "Invalid workspace visibility",
+                      "visibility": "TEAM",
+                      "queryState": {
+                        "filters": { "operator": "AND", "children": [] },
+                        "display": { "layout": "LIST", "visibleColumns": ["identifier", "title"] },
+                        "grouping": { "field": null },
+                        "sorting": [{ "field": "updatedAt", "direction": "desc", "nulls": "last" }]
+                      }
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isBadRequest)
+
+        mockMvc.perform(
+            post("/api/views")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "organizationId": $organizationId,
+                      "resourceType": "ISSUE",
+                      "scopeType": "TEAM",
+                      "scopeId": $teamId,
+                      "name": "Team shared view",
+                      "visibility": "TEAM",
+                      "queryState": {
+                        "filters": { "operator": "AND", "children": [] },
+                        "display": { "layout": "LIST", "visibleColumns": ["identifier", "title"] },
+                        "grouping": { "field": null },
+                        "sorting": [{ "field": "updatedAt", "direction": "desc", "nulls": "last" }]
+                      }
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.visibility").value("TEAM"))
+    }
+
+    private fun createWorkspace(token: String, slug: String, name: String): JsonNode {
+        val workspaceResponse = mockMvc.perform(
+            post("/api/organizations")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "name": "$name",
+                      "slug": "$slug",
+                      "region": "Asia Pacific"
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isCreated)
+            .andReturn()
+            .response
+            .contentAsString
+
+        return objectMapper.readTree(workspaceResponse)
     }
 
     private fun loginAndGetToken(username: String, password: String): String {

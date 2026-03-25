@@ -25,6 +25,18 @@ export function workspaceSectionPath(workspaceSlug: string, section: string) {
   return normalizePath(`/${workspaceSlug}/${section}`);
 }
 
+export function workspaceViewsPath(workspaceSlug: string, resourceType: 'issues' | 'projects') {
+  return normalizePath(`/${workspaceSlug}/views/${resourceType}`);
+}
+
+export function teamViewsPath(workspaceSlug: string, teamKey: string, resourceType: 'issues') {
+  return normalizePath(`/${workspaceSlug}/team/${teamKey}/views/${resourceType}`);
+}
+
+export function workspaceViewPath(workspaceSlug: string, viewId: number | string) {
+  return normalizePath(`/${workspaceSlug}/view/${viewId}`);
+}
+
 export function teamActivePath(workspaceSlug: string, teamKey: string) {
   return normalizePath(`/${workspaceSlug}/team/${teamKey}/active`);
 }
