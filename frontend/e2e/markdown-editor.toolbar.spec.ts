@@ -12,7 +12,7 @@ import {
 
 test('applies inline and block formatting from the floating toolbar', async ({ page, request }) => {
   await bootstrapIssueDetail(page, request);
-  await updateCurrentIssueViaApi(page, request, { description: 'Alpha\n\nbeta\n\ngamma\n\ndelta' });
+  await updateCurrentIssueViaApi(page, request, { description: 'Alpha\n\nbeta\n\ngamma\n\ndelta\n\nepsilon' });
   await page.reload();
 
   const toolbar = getToolbar(page);
@@ -33,13 +33,20 @@ test('applies inline and block formatting from the floating toolbar', async ({ p
 
   await selectTextInEditor(page, 'delta');
   await expect(toolbar).toBeVisible();
-  await page.getByTestId('markdown-toolbar-heading1').click({ force: true });
+  await page.getByTestId('markdown-toolbar-underline').click({ force: true });
+
+  await selectTextInEditor(page, 'epsilon');
+  await expect(toolbar).toBeVisible();
+  await page.getByTestId('markdown-toolbar-text-style-trigger').click({ force: true });
+  await expect(page.getByTestId('markdown-toolbar-text-style-menu')).toBeVisible();
+  await page.getByTestId('markdown-toolbar-text-style-heading1').click();
 
   const contentJson = await pollIssueContentJson(page, request);
   expect(findProseMirrorNodes(contentJson, (node) => node.type === 'bold' || (node.type === 'text' && Array.isArray(node.marks) && node.marks.some((mark) => (mark as { type?: string }).type === 'bold') && node.text === 'Alpha'))).not.toHaveLength(0);
   expect(findProseMirrorNodes(contentJson, (node) => node.type === 'text' && Array.isArray(node.marks) && node.marks.some((mark) => (mark as { type?: string }).type === 'italic') && node.text === 'beta')).toHaveLength(1);
   expect(findProseMirrorNodes(contentJson, (node) => node.type === 'text' && Array.isArray(node.marks) && node.marks.some((mark) => (mark as { type?: string }).type === 'strike') && node.text === 'gamma')).toHaveLength(1);
-  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'heading' && (node.attrs as { level?: number } | undefined)?.level === 1 && getNodeText(node) === 'delta')).toHaveLength(1);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'text' && Array.isArray(node.marks) && node.marks.some((mark) => (mark as { type?: string }).type === 'underline') && node.text === 'delta')).toHaveLength(1);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'heading' && (node.attrs as { level?: number } | undefined)?.level === 1 && getNodeText(node) === 'epsilon')).toHaveLength(1);
 });
 
 test('creates, updates, and removes links through the link popover without losing selection', async ({ page, request }) => {
@@ -87,21 +94,36 @@ test('creates, updates, and removes links through the link popover without losin
   await expect(page.locator('a[href="https://example.com/updated"]')).toHaveCount(0);
 });
 
-test('applies heading2, bullet list, task list, quote, code block, and divider from the toolbar', async ({ page, request }) => {
+test('applies text styles, bullet list, task list, quote, and code block from the toolbar', async ({ page, request }) => {
   await bootstrapIssueDetail(page, request);
   await updateCurrentIssueViaApi(page, request, {
-    description: 'Heading two target\n\nBullet target\n\nTask target\n\nQuote target\n\nCode target\n\nDivider target',
+    description: 'Heading two target\n\nHeading three target\n\nHeading four target\n\nRegular text target\n\nBullet target\n\nTask target\n\nQuote target\n\nCode target',
   });
   await page.reload();
 
   await selectTextInEditor(page, 'Heading two target');
-  await page.getByTestId('markdown-toolbar-heading2').click({ force: true });
+  await page.getByTestId('markdown-toolbar-text-style-trigger').click({ force: true });
+  await page.getByTestId('markdown-toolbar-text-style-heading2').click();
+
+  await selectTextInEditor(page, 'Heading three target');
+  await page.getByTestId('markdown-toolbar-text-style-trigger').click({ force: true });
+  await page.getByTestId('markdown-toolbar-text-style-heading3').click();
+
+  await selectTextInEditor(page, 'Heading four target');
+  await page.getByTestId('markdown-toolbar-text-style-trigger').click({ force: true });
+  await page.getByTestId('markdown-toolbar-text-style-heading4').click();
+
+  await selectTextInEditor(page, 'Regular text target');
+  await page.getByTestId('markdown-toolbar-text-style-trigger').click({ force: true });
+  await page.getByTestId('markdown-toolbar-text-style-regular').click();
 
   await selectTextInEditor(page, 'Bullet target');
-  await page.getByTestId('markdown-toolbar-bulletList').click({ force: true });
+  await page.getByTestId('markdown-toolbar-list-trigger').click({ force: true });
+  await page.getByTestId('markdown-toolbar-list-bulletList').click();
 
   await selectTextInEditor(page, 'Task target');
-  await page.getByTestId('markdown-toolbar-taskList').click({ force: true });
+  await page.getByTestId('markdown-toolbar-list-trigger').click({ force: true });
+  await page.getByTestId('markdown-toolbar-list-taskList').click();
 
   await selectTextInEditor(page, 'Quote target');
   await page.getByTestId('markdown-toolbar-blockquote').click({ force: true });
@@ -109,17 +131,58 @@ test('applies heading2, bullet list, task list, quote, code block, and divider f
   await selectTextInEditor(page, 'Code target');
   await page.getByTestId('markdown-toolbar-codeBlock').click({ force: true });
 
-  await selectTextInEditor(page, 'Divider target');
-  await page.getByTestId('markdown-toolbar-divider').click({ force: true });
-
   const contentJson = await pollIssueContentJson(page, request);
   expect(findProseMirrorNodes(contentJson, (node) => node.type === 'heading' && (node.attrs as { level?: number } | undefined)?.level === 2 && getNodeText(node) === 'Heading two target')).toHaveLength(1);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'heading' && (node.attrs as { level?: number } | undefined)?.level === 3 && getNodeText(node) === 'Heading three target')).toHaveLength(1);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'heading' && (node.attrs as { level?: number } | undefined)?.level === 4 && getNodeText(node) === 'Heading four target')).toHaveLength(1);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'paragraph' && getNodeText(node) === 'Regular text target')).toHaveLength(1);
   expect(findProseMirrorNodes(contentJson, (node) => node.type === 'bulletList')).toHaveLength(1);
   expect(findProseMirrorNodes(contentJson, (node) => node.type === 'taskList')).toHaveLength(1);
   expect(findProseMirrorNodes(contentJson, (node) => node.type === 'blockquote' && getNodeText(node).includes('Quote target'))).toHaveLength(1);
   expect(findProseMirrorNodes(contentJson, (node) => node.type === 'codeBlock' && getNodeText(node).includes('Code target'))).toHaveLength(1);
-  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'horizontalRule')).not.toHaveLength(0);
-  await expect(page.locator('hr').first()).toBeVisible();
+});
+
+test('opens list dropdown with three Linear-style list commands', async ({ page, request }) => {
+  await bootstrapIssueDetail(page, request);
+  await updateCurrentIssueViaApi(page, request, { description: 'List target' });
+  await page.reload();
+
+  await selectTextInEditor(page, 'List');
+  await page.getByTestId('markdown-toolbar-list-trigger').click({ force: true });
+  await expect(page.getByTestId('markdown-toolbar-list-menu')).toBeVisible();
+  await expect(page.getByTestId('markdown-toolbar-list-bulletList')).toBeVisible();
+  await expect(page.getByTestId('markdown-toolbar-list-orderedList')).toBeVisible();
+  await expect(page.getByTestId('markdown-toolbar-list-taskList')).toBeVisible();
+});
+
+test('supports text-style shortcuts for regular text and headings', async ({ page, request }) => {
+  await bootstrapIssueDetail(page, request);
+  await updateCurrentIssueViaApi(page, request, {
+    description: 'Shortcut regular\n\nShortcut heading one\n\nShortcut heading two\n\nShortcut heading three\n\nShortcut heading four',
+  });
+  await page.reload();
+
+  await selectTextInEditor(page, 'Shortcut heading one');
+  await page.keyboard.press('Control+Alt+1');
+
+  await selectTextInEditor(page, 'Shortcut heading two');
+  await page.keyboard.press('Control+Alt+2');
+
+  await selectTextInEditor(page, 'Shortcut heading three');
+  await page.keyboard.press('Control+Alt+3');
+
+  await selectTextInEditor(page, 'Shortcut heading four');
+  await page.keyboard.press('Control+Alt+4');
+
+  await selectTextInEditor(page, 'Shortcut regular');
+  await page.keyboard.press('Control+Alt+0');
+
+  const contentJson = await pollIssueContentJson(page, request);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'paragraph' && getNodeText(node) === 'Shortcut regular')).toHaveLength(1);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'heading' && (node.attrs as { level?: number } | undefined)?.level === 1 && getNodeText(node) === 'Shortcut heading one')).toHaveLength(1);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'heading' && (node.attrs as { level?: number } | undefined)?.level === 2 && getNodeText(node) === 'Shortcut heading two')).toHaveLength(1);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'heading' && (node.attrs as { level?: number } | undefined)?.level === 3 && getNodeText(node) === 'Shortcut heading three')).toHaveLength(1);
+  expect(findProseMirrorNodes(contentJson, (node) => node.type === 'heading' && (node.attrs as { level?: number } | undefined)?.level === 4 && getNodeText(node) === 'Shortcut heading four')).toHaveLength(1);
 });
 
 async function pollIssueContentJson(

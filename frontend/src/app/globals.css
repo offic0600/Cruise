@@ -72,11 +72,34 @@
   }
 
   .markdown-editor-content ul[data-type='taskList'] li {
-    @apply flex items-start gap-2;
+    @apply my-1.5 flex items-start gap-2;
   }
 
   .markdown-editor-content ul[data-type='taskList'] li > label {
-    @apply mt-1 shrink-0;
+    @apply mt-0.5 shrink-0;
+  }
+
+  .markdown-editor-content ul[data-type='taskList'] li > label input[type='checkbox'] {
+    @apply m-0 h-4 w-4 rounded-[4px] border-border-soft bg-white text-ink-700 accent-ink-700;
+    box-shadow: none;
+  }
+
+  .markdown-editor-content ul[data-type='taskList'] li > label input[type='checkbox']:focus {
+    @apply outline-none ring-0;
+    box-shadow: none;
+  }
+
+  .markdown-editor-content ul[data-type='taskList'] li > label input[type='checkbox']:checked {
+    @apply border-ink-700 bg-ink-700 text-white accent-ink-700;
+  }
+
+  .markdown-editor-content ul[data-type='taskList'] li > div {
+    @apply min-w-0 flex-1;
+  }
+
+  .markdown-editor-content ul[data-type='taskList'] li > div > p,
+  .markdown-editor-content ul[data-type='taskList'] li > p {
+    @apply my-0;
   }
 
   .markdown-editor-content blockquote {

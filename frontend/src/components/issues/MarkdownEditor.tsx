@@ -1,18 +1,20 @@
 'use client';
 
-import { type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Extension, InputRule, type JSONContent, type Range } from '@tiptap/core';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import TaskItem from '@tiptap/extension-task-item';
 import TaskList from '@tiptap/extension-task-list';
+import Underline from '@tiptap/extension-underline';
+import CodeBlock from '@tiptap/extension-code-block';
 import StarterKit from '@tiptap/starter-kit';
 import { EditorContent, useEditor, type Editor as TiptapEditor } from '@tiptap/react';
 import { Markdown } from 'tiptap-markdown';
 import {
   Bold,
-  ChevronRight,
+  Clapperboard,
   Code2,
   FilePlus2,
   FileText,
@@ -20,24 +22,52 @@ import {
   GitBranchPlus,
   Heading1,
   Heading2,
+  Heading3,
+  ImagePlus,
   Italic,
   Link2,
   List,
   ListOrdered,
   ListTodo,
   Minus,
+  PanelTop,
   Paperclip,
   Pilcrow,
   Quote,
   Strikethrough,
+  Underline as UnderlineIcon,
+  Workflow,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { useI18n } from '@/i18n/useI18n';
 import { cn } from '@/lib/utils';
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
-type CommandActionType = 'attachment' | 'subIssue' | 'relatedIssue' | 'projectRelation' | 'documentRelation';
+type CommandActionType =
+  | 'attachment'
+  | 'media'
+  | 'gif'
+  | 'diagram'
+  | 'collapsibleSection'
+  | 'subIssue'
+  | 'relatedIssue'
+  | 'projectRelation'
+  | 'documentRelation';
 type CommandGroup = 'text' | 'headings' | 'lists' | 'structure' | 'insert' | 'relations';
+type ShortcutDescriptor = {
+  key: string;
+  code?: string;
+  ctrl?: boolean;
+  alt?: boolean;
+  shift?: boolean;
+  display: string[];
+};
 type LinkMode = 'selection' | 'insert';
 type ToolbarState = { open: boolean; position: { top: number; left: number } };
 
@@ -71,6 +101,12 @@ type CommandDescriptor = {
   keywords: string[];
   icon: typeof Bold;
   hideInToolbar?: boolean;
+  menuOnly?: boolean;
+  placeholder?: boolean;
+  shortcut?: ShortcutDescriptor;
+  showInSlash?: boolean;
+  showInToolbar?: boolean;
+  showInTextStyleMenu?: boolean;
   isActive?: (editor: TiptapEditor) => boolean;
   isEnabled?: (editor: TiptapEditor) => boolean;
   run: (context: CommandContext) => void | Promise<void>;
@@ -91,7 +127,8 @@ interface MarkdownEditorProps {
   onCommandAction?: (action: CommandActionType, payload?: unknown) => void;
 }
 
-const TOOLBAR_GROUPS: CommandGroup[] = ['text', 'headings', 'lists', 'structure'];
+const SLASH_MENU_GROUPS: CommandGroup[] = ['headings', 'lists', 'insert', 'structure', 'relations'];
+const TEXT_STYLE_COMMAND_IDS = ['paragraph', 'heading1', 'heading2', 'heading3', 'heading4'] as const;
 const editorClassName =
   'markdown-editor-content min-h-[16rem] cursor-text px-0 py-0 text-[15px] leading-7 text-ink-900 outline-none';
 
@@ -134,6 +171,7 @@ export default function MarkdownEditor({
   const pointerSelectingRef = useRef(false);
   const suppressBlurCommitRef = useRef(false);
   const editorRef = useRef<TiptapEditor | null>(null);
+  const lastToolbarPositionRef = useRef<{ top: number; left: number }>({ top: 0, left: 0 });
   const initialSerializedJson = useMemo(() => serializeContentJson(initialContentJson), [initialContentJson]);
   const committedJsonRef = useRef(initialSerializedJson);
   const latestJsonRef = useRef(initialSerializedJson);
@@ -147,6 +185,8 @@ export default function MarkdownEditor({
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [allowBubbleMenu, setAllowBubbleMenu] = useState(true);
   const [toolbarState, setToolbarState] = useState<ToolbarState>({ open: false, position: { top: 0, left: 0 } });
+  const [textStyleMenuOpen, setTextStyleMenuOpen] = useState(false);
+  const [listMenuOpen, setListMenuOpen] = useState(false);
   const [slashMenuMounted, setSlashMenuMounted] = useState(false);
   const [slashState, setSlashState] = useState<SlashMenuState>({ open: false, query: '', selectedIndex: 0, position: { top: 0, left: 0 }, range: null });
   const [linkState, setLinkState] = useState<LinkState>({
@@ -270,10 +310,18 @@ export default function MarkdownEditor({
   );
 
   const updateToolbar = useCallback((instance: TiptapEditor) => {
+    if (pointerSelectingRef.current) {
+      setToolbarState({ open: false, position: { top: 0, left: 0 } });
+      return;
+    }
+    if (textStyleMenuOpen || listMenuOpen) {
+      setToolbarState({ open: true, position: lastToolbarPositionRef.current });
+      return;
+    }
     const domSelection = getEditorDomSelection(containerRef.current);
     const hasPmSelection = !instance.state.selection.empty;
     const hasEditorSelection = Boolean(domSelection && domSelection.text.trim().length > 0);
-    if (!allowBubbleMenu || pointerSelectingRef.current || linkState.open || (!hasPmSelection && !hasEditorSelection)) {
+    if (!allowBubbleMenu || linkState.open || (!hasPmSelection && !hasEditorSelection)) {
       setToolbarState({ open: false, position: { top: 0, left: 0 } });
       return;
     }
@@ -282,8 +330,9 @@ export default function MarkdownEditor({
       setToolbarState({ open: false, position: { top: 0, left: 0 } });
       return;
     }
+    lastToolbarPositionRef.current = position;
     setToolbarState({ open: true, position });
-  }, [allowBubbleMenu, linkState.open]);
+  }, [allowBubbleMenu, linkState.open, listMenuOpen, textStyleMenuOpen]);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -316,6 +365,12 @@ export default function MarkdownEditor({
       },
       handleKeyDown: (_view, event) => {
         const state = slashStateRef.current;
+        const shortcutCommand = findShortcutCommand(commandsRef.current, event);
+        if (shortcutCommand) {
+          event.preventDefault();
+          void runCommandRef.current(shortcutCommand);
+          return true;
+        }
         if (event.key === 'Escape') {
           if (state.open) {
             event.preventDefault();
@@ -352,11 +407,17 @@ export default function MarkdownEditor({
         return false;
       },
     },
-    extensions: [
-      StarterKit.configure({
-        heading: { levels: [1, 2] },
-      }),
-      Placeholder.configure({
+      extensions: [
+        StarterKit.configure({
+          codeBlock: false,
+          heading: { levels: [1, 2, 3, 4] },
+        }),
+        CodeBlock.extend({
+          renderHTML({ HTMLAttributes }) {
+            return ['pre', { ...HTMLAttributes, spellcheck: 'false' }, ['code', 0]];
+          },
+        }),
+        Placeholder.configure({
         includeChildren: true,
         showOnlyCurrent: true,
         placeholder: ({ node, editor: instance }) =>
@@ -365,6 +426,7 @@ export default function MarkdownEditor({
             : t('issues.editor.placeholder'),
       }),
       Link.configure({ autolink: true, openOnClick: false, linkOnPaste: true }),
+      Underline,
       TaskList,
       TaskItem.configure({ nested: true }),
       Markdown.configure({ transformCopiedText: true, transformPastedText: true }),
@@ -392,7 +454,9 @@ export default function MarkdownEditor({
       updateToolbar(instance);
     },
     onBlur: () => {
-      setToolbarState({ open: false, position: { top: 0, left: 0 } });
+      if (!textStyleMenuOpen && !listMenuOpen) {
+        setToolbarState({ open: false, position: { top: 0, left: 0 } });
+      }
       if (!suppressBlurCommitRef.current) {
         void commitNow();
       }
@@ -402,20 +466,27 @@ export default function MarkdownEditor({
   const commands = useMemo<CommandDescriptor[]>(() => {
     if (!editor) return [];
     return [
-      { id: 'bold', group: 'text', label: t('issues.editor.commands.bold'), keywords: ['strong', '**'], icon: Bold, isActive: (i) => i.isActive('bold'), run: ({ editor: i }) => { i.chain().focus().toggleBold().run(); } },
-      { id: 'italic', group: 'text', label: t('issues.editor.commands.italic'), keywords: ['emphasis', '*'], icon: Italic, isActive: (i) => i.isActive('italic'), run: ({ editor: i }) => { i.chain().focus().toggleItalic().run(); } },
-      { id: 'strike', group: 'text', label: t('issues.editor.commands.strike'), keywords: ['~~'], icon: Strikethrough, isActive: (i) => i.isActive('strike'), run: ({ editor: i }) => { i.chain().focus().toggleStrike().run(); } },
-      { id: 'heading1', group: 'headings', label: t('issues.editor.commands.heading1'), keywords: ['h1', '#'], icon: Heading1, isActive: (i) => i.isActive('heading', { level: 1 }), run: ({ editor: i }) => { i.chain().focus().toggleHeading({ level: 1 }).run(); } },
-      { id: 'heading2', group: 'headings', label: t('issues.editor.commands.heading2'), keywords: ['h2', '##'], icon: Heading2, isActive: (i) => i.isActive('heading', { level: 2 }), run: ({ editor: i }) => { i.chain().focus().toggleHeading({ level: 2 }).run(); } },
-      { id: 'paragraph', group: 'headings', label: t('issues.editor.commands.paragraph'), keywords: ['text'], icon: Pilcrow, hideInToolbar: true, isActive: (i) => i.isActive('paragraph'), run: ({ editor: i }) => { i.chain().focus().setParagraph().run(); } },
-      { id: 'bulletList', group: 'lists', label: t('issues.editor.commands.bulletList'), keywords: ['-', '*'], icon: List, isActive: (i) => i.isActive('bulletList'), run: ({ editor: i }) => { i.chain().focus().toggleBulletList().run(); } },
-      { id: 'orderedList', group: 'lists', label: t('issues.editor.commands.orderedList'), keywords: ['1.'], icon: ListOrdered, hideInToolbar: true, isActive: (i) => i.isActive('orderedList'), run: ({ editor: i }) => { i.chain().focus().toggleOrderedList().run(); } },
-      { id: 'taskList', group: 'lists', label: t('issues.editor.commands.taskList'), keywords: ['todo', '[ ]'], icon: ListTodo, isActive: (i) => i.isActive('taskList'), run: ({ editor: i }) => { i.chain().focus().toggleTaskList().run(); } },
-      { id: 'blockquote', group: 'structure', label: t('issues.editor.commands.quote'), keywords: ['>'], icon: Quote, isActive: (i) => i.isActive('blockquote'), run: ({ editor: i }) => { i.chain().focus().toggleBlockquote().run(); } },
-      { id: 'codeBlock', group: 'structure', label: t('issues.editor.commands.codeBlock'), keywords: ['```', 'code'], icon: Code2, isActive: (i) => i.isActive('codeBlock'), run: ({ editor: i }) => { i.chain().focus().toggleCodeBlock().run(); } },
-      { id: 'divider', group: 'structure', label: t('issues.editor.commands.divider'), keywords: ['---', 'separator'], icon: Minus, run: ({ editor: i }) => { i.chain().focus().setHorizontalRule().run(); } },
-      { id: 'link', group: 'structure', label: t('issues.editor.commands.link'), keywords: ['url', 'hyperlink'], icon: Link2, isActive: (i) => i.isActive('link'), run: ({ openLinkPopover }) => openLinkPopover('selection') },
-      { id: 'attachment', group: 'insert', label: t('issues.editor.commands.attachment'), keywords: ['file', 'upload'], icon: Paperclip, hideInToolbar: true, run: ({ triggerAction }) => triggerAction('attachment') },
+      { id: 'bold', group: 'text', label: t('issues.editor.commands.bold'), keywords: ['strong', '**'], icon: Bold, showInToolbar: true, isActive: (i) => i.isActive('bold'), run: ({ editor: i }) => { i.chain().focus().toggleBold().run(); } },
+      { id: 'italic', group: 'text', label: t('issues.editor.commands.italic'), keywords: ['emphasis', '*'], icon: Italic, showInToolbar: true, isActive: (i) => i.isActive('italic'), run: ({ editor: i }) => { i.chain().focus().toggleItalic().run(); } },
+      { id: 'strike', group: 'text', label: t('issues.editor.commands.strike'), keywords: ['~~'], icon: Strikethrough, showInToolbar: true, isActive: (i) => i.isActive('strike'), run: ({ editor: i }) => { i.chain().focus().toggleStrike().run(); } },
+      { id: 'underline', group: 'text', label: t('issues.editor.commands.underline'), keywords: ['underline'], icon: UnderlineIcon, showInToolbar: true, isActive: (i) => i.isActive('underline'), run: ({ editor: i }) => { i.chain().focus().toggleUnderline().run(); } },
+      { id: 'heading1', group: 'headings', label: t('issues.editor.commands.heading1'), keywords: ['h1', '#', 'heading 1'], icon: Heading1, showInSlash: true, showInTextStyleMenu: true, shortcut: { key: '1', code: 'Digit1', ctrl: true, alt: true, display: ['Ctrl', 'Alt', '1'] }, isActive: (i) => i.isActive('heading', { level: 1 }), run: ({ editor: i }) => { i.chain().focus().toggleHeading({ level: 1 }).run(); } },
+      { id: 'heading2', group: 'headings', label: t('issues.editor.commands.heading2'), keywords: ['h2', '##', 'heading 2'], icon: Heading2, showInSlash: true, showInTextStyleMenu: true, shortcut: { key: '2', code: 'Digit2', ctrl: true, alt: true, display: ['Ctrl', 'Alt', '2'] }, isActive: (i) => i.isActive('heading', { level: 2 }), run: ({ editor: i }) => { i.chain().focus().toggleHeading({ level: 2 }).run(); } },
+      { id: 'heading3', group: 'headings', label: t('issues.editor.commands.heading3'), keywords: ['h3', '###', 'heading 3'], icon: Heading3, hideInToolbar: true, showInSlash: true, showInTextStyleMenu: true, shortcut: { key: '3', code: 'Digit3', ctrl: true, alt: true, display: ['Ctrl', 'Alt', '3'] }, isActive: (i) => i.isActive('heading', { level: 3 }), run: ({ editor: i }) => { i.chain().focus().toggleHeading({ level: 3 }).run(); } },
+      { id: 'heading4', group: 'headings', label: t('issues.editor.commands.heading4'), keywords: ['h4', '####', 'heading 4'], icon: Heading3, hideInToolbar: true, showInTextStyleMenu: true, shortcut: { key: '4', code: 'Digit4', ctrl: true, alt: true, display: ['Ctrl', 'Alt', '4'] }, isActive: (i) => i.isActive('heading', { level: 4 }), run: ({ editor: i }) => { i.chain().focus().toggleHeading({ level: 4 }).run(); } },
+      { id: 'paragraph', group: 'headings', label: t('issues.editor.commands.paragraph'), keywords: ['text', 'regular text'], icon: Pilcrow, hideInToolbar: true, showInTextStyleMenu: true, shortcut: { key: '0', code: 'Digit0', ctrl: true, alt: true, display: ['Ctrl', 'Alt', '0'] }, isActive: (i) => i.isActive('paragraph'), run: ({ editor: i }) => { i.chain().focus().setParagraph().run(); } },
+      { id: 'bulletList', group: 'lists', label: t('issues.editor.commands.bulletList'), keywords: ['-', '*', 'bulleted list'], icon: List, showInSlash: true, shortcut: { key: '8', code: 'Digit8', ctrl: true, shift: true, display: ['Ctrl', 'Shift', '8'] }, isActive: (i) => i.isActive('bulletList'), run: ({ editor: i }) => { i.chain().focus().toggleBulletList().run(); } },
+      { id: 'orderedList', group: 'lists', label: t('issues.editor.commands.orderedList'), keywords: ['1.', 'numbered list'], icon: ListOrdered, showInSlash: true, shortcut: { key: '9', code: 'Digit9', ctrl: true, shift: true, display: ['Ctrl', 'Shift', '9'] }, isActive: (i) => i.isActive('orderedList'), run: ({ editor: i }) => { i.chain().focus().toggleOrderedList().run(); } },
+      { id: 'taskList', group: 'lists', label: t('issues.editor.commands.taskList'), keywords: ['todo', '[ ]', 'checklist', 'task'], icon: ListTodo, showInSlash: true, shortcut: { key: '7', code: 'Digit7', ctrl: true, shift: true, display: ['Ctrl', 'Shift', '7'] }, isActive: (i) => i.isActive('taskList'), run: ({ editor: i }) => { i.chain().focus().toggleTaskList().run(); } },
+      { id: 'media', group: 'insert', label: t('issues.editor.commands.media'), keywords: ['insert media', 'media', 'image'], icon: ImagePlus, hideInToolbar: true, showInSlash: true, placeholder: true, run: ({ triggerAction }) => triggerAction('media') },
+      { id: 'gif', group: 'insert', label: t('issues.editor.commands.gif'), keywords: ['gif', 'insert gif'], icon: Clapperboard, hideInToolbar: true, showInSlash: true, placeholder: true, run: ({ triggerAction }) => triggerAction('gif') },
+      { id: 'attachment', group: 'insert', label: t('issues.editor.commands.attachment'), keywords: ['attach file', 'file', 'upload'], icon: Paperclip, hideInToolbar: true, showInSlash: true, shortcut: { key: 'u', code: 'KeyU', ctrl: true, shift: true, display: ['Ctrl', 'Shift', 'U'] }, run: ({ triggerAction }) => triggerAction('attachment') },
+      { id: 'blockquote', group: 'structure', label: t('issues.editor.commands.quote'), keywords: ['>'], icon: Quote, menuOnly: true, showInToolbar: true, isActive: (i) => i.isActive('blockquote'), run: ({ editor: i }) => { i.chain().focus().toggleBlockquote().run(); } },
+      { id: 'codeBlock', group: 'structure', label: t('issues.editor.commands.codeBlock'), keywords: ['```', 'code'], icon: Code2, showInSlash: true, showInToolbar: true, shortcut: { key: '\\', code: 'Backslash', ctrl: true, shift: true, display: ['Ctrl', 'Shift', '\\'] }, isActive: (i) => i.isActive('codeBlock'), run: ({ editor: i }) => { i.chain().focus().toggleCodeBlock().run(); } },
+      { id: 'diagram', group: 'structure', label: t('issues.editor.commands.diagram'), keywords: ['diagram', 'flowchart'], icon: Workflow, hideInToolbar: true, showInSlash: true, placeholder: true, run: ({ triggerAction }) => triggerAction('diagram') },
+      { id: 'collapsibleSection', group: 'structure', label: t('issues.editor.commands.collapsibleSection'), keywords: ['collapse', 'collapsible', 'details'], icon: PanelTop, hideInToolbar: true, showInSlash: true, placeholder: true, run: ({ triggerAction }) => triggerAction('collapsibleSection') },
+      { id: 'divider', group: 'structure', label: t('issues.editor.commands.divider'), keywords: ['---', 'separator'], icon: Minus, menuOnly: true, run: ({ editor: i }) => { i.chain().focus().setHorizontalRule().run(); } },
+      { id: 'link', group: 'structure', label: t('issues.editor.commands.link'), keywords: ['url', 'hyperlink'], icon: Link2, showInToolbar: true, isActive: (i) => i.isActive('link'), run: ({ openLinkPopover }) => openLinkPopover('selection') },
       { id: 'documentRelation', group: 'insert', label: t('issues.editor.commands.documentRelation'), keywords: ['document', 'doc'], icon: FileText, hideInToolbar: true, run: ({ triggerAction }) => triggerAction('documentRelation') },
       { id: 'subIssue', group: 'relations', label: t('issues.editor.commands.subIssue'), keywords: ['child issue'], icon: FilePlus2, hideInToolbar: true, run: ({ triggerAction }) => triggerAction('subIssue') },
       { id: 'relatedIssue', group: 'relations', label: t('issues.editor.commands.relatedIssue'), keywords: ['issue mention', 'relation'], icon: GitBranchPlus, hideInToolbar: true, run: ({ triggerAction }) => triggerAction('relatedIssue') },
@@ -423,12 +494,24 @@ export default function MarkdownEditor({
     ];
   }, [editor, t]);
 
+  const commandsRef = useRef<CommandDescriptor[]>(commands);
+  commandsRef.current = commands;
+
   const filteredCommands = useMemo(() => {
     const query = slashState.query.trim().toLowerCase();
-    const visible = commands.filter((command) => !command.hideInToolbar || command.group === 'insert' || command.group === 'relations' || command.id === 'paragraph' || command.id === 'orderedList');
+    const visible = commands.filter((command) => command.showInSlash);
     if (!query) return visible;
     return visible.filter((command) => [command.label, ...command.keywords].join(' ').toLowerCase().includes(query));
   }, [commands, slashState.query]);
+
+  const filteredCommandGroups = useMemo(
+    () =>
+      SLASH_MENU_GROUPS.map((group) => ({
+        group,
+        commands: filteredCommands.filter((command) => command.group === group),
+      })).filter((entry) => entry.commands.length > 0),
+    [filteredCommands],
+  );
 
   useEffect(() => {
     setSlashState((current) => {
@@ -488,6 +571,9 @@ export default function MarkdownEditor({
     },
     [clearSlashQuery, editor, openLinkPopover, triggerAction],
   );
+
+  const runCommandRef = useRef(runCommand);
+  runCommandRef.current = runCommand;
 
   useEffect(() => {
     if (!editor) return;
@@ -580,8 +666,19 @@ export default function MarkdownEditor({
     return <div className="min-h-[16rem]" />;
   }
 
-  const toolbarCommands = commands.filter((command) => !command.hideInToolbar);
-  const toolbarGrouped = TOOLBAR_GROUPS.map((group) => toolbarCommands.filter((command) => command.group === group)).filter((group) => group.length > 0);
+  const textStyleCommands = TEXT_STYLE_COMMAND_IDS.map((id) => commands.find((command) => command.id === id)).filter(Boolean) as CommandDescriptor[];
+  const toolbarCommands = commands.filter((command) => command.showInToolbar);
+  const toolbarOrder = ['bold', 'italic', 'strike', 'underline', 'link', 'blockquote', 'codeBlock', 'attachment'] as const;
+  const orderedToolbarCommands = toolbarOrder
+    .map((id) => toolbarCommands.find((command) => command.id === id))
+    .filter(Boolean) as CommandDescriptor[];
+  const listCommands = ['bulletList', 'orderedList', 'taskList']
+    .map((id) => commands.find((command) => command.id === id))
+    .filter(Boolean) as CommandDescriptor[];
+  const activeListCommand = listCommands.find((command) => command.isActive?.(editor)) ?? listCommands[0];
+  const textStyleActiveCommand =
+    textStyleCommands.find((command) => command.isActive?.(editor)) ??
+    textStyleCommands.find((command) => command.id === 'paragraph');
 
   return (
     <div ref={containerRef} className="relative" data-testid="markdown-editor-root">
@@ -591,31 +688,44 @@ export default function MarkdownEditor({
         ? createPortal(
             <div
               data-testid="markdown-slash-menu"
-              className="fixed z-[85] w-[300px] overflow-hidden rounded-[20px] border border-slate-200/90 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.15)]"
+              role="menu"
+              className="fixed z-[85] min-w-56 w-[280px] overflow-hidden rounded-card border border-border-subtle bg-white p-1.5 shadow-elevated"
               style={{ top: slashState.position.top, left: slashState.position.left }}
             >
-              <div className="max-h-[360px] overflow-y-auto p-2">
-                {filteredCommands.map((command, index) => (
-                  <button
-                    key={command.id}
-                    type="button"
-                    data-testid={`markdown-slash-${command.id}`}
-                    className={cn(
-                      'flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition',
-                      index === slashState.selectedIndex ? 'bg-slate-100 text-ink-900' : 'text-ink-700 hover:bg-slate-50',
-                    )}
-                    onMouseDown={(event: ReactMouseEvent<HTMLButtonElement>) => event.preventDefault()}
-                    onClick={() => void runCommand(command)}
-                  >
-                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-ink-700">
-                      <command.icon className="h-4 w-4 stroke-[1.9]" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-medium">{command.label}</span>
-                      <span className="block truncate text-xs text-ink-400">{command.keywords.join(' · ')}</span>
-                    </span>
-                    <ChevronRight className="h-4 w-4 text-ink-300" />
-                  </button>
+              <div className="max-h-[360px] overflow-y-auto">
+                {filteredCommandGroups.map((entry, groupIndex) => (
+                  <div key={entry.group}>
+                    {entry.commands.map((command) => {
+                      const index = filteredCommands.findIndex((item) => item.id === command.id);
+                      return (
+                        <button
+                          key={command.id}
+                          type="button"
+                          role="menuitem"
+                          data-testid={`markdown-slash-${command.id}`}
+                          className={cn(
+                            'relative flex w-full cursor-default select-none items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-700 outline-none transition-colors',
+                            index === slashState.selectedIndex ? 'bg-slate-100 text-ink-900' : 'hover:bg-slate-50 focus:bg-slate-100',
+                          )}
+                          onMouseDown={(event: ReactMouseEvent<HTMLButtonElement>) => event.preventDefault()}
+                          onClick={() => void runCommand(command)}
+                        >
+                          <command.icon className="h-4.5 w-4.5 shrink-0 text-ink-500" />
+                          <span className="min-w-0 flex-1 truncate">{command.label}</span>
+                          {command.shortcut ? (
+                            <span className="ml-3 inline-flex shrink-0 items-center gap-1 text-xs text-ink-400">
+                              {command.shortcut.display.map((token) => (
+                                <span key={`${command.id}-${token}`} className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] leading-none">
+                                  {token}
+                                </span>
+                              ))}
+                            </span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                    {groupIndex < filteredCommandGroups.length - 1 ? <div className="my-1 h-px bg-border-soft" /> : null}
+                  </div>
                 ))}
               </div>
             </div>,
@@ -626,29 +736,204 @@ export default function MarkdownEditor({
         ? createPortal(
             <div
               data-testid="markdown-editor-toolbar"
-              className="fixed z-[88] flex items-center gap-1 rounded-full border border-slate-200/90 bg-white/95 px-2 py-1.5 shadow-[0_16px_42px_rgba(15,23,42,0.12)] backdrop-blur"
+              className="fixed z-[88] inline-flex max-w-full items-center gap-1 rounded-full border border-slate-200/90 bg-white/95 px-1.5 py-1 shadow-[0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/90"
               style={{ top: toolbarState.position.top, left: toolbarState.position.left }}
               onMouseDown={(event) => event.preventDefault()}
             >
-              {toolbarGrouped.map((group, groupIndex) => (
-                <div key={group[0]?.group} className="flex items-center gap-1">
-                  {group.map((command) => (
-                    <button
-                      key={command.id}
-                      type="button"
-                      data-testid={`markdown-toolbar-${command.id}`}
-                      onClick={() => void runCommand(command)}
-                      className={cn(
-                        'inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-transparent px-2 text-ink-700 transition hover:border-slate-200 hover:bg-slate-50',
-                        command.isActive?.(editor) ? 'border-slate-200 bg-slate-100 text-ink-900' : '',
-                      )}
-                      aria-label={command.label}
-                    >
-                      <command.icon className="h-4 w-4 stroke-[1.9]" />
-                    </button>
-                  ))}
-                  {groupIndex < toolbarGrouped.length - 1 ? <div className="mx-0.5 h-5 w-px bg-slate-200" /> : null}
-                </div>
+              <DropdownMenu
+                modal={false}
+                open={textStyleMenuOpen}
+                onOpenChange={(open) => {
+                  suppressBlurCommitRef.current = open;
+                  setTextStyleMenuOpen(open);
+                  if (open) {
+                    lastToolbarPositionRef.current = toolbarState.position;
+                    setToolbarState({ open: true, position: toolbarState.position });
+                    return;
+                  }
+                  window.setTimeout(() => {
+                    suppressBlurCommitRef.current = false;
+                    editor.commands.focus();
+                    updateToolbar(editor);
+                  }, 0);
+                }}
+              >
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    data-testid="markdown-toolbar-text-style-trigger"
+                    className="inline-flex h-9 items-center gap-1 rounded-[10px] bg-slate-100 px-3 text-[15px] text-ink-700 outline-none transition hover:bg-slate-100/90"
+                    aria-label={t('issues.editor.commands.textStyle')}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      suppressBlurCommitRef.current = true;
+                    }}
+                  >
+                    <span className="text-[18px] leading-none">Aa</span>
+                    <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4 text-ink-400" aria-hidden="true">
+                      <path d="m6 8 4 4 4-4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  sideOffset={8}
+                  className="w-[212px] rounded-[18px] p-1.5"
+                  onCloseAutoFocus={(event) => {
+                    event.preventDefault();
+                    editor.commands.focus();
+                  }}
+                >
+                  <div data-testid="markdown-toolbar-text-style-menu">
+                    {textStyleCommands.map((command) => (
+                        <DropdownMenuItem
+                          key={command.id}
+                          data-testid={`markdown-toolbar-text-style-${command.id === 'paragraph' ? 'regular' : command.id}`}
+                          onSelect={(event) => {
+                            event.preventDefault();
+                            void runCommand(command);
+                            setTextStyleMenuOpen(false);
+                          }}
+                        className={cn(
+                          'flex items-center justify-between rounded-xl px-3 py-2.5 text-[15px]',
+                          command.isActive?.(editor) ? 'bg-slate-100 text-ink-900' : ''
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className={cn('min-w-0', command.id === 'paragraph' ? 'font-normal' : 'font-semibold')}>
+                            {command.id === 'paragraph' ? t('issues.editor.commands.regularText') : command.label}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {command.shortcut?.display.map((token) => (
+                            <span key={`${command.id}-${token}`} className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] leading-none text-ink-400">
+                              {token}
+                            </span>
+                          ))}
+                        </div>
+                      </DropdownMenuItem>
+                    ))}
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <div className="mx-0.5 h-6 w-px bg-slate-200" />
+
+              {orderedToolbarCommands.slice(0, 7).map((command, index) => (
+                <Fragment key={command.id}>
+                  <button
+                    type="button"
+                    data-testid={`markdown-toolbar-${command.id}`}
+                    onClick={() => void runCommand(command)}
+                    className={cn(
+                      'inline-flex h-9 min-w-9 items-center justify-center rounded-[10px] border border-transparent px-2.5 text-ink-700 transition hover:bg-slate-50',
+                      command.isActive?.(editor) ? 'bg-slate-100 text-ink-900' : ''
+                    )}
+                    aria-label={command.label}
+                  >
+                    <command.icon className="h-4.5 w-4.5 stroke-[1.9]" />
+                  </button>
+                  {index === 3 ? <div className="mx-0.5 h-6 w-px bg-slate-200" /> : null}
+                </Fragment>
+              ))}
+
+              <DropdownMenu
+                modal={false}
+                open={listMenuOpen}
+                onOpenChange={(open) => {
+                  suppressBlurCommitRef.current = open;
+                  setListMenuOpen(open);
+                  if (open) {
+                    lastToolbarPositionRef.current = toolbarState.position;
+                    setToolbarState({ open: true, position: toolbarState.position });
+                    return;
+                  }
+                  window.setTimeout(() => {
+                    suppressBlurCommitRef.current = false;
+                    editor.commands.focus();
+                    updateToolbar(editor);
+                  }, 0);
+                }}
+              >
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    data-testid="markdown-toolbar-list-trigger"
+                    className={cn(
+                      'inline-flex h-9 items-center gap-1 rounded-[10px] border border-transparent px-2.5 text-ink-700 outline-none transition hover:bg-slate-50',
+                      activeListCommand?.isActive?.(editor) ? 'bg-slate-100 text-ink-900' : '',
+                    )}
+                    aria-label={activeListCommand?.label ?? t('issues.editor.commands.bulletList')}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      suppressBlurCommitRef.current = true;
+                    }}
+                  >
+                    <List className="h-4.5 w-4.5 stroke-[1.9]" />
+                    <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4 text-ink-400" aria-hidden="true">
+                      <path d="m6 8 4 4 4-4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  sideOffset={8}
+                  className="w-[220px] rounded-[18px] p-1.5"
+                  onCloseAutoFocus={(event) => {
+                    event.preventDefault();
+                    editor.commands.focus();
+                  }}
+                >
+                  <div data-testid="markdown-toolbar-list-menu">
+                    {listCommands.map((command) => (
+                      <DropdownMenuItem
+                        key={command.id}
+                        data-testid={`markdown-toolbar-list-${command.id}`}
+                        onSelect={(event) => {
+                          event.preventDefault();
+                          void runCommand(command);
+                          setListMenuOpen(false);
+                        }}
+                        className={cn(
+                          'flex items-center justify-between rounded-xl px-3 py-2.5 text-[15px]',
+                          command.isActive?.(editor) ? 'bg-slate-100 text-ink-900' : 'text-ink-700',
+                        )}
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <command.icon className="h-4.5 w-4.5 shrink-0 text-ink-500" />
+                          <span className="truncate">{command.label}</span>
+                        </div>
+                        {command.shortcut ? (
+                          <div className="flex items-center gap-1 text-[12px] text-ink-400">
+                            {command.shortcut.display.map((token) => (
+                              <span key={`${command.id}-${token}`} className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 leading-none">
+                                {token}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                      </DropdownMenuItem>
+                    ))}
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <div className="mx-0.5 h-6 w-px bg-slate-200" />
+
+              {orderedToolbarCommands.slice(7).map((command) => (
+                <button
+                  key={command.id}
+                  type="button"
+                  data-testid={`markdown-toolbar-${command.id}`}
+                  onClick={() => void runCommand(command)}
+                  className={cn(
+                    'inline-flex h-9 min-w-9 items-center justify-center rounded-[10px] border border-transparent px-2.5 text-ink-700 transition hover:bg-slate-50',
+                    command.isActive?.(editor) ? 'bg-slate-100 text-ink-900' : ''
+                  )}
+                  aria-label={command.label}
+                >
+                  <command.icon className="h-4.5 w-4.5 stroke-[1.9]" />
+                </button>
               ))}
             </div>,
             document.body,
@@ -721,6 +1006,19 @@ function normalizeHref(value: string) {
   if (!trimmed) return '';
   if (/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(trimmed)) return trimmed;
   return `https://${trimmed}`;
+}
+
+function findShortcutCommand(commands: CommandDescriptor[], event: KeyboardEvent) {
+  return commands.find((command) => {
+    if (!command.shortcut) return false;
+    const shortcut = command.shortcut;
+    const ctrlPressed = event.ctrlKey || event.metaKey;
+    if (Boolean(shortcut.ctrl) !== ctrlPressed) return false;
+    if (Boolean(shortcut.alt) !== event.altKey) return false;
+    if (Boolean(shortcut.shift) !== event.shiftKey) return false;
+    if (shortcut.code) return event.code === shortcut.code;
+    return event.key.toLowerCase() === shortcut.key.toLowerCase();
+  });
 }
 
 function getToolbarPosition(editor: TiptapEditor) {

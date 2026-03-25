@@ -679,9 +679,36 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleEditorCommandAction = (action: 'attachment' | 'subIssue' | 'relatedIssue' | 'projectRelation' | 'documentRelation') => {
+  const handleEditorCommandAction = (
+    action: 'attachment' | 'media' | 'gif' | 'diagram' | 'collapsibleSection' | 'subIssue' | 'relatedIssue' | 'projectRelation' | 'documentRelation'
+  ) => {
     if (action === 'attachment') {
       fileInputRef.current?.click();
+      return;
+    }
+    if (action === 'media') {
+      fileInputRef.current?.click();
+      return;
+    }
+    if (action === 'gif') {
+      showActionToast(
+        locale.startsWith('zh') ? '插入 GIF' : 'Insert GIF',
+        locale.startsWith('zh') ? 'GIF 插入即将支持。' : 'GIF insertion is coming soon.'
+      );
+      return;
+    }
+    if (action === 'diagram') {
+      showActionToast(
+        locale.startsWith('zh') ? '图表' : 'Diagram',
+        locale.startsWith('zh') ? '图表块即将支持。' : 'Diagram blocks are coming soon.'
+      );
+      return;
+    }
+    if (action === 'collapsibleSection') {
+      showActionToast(
+        locale.startsWith('zh') ? '折叠区块' : 'Collapsible section',
+        locale.startsWith('zh') ? '折叠区块即将支持。' : 'Collapsible sections are coming soon.'
+      );
       return;
     }
     if (action === 'subIssue') {

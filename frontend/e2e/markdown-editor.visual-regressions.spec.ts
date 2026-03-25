@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { bootstrapIssueDetail, clearEditor, getEditor, getEmptyParagraphPlaceholderSnapshot } from './support/app';
+import { bootstrapIssueDetail, clearEditor, getEditor, getEmptyParagraphPlaceholderSnapshot, getToolbar, selectTextInEditor } from './support/app';
 
 type BulletSnapshot = {
   label: string;
@@ -97,6 +97,70 @@ test('renders a visible slash-command hint for a new empty paragraph after exist
   expect.soft(hint.dataPlaceholder).toContain('/');
   expect.soft(hint.beforeContent).toContain('/');
   expect.soft(hint.beforeDisplay).not.toBe('none');
+});
+
+test('renders the Linear-style floating toolbar and text-style menu shell', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'This visual diagnosis is only pinned for Chromium.');
+
+  await bootstrapIssueDetail(page, page.request);
+  await clearEditor(page);
+  const editor = getEditor(page);
+  await editor.click();
+  await page.keyboard.type('Toolbar target');
+
+  await selectTextInEditor(page, 'Toolbar');
+  const toolbar = getToolbar(page);
+  await expect(toolbar).toBeVisible();
+
+  const shell = await toolbar.evaluate((element) => {
+    const style = window.getComputedStyle(element as HTMLElement);
+    return {
+      borderRadius: style.borderRadius,
+      backgroundColor: style.backgroundColor,
+      boxShadow: style.boxShadow,
+      childCount: (element as HTMLElement).childElementCount,
+    };
+  });
+
+  expect.soft(shell.borderRadius).not.toBe('0px');
+  expect.soft(shell.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
+  expect.soft(shell.boxShadow).not.toBe('none');
+  expect.soft(shell.childCount).toBeGreaterThan(5);
+
+  await page.getByTestId('markdown-toolbar-text-style-trigger').click({ force: true });
+  const menu = page.getByTestId('markdown-toolbar-text-style-menu');
+  await expect(menu).toBeVisible();
+  await expect(page.getByTestId('markdown-toolbar-text-style-regular')).toBeVisible();
+  await expect(page.getByTestId('markdown-toolbar-text-style-heading1')).toBeVisible();
+  await expect(page.getByTestId('markdown-toolbar-text-style-heading2')).toBeVisible();
+  await expect(page.getByTestId('markdown-toolbar-text-style-heading3')).toBeVisible();
+  await expect(page.getByTestId('markdown-toolbar-text-style-heading4')).toBeVisible();
+});
+
+test('disables browser spellcheck inside code blocks', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'This editor DOM regression is only pinned for Chromium.');
+
+  await bootstrapIssueDetail(page, page.request);
+  await clearEditor(page);
+  const editor = getEditor(page);
+  await editor.click();
+  await page.keyboard.type('const a = 1;');
+  await page.keyboard.press('Control+A');
+  await page.getByTestId('markdown-toolbar-codeBlock').click({ force: true });
+
+  const codeBlockState = await editor.evaluate((element) => {
+    const pre = element.querySelector('pre');
+    const code = element.querySelector('pre code');
+    return {
+      hasPre: Boolean(pre),
+      preSpellcheck: pre?.getAttribute('spellcheck'),
+      codeSpellcheck: code?.getAttribute('spellcheck'),
+    };
+  });
+
+  expect(codeBlockState.hasPre).toBe(true);
+  expect(codeBlockState.preSpellcheck).toBe('false');
+  expect(codeBlockState.codeSpellcheck).toBeNull();
 });
 
 async function captureBulletSnapshot(page: Parameters<typeof getEditor>[0], label: string): Promise<BulletSnapshot> {
