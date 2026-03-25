@@ -125,6 +125,69 @@ class OrganizationAccessIntegrationTest {
     }
 
     @Test
+    fun `issue can be fetched directly by organization and identifier`() {
+        val token = loginAndGetToken("admin", "admin123")
+        val workspaceSlug = "test-${UUID.randomUUID().toString().take(8)}"
+
+        val workspaceResponse = mockMvc.perform(
+            post("/api/organizations")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "name": "Issue Direct Lookup Workspace",
+                      "slug": "$workspaceSlug",
+                      "region": "Asia Pacific"
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isCreated)
+            .andReturn()
+            .response
+            .contentAsString
+
+        val workspacePayload = objectMapper.readTree(workspaceResponse)
+        val organizationId = workspacePayload["organization"]["id"].asLong()
+        val teamId = workspacePayload["initialTeam"]["id"].asLong()
+
+        val createdIssueResponse = mockMvc.perform(
+            post("/api/issues")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "organizationId": $organizationId,
+                      "teamId": $teamId,
+                      "type": "TASK",
+                      "title": "Direct identifier issue"
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isCreated)
+            .andReturn()
+            .response
+            .contentAsString
+
+        val createdIssuePayload = objectMapper.readTree(createdIssueResponse)
+        val identifier = createdIssuePayload["identifier"].asText()
+        val issueId = createdIssuePayload["id"].asLong()
+
+        mockMvc.perform(
+            get("/api/issues/by-identifier")
+                .header("Authorization", "Bearer $token")
+                .param("organizationId", organizationId.toString())
+                .param("identifier", identifier)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.id").value(issueId))
+            .andExpect(jsonPath("$.identifier").value(identifier))
+    }
+
+    @Test
     fun `issue update treats parentIssueId zero as no parent`() {
         val token = loginAndGetToken("admin", "admin123")
         val workspaceSlug = "test-${UUID.randomUUID().toString().take(8)}"
@@ -192,6 +255,194 @@ class OrganizationAccessIntegrationTest {
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.title").value("Updated without parent"))
             .andExpect(jsonPath("$.parentIssueId").doesNotExist())
+    }
+
+    @Test
+    fun `issue body content json is stored with revision and description export`() {
+        val token = loginAndGetToken("admin", "admin123")
+        val workspaceSlug = "test-${UUID.randomUUID().toString().take(8)}"
+
+        val workspaceResponse = mockMvc.perform(
+            post("/api/organizations")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "name": "Issue Content Workspace",
+                      "slug": "$workspaceSlug",
+                      "region": "Asia Pacific"
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isCreated)
+            .andReturn()
+            .response
+            .contentAsString
+
+        val workspacePayload = objectMapper.readTree(workspaceResponse)
+        val organizationId = workspacePayload["organization"]["id"].asLong()
+        val teamId = workspacePayload["initialTeam"]["id"].asLong()
+
+        val createdIssueResponse = mockMvc.perform(
+            post("/api/issues")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "organizationId": $organizationId,
+                      "teamId": $teamId,
+                      "type": "TASK",
+                      "title": "Content backed issue",
+                      "description": "Legacy body"
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isCreated)
+            .andReturn()
+            .response
+            .contentAsString
+
+        val issueId = objectMapper.readTree(createdIssueResponse)["id"].asLong()
+
+        mockMvc.perform(
+            put("/api/issues/$issueId")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "expectedRevision": 0,
+                      "descriptionExport": "# Migrated body",
+                      "contentJson": {
+                        "type": "doc",
+                        "content": [
+                          {
+                            "type": "heading",
+                            "attrs": { "level": 1 },
+                            "content": [
+                              { "type": "text", "text": "Migrated body" }
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.description").value("# Migrated body"))
+            .andExpect(jsonPath("$.contentFormat").value("PROSEMIRROR_JSON"))
+            .andExpect(jsonPath("$.contentRevision").value(1))
+            .andExpect(jsonPath("$.contentJson.type").value("doc"))
+            .andExpect(jsonPath("$.contentJson.content[0].type").value("heading"))
+    }
+
+    @Test
+    fun `issue body content revision conflicts return conflict`() {
+        val token = loginAndGetToken("admin", "admin123")
+        val workspaceSlug = "test-${UUID.randomUUID().toString().take(8)}"
+
+        val workspaceResponse = mockMvc.perform(
+            post("/api/organizations")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "name": "Issue Revision Workspace",
+                      "slug": "$workspaceSlug",
+                      "region": "Asia Pacific"
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isCreated)
+            .andReturn()
+            .response
+            .contentAsString
+
+        val workspacePayload = objectMapper.readTree(workspaceResponse)
+        val organizationId = workspacePayload["organization"]["id"].asLong()
+        val teamId = workspacePayload["initialTeam"]["id"].asLong()
+
+        val createdIssueResponse = mockMvc.perform(
+            post("/api/issues")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "organizationId": $organizationId,
+                      "teamId": $teamId,
+                      "type": "TASK",
+                      "title": "Revision checked issue"
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isCreated)
+            .andReturn()
+            .response
+            .contentAsString
+
+        val issueId = objectMapper.readTree(createdIssueResponse)["id"].asLong()
+
+        mockMvc.perform(
+            put("/api/issues/$issueId")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "expectedRevision": 0,
+                      "descriptionExport": "First save",
+                      "contentJson": {
+                        "type": "doc",
+                        "content": [
+                          {
+                            "type": "paragraph",
+                            "content": [
+                              { "type": "text", "text": "First save" }
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.contentRevision").value(1))
+
+        mockMvc.perform(
+            put("/api/issues/$issueId")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "expectedRevision": 0,
+                      "descriptionExport": "Stale save",
+                      "contentJson": {
+                        "type": "doc",
+                        "content": [
+                          {
+                            "type": "paragraph",
+                            "content": [
+                              { "type": "text", "text": "Stale save" }
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isConflict)
     }
 
     @Test
@@ -276,8 +527,7 @@ class OrganizationAccessIntegrationTest {
                       "organizationId": $organizationId,
                       "teamId": $teamId,
                       "type": "TASK",
-                      "title": "Activity tracked issue",
-                      "reporterId": 1
+                      "title": "Activity tracked issue"
                     }
                     """.trimIndent()
                 )
@@ -296,7 +546,6 @@ class OrganizationAccessIntegrationTest {
                 .content(
                     """
                     {
-                      "reporterId": 1,
                       "assigneeId": 1,
                       "priority": "HIGH",
                       "projectId": $projectId,
@@ -314,7 +563,6 @@ class OrganizationAccessIntegrationTest {
                 .content(
                     """
                     {
-                      "reporterId": 1,
                       "state": "IN_PROGRESS"
                     }
                     """.trimIndent()
@@ -334,14 +582,31 @@ class OrganizationAccessIntegrationTest {
             .contentAsString
 
         val events = objectMapper.readTree(activityPayload)
-        val summaries = events.map { it["summary"].asText() }
+        val eventTypes = events.map { it["eventType"].asText() }
+        val actorIds = events.map { it["actorId"]?.asLong() }
+        val stateChanged = events.first { it["eventType"].asText() == "ISSUE_STATE_CHANGED" }
+        val assigneeChanged = events.first { it["eventType"].asText() == "ISSUE_ASSIGNEE_CHANGED" }
+        val priorityChanged = events.first { it["eventType"].asText() == "ISSUE_PRIORITY_CHANGED" }
+        val projectChanged = events.first { it["eventType"].asText() == "ISSUE_PROJECT_CHANGED" }
+        val labelsChanged = events.first { it["eventType"].asText() == "ISSUE_LABELS_CHANGED" }
 
-        assertThat(summaries).contains("created the issue")
-        assertThat(summaries).contains("changed assignee from Unassigned to Cruise Admin")
-        assertThat(summaries).contains("changed priority from Medium to High")
-        assertThat(summaries).contains("changed project from No project to Activity Project")
-        assertThat(summaries).contains("changed labels from no labels to Bug")
-        assertThat(summaries).contains("moved from Todo to In Progress")
+        assertThat(eventTypes).contains("ISSUE_CREATED")
+        assertThat(eventTypes).contains("ISSUE_ASSIGNEE_CHANGED")
+        assertThat(eventTypes).contains("ISSUE_PRIORITY_CHANGED")
+        assertThat(eventTypes).contains("ISSUE_PROJECT_CHANGED")
+        assertThat(eventTypes).contains("ISSUE_LABELS_CHANGED")
+        assertThat(eventTypes).contains("ISSUE_STATE_CHANGED")
+        assertThat(stateChanged["payload"]["from"].asText()).isEqualTo("TODO")
+        assertThat(stateChanged["payload"]["to"].asText()).isEqualTo("IN_PROGRESS")
+        assertThat(assigneeChanged["payload"]["fromName"].asText()).isEqualTo("Unassigned")
+        assertThat(assigneeChanged["payload"]["toName"].asText()).isEqualTo("Cruise Admin")
+        assertThat(priorityChanged["payload"]["from"].asText()).isEqualTo("MEDIUM")
+        assertThat(priorityChanged["payload"]["to"].asText()).isEqualTo("HIGH")
+        assertThat(projectChanged["payload"]["fromName"].asText()).isEqualTo("No project")
+        assertThat(projectChanged["payload"]["toName"].asText()).isEqualTo("Activity Project")
+        assertThat(labelsChanged["payload"]["from"].isArray).isTrue()
+        assertThat(labelsChanged["payload"]["to"][0]["name"].asText()).isEqualTo("Bug")
+        assertThat(actorIds).allMatch { it == 1L }
     }
 
     private fun loginAndGetToken(username: String, password: String): String {

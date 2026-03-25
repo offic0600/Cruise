@@ -1,32 +1,38 @@
 'use client';
 
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import AppLayout from '@/components/AppLayout';
 import IssueDetailPage from '@/components/issues/IssueDetailPage';
 import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import { useI18n } from '@/i18n/useI18n';
-import { getIssues } from '@/lib/api';
+import type { Issue, RestPageResponse } from '@/lib/api';
+import { queryKeys } from '@/lib/query/keys';
+import { useIssueByIdentifier } from '@/lib/query/issues';
 
 export default function IssueDetailWorkspaceRoute() {
   const params = useParams<{ identifier: string }>();
   const identifier = Array.isArray(params.identifier) ? params.identifier[0] : params.identifier;
   const { t } = useI18n();
-  const { organizationId, currentTeamId } = useCurrentWorkspace();
+  const queryClient = useQueryClient();
+  const { organizationId } = useCurrentWorkspace();
+  const cachedIssue = useMemo(() => {
+    if (organizationId == null || !identifier) return null;
+    const issuePages = queryClient.getQueriesData<RestPageResponse<Issue>>({ queryKey: ['issues'] });
+    for (const [, page] of issuePages) {
+      const matched = page?.items?.find((issue) => issue.organizationId === organizationId && issue.identifier === identifier);
+      if (matched) return matched;
+    }
+    return null;
+  }, [identifier, organizationId, queryClient]);
 
-  const issueLookupQuery = useQuery({
-    queryKey: ['issues', 'identifier', organizationId ?? 'none', currentTeamId ?? 'all', identifier],
-    queryFn: () =>
-      getIssues({
-        organizationId: organizationId ?? 1,
-        teamId: currentTeamId ?? undefined,
-        q: identifier,
-        size: 100,
-      }),
-    select: (response) => response.items.find((issue) => issue.identifier === identifier) ?? null,
-    enabled: organizationId != null && Boolean(identifier),
-  });
+  const issueLookupQuery = useIssueByIdentifier(organizationId, identifier, cachedIssue);
+
+  useEffect(() => {
+    if (!issueLookupQuery.data) return;
+    queryClient.setQueryData(queryKeys.issueDetail(issueLookupQuery.data.id), issueLookupQuery.data);
+  }, [issueLookupQuery.data, queryClient]);
 
   const issueId = useMemo(() => issueLookupQuery.data?.id ?? null, [issueLookupQuery.data?.id]);
 

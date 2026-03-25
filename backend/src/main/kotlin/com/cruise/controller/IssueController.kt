@@ -51,6 +51,12 @@ class IssueController(
     @GetMapping("/{id}")
     fun getById(@PathVariable id: Long): IssueDto = issueService.findById(id)
 
+    @GetMapping("/by-identifier")
+    fun getByIdentifier(
+        @RequestParam organizationId: Long,
+        @RequestParam identifier: String
+    ): IssueDto = issueService.findByIdentifier(organizationId, identifier)
+
     @PostMapping
     fun create(@RequestBody request: CreateIssueRequest): ResponseEntity<IssueDto> =
         ResponseEntity.status(HttpStatus.CREATED).body(issueService.create(request))

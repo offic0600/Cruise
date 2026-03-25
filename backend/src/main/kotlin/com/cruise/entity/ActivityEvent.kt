@@ -25,7 +25,7 @@ class ActivityEvent(
     var entityId: Long = 0,
 
     @Column(name = "action_type", nullable = false, length = 50)
-    var actionType: String = "CREATED",
+    var eventType: String = "CREATED",
 
     @Column(nullable = false, length = 1000)
     var summary: String = "",

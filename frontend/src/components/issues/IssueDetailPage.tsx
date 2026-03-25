@@ -1,9 +1,9 @@
 ﻿'use client';
 
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CalendarPlus,
   Clock3,
@@ -61,12 +61,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useI18n } from '@/i18n/useI18n';
 import {
+  createLabel,
   createIssue,
   createIssueLinkAttachments,
   createIssueTemplate,
   createRecurringIssue,
   deleteIssue,
   downloadIssueAttachment,
+  getIssue,
   type Label,
   type CustomFieldDefinition,
   type Issue,
@@ -91,6 +93,8 @@ interface IssueDetailPageProps {
 interface DraftIssue {
   title: string;
   description: string;
+  contentJson: Record<string, unknown> | null;
+  contentRevision: number | null;
   state: Issue['state'];
   resolution: Issue['resolution'];
   priority: Issue['priority'];
@@ -133,6 +137,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const subIssueFileInputRef = useRef<HTMLInputElement | null>(null);
   const subIssueTitleRef = useRef<HTMLInputElement | null>(null);
+  const lastHydratedIssueIdRef = useRef<number | null>(null);
   const user = getStoredUser();
   const organizationId = user?.organizationId ?? 1;
   const {
@@ -160,8 +165,21 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
     createRelationMutation,
     deleteRelationMutation,
   } = useIssueMutations();
+  const createLabelMutation = useMutation({
+    mutationFn: createLabel,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.labels({ organizationId, teamId: issue?.teamId ?? currentTeamId ?? undefined }),
+      });
+    },
+  });
 
   const issue = issueQuery.data;
+  const parentIssueQuery = useQuery({
+    queryKey: issue?.parentIssueId ? queryKeys.issueDetail(issue.parentIssueId) : ['issues', 'parent', 'none'],
+    queryFn: () => getIssue(issue!.parentIssueId!),
+    enabled: Boolean(issue?.parentIssueId),
+  });
   const comments = commentsQuery.data ?? [];
   const activity = activityQuery.data ?? [];
   const relations = relationsQuery.data ?? [];
@@ -178,6 +196,10 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
     return allMembers.filter((member) => member.teamId == null || member.teamId === scopedTeamId);
   }, [currentTeamId, issue?.teamId, membersQuery.data]);
   const customFieldDefinitions = (issue?.customFieldDefinitions ?? customFieldDefinitionsQuery.data ?? []) as CustomFieldDefinition[];
+  const parentIssue = parentIssueQuery.data ?? null;
+  const isActivityLoading = commentsQuery.isLoading || activityQuery.isLoading;
+  const isAttachmentsLoading = attachmentsQuery.isLoading;
+  const isChildIssuesLoading = childIssuesQuery.isLoading;
 
   const [draftIssue, setDraftIssue] = useState<DraftIssue | null>(null);
   const [commentBody, setCommentBody] = useState('');
@@ -187,18 +209,18 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
   const [docContent, setDocContent] = useState('');
   const [relationTargetId, setRelationTargetId] = useState('');
   const [relationType, setRelationType] = useState<(typeof RELATION_TYPES)[number]>('RELATES_TO');
-  const [bodyMode, setBodyMode] = useState<'read' | 'edit'>('read');
   const [activeProperty, setActiveProperty] = useState<string | null>(null);
   const [isAddingChild, setIsAddingChild] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
 
   useEffect(() => {
     if (!issue) return;
+    if (lastHydratedIssueIdRef.current === issue.id) return;
+    lastHydratedIssueIdRef.current = issue.id;
     setDraftIssue(createDraft(issue));
     setSubIssueDraft(createSubIssueDraft(issue));
     setSubIssueFiles([]);
     setIsAddingChild(false);
-    setBodyMode('read');
     setActiveProperty(null);
   }, [issue]);
 
@@ -216,8 +238,8 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
     setIsFavorite(favorites.includes(issue.id));
   }, [issue, user?.id]);
 
-  const initialSnapshot = useMemo(() => (issue ? normalizeDraft(createDraft(issue)) : ''), [issue]);
-  const currentSnapshot = useMemo(() => (draftIssue ? normalizeDraft(draftIssue) : ''), [draftIssue]);
+  const initialSnapshot = useMemo(() => (issue ? normalizeDraftWithoutDescription(createDraft(issue)) : ''), [issue]);
+  const currentSnapshot = useMemo(() => (draftIssue ? normalizeDraftWithoutDescription(draftIssue) : ''), [draftIssue]);
 
   useEffect(() => {
     if (!issue || !draftIssue) return;
@@ -227,7 +249,6 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
         id: issue.id,
         data: {
           title: draftIssue.title,
-          description: draftIssue.description,
           state: draftIssue.state,
           resolution: draftIssue.resolution,
           priority: draftIssue.priority,
@@ -246,6 +267,55 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
     }, 350);
     return () => window.clearTimeout(handle);
   }, [currentSnapshot, initialSnapshot, draftIssue, issue, updateIssueMutation]);
+
+  const handleDescriptionCommit = useCallback(
+    async ({
+      contentJson,
+      revision,
+      markdownExport,
+    }: {
+      contentJson: Record<string, unknown>;
+      revision: number;
+      markdownExport?: string;
+    }) => {
+      if (!issue) return;
+      const nextDescription = markdownExport ?? draftIssue?.description ?? '';
+      let updated: Issue;
+      try {
+        updated = await updateIssueMutation.mutateAsync({
+          id: issue.id,
+          data: {
+            contentJson,
+            expectedRevision: revision,
+            descriptionExport: markdownExport,
+          },
+        });
+      } catch (error) {
+        const status = (error as { response?: { status?: number } })?.response?.status;
+        if (status === 409) {
+          pushToast({
+            title: locale.startsWith('zh') ? '正文已过期' : 'Content is out of date',
+            description: locale.startsWith('zh')
+              ? '该正文已在其他位置更新，请刷新后重试。'
+              : 'This issue body was updated elsewhere. Refresh before editing again.',
+          });
+        }
+        throw error;
+      }
+      setDraftIssue((current) =>
+        current
+          ? {
+              ...current,
+              description: updated.description ?? nextDescription,
+              contentJson: updated.contentJson,
+              contentRevision: updated.contentRevision,
+            }
+          : current
+      );
+      return updated.contentRevision ?? revision + 1;
+    },
+    [draftIssue?.description, issue, locale, pushToast, updateIssueMutation],
+  );
 
   const projectMap = useMemo(() => new Map(projects.map((project) => [project.id, project.name])), [projects]);
   const teamMap = useMemo(() => new Map(teams.map((team) => [team.id, team.name])), [teams]);
@@ -272,6 +342,8 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
           kind: 'event' as const,
           createdAt: event.createdAt,
           authorId: event.actorId,
+          eventType: event.eventType,
+          payload: event.payload,
           summary: event.summary,
         }))
         .sort((left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()),
@@ -562,6 +634,10 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
     setSubIssueDraft(createSubIssueDraft(issue));
     setSubIssueFiles([]);
     setIsAddingChild(false);
+    await queryClient.invalidateQueries({ queryKey: queryKeys.issueDetail(issue.id) });
+    if (currentOrganizationSlug && typeof window !== 'undefined') {
+      window.history.replaceState(window.history.state, '', issueDetailPath(currentOrganizationSlug, issue));
+    }
   };
 
   const addComment = async () => {
@@ -603,6 +679,56 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const handleEditorCommandAction = (
+    action: 'attachment' | 'media' | 'gif' | 'diagram' | 'collapsibleSection' | 'subIssue' | 'relatedIssue' | 'projectRelation' | 'documentRelation'
+  ) => {
+    if (action === 'attachment') {
+      fileInputRef.current?.click();
+      return;
+    }
+    if (action === 'media') {
+      fileInputRef.current?.click();
+      return;
+    }
+    if (action === 'gif') {
+      showActionToast(
+        locale.startsWith('zh') ? '插入 GIF' : 'Insert GIF',
+        locale.startsWith('zh') ? 'GIF 插入即将支持。' : 'GIF insertion is coming soon.'
+      );
+      return;
+    }
+    if (action === 'diagram') {
+      showActionToast(
+        locale.startsWith('zh') ? '图表' : 'Diagram',
+        locale.startsWith('zh') ? '图表块即将支持。' : 'Diagram blocks are coming soon.'
+      );
+      return;
+    }
+    if (action === 'collapsibleSection') {
+      showActionToast(
+        locale.startsWith('zh') ? '折叠区块' : 'Collapsible section',
+        locale.startsWith('zh') ? '折叠区块即将支持。' : 'Collapsible sections are coming soon.'
+      );
+      return;
+    }
+    if (action === 'subIssue') {
+      setIsAddingChild(true);
+      return;
+    }
+    if (action === 'relatedIssue') {
+      void createRelatedIssue('related');
+      return;
+    }
+    if (action === 'documentRelation') {
+      void quickCreateDoc();
+      return;
+    }
+    showActionToast(
+      locale.startsWith('zh') ? '项目关联' : 'Project relation',
+      locale.startsWith('zh') ? '项目关联入口暂时为占位交互。' : 'Project relation is currently a placeholder.'
+    );
+  };
+
   if (issueQuery.isLoading || !draftIssue) {
     return (
       <AppLayout>
@@ -635,6 +761,17 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                     {t('issues.detailPage.backToIssues')}
                   </Link>
                   <ChevronRight className="h-4 w-4 text-ink-300" />
+                  {parentIssue && currentOrganizationSlug ? (
+                    <>
+                      <Link
+                        href={issueDetailPath(currentOrganizationSlug, parentIssue)}
+                        className="truncate transition hover:text-ink-900"
+                      >
+                        {parentIssue.identifier}
+                      </Link>
+                      <ChevronRight className="h-4 w-4 text-ink-300" />
+                    </>
+                  ) : null}
                   <span className="truncate text-ink-700">{issue.identifier}</span>
                 </div>
                 <EditableTitle
@@ -692,11 +829,13 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
             <main className="min-w-0 space-y-8">
               <section className="pb-2">
                 <MarkdownEditor
-                  value={draftIssue.description}
-                  onChange={(value) => setDraftIssue((current) => (current ? { ...current, description: value } : current))}
-                  mode={bodyMode}
-                  onEnterEdit={() => setBodyMode('edit')}
-                  onCancelEdit={() => setBodyMode('read')}
+                  key={issue.id}
+                  issueId={issue.id}
+                  initialMarkdown={draftIssue.description}
+                  initialContentJson={draftIssue.contentJson}
+                  initialRevision={draftIssue.contentRevision}
+                  onCommit={handleDescriptionCommit}
+                  onCommandAction={handleEditorCommandAction}
                 />
               </section>
 
@@ -730,6 +869,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                 <div className="space-y-2.5">
                   <button
                     type="button"
+                    data-testid="issue-detail-add-subissue-button"
                     onClick={() => {
                       setIsAddingChild((current) => {
                         const next = !current;
@@ -756,6 +896,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                         <input
                           ref={subIssueTitleRef}
                           value={subIssueDraft.title}
+                          data-testid="issue-detail-subissue-title-input"
                           onChange={(event) =>
                             setSubIssueDraft((current) => ({
                               ...current,
@@ -767,6 +908,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                         />
                         <Textarea
                           value={subIssueDraft.description}
+                          data-testid="issue-detail-subissue-description-input"
                           onChange={(event) =>
                             setSubIssueDraft((current) => ({
                               ...current,
@@ -818,6 +960,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                             />
                             <InlineLabelsPill
                               labels={labels}
+                              teamId={issue.teamId}
                               selectedLabelIds={subIssueDraft.labelIds}
                               onToggle={(labelId) =>
                                 setSubIssueDraft((current) => ({
@@ -828,6 +971,15 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                                 }))
                               }
                               t={t}
+                              onCreateLabel={async (scopeType, name) => {
+                                await createLabelMutation.mutateAsync({
+                                  organizationId,
+                                  scopeType,
+                                  scopeId: scopeType === 'TEAM' ? issue.teamId : null,
+                                  name,
+                                  createdBy: user?.id ?? null,
+                                });
+                              }}
                             />
                             <InlineSubIssueMoreMenu
                               dueDate={subIssueDraft.plannedEndDate}
@@ -866,6 +1018,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                             </button>
                             <button
                               type="button"
+                              data-testid="issue-detail-subissue-cancel-button"
                               onClick={() => {
                                 setIsAddingChild(false);
                                 setSubIssueDraft(createSubIssueDraft(issue));
@@ -877,6 +1030,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                             </button>
                             <Button
                               type="button"
+                              data-testid="issue-detail-subissue-create-button"
                               onClick={() => void createChildIssue()}
                               disabled={!subIssueDraft.title.trim() || createIssueMutation.isPending || uploadAttachmentMutation.isPending}
                               className="h-10 rounded-full px-5"
@@ -891,7 +1045,9 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                       </div>
                     </div>
                   </div>
-                  {childIssues.length ? (
+                  {isChildIssuesLoading ? (
+                    <SectionLoadingRows rows={2} />
+                  ) : childIssues.length ? (
                     <div className="space-y-1 pl-6">
                       {childIssues.map((child) => (
                         <Link
@@ -910,7 +1066,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                   ) : null}
                 </div>
               </section>
-              <section id="activity" className="space-y-6 border-t border-border-soft/80 pt-7">
+              <section id="activity" data-testid="issue-detail-activity-section" className="space-y-6 border-t border-border-soft/80 pt-7">
                 <div className="flex items-center justify-between gap-4">
                   <h2 className="text-[18px] font-semibold tracking-tight text-ink-900">{t('issues.tabs.activity')}</h2>
                   <div className="flex items-center gap-3 text-sm text-ink-400">
@@ -928,15 +1084,18 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                   </div>
 
                 <div className="space-y-4">
-                  {activityItems.length || commentItems.length ? (
+                  {isActivityLoading ? (
+                    <SectionLoadingRows rows={3} />
+                  ) : activityItems.length || commentItems.length ? (
                     <>
-                      {activityItems.length ? (
-                        <IssueActivityTimeline
-                          items={activityItems}
-                          actorNameMap={actorNameMap}
-                          locale={locale}
-                        />
-                      ) : null}
+              {activityItems.length ? (
+                <IssueActivityTimeline
+                  items={activityItems}
+                  actorNameMap={actorNameMap}
+                  locale={locale}
+                  t={t}
+                />
+              ) : null}
                       {commentItems.length ? (
                         <div className="space-y-3 pt-1">
                           {commentItems.map((item) => {
@@ -972,7 +1131,9 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                   )}
                 </div>
 
-                {attachments.length ? (
+                {isAttachmentsLoading ? (
+                  <SectionLoadingChips count={2} />
+                ) : attachments.length ? (
                   <div className="flex flex-wrap gap-2">
                     {attachments.map((attachment) => (
                       <div
@@ -1004,6 +1165,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                   <Textarea
                     value={commentBody}
                     onChange={(event) => setCommentBody(event.target.value)}
+                    data-testid="issue-detail-comment-input"
                     placeholder={t('issues.detail.commentPlaceholder')}
                     className="min-h-[104px] resize-none border-0 px-0 py-0 text-[15px] leading-7 text-ink-900 placeholder:text-ink-300 focus-visible:ring-0"
                   />
@@ -1019,6 +1181,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                     <button
                       type="button"
                       onClick={() => void addComment()}
+                      data-testid="issue-detail-comment-submit-button"
                       className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-ink-500 transition hover:bg-slate-50 hover:text-ink-900"
                       aria-label={t('issues.detail.addComment')}
                     >
@@ -1043,6 +1206,15 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                 setDraftIssue((current) => (current ? ({ ...current, ...updater(current) } as DraftIssue) : current))
               }
               onSetActiveProperty={setActiveProperty}
+              onCreateLabel={async (scopeType, name) => {
+                await createLabelMutation.mutateAsync({
+                  organizationId,
+                  scopeType,
+                  scopeId: scopeType === 'TEAM' ? issue.teamId : null,
+                  name,
+                  createdBy: user?.id ?? null,
+                });
+              }}
               renderCustomFieldInput={(field, value, onChange, onDone) => (
                 <CustomFieldInput field={field} value={value} onChange={onChange} onDone={onDone} />
               )}
@@ -1756,25 +1928,58 @@ function EmptyState({ label, compact = false }: { label: string; compact?: boole
   return <div className={compact ? 'py-2 text-sm text-ink-400' : 'py-4 text-sm text-ink-400'}>{label}</div>;
 }
 
+function SectionLoadingRows({ rows = 3 }: { rows?: number }) {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: rows }).map((_, index) => (
+        <div key={index} className="grid grid-cols-[22px_minmax(0,1fr)] gap-3">
+          <div className="flex justify-center pt-[7px]">
+            <div className="h-[14px] w-[14px] animate-pulse rounded-full border border-slate-200 bg-slate-100" />
+          </div>
+          <div className="space-y-2 pb-[10px] pt-[1px]">
+            <div className="h-3.5 w-3/4 animate-pulse rounded-full bg-slate-100" />
+            <div className="h-3.5 w-1/3 animate-pulse rounded-full bg-slate-100" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SectionLoadingChips({ count = 2 }: { count?: number }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {Array.from({ length: count }).map((_, index) => (
+        <div key={index} className="h-8 w-28 animate-pulse rounded-full bg-slate-100" />
+      ))}
+    </div>
+  );
+}
+
 function IssueActivityTimeline({
   items,
   actorNameMap,
   locale,
+  t,
 }: {
   items: Array<{
     id: string;
     kind: 'event';
     createdAt: string;
     authorId: number | null;
-    summary: string;
+    eventType: string;
+    payload: Record<string, unknown> | null;
+    summary: string | null;
   }>;
   actorNameMap: Map<number, string>;
   locale: string;
+  t: (key: string, vars?: Record<string, string | number>) => string;
 }) {
   return (
     <div className="space-y-0.5">
       {items.map((item, index) => {
-        const actorName = valueFromMap(actorNameMap, item.authorId, 'System');
+        const actorName = valueFromMap(actorNameMap, item.authorId, t('issues.activityEvent.system'));
+        const translatedSummary = renderActivitySummary(item, t);
         return (
           <div key={item.id} className="grid grid-cols-[22px_minmax(0,1fr)] gap-3">
             <div className="relative flex justify-center pt-[7px]">
@@ -1785,7 +1990,7 @@ function IssueActivityTimeline({
             </div>
             <div className="pb-[10px] pt-[1px] text-[13px] leading-6 text-ink-700">
               <span className="font-medium text-ink-900">{actorName}</span>
-              <span className="ml-1">{stripActorName(item.summary, actorName)}</span>
+              <span className="ml-1">{translatedSummary}</span>
               <span className="mx-1.5 text-ink-300">·</span>
               <span className="text-[12px] text-ink-400">{formatRelativeTime(item.createdAt, locale)}</span>
             </div>
@@ -1846,6 +2051,8 @@ function createDraft(issue: Issue): DraftIssue {
   return {
     title: issue.title,
     description: issue.description ?? '',
+    contentJson: issue.contentJson ?? null,
+    contentRevision: issue.contentRevision ?? null,
     state: issue.state,
     resolution: issue.resolution,
     priority: issue.priority,
@@ -1862,9 +2069,12 @@ function createDraft(issue: Issue): DraftIssue {
   };
 }
 
-function normalizeDraft(draft: DraftIssue) {
+function normalizeDraftWithoutDescription(draft: DraftIssue) {
   return JSON.stringify({
     ...draft,
+    description: undefined,
+    contentJson: undefined,
+    contentRevision: undefined,
     customFields: sanitizeCustomFields(draft.customFields),
   });
 }
@@ -2110,22 +2320,40 @@ function InlineIssuePill({
 
 function InlineLabelsPill({
   labels,
+  teamId,
   selectedLabelIds,
   onToggle,
   t,
+  onCreateLabel,
 }: {
   labels: Label[];
+  teamId: number | null;
   selectedLabelIds: number[];
   onToggle: (labelId: number) => void;
   t: (key: string, vars?: Record<string, string | number>) => string;
+  onCreateLabel: (scopeType: 'TEAM' | 'WORKSPACE', name: string) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [creating, setCreating] = useState<'TEAM' | 'WORKSPACE' | null>(null);
   const normalizedQuery = query.trim().toLowerCase();
   const filteredLabels = normalizedQuery
     ? labels.filter((label) => label.name.toLowerCase().includes(normalizedQuery))
     : labels;
   const selectedLabels = labels.filter((label) => selectedLabelIds.includes(label.id));
+  const canCreate = Boolean(normalizedQuery) && !labels.some((label) => label.name.toLowerCase() === normalizedQuery);
+
+  const handleCreate = async (scopeType: 'TEAM' | 'WORKSPACE') => {
+    const name = query.trim();
+    if (!name) return;
+    setCreating(scopeType);
+    try {
+      await onCreateLabel(scopeType, name);
+      setQuery('');
+    } finally {
+      setCreating(null);
+    }
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -2149,8 +2377,33 @@ function InlineLabelsPill({
             className="h-auto border-0 bg-transparent px-0 py-0 text-[16px] shadow-none focus-visible:ring-0"
           />
         </div>
-        <div className="max-h-80 overflow-y-auto p-2">
-          <div className="space-y-1">
+        <div className="max-h-80 overflow-y-auto py-2">
+          {canCreate ? (
+            <div className="space-y-1 px-2 pb-3">
+              {teamId ? (
+                <button
+                  type="button"
+                  onClick={() => void handleCreate('TEAM')}
+                  className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50"
+                  disabled={creating != null}
+                >
+                  <span className="text-xl leading-none text-ink-500">+</span>
+                  <span>{t('settings.composer.createTeamLabel', { value: query.trim() })}</span>
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => void handleCreate('WORKSPACE')}
+                className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50"
+                disabled={creating != null}
+              >
+                <span className="text-xl leading-none text-ink-500">+</span>
+                <span>{t('settings.composer.createWorkspaceLabel', { value: query.trim() })}</span>
+              </button>
+            </div>
+          ) : null}
+
+          <div className="space-y-1 px-2">
             {filteredLabels.map((label) => {
               const selected = selectedLabelIds.includes(label.id);
               return (
@@ -2167,7 +2420,9 @@ function InlineLabelsPill({
               );
             })}
           </div>
-          {!filteredLabels.length ? <div className="px-3 py-4 text-sm text-ink-400">{t('common.empty')}</div> : null}
+          {!filteredLabels.length && !canCreate ? (
+            <div className="px-3 py-4 text-sm text-ink-400">{t('common.empty')}</div>
+          ) : null}
         </div>
       </PopoverContent>
     </Popover>
@@ -2431,15 +2686,69 @@ function valueFromMap(map: Map<number, string>, key: number | null, fallback: st
   return key == null ? fallback : map.get(key) ?? fallback;
 }
 
-function stripActorName(summary: string, actorName: string) {
-  const normalizedSummary = summary.trim();
-  if (!normalizedSummary) return '';
-  const lowerSummary = normalizedSummary.toLowerCase();
-  const lowerActor = actorName.trim().toLowerCase();
-  if (lowerActor && lowerSummary.startsWith(lowerActor)) {
-    return normalizedSummary.slice(actorName.length).trimStart();
+function renderActivitySummary(
+  item: {
+    eventType: string;
+    payload: Record<string, unknown> | null;
+    summary: string | null;
+  },
+  t: (key: string, vars?: Record<string, string | number>) => string
+) {
+  const payload = item.payload ?? {};
+
+  switch (item.eventType) {
+    case 'ISSUE_CREATED':
+      return t('issues.activityEvent.issueCreated');
+    case 'ISSUE_STATE_CHANGED':
+      return t('issues.activityEvent.issueStateChanged', {
+        from: translateActivityStateValue(payload.from, t),
+        to: translateActivityStateValue(payload.to, t),
+      });
+    case 'ISSUE_ASSIGNEE_CHANGED':
+      return t('issues.activityEvent.issueAssigneeChanged', {
+        from: translateActivityDisplayValue(payload.fromName, t('common.notSet')),
+        to: translateActivityDisplayValue(payload.toName, t('common.notSet')),
+      });
+    case 'ISSUE_PRIORITY_CHANGED':
+      return t('issues.activityEvent.issuePriorityChanged', {
+        from: translateActivityPriorityValue(payload.from, t),
+        to: translateActivityPriorityValue(payload.to, t),
+      });
+    case 'ISSUE_PROJECT_CHANGED':
+      return t('issues.activityEvent.issueProjectChanged', {
+        from: translateActivityDisplayValue(payload.fromName, t('settings.composer.noProject')),
+        to: translateActivityDisplayValue(payload.toName, t('settings.composer.noProject')),
+      });
+    case 'ISSUE_LABELS_CHANGED':
+      return t('issues.activityEvent.issueLabelsChanged', {
+        from: translateActivityLabels(payload.from, t),
+        to: translateActivityLabels(payload.to, t),
+      });
+    default:
+      return item.summary ?? item.eventType;
   }
-  return normalizedSummary;
+}
+
+function translateActivityStateValue(value: unknown, t: (key: string) => string) {
+  return typeof value === 'string' ? issueStateLabel(value as Issue['state'], t) : String(value ?? '');
+}
+
+function translateActivityPriorityValue(value: unknown, t: (key: string) => string) {
+  return typeof value === 'string' ? issuePriorityLabel(value as Issue['priority'], t) : String(value ?? '');
+}
+
+function translateActivityDisplayValue(value: unknown, fallback: string) {
+  return typeof value === 'string' && value.trim() ? value : fallback;
+}
+
+function translateActivityLabels(value: unknown, t: (key: string) => string) {
+  if (!Array.isArray(value) || value.length === 0) {
+    return t('settings.composer.noLabels');
+  }
+  const names = value
+    .map((entry) => (entry && typeof entry === 'object' && 'name' in entry ? String(entry.name ?? '') : ''))
+    .filter(Boolean);
+  return names.length ? names.join(', ') : t('settings.composer.noLabels');
 }
 
 function initialsForName(value: string) {

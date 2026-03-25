@@ -27,6 +27,20 @@ class Issue(
     @Column(length = 4000)
     var description: String? = null,
 
+    @Lob
+    @Column(name = "content_json")
+    var contentJson: String? = null,
+
+    @Column(name = "content_format", length = 50)
+    var contentFormat: String? = null,
+
+    @Column(name = "content_revision")
+    var contentRevision: Long? = null,
+
+    @Column(name = "content_migrated_at")
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
+    var contentMigratedAt: LocalDateTime? = null,
+
     @Column(nullable = false, length = 50)
     var state: String = "TODO",
 

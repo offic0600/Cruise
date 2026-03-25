@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useI18n } from '@/i18n/useI18n';
 import { checkOrganizationSlugAvailability, createOrganization, getOrganizations, getTeams, joinWorkspaceInvite } from '@/lib/api';
-import { type AuthSession, getStoredSession, storeSession } from '@/lib/auth';
+import { clearSession, type AuthSession, getStoredSession, storeSession } from '@/lib/auth';
 import { publicPath, teamActivePath, workspaceRootPath } from '@/lib/routes';
 
 const regions = ['Asia Pacific', 'United States', 'Europe'] as const;
@@ -107,10 +107,13 @@ export default function CreateWorkspacePage() {
     enabled: guardedOrganization?.id != null,
   });
   const guardedTeam = guardedTeamsQuery.data?.[0] ?? null;
+  const guardError = organizationsGuardQuery.error ?? guardedTeamsQuery.error ?? null;
+  const guardAuthError = isAuthError(guardError);
   const isGuardCheckingExistingWorkspace =
     session !== undefined &&
     Boolean(session?.user) &&
     !hasInvite &&
+    !guardError &&
     (isWorkspaceLoading || organizationsGuardQuery.isLoading || guardedTeamsQuery.isLoading);
   const shouldBlockWorkspaceForm =
     session !== undefined &&
@@ -134,6 +137,12 @@ export default function CreateWorkspacePage() {
       organizationsGuardQuery.isLoading ||
       guardedTeamsQuery.isLoading
     ) return;
+    if (guardAuthError) {
+      clearSession();
+      replace(publicPath('/login'));
+      return;
+    }
+    if (guardError) return;
     if (!guardedOrganization) return;
 
     if (currentOrganizationSlug && currentTeamKey) {
@@ -158,6 +167,8 @@ export default function CreateWorkspacePage() {
     organizationsGuardQuery.isLoading,
     router,
     session,
+    guardAuthError,
+    guardError,
   ]);
 
   const slugAvailabilityQuery = useQuery({
@@ -232,6 +243,17 @@ export default function CreateWorkspacePage() {
   }
 
   if (!session?.user) return null;
+
+  if (guardError && !hasInvite) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-page-glow text-ink-700">
+        <div>{t('createWorkspace.errors.generic')}</div>
+        <Button type="button" variant="secondary" onClick={() => window.location.reload()}>
+          {t('common.retry')}
+        </Button>
+      </div>
+    );
+  }
 
   if (shouldBlockWorkspaceForm) {
     return <div className="flex min-h-screen items-center justify-center bg-page-glow text-ink-700">Loading workspace...</div>;
@@ -330,6 +352,7 @@ export default function CreateWorkspacePage() {
                     <Input
                       value={name}
                       onChange={(event) => setName(event.target.value)}
+                      data-testid="create-workspace-name-input"
                       className="h-14 rounded-[1rem] border-brand-500/40 px-4 text-lg"
                       autoFocus
                     />
@@ -346,6 +369,7 @@ export default function CreateWorkspacePage() {
                           setSlugTouched(true);
                           setSlug(slugify(event.target.value));
                         }}
+                        data-testid="create-workspace-slug-input"
                         className="min-w-0 flex-1 bg-transparent outline-none"
                       />
                     </div>
@@ -410,6 +434,7 @@ export default function CreateWorkspacePage() {
           <Button
             type="button"
             className="mt-8 h-14 min-w-80 rounded-full px-10 text-lg"
+            data-testid="create-workspace-submit-button"
             disabled={mode === 'create' ? !canCreate : !canJoin}
             onClick={() => {
               setSubmitted(true);
@@ -435,6 +460,11 @@ export default function CreateWorkspacePage() {
       </div>
     </div>
   );
+}
+
+function isAuthError(error: unknown) {
+  const status = (error as { response?: { status?: number } } | null)?.response?.status;
+  return status === 401 || status === 403;
 }
 
 function FieldHint({ text, tone }: { text: string | null; tone: 'error' | 'muted' }) {

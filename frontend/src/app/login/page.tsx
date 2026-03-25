@@ -222,6 +222,7 @@ export default function LoginPage() {
                     type="button"
                     variant="secondary"
                     className="h-auto w-full justify-start rounded-card border-border-subtle px-4 py-4 text-left"
+                    data-testid="login-password-method-button"
                     onClick={() => {
                       setActiveMethod('password');
                       setError('');
@@ -299,6 +300,7 @@ export default function LoginPage() {
                     type="text"
                     value={username}
                     onChange={(event) => setUsername(event.target.value)}
+                    data-testid="login-username-input"
                     className="border-border-soft bg-white text-ink-900 placeholder:text-ink-400"
                     placeholder={t('login.usernamePlaceholder')}
                     required
@@ -311,13 +313,14 @@ export default function LoginPage() {
                     type="password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
+                    data-testid="login-password-input"
                     className="border-border-soft bg-white text-ink-900 placeholder:text-ink-400"
                     placeholder={t('login.passwordPlaceholder')}
                     required
                   />
                 </div>
 
-                <Button type="submit" disabled={loading} className="w-full">
+                <Button type="submit" disabled={loading} className="w-full" data-testid="login-submit-button">
                   {loading ? t('login.submitting') : t('login.submit')}
                 </Button>
               </form>

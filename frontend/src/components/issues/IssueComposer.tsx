@@ -683,6 +683,7 @@ function QuickCreateView({
           value={draft.title}
           onChange={(event) => onDraftChange((current) => (current ? { ...current, title: event.target.value } : current))}
           placeholder={t('settings.composer.titlePlaceholder')}
+          data-testid="issue-composer-title-input"
           className="w-full border-0 bg-transparent px-0 text-[46px] font-semibold tracking-[-0.03em] text-ink-900 outline-none placeholder:text-ink-300"
         />
         <textarea
@@ -844,6 +845,7 @@ function QuickCreateView({
             type="button"
             onClick={() => void onCreate()}
             disabled={!draft.title.trim() || createPending}
+            data-testid="issue-composer-submit-button"
             className={cn(
               'h-14 rounded-full px-8 text-base font-semibold shadow-none',
               recurringEnabled ? 'bg-[#5E6AD2] hover:bg-[#525DC2]' : undefined

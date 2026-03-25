@@ -18,9 +18,7 @@ import {
 } from 'lucide-react';
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
@@ -65,6 +63,7 @@ export function IssueDetailSidebar({
   t,
   onSetDraftIssue,
   onSetActiveProperty,
+  onCreateLabel,
   renderCustomFieldInput,
   formatCustomFieldValue,
 }: {
@@ -79,7 +78,13 @@ export function IssueDetailSidebar({
   t: (key: string, vars?: Record<string, string | number>) => string;
   onSetDraftIssue: (updater: (current: SidebarDraft) => SidebarDraft) => void;
   onSetActiveProperty: (value: string | null) => void;
-  renderCustomFieldInput: (field: CustomFieldDefinition, value: unknown, onChange: (value: unknown) => void, onDone?: () => void) => ReactNode;
+  onCreateLabel: (scopeType: 'TEAM' | 'WORKSPACE', name: string) => Promise<void>;
+  renderCustomFieldInput: (
+    field: CustomFieldDefinition,
+    value: unknown,
+    onChange: (value: unknown) => void,
+    onDone?: () => void
+  ) => ReactNode;
   formatCustomFieldValue: (field: CustomFieldDefinition, value: unknown) => string;
 }) {
   const isZh = locale.startsWith('zh');
@@ -93,12 +98,6 @@ export function IssueDetailSidebar({
     avatarClassName: 'bg-rose-100 text-rose-600',
   }));
 
-  const labelMap = new Map(labels.map((label) => [label.id, label]));
-  issue.labels.forEach((label) => {
-    if (!labelMap.has(label.id)) labelMap.set(label.id, label);
-  });
-
-  const selectedLabels = draftIssue.labelIds.map((labelId) => labelMap.get(labelId)).filter(Boolean) as Label[];
   const selectedProject = projects.find((project) => project.id === draftIssue.projectId) ?? null;
   const selectedAssignee = members.find((member) => member.id === draftIssue.assigneeId) ?? null;
 
@@ -106,6 +105,7 @@ export function IssueDetailSidebar({
     <aside className="space-y-3 xl:sticky xl:top-24 xl:self-start">
       <SidebarCard title="Properties" bodyClassName="flex flex-col items-start gap-2.5">
         <SingleValuePill
+          testId="issue-detail-sidebar-state-pill"
           label={stateOptions.find((option) => option.value === draftIssue.state)?.label ?? ''}
           value={draftIssue.state}
           options={stateOptions}
@@ -118,6 +118,7 @@ export function IssueDetailSidebar({
           }
         />
         <SingleValuePill
+          testId="issue-detail-sidebar-priority-pill"
           label={priorityOptions.find((option) => option.value === draftIssue.priority)?.label ?? ''}
           value={draftIssue.priority}
           options={priorityOptions}
@@ -129,6 +130,7 @@ export function IssueDetailSidebar({
           }
         />
         <SingleValuePill
+          testId="issue-detail-sidebar-assignee-pill"
           label={selectedAssignee?.name ?? notSetLabel}
           value={draftIssue.assigneeId == null ? EMPTY : String(draftIssue.assigneeId)}
           options={assigneeOptions}
@@ -146,67 +148,27 @@ export function IssueDetailSidebar({
       </SidebarCard>
 
       <SidebarCard title="Labels">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="inline-flex min-h-11 flex-wrap items-center gap-2 rounded-full border border-border-soft bg-white px-4 py-2 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
-            >
-              {selectedLabels.length ? (
-                <>
-                  {selectedLabels.map((label) => (
-                    <span
-                      key={label.id}
-                      className="inline-flex items-center gap-2 rounded-full border border-border-soft bg-white px-3 py-1 text-[14px] font-medium text-ink-700"
-                    >
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: label.color || '#ef4444' }} />
-                      <span>{label.name}</span>
-                    </span>
-                  ))}
-                  <Plus className="h-4 w-4 text-ink-400" />
-                </>
-              ) : (
-                <>
-                  <Tag className="h-4 w-4 text-ink-400" />
-                  <span>{isZh ? '标签' : 'Labels'}</span>
-                </>
-              )}
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-[320px] rounded-[18px] p-1.5">
-            {labels.length ? (
-              labels.map((label) => {
-                const checked = draftIssue.labelIds.includes(label.id);
-                return (
-                  <DropdownMenuCheckboxItem
-                    key={label.id}
-                    checked={checked}
-                    onCheckedChange={(nextChecked) =>
-                      onSetDraftIssue((current) => ({
-                        ...current,
-                        labelIds: nextChecked
-                          ? Array.from(new Set([...current.labelIds, label.id]))
-                          : current.labelIds.filter((value) => value !== label.id),
-                      }))
-                    }
-                    className="rounded-xl py-2.5 pl-8 pr-3 text-[15px]"
-                  >
-                    <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: label.color || '#ef4444' }} />
-                    {label.name}
-                  </DropdownMenuCheckboxItem>
-                );
-              })
-            ) : (
-              <DropdownMenuItem disabled className="rounded-xl px-3 py-2.5 text-[15px]">
-                {isZh ? '暂无可用标签' : 'No labels available'}
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <LabelsPill
+          labels={labels}
+          selectedLabelIds={draftIssue.labelIds}
+          teamId={issue.teamId}
+          isZh={isZh}
+          t={t}
+          onToggle={(labelId) =>
+            onSetDraftIssue((current) => ({
+              ...current,
+              labelIds: current.labelIds.includes(labelId)
+                ? current.labelIds.filter((value) => value !== labelId)
+                : [...current.labelIds, labelId],
+            }))
+          }
+          onCreateLabel={onCreateLabel}
+        />
       </SidebarCard>
 
       <SidebarCard title="Project" bodyClassName="flex flex-col items-start gap-2.5">
         <SingleValuePill
+          testId="issue-detail-sidebar-project-pill"
           label={selectedProject?.name ?? (isZh ? 'Add to project' : 'Add to project')}
           value={draftIssue.projectId == null ? EMPTY : String(draftIssue.projectId)}
           emptyLabel={notSetLabel}
@@ -290,6 +252,7 @@ function SidebarCard({
 }
 
 function SingleValuePill({
+  testId,
   label,
   value,
   options,
@@ -300,6 +263,7 @@ function SingleValuePill({
   searchPlaceholder,
   noSearchResultsLabel,
 }: {
+  testId?: string;
   label: string;
   value: string;
   options: SidebarOption[];
@@ -321,6 +285,7 @@ function SingleValuePill({
   const trigger = (
     <button
       type="button"
+      data-testid={testId}
       className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
     >
       <SingleValueDisplay option={selectedOption} fallbackLabel={label || emptyLabel || ''} />
@@ -389,6 +354,140 @@ function SingleValuePill({
   );
 }
 
+function LabelsPill({
+  labels,
+  selectedLabelIds,
+  teamId,
+  isZh,
+  t,
+  onToggle,
+  onCreateLabel,
+}: {
+  labels: Label[];
+  selectedLabelIds: number[];
+  teamId: number | null;
+  isZh: boolean;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+  onToggle: (labelId: number) => void;
+  onCreateLabel: (scopeType: 'TEAM' | 'WORKSPACE', name: string) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [creating, setCreating] = useState<'TEAM' | 'WORKSPACE' | null>(null);
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredLabels = normalizedQuery
+    ? labels.filter((label) => label.name.toLowerCase().includes(normalizedQuery))
+    : labels;
+  const selectedLabels = labels.filter((label) => selectedLabelIds.includes(label.id));
+  const canCreate = Boolean(normalizedQuery) && !labels.some((label) => label.name.toLowerCase() === normalizedQuery);
+
+  const handleCreate = async (scopeType: 'TEAM' | 'WORKSPACE') => {
+    const name = query.trim();
+    if (!name) return;
+    setCreating(scopeType);
+    try {
+      await onCreateLabel(scopeType, name);
+      setQuery('');
+    } finally {
+      setCreating(null);
+    }
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          data-testid="issue-detail-sidebar-labels-pill"
+          className="inline-flex min-h-11 flex-wrap items-center gap-2 rounded-full border border-border-soft bg-white px-4 py-2 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
+        >
+          {selectedLabels.length ? (
+            <>
+              {selectedLabels.map((label) => (
+                <span
+                  key={label.id}
+                  className="inline-flex items-center gap-2 rounded-full border border-border-soft bg-white px-3 py-1 text-[14px] font-medium text-ink-700"
+                >
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: label.color || '#ef4444' }} />
+                  <span>{label.name}</span>
+                </span>
+              ))}
+              <Plus className="h-4 w-4 text-ink-400" />
+            </>
+          ) : (
+            <>
+              <Tag className="h-4 w-4 text-ink-400" />
+              <span>{isZh ? '标签' : 'Labels'}</span>
+            </>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[320px] overflow-hidden p-0">
+        <div className="border-b border-border-soft px-4 py-3">
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t('settings.composer.searchLabels')}
+            className="h-auto border-0 bg-transparent px-0 py-0 text-[16px] shadow-none focus-visible:ring-0"
+          />
+        </div>
+        <div className="max-h-80 overflow-y-auto py-2">
+          {canCreate ? (
+            <div className="space-y-1 px-2 pb-3">
+              {teamId ? (
+                <button
+                  type="button"
+                  onClick={() => void handleCreate('TEAM')}
+                  className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50"
+                  disabled={creating != null}
+                >
+                  <span className="text-xl leading-none text-ink-500">+</span>
+                  <span>{t('settings.composer.createTeamLabel', { value: query.trim() })}</span>
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => void handleCreate('WORKSPACE')}
+                className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50"
+                disabled={creating != null}
+              >
+                <span className="text-xl leading-none text-ink-500">+</span>
+                <span>{t('settings.composer.createWorkspaceLabel', { value: query.trim() })}</span>
+              </button>
+            </div>
+          ) : null}
+
+          <div className="space-y-1 px-2">
+            {filteredLabels.map((label) => {
+              const selected = selectedLabelIds.includes(label.id);
+              return (
+                <button
+                  key={label.id}
+                  type="button"
+                  onClick={() => onToggle(label.id)}
+                  className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50"
+                >
+                  <span className="inline-flex h-2.5 w-2.5 rounded-full" style={{ backgroundColor: label.color || '#ef4444' }} />
+                  <span className="flex-1 truncate">{label.name}</span>
+                  {selected ? (
+                    <svg viewBox="0 0 16 16" className="h-4 w-4 fill-current text-ink-500" aria-hidden="true">
+                      <path d="M6.4 11.2 3.6 8.4l-.8.8 3.6 3.6 6.8-6.8-.8-.8z" />
+                    </svg>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+
+          {!filteredLabels.length && !canCreate ? (
+            <div className="px-3 py-4 text-sm text-ink-400">{t('common.empty')}</div>
+          ) : null}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function SingleValueOption({
   label,
   option,
@@ -430,7 +529,11 @@ function SingleValueDisplay({ option, fallbackLabel }: { option?: SidebarOption;
 }
 
 function AvatarChip({ text, className }: { text: string; className?: string }) {
-  return <span className={cn('inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold uppercase', className)}>{text}</span>;
+  return (
+    <span className={cn('inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold uppercase', className)}>
+      {text}
+    </span>
+  );
 }
 
 function InlineEditableRow({

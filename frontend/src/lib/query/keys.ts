@@ -2,6 +2,7 @@ export const queryKeys = {
   issues: (filters?: Record<string, unknown>) => ['issues', filters ?? {}] as const,
   issue: (id: number) => ['issues', id] as const,
   issueDetail: (id: number) => ['issues', id, 'detail'] as const,
+  issueByIdentifier: (organizationId: number, identifier: string) => ['issues', organizationId, 'identifier', identifier] as const,
   customFields: (params?: Record<string, unknown>) => ['custom-fields', params ?? {}] as const,
   projects: ['projects'] as const,
   initiatives: ['initiatives'] as const,

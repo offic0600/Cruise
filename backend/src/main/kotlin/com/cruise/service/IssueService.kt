@@ -5,8 +5,10 @@ import com.cruise.repository.IssueRepository
 import com.cruise.repository.ProjectRepository
 import com.cruise.repository.UserRepository
 import com.fasterxml.jackson.core.type.TypeReference
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.http.HttpStatus
+import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.server.ResponseStatusException
@@ -20,6 +22,9 @@ data class IssueDto(
     val type: String,
     val title: String,
     val description: String?,
+    val contentJson: JsonNode?,
+    val contentRevision: Long?,
+    val contentFormat: String?,
     val state: String,
     val stateCategory: String,
     val resolution: String?,
@@ -67,6 +72,8 @@ data class CreateIssueRequest(
     val type: String,
     val title: String,
     val description: String? = null,
+    val contentJson: JsonNode? = null,
+    val descriptionExport: String? = null,
     val state: String? = null,
     val resolution: String? = null,
     val priority: String? = null,
@@ -93,6 +100,9 @@ data class UpdateIssueRequest(
     val projectId: Long? = null,
     val title: String? = null,
     val description: String? = null,
+    val contentJson: JsonNode? = null,
+    val expectedRevision: Long? = null,
+    val descriptionExport: String? = null,
     val state: String? = null,
     val resolution: String? = null,
     val priority: String? = null,
@@ -171,6 +181,16 @@ open class IssueService(
         )
     }
 
+    fun findByIdentifier(organizationId: Long, identifier: String): IssueDto {
+        val issue = issueRepository.findByOrganizationIdAndIdentifier(organizationId, identifier)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Issue not found")
+        return issue.toDto(
+            customFields = issueCustomFieldService.getValuesForIssue(issue),
+            labels = labelService.getLabelsForIssues(listOf(issue.id))[issue.id].orEmpty(),
+            customFieldDefinitions = issueCustomFieldService.getDefinitionsForIssue(issue)
+        )
+    }
+
     fun getIssue(id: Long): Issue = issueRepository.findById(id)
         .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Issue not found") }
 
@@ -178,6 +198,8 @@ open class IssueService(
     fun create(request: CreateIssueRequest): IssueDto {
         val normalizedParentIssueId = normalizeNullableReference(request.parentIssueId, null)
         validateParent(normalizedParentIssueId, request.projectId)
+        val serializedContentJson = serializeContentJson(request.contentJson)
+        val now = LocalDateTime.now()
         val saved = issueRepository.save(
             Issue(
                 organizationId = request.organizationId
@@ -185,7 +207,11 @@ open class IssueService(
                 identifier = nextIdentifier(),
                 type = request.type,
                 title = request.title,
-                description = request.description,
+                description = request.descriptionExport ?: request.description,
+                contentJson = serializedContentJson,
+                contentFormat = serializedContentJson?.let { CONTENT_FORMAT_PROSEMIRROR_JSON },
+                contentRevision = serializedContentJson?.let { 1L },
+                contentMigratedAt = serializedContentJson?.let { now },
                 state = request.state ?: defaultStateForType(request.type),
                 resolution = normalizeResolution(
                     state = request.state ?: defaultStateForType(request.type),
@@ -210,12 +236,13 @@ open class IssueService(
             )
         )
         issueCustomFieldService.replaceIssueValues(saved, request.customFields)
-        labelService.replaceIssueLabels(saved.id, saved.organizationId, saved.teamId, request.labelIds, request.reporterId)
+        val actorId = request.reporterId ?: currentActorId()
+        labelService.replaceIssueLabels(saved.id, saved.organizationId, saved.teamId, request.labelIds, actorId)
         recordIssueActivity(
-            actorId = saved.reporterId,
+            actorId = actorId,
             issueId = saved.id,
-            actionType = "ISSUE_CREATED",
-            summary = "created the issue"
+            eventType = "ISSUE_CREATED",
+            payload = emptyMap()
         )
         return findById(saved.id)
     }
@@ -228,13 +255,27 @@ open class IssueService(
         val nextProjectId = request.projectId ?: issue.projectId
         val nextParentIssueId = normalizeNullableReference(request.parentIssueId, issue.parentIssueId)
         validateParent(nextParentIssueId, nextProjectId)
+        val currentContentRevision = issue.contentRevision ?: 0L
+        val serializedContentJson = serializeContentJson(request.contentJson)
+        if (serializedContentJson != null && request.expectedRevision != null && request.expectedRevision != currentContentRevision) {
+            throw ResponseStatusException(HttpStatus.CONFLICT, "Issue content is out of date")
+        }
+        val nextContentRevision = if (serializedContentJson != null) currentContentRevision + 1 else issue.contentRevision
         val updated = Issue(
             id = issue.id,
             organizationId = request.organizationId ?: issue.organizationId,
             identifier = issue.identifier,
             type = issue.type,
             title = request.title ?: issue.title,
-            description = request.description ?: issue.description,
+            description = when {
+                serializedContentJson != null -> request.descriptionExport ?: request.description ?: issue.description
+                request.description != null -> request.description
+                else -> issue.description
+            },
+            contentJson = serializedContentJson ?: issue.contentJson,
+            contentFormat = serializedContentJson?.let { CONTENT_FORMAT_PROSEMIRROR_JSON } ?: issue.contentFormat,
+            contentRevision = nextContentRevision,
+            contentMigratedAt = serializedContentJson?.let { issue.contentMigratedAt ?: LocalDateTime.now() } ?: issue.contentMigratedAt,
             state = request.state ?: issue.state,
             resolution = normalizeResolution(
                 state = request.state ?: issue.state,
@@ -261,8 +302,8 @@ open class IssueService(
         )
         val saved = issueRepository.save(updated)
         issueCustomFieldService.replaceIssueValues(saved, request.customFields ?: issueCustomFieldService.getValuesForIssue(issue))
-        labelService.replaceIssueLabels(saved.id, saved.organizationId, saved.teamId, request.labelIds, request.reporterId ?: saved.reporterId)
-        val actorId = request.reporterId ?: saved.reporterId
+        val actorId = request.reporterId ?: currentActorId() ?: saved.reporterId
+        labelService.replaceIssueLabels(saved.id, saved.organizationId, saved.teamId, request.labelIds, actorId)
         recordUpdateEvents(
             before = snapshot,
             after = saved,
@@ -284,6 +325,10 @@ open class IssueService(
                 type = issue.type,
                 title = issue.title,
                 description = issue.description,
+                contentJson = issue.contentJson,
+                contentFormat = issue.contentFormat,
+                contentRevision = issue.contentRevision,
+                contentMigratedAt = issue.contentMigratedAt,
                 state = state,
                 resolution = normalizeResolution(state, resolution ?: issue.resolution),
                 priority = issue.priority,
@@ -308,10 +353,9 @@ open class IssueService(
         )
         if (previousState != saved.state) {
             recordIssueActivity(
-                actorId = saved.reporterId,
+                actorId = currentActorId() ?: saved.reporterId,
                 issueId = saved.id,
-                actionType = "ISSUE_STATE_CHANGED",
-                summary = "moved from ${displayState(previousState)} to ${displayState(saved.state)}",
+                eventType = "ISSUE_STATE_CHANGED",
                 payload = mapOf("from" to previousState, "to" to saved.state)
             )
         }
@@ -348,6 +392,9 @@ open class IssueService(
         type = type,
         title = title,
         description = description,
+        contentJson = readContentJson(contentJson),
+        contentRevision = contentRevision,
+        contentFormat = contentFormat,
         state = state,
         stateCategory = stateCategoryFor(state),
         resolution = resolution ?: defaultResolutionForState(state),
@@ -376,8 +423,18 @@ open class IssueService(
 
     private fun parseDate(value: String?): LocalDate? = value?.let { LocalDate.parse(it) }
 
+    private fun serializeContentJson(contentJson: JsonNode?): String? =
+        contentJson?.takeUnless { it.isNull }?.let { objectMapper.writeValueAsString(it) }
+
+    private fun readContentJson(contentJson: String?): JsonNode? =
+        contentJson?.takeIf { it.isNotBlank() }?.let { objectMapper.readTree(it) }
+
     private fun nextIdentifier(): String =
         "ISSUE-${(issueRepository.findAll().maxOfOrNull { it.id } ?: 0L) + 1}"
+
+    private companion object {
+        const val CONTENT_FORMAT_PROSEMIRROR_JSON = "PROSEMIRROR_JSON"
+    }
 
     private fun defaultStateForType(type: String): String =
         if (type == "FEATURE") "BACKLOG" else "TODO"
@@ -437,45 +494,59 @@ open class IssueService(
             recordIssueActivity(
                 actorId = actorId,
                 issueId = after.id,
-                actionType = "ISSUE_STATE_CHANGED",
-                summary = "moved from ${displayState(before.state)} to ${displayState(after.state)}",
-                payload = mapOf("from" to before.state, "to" to after.state)
+                eventType = "ISSUE_STATE_CHANGED",
+                payload = mapOf(
+                    "from" to before.state,
+                    "to" to after.state
+                )
             )
         }
         if (before.assigneeId != after.assigneeId) {
             recordIssueActivity(
                 actorId = actorId,
                 issueId = after.id,
-                actionType = "ISSUE_ASSIGNEE_CHANGED",
-                summary = "changed assignee from ${displayAssignee(before.assigneeId)} to ${displayAssignee(after.assigneeId)}",
-                payload = mapOf("from" to before.assigneeId, "to" to after.assigneeId)
+                eventType = "ISSUE_ASSIGNEE_CHANGED",
+                payload = mapOf(
+                    "fromId" to before.assigneeId,
+                    "toId" to after.assigneeId,
+                    "fromName" to displayAssignee(before.assigneeId),
+                    "toName" to displayAssignee(after.assigneeId)
+                )
             )
         }
         if (before.priority != after.priority) {
             recordIssueActivity(
                 actorId = actorId,
                 issueId = after.id,
-                actionType = "ISSUE_PRIORITY_CHANGED",
-                summary = "changed priority from ${displayPriority(before.priority)} to ${displayPriority(after.priority)}",
-                payload = mapOf("from" to before.priority, "to" to after.priority)
+                eventType = "ISSUE_PRIORITY_CHANGED",
+                payload = mapOf(
+                    "from" to before.priority,
+                    "to" to after.priority
+                )
             )
         }
         if (before.projectId != after.projectId) {
             recordIssueActivity(
                 actorId = actorId,
                 issueId = after.id,
-                actionType = "ISSUE_PROJECT_CHANGED",
-                summary = "changed project from ${displayProject(before.projectId)} to ${displayProject(after.projectId)}",
-                payload = mapOf("from" to before.projectId, "to" to after.projectId)
+                eventType = "ISSUE_PROJECT_CHANGED",
+                payload = mapOf(
+                    "fromId" to before.projectId,
+                    "toId" to after.projectId,
+                    "fromName" to displayProject(before.projectId),
+                    "toName" to displayProject(after.projectId)
+                )
             )
         }
         if (previousLabels.map { it.id } != nextLabels.map { it.id }) {
             recordIssueActivity(
                 actorId = actorId,
                 issueId = after.id,
-                actionType = "ISSUE_LABELS_CHANGED",
-                summary = "changed labels from ${displayLabels(previousLabels)} to ${displayLabels(nextLabels)}",
-                payload = mapOf("from" to previousLabels.map { it.id }, "to" to nextLabels.map { it.id })
+                eventType = "ISSUE_LABELS_CHANGED",
+                payload = mapOf(
+                    "from" to previousLabels.map { label -> mapOf("id" to label.id, "name" to label.name) },
+                    "to" to nextLabels.map { label -> mapOf("id" to label.id, "name" to label.name) }
+                )
             )
         }
     }
@@ -483,8 +554,7 @@ open class IssueService(
     private fun recordIssueActivity(
         actorId: Long?,
         issueId: Long,
-        actionType: String,
-        summary: String,
+        eventType: String,
         payload: Map<String, Any?>? = null
     ) {
         activityEventService.create(
@@ -492,9 +562,8 @@ open class IssueService(
                 actorId = actorId,
                 entityType = "ISSUE",
                 entityId = issueId,
-                actionType = actionType,
-                summary = summary,
-                payloadJson = payload?.let { objectMapper.writeValueAsString(it) }
+                eventType = eventType,
+                payload = payload
             )
         )
     }
@@ -536,4 +605,9 @@ open class IssueService(
         priority = priority,
         projectId = projectId
     )
+
+    private fun currentActorId(): Long? {
+        val username = SecurityContextHolder.getContext().authentication?.name ?: return null
+        return userRepository.findByUsername(username)?.id ?: userRepository.findByEmail(username)?.id
+    }
 }

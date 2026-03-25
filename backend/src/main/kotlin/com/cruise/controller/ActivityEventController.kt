@@ -27,13 +27,14 @@ class ActivityEventController(
         @RequestParam(required = false) actorId: Long?,
         @RequestParam(required = false) entityType: String?,
         @RequestParam(required = false) entityId: Long?,
+        @RequestParam(required = false) eventType: String?,
         @RequestParam(required = false) actionType: String?
     ): List<ActivityEventDto> = activityEventService.findAll(
         ActivityEventQuery(
             actorId = actorId,
             entityType = entityType,
             entityId = entityId,
-            actionType = actionType
+            eventType = eventType ?: actionType
         )
     )
 
