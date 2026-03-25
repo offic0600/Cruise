@@ -1,6 +1,6 @@
-'use client';
+﻿'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, FolderKanban, Layers3, Plus, Search, SlidersHorizontal } from 'lucide-react';
 import Link from 'next/link';
@@ -10,7 +10,7 @@ import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import { getTeamMembers } from '@/lib/api/legacy';
 import type { View, ViewResourceType, ViewScopeType } from '@/lib/api/types';
 import { useCreateView, useViewsIndex } from '@/lib/query/views';
-import { teamViewsPath, workspaceViewPath, workspaceViewsPath } from '@/lib/routes';
+import { workspaceViewPath, workspaceViewsPath } from '@/lib/routes';
 import { useI18n } from '@/i18n/useI18n';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -75,6 +75,7 @@ export default function ViewsDirectory({
     currentTeamKey,
   } = useCurrentWorkspace();
   const [search, setSearch] = useState('');
+  const [showLoadingState, setShowLoadingState] = useState(true);
   const effectiveScopeId = scopeType === 'TEAM' ? (scopeId ?? currentTeamId ?? null) : scopeId;
 
   const viewsQuery = useViewsIndex({
@@ -109,9 +110,22 @@ export default function ViewsDirectory({
     [views]
   );
 
+  useEffect(() => {
+    if (!viewsQuery.isPending) {
+      setShowLoadingState(false);
+      return;
+    }
+    setShowLoadingState(true);
+    const timer = window.setTimeout(() => {
+      setShowLoadingState(false);
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [viewsQuery.isPending]);
+
+  const workspaceLabel = currentOrganization?.name ?? currentOrganizationSlug ?? t('common.workspace');
   const scopeLabel = scopeType === 'TEAM'
     ? `${teamKey ?? currentTeamKey ?? ''} · Team`
-    : `${currentOrganization?.name ?? currentOrganizationSlug ?? t('common.workspace')} · Workspace`;
+    : `${workspaceLabel} · Workspace`;
 
   async function handleCreate() {
     if (!organizationId || !currentOrganizationSlug) return;
@@ -131,27 +145,68 @@ export default function ViewsDirectory({
 
   return (
     <AppLayout>
-      <div className="rounded-[28px] border border-border-subtle bg-white/95 shadow-[0_24px_60px_rgba(15,23,42,0.06)]">
-        <div className="flex items-center justify-between border-b border-border-soft px-6 py-4">
-          <h1 className="text-[30px] font-semibold tracking-[-0.02em] text-ink-900">{t('views.title')}</h1>
-          <Button variant="ghost" size="icon" onClick={handleCreate} aria-label={t('common.create')}>
-            <Plus className="h-4.5 w-4.5" />
-          </Button>
+      <div className="mx-auto w-full max-w-[1180px] pb-10">
+        <div className="border-b border-border-soft pb-6">
+          <div className="flex items-start justify-between gap-6">
+            <div className="space-y-2">
+              <div className="text-[34px] font-semibold tracking-[-0.03em] text-ink-900">{t('views.title')}</div>
+              <div className="max-w-[560px] text-sm leading-6 text-ink-500">
+                Organize reusable work contexts for this scope. Save filters, grouping, and ownership without splitting the underlying graph.
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={t('common.search')}
+                    className="rounded-full border border-border-soft bg-white text-ink-600 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:bg-slate-50"
+                  >
+                    <SlidersHorizontal className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[320px] rounded-[18px] border-border-subtle p-4">
+                  <div className="space-y-3">
+                    <div className="text-sm font-medium text-ink-900">{t('common.search')}</div>
+                    <div className="relative">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
+                      <Input
+                        value={search}
+                        onChange={(event) => setSearch(event.target.value)}
+                        placeholder={t('views.searchPlaceholder')}
+                        className="pl-9"
+                      />
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleCreate}
+                aria-label={t('common.create')}
+                className="rounded-full border border-border-soft bg-white text-ink-600 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:bg-slate-50"
+              >
+                <Plus className="h-4.5 w-4.5" />
+              </Button>
+            </div>
+          </div>
         </div>
 
-        <div className="flex items-center justify-between gap-4 border-b border-border-soft px-4 py-3">
+        <div className="flex items-center justify-between gap-4 py-5">
           {scopeType === 'WORKSPACE' ? (
             <Tabs value={resourceType} onValueChange={(value) => currentOrganizationSlug && router.push(workspaceViewsPath(currentOrganizationSlug, value === 'PROJECT' ? 'projects' : 'issues'))}>
-              <TabsList className="rounded-full border border-border-soft bg-transparent p-0.5">
+              <TabsList className="rounded-full border border-border-soft bg-white p-1 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
                 <TabsTrigger
                   value="ISSUE"
-                  className="rounded-full border border-transparent px-4 text-ink-500 transition data-[state=active]:border-border-soft data-[state=active]:bg-slate-50 data-[state=active]:font-medium data-[state=active]:text-ink-900 data-[state=active]:shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
+                  className="min-w-[92px] rounded-full border border-transparent px-5 text-[15px] text-ink-600 transition data-[state=active]:border-border-soft data-[state=active]:bg-slate-50 data-[state=active]:font-medium data-[state=active]:text-ink-900 data-[state=active]:shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
                 >
                   {t('views.resources.issues')}
                 </TabsTrigger>
                 <TabsTrigger
                   value="PROJECT"
-                  className="rounded-full border border-transparent px-4 text-ink-500 transition data-[state=active]:border-border-soft data-[state=active]:bg-slate-50 data-[state=active]:font-medium data-[state=active]:text-ink-900 data-[state=active]:shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
+                  className="min-w-[92px] rounded-full border border-transparent px-5 text-[15px] text-ink-600 transition data-[state=active]:border-border-soft data-[state=active]:bg-slate-50 data-[state=active]:font-medium data-[state=active]:text-ink-900 data-[state=active]:shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
                 >
                   {t('views.resources.projects')}
                 </TabsTrigger>
@@ -159,82 +214,64 @@ export default function ViewsDirectory({
             </Tabs>
           ) : (
             <Tabs value="ISSUE">
-              <TabsList className="rounded-full border border-border-soft bg-transparent p-0.5">
+              <TabsList className="rounded-full border border-border-soft bg-white p-1 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
                 <TabsTrigger
                   value="ISSUE"
-                  className="rounded-full border border-transparent px-4 text-ink-500 transition data-[state=active]:border-border-soft data-[state=active]:bg-slate-50 data-[state=active]:font-medium data-[state=active]:text-ink-900 data-[state=active]:shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
+                  className="min-w-[92px] rounded-full border border-transparent px-5 text-[15px] text-ink-600 transition data-[state=active]:border-border-soft data-[state=active]:bg-slate-50 data-[state=active]:font-medium data-[state=active]:text-ink-900 data-[state=active]:shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
                 >
                   {t('views.resources.issues')}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
           )}
-
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="secondary" size="icon" aria-label={t('common.search')}>
-                <SlidersHorizontal className="h-4 w-4" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[320px] rounded-[18px] border-border-subtle p-4">
-              <div className="space-y-3">
-                <div className="text-sm font-medium text-ink-900">{t('common.search')}</div>
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                  <Input
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder={t('views.searchPlaceholder')}
-                    className="pl-9"
-                  />
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
         </div>
 
-        <div className="px-6 py-4">
-          <div className="grid grid-cols-[minmax(0,1fr)_220px_40px] items-center px-2 pb-3 text-sm text-ink-500">
+        <div className="border-t border-border-soft pt-5">
+          <div className="grid grid-cols-[minmax(0,1fr)_220px_40px] items-center px-1 pb-3 text-sm text-ink-500">
             <div className="font-medium text-ink-700">Name</div>
             <div className="font-medium text-ink-700">Owner</div>
             <div />
           </div>
 
-          <div className="overflow-hidden rounded-[22px] border border-border-soft bg-white">
-            <div className="grid grid-cols-[minmax(0,1fr)_220px_40px] items-center gap-3 border-b border-border-soft bg-slate-25 px-4 py-4">
+          <div className="space-y-3">
+            <div className="grid grid-cols-[minmax(0,1fr)_220px_40px] items-center gap-3 rounded-[18px] bg-slate-50/90 px-4 py-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-700 text-[11px] font-semibold text-white">
-                  {initials(currentOrganization?.name ?? currentOrganizationSlug ?? 'WS')}
+                  {initials(workspaceLabel)}
                 </div>
-                <span className="text-[15px] font-medium text-ink-800">{scopeLabel}</span>
+                <div className="text-[15px] font-medium text-ink-800">{scopeLabel}</div>
               </div>
-              <div />
+              <div className="text-sm text-ink-400">
+                {orderedViews.length ? `${orderedViews.length} view${orderedViews.length === 1 ? '' : 's'}` : null}
+              </div>
               <button type="button" onClick={handleCreate} className="text-lg leading-none text-ink-500 transition hover:text-ink-900">+</button>
             </div>
 
-            {viewsQuery.isLoading ? (
-              <div className="px-4 py-10 text-sm text-ink-500">{t('common.loading')}</div>
+            {viewsQuery.isPending && showLoadingState ? (
+              <div className="px-1 py-10 text-sm text-ink-500">{t('common.loading')}</div>
             ) : orderedViews.length ? (
-              <div className="divide-y divide-border-soft">
+              <div className="divide-y divide-border-soft rounded-[20px] bg-white">
                 {orderedViews.map((view) => {
                   const owner = ownerLabel(view, members);
                   return (
                     <Link
                       key={view.id}
                       href={currentOrganizationSlug ? workspaceViewPath(currentOrganizationSlug, view.id) : '#'}
-                      className="grid grid-cols-[minmax(0,1fr)_220px_40px] items-center gap-3 px-4 py-4 transition hover:bg-slate-50"
+                      className="grid grid-cols-[minmax(0,1fr)_220px_40px] items-center gap-3 rounded-[18px] px-4 py-4 transition hover:bg-slate-50"
                     >
                       <div className="min-w-0">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-ink-500">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-ink-500">
                             {view.resourceType === 'PROJECT' ? <FolderKanban className="h-3.5 w-3.5" /> : <Layers3 className="h-3.5 w-3.5" />}
                           </div>
                           <div className="truncate text-[15px] font-medium text-ink-900">{view.name}</div>
                         </div>
-                        {view.description ? <div className="mt-1 pl-9 text-sm text-ink-500">{view.description}</div> : null}
+                        <div className="mt-1 pl-10 text-sm text-ink-500">
+                          {view.description || t('views.defaultDescription')}
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-2 text-sm text-ink-700">
+                      <div className="flex min-w-0 items-center gap-2 text-sm text-ink-700">
                         {owner ? (
                           <>
                             <div className="flex h-6 w-6 items-center justify-center rounded-full bg-coral-300 text-[10px] font-semibold text-white">
@@ -242,7 +279,9 @@ export default function ViewsDirectory({
                             </div>
                             <span className="truncate">{owner}</span>
                           </>
-                        ) : null}
+                        ) : (
+                          <span className="text-ink-400">System</span>
+                        )}
                       </div>
 
                       <div className="flex justify-end text-ink-400">
@@ -253,7 +292,18 @@ export default function ViewsDirectory({
                 })}
               </div>
             ) : (
-              <div className="px-4 py-10 text-sm text-ink-500">{t('views.empty')}</div>
+              <div className="px-1 py-10">
+                <div className="text-sm text-ink-500">{t('views.directoryEmpty')}</div>
+                {viewsQuery.isError ? (
+                  <button
+                    type="button"
+                    onClick={() => void viewsQuery.refetch()}
+                    className="mt-3 text-sm font-medium text-ink-700 transition hover:text-ink-900"
+                  >
+                    Retry
+                  </button>
+                ) : null}
+              </div>
             )}
           </div>
         </div>

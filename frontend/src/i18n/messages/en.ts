@@ -758,11 +758,12 @@ const enMessages = {
     },
   },
   views: {
-    title: "Views",
-    subtitle: "Views are reusable contexts on top of the same work item graph, not separate modules.",
-    searchPlaceholder: "Search this view",
-    empty: "No issues in this view",
-    defaultDescription: "A reusable work context built from filters, grouping, and sorting.",
+      title: "Views",
+      subtitle: "Views are reusable contexts on top of the same work item graph, not separate modules.",
+      searchPlaceholder: "Search this view",
+      empty: "No issues in this view",
+      directoryEmpty: "No views in this scope",
+      defaultDescription: "A reusable work context built from filters, grouping, and sorting.",
     newView: "New view",
     status: {
       saved: "View saved",

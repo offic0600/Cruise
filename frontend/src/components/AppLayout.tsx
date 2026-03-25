@@ -218,12 +218,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       : item.href === '/views/issues'
         ? (
             currentOrganizationSlug
-              ? (
-                  pathname.startsWith(`/${currentOrganizationSlug}/team/${currentTeamKey ?? ''}/`)
-                    && currentTeamKey
-                    ? teamViewsPath(currentOrganizationSlug, currentTeamKey, 'issues')
-                    : workspaceViewsPath(currentOrganizationSlug, 'issues')
-                )
+              ? workspaceViewsPath(currentOrganizationSlug, 'issues')
               : '#'
           )
         : currentOrganizationSlug
