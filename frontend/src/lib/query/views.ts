@@ -129,6 +129,9 @@ export function useUpdateView() {
       description?: string | null;
       icon?: string | null;
       color?: string | null;
+      ownerUserId?: number;
+      scopeType?: 'WORKSPACE' | 'TEAM' | 'PROJECT';
+      scopeId?: number | null;
       visibility?: 'PERSONAL' | 'WORKSPACE' | 'TEAM';
       layout?: 'LIST' | 'BOARD';
       position?: number;

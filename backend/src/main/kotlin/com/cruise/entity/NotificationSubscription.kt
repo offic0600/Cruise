@@ -19,6 +19,9 @@ class NotificationSubscription(
     @Column(name = "resource_id", nullable = false)
     var resourceId: Long = 0,
 
+    @Column(name = "event_key", length = 100)
+    var eventKey: String? = null,
+
     @Column(nullable = false)
     var active: Boolean = true,
 
@@ -31,4 +34,3 @@ class NotificationSubscription(
     @Column(name = "archived_at")
     var archivedAt: LocalDateTime? = null
 )
-

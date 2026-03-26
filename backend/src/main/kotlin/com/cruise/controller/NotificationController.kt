@@ -77,6 +77,7 @@ class NotificationController(
         @RequestParam(required = false) userId: Long?,
         @RequestParam(required = false) resourceType: String?,
         @RequestParam(required = false) resourceId: Long?,
+        @RequestParam(required = false) eventKey: String?,
         @RequestParam(required = false) active: Boolean?,
         @RequestParam(required = false, defaultValue = "false") includeArchived: Boolean
     ): List<NotificationSubscriptionDto> = notificationService.findSubscriptions(
@@ -84,6 +85,7 @@ class NotificationController(
             userId = userId,
             resourceType = resourceType,
             resourceId = resourceId,
+            eventKey = eventKey,
             active = active,
             includeArchived = includeArchived
         )

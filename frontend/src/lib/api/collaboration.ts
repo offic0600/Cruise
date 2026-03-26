@@ -142,6 +142,7 @@ export const getNotificationSubscriptions = (params?: {
   userId?: number;
   resourceType?: string;
   resourceId?: number;
+  eventKey?: string;
   active?: boolean;
   includeArchived?: boolean;
 }) => apiClient.get<NotificationSubscription[]>('/notifications/subscriptions', { params }).then((r) => r.data);
@@ -153,10 +154,12 @@ export const createNotificationSubscription = (data: {
   userId: number;
   resourceType: string;
   resourceId: number;
+  eventKey?: string | null;
   active?: boolean;
 }) => apiClient.post<NotificationSubscription>('/notifications/subscriptions', data).then((r) => r.data);
 
 export const updateNotificationSubscription = (id: number, data: {
+  eventKey?: string | null;
   active?: boolean;
   archivedAt?: string | null;
 }) => apiClient.put<NotificationSubscription>(`/notifications/subscriptions/${id}`, data).then((r) => r.data);

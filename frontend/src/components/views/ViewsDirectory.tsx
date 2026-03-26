@@ -83,7 +83,7 @@ export default function ViewsDirectory({
     resourceType,
     scopeType,
     scopeId: effectiveScopeId,
-    includeSystem: true,
+    includeSystem: false,
     includeFavorites: true,
     q: search || undefined,
   });
@@ -102,13 +102,7 @@ export default function ViewsDirectory({
   const members = Array.isArray(membersQuery.data) ? membersQuery.data : [];
   const views = viewsQuery.data ?? [];
 
-  const orderedViews = useMemo(
-    () => [
-      ...views.filter((view) => view.isSystem),
-      ...views.filter((view) => !view.isSystem),
-    ],
-    [views]
-  );
+  const orderedViews = useMemo(() => views.filter((view) => !view.isSystem), [views]);
 
   useEffect(() => {
     if (!viewsQuery.isPending) {
@@ -245,7 +239,7 @@ export default function ViewsDirectory({
                   return (
                     <Link
                       key={view.id}
-                      href={currentOrganizationSlug ? workspaceViewPath(currentOrganizationSlug, view.id) : '#'}
+                        href={currentOrganizationSlug ? workspaceViewPath(currentOrganizationSlug, view) : '#'}
                       className="grid grid-cols-[minmax(0,1fr)_220px_40px] items-center gap-3 rounded-[18px] px-4 py-4 transition hover:bg-slate-50"
                     >
                       <div className="min-w-0">
@@ -269,7 +263,7 @@ export default function ViewsDirectory({
                             <span className="truncate">{owner}</span>
                           </>
                         ) : (
-                          <span className="text-ink-400">{t('views.directory.systemOwner')}</span>
+                          <span className="text-ink-400">-</span>
                         )}
                       </div>
 

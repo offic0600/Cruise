@@ -1,24 +1,41 @@
 ﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Copy, Eye, Filter, FolderKanban, LayoutList, Star, Trash2 } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Bell, Check, Copy, Ellipsis, Eye, Filter, FolderKanban, LayoutList, Link2, MoveRight, Star, Trash2, UserRoundPen } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import AppLayout from '@/components/AppLayout';
+import SharedIssuesList from '@/components/issues/SharedIssuesList';
 import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useI18n } from '@/i18n/useI18n';
+import { getStoredSession } from '@/lib/auth';
+import { createNotificationSubscription, getNotificationSubscriptions, updateNotificationSubscription } from '@/lib/api/collaboration';
+import { getMemberships } from '@/lib/api/planning';
 import type {
   FilterCondition,
   FilterGroup,
   Issue,
+  NotificationSubscription,
   Project,
   View,
   ViewQueryState,
@@ -36,7 +53,8 @@ import {
   useViewResults,
   useViewsIndex,
 } from '@/lib/query/views';
-import { teamViewsPath, workspaceViewPath, workspaceViewsPath } from '@/lib/routes';
+import { useIssueMutations, useIssueWorkspace } from '@/lib/query/issues';
+import { issueDetailPath, teamViewsPath, workspaceViewPath, workspaceViewsPath } from '@/lib/routes';
 
 type ConditionDraft = {
   field: string;
@@ -117,6 +135,13 @@ function columnLabel(column: string) {
   return column.replace(/([A-Z])/g, ' $1').replace(/^./, (match) => match.toUpperCase());
 }
 
+const VIEW_SUBSCRIPTION_EVENT_KEYS = ['ISSUE_ADDED', 'ISSUE_COMPLETED_OR_CANCELED'] as const;
+
+function fallbackOwnerName(ownerUserId: number | null, ownerOptions: Array<{ id: number; label: string }>, t: (key: string, params?: Record<string, string | number>) => string) {
+  if (ownerUserId == null) return t('common.notSet');
+  return ownerOptions.find((option) => option.id === ownerUserId)?.label ?? `User #${ownerUserId}`;
+}
+
 export default function ViewsWorkbench({
   viewId,
   defaultResourceType,
@@ -131,8 +156,11 @@ export default function ViewsWorkbench({
   teamKey?: string | null;
 }) {
   const router = useRouter();
-  const { t } = useI18n();
-  const { organizationId, currentOrganizationSlug, currentTeamKey } = useCurrentWorkspace();
+  const queryClient = useQueryClient();
+  const { locale, t } = useI18n();
+  const { organizationId, currentOrganizationSlug, currentTeam, currentTeamId, currentTeamKey } = useCurrentWorkspace();
+  const session = getStoredSession();
+  const currentUserId = session?.user.id ?? null;
   const viewQuery = useViewDetail(viewId ?? null);
   const activeView = viewQuery.data ?? null;
   const resourceType = activeView?.resourceType ?? defaultResourceType ?? 'ISSUE';
@@ -174,12 +202,17 @@ export default function ViewsWorkbench({
     size: 100,
     queryState: activeView ? draftQueryState : undefined,
   });
+  const issueWorkspace = useIssueWorkspace({
+    organizationId: organizationId ?? undefined,
+    teamId: effectiveScopeType === 'TEAM' ? effectiveScopeId ?? undefined : undefined,
+  });
 
   const createViewMutation = useCreateView();
   const updateViewMutation = useUpdateView();
   const duplicateViewMutation = useDuplicateView();
   const favoriteViewMutation = useFavoriteView();
   const deleteViewMutation = useDeleteView();
+  const { updateIssueMutation } = useIssueMutations();
 
   const dirty = useMemo(() => {
     if (!activeView) return false;
@@ -196,6 +229,81 @@ export default function ViewsWorkbench({
     favorites: indexViews.filter((view) => view.isFavorite),
     custom: indexViews.filter((view) => !view.isSystem),
   }), [indexViews]);
+  const relatedProjects = useMemo(() => issueWorkspace.projectsQuery.data ?? [], [issueWorkspace.projectsQuery.data]);
+  const relatedMembers = useMemo(() => issueWorkspace.membersQuery.data ?? [], [issueWorkspace.membersQuery.data]);
+  const issueResults = useMemo(
+    () => (resourceType === 'ISSUE' ? ((resultsQuery.data?.items ?? []) as Issue[]) : []),
+    [resourceType, resultsQuery.data?.items]
+  );
+  const canRenderSharedIssueList = resourceType === 'ISSUE' && (!draftQueryState.grouping.field || draftQueryState.grouping.field === 'state');
+  const resultGroupKeys = useMemo(
+    () => (draftQueryState.grouping.field === 'state' ? (resultsQuery.data?.groups ?? []).map((group) => group.key) : undefined),
+    [draftQueryState.grouping.field, resultsQuery.data?.groups]
+  );
+  const membershipsQuery = useQuery({
+    queryKey: ['view-memberships', organizationId ?? 0],
+    queryFn: () => getMemberships({ organizationId: organizationId ?? undefined, active: true }),
+    enabled: organizationId != null,
+  });
+  const subscriptionsQuery = useQuery({
+    queryKey: ['view-subscriptions', activeView?.id ?? 0, currentUserId ?? 0],
+    queryFn: () =>
+      getNotificationSubscriptions({
+        userId: currentUserId ?? undefined,
+        resourceType: 'VIEW',
+        resourceId: activeView?.id,
+        includeArchived: true,
+      }),
+    enabled: activeView != null && currentUserId != null,
+  });
+  const ownerOptions = useMemo(() => {
+    const memberNameById = new Map<number, string>();
+    for (const member of relatedMembers as Array<Record<string, unknown>>) {
+      const id = Number(member.userId ?? member.id ?? member.memberId ?? 0);
+      const name = String(member.name ?? member.displayName ?? member.email ?? '').trim();
+      if (id > 0 && name) memberNameById.set(id, name);
+    }
+    if (currentUserId != null) {
+      memberNameById.set(
+        currentUserId,
+        session?.user.username || session?.user.email || memberNameById.get(currentUserId) || `User #${currentUserId}`
+      );
+    }
+    const ids = new Set<number>();
+    for (const membership of membershipsQuery.data ?? []) ids.add(membership.userId);
+    for (const id of memberNameById.keys()) ids.add(id);
+    return Array.from(ids)
+      .sort((left, right) => left - right)
+      .map((id) => ({ id, label: memberNameById.get(id) ?? `User #${id}` }));
+  }, [currentUserId, membershipsQuery.data, relatedMembers, session?.user.email, session?.user.username]);
+  const activeSubscriptions = useMemo(() => {
+    const map = new Map<string, NotificationSubscription>();
+    for (const subscription of subscriptionsQuery.data ?? []) {
+      if (subscription.archivedAt == null) {
+        map.set(subscription.eventKey ?? '__default__', subscription);
+      }
+    }
+    return map;
+  }, [subscriptionsQuery.data]);
+  const subscriptionMutation = useMutation({
+    mutationFn: async ({ eventKey, active }: { eventKey: string; active: boolean }) => {
+      const existing = activeSubscriptions.get(eventKey);
+      if (existing) {
+        return updateNotificationSubscription(existing.id, { active, eventKey });
+      }
+      if (!currentUserId || !activeView) throw new Error('Missing user or view');
+      return createNotificationSubscription({
+        userId: currentUserId,
+        resourceType: 'VIEW',
+        resourceId: activeView.id,
+        eventKey,
+        active,
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['view-subscriptions', activeView?.id ?? 0, currentUserId ?? 0] });
+    },
+  });
 
   const visibleColumns = draftQueryState.display.visibleColumns;
   const conditionOperator = draftQueryState.filters.operator;
@@ -234,7 +342,7 @@ export default function ViewsWorkbench({
         },
       });
       setStatusMessage(t('views.status.saved'));
-      if (currentOrganizationSlug) router.replace(workspaceViewPath(currentOrganizationSlug, updated.id));
+      if (currentOrganizationSlug) router.replace(workspaceViewPath(currentOrganizationSlug, updated));
       return;
     }
 
@@ -250,7 +358,7 @@ export default function ViewsWorkbench({
       layout: nextQueryState.display.layout,
     });
     setStatusMessage(t('views.status.created'));
-    if (currentOrganizationSlug) router.push(workspaceViewPath(currentOrganizationSlug, created.id));
+    if (currentOrganizationSlug) router.push(workspaceViewPath(currentOrganizationSlug, created));
   }
 
   async function handleFavoriteToggle() {
@@ -261,7 +369,7 @@ export default function ViewsWorkbench({
   async function handleDuplicate() {
     if (!activeView || !currentOrganizationSlug) return;
     const duplicated = await duplicateViewMutation.mutateAsync(activeView.id);
-    router.push(workspaceViewPath(currentOrganizationSlug, duplicated.id));
+    router.push(workspaceViewPath(currentOrganizationSlug, duplicated));
   }
 
   async function handleDelete() {
@@ -273,6 +381,49 @@ export default function ViewsWorkbench({
       return;
     }
     router.push(workspaceViewsPath(currentOrganizationSlug, activeView.resourceType === 'ISSUE' ? 'issues' : 'projects'));
+  }
+
+  async function handleCopyLink() {
+    if (typeof window === 'undefined') return;
+    await navigator.clipboard.writeText(window.location.href);
+    setStatusMessage(t('views.status.linkCopied'));
+  }
+
+  async function handleChangeOwner(ownerUserId: number) {
+    if (!activeView || !currentOrganizationSlug) return;
+    const updated = await updateViewMutation.mutateAsync({
+      id: activeView.id,
+      data: { ownerUserId },
+    });
+    setStatusMessage(t('views.status.ownerUpdated'));
+    if (updated.visibility === 'PERSONAL' && ownerUserId !== currentUserId) {
+      router.push(workspaceViewsPath(currentOrganizationSlug, updated.resourceType === 'ISSUE' ? 'issues' : 'projects'));
+      return;
+    }
+    router.replace(workspaceViewPath(currentOrganizationSlug, updated));
+  }
+
+  async function handleMoveView(scopeType: ViewScopeType, scopeId: number | null, visibility: ViewVisibility) {
+    if (!activeView || !currentOrganizationSlug) return;
+    const updated = await updateViewMutation.mutateAsync({
+      id: activeView.id,
+      data: {
+        scopeType,
+        scopeId,
+        visibility,
+      },
+    });
+    setStatusMessage(t('views.status.moved'));
+    router.replace(workspaceViewPath(currentOrganizationSlug, updated));
+  }
+
+  async function handleToggleSubscription(eventKey: (typeof VIEW_SUBSCRIPTION_EVENT_KEYS)[number]) {
+    const existing = activeSubscriptions.get(eventKey);
+    await subscriptionMutation.mutateAsync({
+      eventKey,
+      active: !(existing?.active ?? false),
+    });
+    setStatusMessage(t('views.status.subscriptionUpdated'));
   }
 
   function renderValue(item: Issue | Project, column: string) {
@@ -302,6 +453,208 @@ export default function ViewsWorkbench({
       case 'createdAt': return new Date(project.createdAt).toLocaleDateString();
       default: return '';
     }
+  }
+
+  if (viewId && viewQuery.isLoading) {
+    return (
+      <AppLayout>
+        <div className="px-8 py-16 text-center text-sm text-ink-500">{t('common.loading')}</div>
+      </AppLayout>
+    );
+  }
+
+  if (viewId && activeView) {
+    const ownerLabel = fallbackOwnerName(activeView.ownerUserId, ownerOptions, t);
+    return (
+      <AppLayout>
+        <div className="space-y-6 px-8 py-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-2">
+              <h1 className="text-3xl font-semibold text-ink-900">{activeView.name}</h1>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="mt-1 h-8 w-8 rounded-full text-ink-500 hover:bg-slate-100">
+                    <Ellipsis className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-56 rounded-[18px] border border-border-subtle bg-white p-1.5 shadow-elevated">
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="rounded-xl px-3 py-2.5 text-sm text-ink-700">
+                      <UserRoundPen className="mr-2 h-4 w-4 text-ink-500" />
+                      {t('views.actions.owner')}
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="w-56 rounded-[18px] border border-border-subtle bg-white p-1.5 shadow-elevated">
+                      {ownerOptions.map((option) => (
+                        <DropdownMenuItem
+                          key={option.id}
+                          className="rounded-xl px-3 py-2.5 text-sm text-ink-700"
+                          onClick={() => handleChangeOwner(option.id)}
+                        >
+                          <span className="truncate">{option.label}</span>
+                          {activeView.ownerUserId === option.id ? <Check className="ml-auto h-4 w-4 text-brand-600" /> : null}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="rounded-xl px-3 py-2.5 text-sm text-ink-700">
+                      <MoveRight className="mr-2 h-4 w-4 text-ink-500" />
+                      {t('views.actions.moveTo')}
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="w-56 rounded-[18px] border border-border-subtle bg-white p-1.5 shadow-elevated">
+                      <DropdownMenuItem className="rounded-xl px-3 py-2.5 text-sm text-ink-700" onClick={() => handleMoveView('WORKSPACE', null, 'PERSONAL')}>
+                        <span>{t('views.visibility.personal')}</span>
+                        {activeView.scopeType === 'WORKSPACE' && activeView.visibility === 'PERSONAL' ? <Check className="ml-auto h-4 w-4 text-brand-600" /> : null}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="rounded-xl px-3 py-2.5 text-sm text-ink-700" onClick={() => handleMoveView('WORKSPACE', null, 'WORKSPACE')}>
+                        <span>{t('views.visibility.workspace')}</span>
+                        {activeView.scopeType === 'WORKSPACE' && activeView.visibility === 'WORKSPACE' ? <Check className="ml-auto h-4 w-4 text-brand-600" /> : null}
+                      </DropdownMenuItem>
+                      {currentTeamId != null ? (
+                        <DropdownMenuItem className="rounded-xl px-3 py-2.5 text-sm text-ink-700" onClick={() => handleMoveView('TEAM', currentTeamId, 'TEAM')}>
+                          <span>{currentTeam?.name ?? currentTeamKey ?? t('views.visibility.team')}</span>
+                          {activeView.scopeType === 'TEAM' && activeView.scopeId === currentTeamId ? <Check className="ml-auto h-4 w-4 text-brand-600" /> : null}
+                        </DropdownMenuItem>
+                      ) : null}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="rounded-xl px-3 py-2.5 text-sm text-ink-700">
+                      <Bell className="mr-2 h-4 w-4 text-ink-500" />
+                      {t('views.actions.subscribe')}
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="w-72 rounded-[18px] border border-border-subtle bg-white p-1.5 shadow-elevated">
+                      <DropdownMenuCheckboxItem
+                        checked={activeSubscriptions.get('ISSUE_ADDED')?.active ?? false}
+                        onCheckedChange={() => handleToggleSubscription('ISSUE_ADDED')}
+                        className="rounded-xl pr-3 text-sm text-ink-700"
+                      >
+                        {t('views.subscription.issueAdded')}
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem
+                        checked={activeSubscriptions.get('ISSUE_COMPLETED_OR_CANCELED')?.active ?? false}
+                        onCheckedChange={() => handleToggleSubscription('ISSUE_COMPLETED_OR_CANCELED')}
+                        className="rounded-xl pr-3 text-sm text-ink-700"
+                      >
+                        {t('views.subscription.issueCompletedOrCanceled')}
+                      </DropdownMenuCheckboxItem>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="rounded-xl px-3 py-2.5 text-sm text-ink-700" onClick={handleDuplicate}>
+                    <Copy className="mr-2 h-4 w-4 text-ink-500" />
+                    {t('views.actions.duplicate')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="rounded-xl px-3 py-2.5 text-sm text-ink-700" onClick={handleCopyLink}>
+                    <Link2 className="mr-2 h-4 w-4 text-ink-500" />
+                    {t('views.actions.copyLink')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="rounded-xl px-3 py-2.5 text-sm text-ink-700" onClick={handleFavoriteToggle}>
+                    <Star className="mr-2 h-4 w-4 text-ink-500" />
+                    {activeView.isFavorite ? t('views.actions.unfavorite') : t('views.actions.favorite')}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="rounded-xl px-3 py-2.5 text-sm text-rose-600 focus:text-rose-700"
+                    onClick={handleDelete}
+                    disabled={!activeView.isDeletable}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    {t('common.delete')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            <div className="flex-1">
+              {activeView.description ? (
+                <p className="text-sm text-ink-700">{activeView.description}</p>
+              ) : null}
+            </div>
+          </div>
+
+          {resourceType === 'ISSUE' ? (
+            <>
+              <div className="text-sm text-ink-500">
+                {resultsQuery.data?.totalCount ?? issueResults.length} {t('views.resources.issues')}
+              </div>
+              {resultsQuery.isLoading ? (
+                <div className="py-16 text-center text-sm text-ink-500">{t('common.loading')}</div>
+              ) : (
+                <SharedIssuesList
+                  issues={issueResults}
+                  variant="preview"
+                  locale={typeof locale === 'string' ? locale : 'zh'}
+                  emptyLabel={t('views.empty')}
+                  groupKeys={resultGroupKeys}
+                  onOpenIssue={(issue) => {
+                    if (currentOrganizationSlug) {
+                      router.push(issueDetailPath(currentOrganizationSlug, issue));
+                    }
+                  }}
+                  members={relatedMembers}
+                  projects={relatedProjects}
+                  rowActions={{
+                    onChangePriority: async (issue, priority) => {
+                      await updateIssueMutation.mutateAsync({ id: issue.id, data: { priority } });
+                      await resultsQuery.refetch();
+                    },
+                    onChangeStatus: async (issue, next) => {
+                      await updateIssueMutation.mutateAsync({
+                        id: issue.id,
+                        data: {
+                          state: next.state,
+                          resolution: next.resolution,
+                        },
+                      });
+                      await resultsQuery.refetch();
+                    },
+                    onChangeAssignee: async (issue, assigneeId) => {
+                      await updateIssueMutation.mutateAsync({ id: issue.id, data: { assigneeId } });
+                      await resultsQuery.refetch();
+                    },
+                  }}
+                />
+              )}
+            </>
+          ) : (
+            <Card className="rounded-panel border-border-subtle">
+              <CardContent className="pt-6">
+                {resultsQuery.isLoading ? (
+                  <div className="py-16 text-center text-sm text-ink-500">{t('common.loading')}</div>
+                ) : resultsQuery.data?.items.length ? (
+                  <div className="overflow-auto">
+                    <table className="min-w-full divide-y divide-border-soft text-sm">
+                      <thead>
+                        <tr>
+                          {visibleColumns.map((column) => (
+                            <th key={column} className="px-3 py-3 text-left font-medium text-ink-500">
+                              {columnLabel(column)}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border-soft">
+                        {resultsQuery.data.items.map((item) => (
+                          <tr key={`identifier` in item ? `issue-${item.id}` : `project-${item.id}`}>
+                            {visibleColumns.map((column) => (
+                              <td key={column} className="px-3 py-3 text-ink-900">
+                                {renderValue(item as Issue | Project, column)}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="py-16 text-center text-sm text-ink-500">{t('views.empty')}</div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </AppLayout>
+    );
   }
 
   return (
@@ -552,15 +905,50 @@ export default function ViewsWorkbench({
             </div>
 
             <Card className="rounded-panel border-border-subtle">
-              <CardHeader>
-                <CardTitle>{t('views.results.title')}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {resultsQuery.isLoading ? (
-                  <div className="py-16 text-center text-sm text-ink-500">{t('common.loading')}</div>
-                ) : resultsQuery.data?.items.length ? (
-                  <div className="overflow-auto">
-                    <table className="min-w-full divide-y divide-border-soft text-sm">
+                <CardHeader>
+                  <CardTitle>{t('views.results.title')}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {resultsQuery.isLoading ? (
+                    <div className="py-16 text-center text-sm text-ink-500">{t('common.loading')}</div>
+                  ) : canRenderSharedIssueList ? (
+                    <SharedIssuesList
+                      issues={issueResults}
+                      variant="preview"
+                      locale={typeof locale === 'string' ? locale : 'zh'}
+                      emptyLabel={t('views.empty')}
+                      groupKeys={resultGroupKeys}
+                      onOpenIssue={(issue) => {
+                        if (currentOrganizationSlug) {
+                          router.push(issueDetailPath(currentOrganizationSlug, issue));
+                        }
+                      }}
+                      members={relatedMembers}
+                      projects={relatedProjects}
+                      rowActions={{
+                        onChangePriority: async (issue, priority) => {
+                          await updateIssueMutation.mutateAsync({ id: issue.id, data: { priority } });
+                          await resultsQuery.refetch();
+                        },
+                        onChangeStatus: async (issue, next) => {
+                          await updateIssueMutation.mutateAsync({
+                            id: issue.id,
+                            data: {
+                              state: next.state,
+                              resolution: next.resolution,
+                            },
+                          });
+                          await resultsQuery.refetch();
+                        },
+                        onChangeAssignee: async (issue, assigneeId) => {
+                          await updateIssueMutation.mutateAsync({ id: issue.id, data: { assigneeId } });
+                          await resultsQuery.refetch();
+                        },
+                      }}
+                    />
+                  ) : resultsQuery.data?.items.length ? (
+                    <div className="overflow-auto">
+                      <table className="min-w-full divide-y divide-border-soft text-sm">
                       <thead>
                         <tr>
                           {visibleColumns.map((column) => (
@@ -610,7 +998,7 @@ function ViewSection({
         {views.map((view) => (
           <Link
             key={view.id}
-            href={currentOrganizationSlug ? workspaceViewPath(currentOrganizationSlug, view.id) : '#'}
+            href={currentOrganizationSlug ? workspaceViewPath(currentOrganizationSlug, view) : '#'}
             className={`flex items-center justify-between rounded-xl px-3 py-2 text-sm transition ${
               activeId === view.id ? 'bg-ink-900 text-white' : 'text-ink-700 hover:bg-slate-100'
             }`}

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Calendar, CalendarPlus, CheckCircle2, ChevronDown, ChevronRight, Circle, CircleDashed, CircleEllipsis, Equal, Expand, Flame, Link2, LoaderCircle, Minimize2, Minus, MoreHorizontal, Paperclip, Repeat, Save, Tag, X, XCircle } from 'lucide-react';
+import { Calendar, CalendarPlus, CheckCircle2, ChevronDown, ChevronRight, Circle, CircleDashed, CircleEllipsis, Equal, Expand, Flame, Link2, LoaderCircle, Minimize2, Minus, MoreHorizontal, Paperclip, Repeat, Save, Tag, UserCircle2, X, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/providers/ToastProvider';
 import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
@@ -1495,7 +1495,11 @@ function ComposerAssigneePill({
               <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-rose-100 text-[11px] font-semibold uppercase text-rose-600">
                 {getInitials(currentMember.name)}
               </span>
-            ) : null}
+            ) : (
+              <span className="inline-flex h-6 w-6 items-center justify-center text-ink-400">
+                <UserCircle2 className="h-4 w-4" />
+              </span>
+            )}
             <span className="truncate">{label}</span>
           </span>
           <ChevronDown className="h-4 w-4 text-ink-300" />

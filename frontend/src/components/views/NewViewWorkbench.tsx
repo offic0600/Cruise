@@ -630,7 +630,7 @@ export default function NewViewWorkbench({
       queryState: previewQueryState,
       layout: previewQueryState.display.layout,
     });
-    router.push(workspaceViewPath(currentOrganizationSlug, created.id));
+        router.push(workspaceViewPath(currentOrganizationSlug, created));
   }
 
   const activeSubmenuOptions = activeSubmenu ? submenuOptions(activeSubmenu) : [];

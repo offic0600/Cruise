@@ -712,7 +712,7 @@ class OrganizationAccessIntegrationTest {
     }
 
     @Test
-    fun `system issue views are initialized and active results are server filtered`() {
+    fun `issue views list excludes system views and custom view results are server filtered`() {
         val token = loginAndGetToken("admin", "admin123")
         val workspacePayload = createWorkspace(token, "views-${UUID.randomUUID().toString().take(8)}", "Views Workspace")
         val organizationId = workspacePayload["organization"]["id"].asLong()
@@ -752,6 +752,47 @@ class OrganizationAccessIntegrationTest {
                 )
         ).andExpect(status().isCreated)
 
+        val createdViewPayload = mockMvc.perform(
+            post("/api/views")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "organizationId": $organizationId,
+                      "resourceType": "ISSUE",
+                      "scopeType": "WORKSPACE",
+                      "name": "Active issues",
+                      "visibility": "PERSONAL",
+                      "queryState": {
+                        "filters": {
+                          "operator": "AND",
+                          "children": [
+                            {
+                              "field": "stateCategory",
+                              "operator": "is",
+                              "value": "ACTIVE"
+                            }
+                          ]
+                        },
+                        "display": {
+                          "layout": "LIST",
+                          "visibleColumns": ["identifier", "title", "state"]
+                        },
+                        "grouping": { "field": null },
+                        "sorting": [{ "field": "updatedAt", "direction": "desc", "nulls": "last" }]
+                      }
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isCreated)
+            .andReturn()
+            .response
+            .contentAsString
+
+        val createdViewId = objectMapper.readTree(createdViewPayload)["id"].asLong()
+
         val viewsPayload = mockMvc.perform(
             get("/api/views")
                 .header("Authorization", "Bearer $token")
@@ -759,17 +800,16 @@ class OrganizationAccessIntegrationTest {
                 .param("resourceType", "ISSUE")
         )
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$[?(@.systemKey=='active')]").exists())
-            .andExpect(jsonPath("$[?(@.systemKey=='all')]").exists())
+            .andExpect(jsonPath("$[?(@.isSystem==true)]").doesNotExist())
+            .andExpect(jsonPath("$[0].id").value(createdViewId))
             .andReturn()
             .response
             .contentAsString
 
-        val activeViewId = objectMapper.readTree(viewsPayload)
-            .first { it["systemKey"]?.asText() == "active" }["id"].asLong()
+        assertThat(objectMapper.readTree(viewsPayload)).hasSize(1)
 
         mockMvc.perform(
-            post("/api/views/$activeViewId/results")
+            post("/api/views/$createdViewId/results")
                 .header("Authorization", "Bearer $token")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{ "page": 0, "size": 50 }""")
@@ -780,7 +820,7 @@ class OrganizationAccessIntegrationTest {
     }
 
     @Test
-    fun `custom views can be created favorited duplicated and deleted while system views cannot`() {
+    fun `custom views can be created favorited duplicated and deleted`() {
         val token = loginAndGetToken("admin", "admin123")
         val workspacePayload = createWorkspace(token, "views-${UUID.randomUUID().toString().take(8)}", "Views Lifecycle Workspace")
         val organizationId = workspacePayload["organization"]["id"].asLong()
@@ -855,26 +895,6 @@ class OrganizationAccessIntegrationTest {
                 .header("Authorization", "Bearer $token")
         )
             .andExpect(status().isNoContent)
-
-        val systemViewsPayload = mockMvc.perform(
-            get("/api/views")
-                .header("Authorization", "Bearer $token")
-                .param("organizationId", organizationId.toString())
-                .param("resourceType", "ISSUE")
-        )
-            .andExpect(status().isOk)
-            .andReturn()
-            .response
-            .contentAsString
-
-        val systemViewId = objectMapper.readTree(systemViewsPayload)
-            .first { it["systemKey"]?.asText() == "all" }["id"].asLong()
-
-        mockMvc.perform(
-            delete("/api/views/$systemViewId")
-                .header("Authorization", "Bearer $token")
-        )
-            .andExpect(status().isConflict)
 
         mockMvc.perform(
             get("/api/views/$duplicatedViewId")

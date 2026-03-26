@@ -802,6 +802,7 @@ export interface NotificationSubscription {
   userId: number;
   resourceType: string;
   resourceId: number;
+  eventKey: string | null;
   active: boolean;
   createdAt: string;
   updatedAt: string;

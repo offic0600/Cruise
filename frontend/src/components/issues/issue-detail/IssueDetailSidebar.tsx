@@ -6,6 +6,7 @@ import {
   FolderKanban,
   Plus,
   Tag,
+  UserCircle2,
 } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger,
@@ -324,7 +325,11 @@ function IssueAssigneePill({
           <span className="inline-flex items-center gap-2">
             {currentMember ? (
               <AvatarChip text={getIssueInitials(currentMember.name)} className="bg-rose-100 text-rose-600" />
-            ) : null}
+            ) : (
+              <span className="inline-flex h-6 w-6 items-center justify-center text-ink-400">
+                <UserCircle2 className="h-4 w-4" />
+              </span>
+            )}
             <span className="truncate">{label}</span>
           </span>
           <ChevronDown className="h-4 w-4 text-ink-300" />
