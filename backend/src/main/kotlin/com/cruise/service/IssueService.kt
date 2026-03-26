@@ -28,7 +28,7 @@ data class IssueDto(
     val state: String,
     val stateCategory: String,
     val resolution: String?,
-    val priority: String,
+    val priority: String?,
     val projectId: Long?,
     val teamId: Long?,
     val parentIssueId: Long?,
@@ -60,6 +60,7 @@ data class IssueQuery(
     val parentIssueId: Long? = null,
     val state: String? = null,
     val priority: String? = null,
+    val priorityProvided: Boolean = false,
     val q: String? = null,
     val customFieldFilters: Map<String, Any?> = emptyMap(),
     val includeArchived: Boolean = false,
@@ -118,13 +119,14 @@ data class UpdateIssueRequest(
     val actualHours: Float? = null,
     val severity: String? = null,
     val labelIds: List<Long>? = null,
-    val customFields: Map<String, Any?>? = null
+    val customFields: Map<String, Any?>? = null,
+    val priorityProvided: Boolean = false
 )
 
 private data class IssueActivitySnapshot(
     val state: String,
     val assigneeId: Long?,
-    val priority: String,
+    val priority: String?,
     val projectId: Long?
 )
 
@@ -139,7 +141,15 @@ open class IssueService(
     private val projectRepository: ProjectRepository,
     private val objectMapper: ObjectMapper
 ) {
+    companion object {
+        const val CONTENT_FORMAT_PROSEMIRROR_JSON = "PROSEMIRROR_JSON"
+        const val NO_PRIORITY_FILTER = "NO_PRIORITY"
+    }
+
     fun findAll(query: IssueQuery = IssueQuery()): RestPageResponse<IssueDto> =
+        findAllMatching(query).toRestPage(query.page, query.size)
+
+    fun findAllMatching(query: IssueQuery = IssueQuery()): List<IssueDto> =
         issueRepository.findAll()
             .asSequence()
             .filter { query.type == null || it.type == query.type }
@@ -149,7 +159,13 @@ open class IssueService(
             .filter { query.assigneeId == null || it.assigneeId == query.assigneeId }
             .filter { query.parentIssueId == null || it.parentIssueId == query.parentIssueId }
             .filter { query.state == null || it.state == query.state }
-            .filter { query.priority == null || it.priority == query.priority }
+            .filter {
+                when (query.priority) {
+                    null -> true
+                    NO_PRIORITY_FILTER -> it.priority == null
+                    else -> it.priority == query.priority
+                }
+            }
             .filter { query.includeArchived || it.archivedAt == null }
             .filter {
                 query.q.isNullOrBlank() || listOfNotNull(it.identifier, it.title, it.description)
@@ -170,7 +186,6 @@ open class IssueService(
                     .map { issue -> issue.toDto(customValues[issue.id].orEmpty(), labels = labelsByIssue[issue.id].orEmpty()) }
             }
             .toList()
-            .toRestPage(query.page, query.size)
 
     fun findById(id: Long): IssueDto {
         val issue = getIssue(id)
@@ -217,7 +232,7 @@ open class IssueService(
                     state = request.state ?: defaultStateForType(request.type),
                     resolution = request.resolution
                 ),
-                priority = request.priority ?: defaultPriorityForType(request.type),
+                priority = request.priority,
                 projectId = request.projectId,
                 teamId = request.teamId,
                 parentIssueId = normalizedParentIssueId,
@@ -261,6 +276,11 @@ open class IssueService(
             throw ResponseStatusException(HttpStatus.CONFLICT, "Issue content is out of date")
         }
         val nextContentRevision = if (serializedContentJson != null) currentContentRevision + 1 else issue.contentRevision
+        val nextPriority = when {
+            !request.priorityProvided -> issue.priority
+            request.priority == null -> null
+            else -> request.priority
+        }
         val updated = Issue(
             id = issue.id,
             organizationId = request.organizationId ?: issue.organizationId,
@@ -281,7 +301,7 @@ open class IssueService(
                 state = request.state ?: issue.state,
                 resolution = request.resolution ?: issue.resolution
             ),
-            priority = request.priority ?: issue.priority,
+            priority = nextPriority,
             projectId = nextProjectId,
             teamId = normalizeNullableReference(request.teamId, issue.teamId),
             parentIssueId = nextParentIssueId,
@@ -432,15 +452,8 @@ open class IssueService(
     private fun nextIdentifier(): String =
         "ISSUE-${(issueRepository.findAll().maxOfOrNull { it.id } ?: 0L) + 1}"
 
-    private companion object {
-        const val CONTENT_FORMAT_PROSEMIRROR_JSON = "PROSEMIRROR_JSON"
-    }
-
     private fun defaultStateForType(type: String): String =
         if (type == "FEATURE") "BACKLOG" else "TODO"
-
-    private fun defaultPriorityForType(type: String): String =
-        if (type == "BUG") "HIGH" else "MEDIUM"
 
     private fun stateCategoryFor(state: String): String =
         when (state) {
@@ -578,7 +591,8 @@ open class IssueService(
         else -> value.lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase)
     }
 
-    private fun displayPriority(value: String): String = when (value) {
+    private fun displayPriority(value: String?): String = when (value) {
+        null -> "No priority"
         "LOW" -> "Low"
         "MEDIUM" -> "Medium"
         "HIGH" -> "High"

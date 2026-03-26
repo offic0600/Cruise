@@ -38,4 +38,8 @@ export const queryKeys = {
   skills: ['skills'] as const,
   skillAnalytics: (name: string) => ['skills', name, 'analytics'] as const,
   views: ['views'] as const,
+  viewsIndex: (params?: Record<string, unknown>) => ['views', 'index', params ?? {}] as const,
+  viewDetail: (viewId: number) => ['views', 'detail', viewId] as const,
+  viewResults: (viewId: number, params?: Record<string, unknown>) => ['views', 'results', viewId, params ?? {}] as const,
+  viewPreviewResults: (params?: Record<string, unknown>) => ['views', 'preview-results', params ?? {}] as const,
 } as const;

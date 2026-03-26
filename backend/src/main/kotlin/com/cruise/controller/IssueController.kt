@@ -6,6 +6,8 @@ import com.cruise.service.IssueQuery
 import com.cruise.service.IssueService
 import com.cruise.service.RestPageResponse
 import com.cruise.service.UpdateIssueRequest
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
@@ -13,7 +15,8 @@ import org.springframework.web.bind.annotation.*
 @RestController
 @RequestMapping("/api/issues")
 class IssueController(
-    private val issueService: IssueService
+    private val issueService: IssueService,
+    private val objectMapper: ObjectMapper
 ) {
     @GetMapping
     fun getAll(
@@ -62,8 +65,11 @@ class IssueController(
         ResponseEntity.status(HttpStatus.CREATED).body(issueService.create(request))
 
     @PutMapping("/{id}")
-    fun update(@PathVariable id: Long, @RequestBody request: UpdateIssueRequest): IssueDto =
-        issueService.update(id, request)
+    fun update(@PathVariable id: Long, @RequestBody payload: JsonNode): IssueDto {
+        val request = objectMapper.treeToValue(payload, UpdateIssueRequest::class.java)
+            .copy(priorityProvided = payload.has("priority"))
+        return issueService.update(id, request)
+    }
 
     @PatchMapping("/{id}/state")
     fun updateState(@PathVariable id: Long, @RequestBody request: Map<String, String>): IssueDto =

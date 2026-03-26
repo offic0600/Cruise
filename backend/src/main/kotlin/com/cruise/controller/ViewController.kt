@@ -3,7 +3,10 @@ package com.cruise.controller
 import com.cruise.service.CreateViewRequest
 import com.cruise.service.UpdateViewRequest
 import com.cruise.service.ViewDto
+import com.cruise.service.ViewPreviewResultsRequest
 import com.cruise.service.ViewQuery
+import com.cruise.service.ViewResultsRequest
+import com.cruise.service.ViewResultsResponse
 import com.cruise.service.ViewService
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -25,16 +28,20 @@ class ViewController(
     @GetMapping
     fun getAll(
         @RequestParam(required = false) organizationId: Long?,
-        @RequestParam(required = false) teamId: Long?,
-        @RequestParam(required = false) projectId: Long?,
-        @RequestParam(required = false) visibility: String?,
+        @RequestParam(required = false) resourceType: String?,
+        @RequestParam(required = false) scopeType: String?,
+        @RequestParam(required = false) scopeId: Long?,
+        @RequestParam(required = false, defaultValue = "true") includeSystem: Boolean,
+        @RequestParam(required = false, defaultValue = "true") includeFavorites: Boolean,
         @RequestParam(required = false) q: String?
     ): List<ViewDto> = viewService.findAll(
         ViewQuery(
             organizationId = organizationId,
-            teamId = teamId,
-            projectId = projectId,
-            visibility = visibility,
+            resourceType = resourceType,
+            scopeType = scopeType,
+            scopeId = scopeId,
+            includeSystem = includeSystem,
+            includeFavorites = includeFavorites,
             q = q
         )
     )
@@ -49,6 +56,24 @@ class ViewController(
     @PutMapping("/{id}")
     fun update(@PathVariable id: Long, @RequestBody request: UpdateViewRequest): ViewDto =
         viewService.update(id, request)
+
+    @PostMapping("/{id}/duplicate")
+    fun duplicate(@PathVariable id: Long): ResponseEntity<ViewDto> =
+        ResponseEntity.status(HttpStatus.CREATED).body(viewService.duplicate(id))
+
+    @PostMapping("/{id}/favorite")
+    fun favorite(@PathVariable id: Long): ViewDto = viewService.favorite(id)
+
+    @DeleteMapping("/{id}/favorite")
+    fun unfavorite(@PathVariable id: Long): ViewDto = viewService.unfavorite(id)
+
+    @PostMapping("/{id}/results")
+    fun results(@PathVariable id: Long, @RequestBody(required = false) request: ViewResultsRequest?): ViewResultsResponse =
+        viewService.findResults(id, request ?: ViewResultsRequest())
+
+    @PostMapping("/preview-results")
+    fun previewResults(@RequestBody request: ViewPreviewResultsRequest): ViewResultsResponse =
+        viewService.findPreviewResults(request)
 
     @DeleteMapping("/{id}")
     fun delete(@PathVariable id: Long): ResponseEntity<Void> {

@@ -6,6 +6,8 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Ban, CheckCircle2, ChevronDown, ChevronRight, Circle, CircleDashed, CircleEllipsis, FilterX, LoaderCircle, Maximize2, Paperclip, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import IssueComposer from '@/components/issues/IssueComposer';
+import SharedIssuesList from '@/components/issues/SharedIssuesList';
+import { NO_PRIORITY_VALUE } from '@/components/issues/issues-list-utils';
 import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -52,6 +54,48 @@ type CreateDraft = {
   customFields: Record<string, unknown>;
 };
 
+type IssuesPageLabels = {
+  loadError: string;
+  tabs: {
+    all: string;
+    active: string;
+    backlog: string;
+    done: string;
+    completed: string;
+  };
+  searchPlaceholder: string;
+  clearFilters: string;
+  emptyLabel: string;
+  filterPanel: {
+    search: string;
+    type: string;
+    state: string;
+    priority: string;
+    assignee: string;
+    project: string;
+    team: string;
+    customFields: string;
+    allMembers: string;
+    allTeams: string;
+    applyFilters: string;
+    any: string;
+    booleanTrue: string;
+    booleanFalse: string;
+  };
+  create: {
+    newIssue: string;
+    issueTitle: string;
+    addDescription: string;
+    team: string;
+    project: string;
+    createMore: string;
+    creating: string;
+    createIssue: string;
+  };
+  summarySearch: string;
+  issueRowNotSet: string;
+};
+
 const EMPTY = '__empty__';
 const GROUP_ORDER = ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELED'] as const;
 const STATE_CATEGORIES = ['BACKLOG', 'ACTIVE', 'REVIEW', 'COMPLETED', 'CANCELED'] as const;
@@ -64,7 +108,50 @@ export default function IssuesPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { organizationId, currentOrganizationSlug, currentTeamId } = useCurrentWorkspace();
-  const isZh = locale.startsWith('zh');
+  const pageLabels = useMemo(
+    () => ({
+      loadError: t('issues.page.loadError'),
+      tabs: {
+        all: t('issues.page.tabs.all'),
+        active: t('issues.page.tabs.active'),
+        backlog: t('issues.page.tabs.backlog'),
+        done: t('issues.page.tabs.done'),
+        completed: t('issues.page.tabs.completed'),
+      },
+      searchPlaceholder: t('issues.page.searchPlaceholder'),
+      clearFilters: t('issues.page.clearFilters'),
+      emptyLabel: t('issues.page.emptyLabel'),
+      filterPanel: {
+        search: t('issues.page.filterPanel.search'),
+        type: t('issues.page.filterPanel.type'),
+        state: t('issues.page.filterPanel.state'),
+        priority: t('issues.page.filterPanel.priority'),
+        assignee: t('issues.page.filterPanel.assignee'),
+        project: t('issues.page.filterPanel.project'),
+        team: t('issues.page.filterPanel.team'),
+        customFields: t('issues.page.filterPanel.customFields'),
+        allMembers: t('issues.page.filterPanel.allMembers'),
+        allTeams: t('issues.page.filterPanel.allTeams'),
+        applyFilters: t('issues.page.filterPanel.applyFilters'),
+        any: t('issues.page.filterPanel.any'),
+        booleanTrue: t('issues.page.filterPanel.booleanTrue'),
+        booleanFalse: t('issues.page.filterPanel.booleanFalse'),
+      },
+      create: {
+        newIssue: t('issues.page.create.newIssue'),
+        issueTitle: t('issues.page.create.issueTitle'),
+        addDescription: t('issues.page.create.addDescription'),
+        team: t('issues.page.create.team'),
+        project: t('issues.page.create.project'),
+        createMore: t('issues.page.create.createMore'),
+        creating: t('issues.page.create.creating'),
+        createIssue: t('issues.page.create.createIssue'),
+      },
+      summarySearch: t('issues.page.summary.search'),
+      issueRowNotSet: t('issues.page.issueRow.notSet'),
+    }),
+    [t]
+  );
   const currentView = normalizeView(searchParams.get('view'));
   const searchParamsKey = searchParams.toString();
   const collapsedStates = useMemo(() => readCollapsedStates(searchParams), [searchParamsKey]);
@@ -108,12 +195,12 @@ export default function IssuesPage() {
   useEffect(() => {
     if (issuesQuery.isError) {
       setWorkspaceError(
-        isZh ? 'Unable to load issues. Confirm the backend on port 8080 is reachable.' : 'Unable to load issues. Confirm the backend on port 8080 is reachable.'
+        pageLabels.loadError
       );
     } else {
       setWorkspaceError(null);
     }
-  }, [isZh, issuesQuery.isError]);
+  }, [issuesQuery.isError, pageLabels.loadError]);
 
   useEffect(() => {
     if (!createOpen) return;
@@ -141,27 +228,11 @@ export default function IssuesPage() {
     [issues]
   );
 
-  const groupedIssues = useMemo(() => {
-    const map = new Map<string, Issue[]>();
-    for (const state of GROUP_ORDER) {
-      map.set(state, []);
-    }
-    for (const issue of issues) {
-      const bucket = map.get(issue.state) ?? [];
-      bucket.push(issue);
-      map.set(issue.state, bucket);
-    }
-    return GROUP_ORDER
-      .filter((state) => groupBelongsToView(state, currentView))
-      .map((state) => ({
-        state,
-        issues: (map.get(state) ?? []).sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)),
-      }));
-  }, [currentView, issues]);
+  const visibleGroupKeys = useMemo(() => GROUP_ORDER.filter((state) => groupBelongsToView(state, currentView)), [currentView]);
 
   const filterSummary = useMemo(
-    () => buildFilterSummary(draftFilters, projects, teams, members, customFieldDefinitions, isZh),
-    [customFieldDefinitions, draftFilters, isZh, members, projects, teams]
+    () => buildFilterSummary(draftFilters, projects, teams, members, customFieldDefinitions, t),
+    [customFieldDefinitions, draftFilters, members, projects, t, teams]
   );
   const createDefinitions = useMemo(
     () => customFieldDefinitions.filter((field) => field.showOnCreate).sort((a, b) => a.sortOrder - b.sortOrder),
@@ -255,10 +326,10 @@ export default function IssuesPage() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-1.5">
             {([
-              ['all', isZh ? '全部事项' : 'All issues'],
-              ['active', isZh ? '进行中' : 'Active'],
-              ['backlog', isZh ? '待规划' : 'Backlog'],
-              ['done', isZh ? '已完成' : 'Done'],
+              ['all', pageLabels.tabs.all],
+              ['active', pageLabels.tabs.active],
+              ['backlog', pageLabels.tabs.backlog],
+              ['done', pageLabels.tabs.done],
             ] as const).map(([view, label]) => (
               <button
                 key={view}
@@ -267,7 +338,7 @@ export default function IssuesPage() {
                   currentView === view ? 'bg-slate-900 text-white' : 'bg-white text-ink-700 hover:bg-slate-100'
                 }`}
               >
-                {view === 'done' ? (isZh ? '已完成' : 'Completed') : label}
+                {view === 'done' ? pageLabels.tabs.completed : label}
                 <span className="ml-2 text-xs opacity-70">{viewCounts[view]}</span>
               </button>
             ))}
@@ -279,7 +350,7 @@ export default function IssuesPage() {
               <Input
                 value={searchValue}
                 onChange={(event) => setSearchValue(event.target.value)}
-                placeholder={isZh ? 'Search title or identifier' : 'Search title or identifier'}
+                placeholder={pageLabels.searchPlaceholder}
                 className="h-9 rounded-full pl-9 pr-3 text-[13px]"
               />
             </form>
@@ -309,7 +380,7 @@ export default function IssuesPage() {
             ))}
             <button onClick={clearFilters} className="inline-flex items-center gap-1 text-[11px] text-ink-400 transition hover:text-ink-700">
               <FilterX className="h-3.5 w-3.5" />
-              {isZh ? 'Clear filters' : 'Clear filters'}
+              {pageLabels.clearFilters}
             </button>
           </div>
         ) : null}
@@ -318,58 +389,26 @@ export default function IssuesPage() {
           <div className="rounded-3xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{workspaceError}</div>
         ) : null}
 
-        <div className="space-y-1">
-          {groupedIssues.map((group) => (
-            <section key={group.state} className="border-b border-border-soft last:border-b-0">
-              <button
-                type="button"
-                onClick={() => toggleGroupCollapsed(group.state)}
-                aria-expanded={!collapsedStates.has(group.state)}
-                className="flex w-full items-center px-3 py-2.5 text-left transition hover:bg-slate-50/40"
-              >
-                <div className="flex items-center gap-2 text-sm font-medium text-ink-900">
-                  {collapsedStates.has(group.state) ? (
-                    <ChevronRight className="h-4 w-4 text-ink-400" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-ink-400" />
-                  )}
-                  <StateIcon state={group.state} />
-                  <span>{labelForState(group.state, isZh)}</span>
-                  <span className="text-ink-400">{group.issues.length}</span>
-                </div>
-              </button>
-
-              {!collapsedStates.has(group.state) ? group.issues.length ? (
-                <div>
-                  {group.issues.map((issue, index) => (
-                    <IssueRow
-                      key={issue.id}
-                      issue={issue}
-                      isLast={index === group.issues.length - 1}
-                      locale={locale}
-                      isZh={isZh}
-                      members={members}
-                      projects={projects}
-                      onOpen={() => {
-                        if (currentOrganizationSlug) {
-                          router.push(issueDetailPath(currentOrganizationSlug, issue));
-                        }
-                      }}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="px-9 py-2 text-[11px] text-ink-300">{isZh ? 'No issues in this group.' : 'No issues in this group.'}</div>
-              ) : null}
-            </section>
-          ))}
-        </div>
+        <SharedIssuesList
+          issues={issues}
+          variant="preview"
+          locale={locale}
+          emptyLabel={pageLabels.emptyLabel}
+          groupKeys={visibleGroupKeys}
+          onOpenIssue={(issue) => {
+            if (currentOrganizationSlug) {
+              router.push(issueDetailPath(currentOrganizationSlug, issue));
+            }
+          }}
+          members={members}
+          projects={projects}
+        />
       </div>
 
       <FilterSheet
         open={filterOpen}
         setOpen={setFilterOpen}
-        isZh={isZh}
+        pageLabels={pageLabels}
         advancedFilterLabel={t('issues.actions.advancedFilter')}
         draftFilters={draftFilters}
         setDraftFilters={setDraftFilters}
@@ -384,7 +423,7 @@ export default function IssuesPage() {
       <CreateIssueDialog
         open={false}
         setOpen={setCreateOpen}
-        isZh={isZh}
+        t={t}
         draft={createDraft}
         setDraft={setCreateDraft}
         projects={projects}
@@ -423,7 +462,7 @@ export default function IssuesPage() {
 function FilterSheet({
   open,
   setOpen,
-  isZh,
+  pageLabels,
   advancedFilterLabel,
   draftFilters,
   setDraftFilters,
@@ -436,7 +475,7 @@ function FilterSheet({
 }: {
   open: boolean;
   setOpen: (open: boolean) => void;
-  isZh: boolean;
+  pageLabels: IssuesPageLabels;
   advancedFilterLabel: string;
   draftFilters: FilterDraft;
   setDraftFilters: React.Dispatch<React.SetStateAction<FilterDraft>>;
@@ -447,58 +486,60 @@ function FilterSheet({
   onClear: () => void;
   onApply: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetContent className="max-w-xl">
         <SheetHeader>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="text-xs uppercase tracking-[0.18em] text-ink-400">Issues</div>
+              <div className="text-xs uppercase tracking-[0.18em] text-ink-400">{t('nav.issues')}</div>
               <SheetTitle className="mt-2">{advancedFilterLabel}</SheetTitle>
             </div>
-            <SheetDismissButton aria-label={isZh ? 'Cancel' : 'Cancel'} />
+            <SheetDismissButton aria-label={t('common.cancel')} />
           </div>
         </SheetHeader>
         <ScrollArea className="h-[calc(100vh-120px)]">
           <div className="space-y-5 px-6 py-6">
             <div className="grid gap-4 md:grid-cols-2">
-              <FilterField label={isZh ? 'Search' : 'Search'}>
+              <FilterField label={pageLabels.filterPanel.search}>
                 <Input value={draftFilters.q} onChange={(event) => setDraftFilters((current) => ({ ...current, q: event.target.value }))} />
               </FilterField>
-              <FilterField label={isZh ? 'Type' : 'Type'}>
+              <FilterField label={pageLabels.filterPanel.type}>
                 <SimpleSelect value={draftFilters.type || EMPTY} onValueChange={(value) => setDraftFilters((current) => ({ ...current, type: value === EMPTY ? '' : value }))}>
-                  <SelectItem value={EMPTY}>{isZh ? 'All types' : 'All types'}</SelectItem>
-                  {TYPE_OPTIONS.map((value) => <SelectItem key={value} value={value}>{labelForType(value, isZh)}</SelectItem>)}
+                  <SelectItem value={EMPTY}>{t('issues.filters.allTypes')}</SelectItem>
+                  {TYPE_OPTIONS.map((value) => <SelectItem key={value} value={value}>{t(labelForTypeKey(value))}</SelectItem>)}
                 </SimpleSelect>
               </FilterField>
-              <FilterField label={isZh ? 'State' : 'State'}>
+              <FilterField label={pageLabels.filterPanel.state}>
                 <SimpleSelect value={draftFilters.state || EMPTY} onValueChange={(value) => setDraftFilters((current) => ({ ...current, state: value === EMPTY ? '' : value }))}>
-                  <SelectItem value={EMPTY}>{isZh ? 'All states' : 'All states'}</SelectItem>
-                  {GROUP_ORDER.map((value) => <SelectItem key={value} value={value}>{labelForState(value, isZh)}</SelectItem>)}
+                  <SelectItem value={EMPTY}>{t('issues.filters.allStates')}</SelectItem>
+                  {GROUP_ORDER.map((value) => <SelectItem key={value} value={value}>{t(labelForStateKey(value))}</SelectItem>)}
                 </SimpleSelect>
               </FilterField>
-              <FilterField label={isZh ? 'Priority' : 'Priority'}>
+              <FilterField label={pageLabels.filterPanel.priority}>
                 <SimpleSelect value={draftFilters.priority || EMPTY} onValueChange={(value) => setDraftFilters((current) => ({ ...current, priority: value === EMPTY ? '' : value }))}>
-                  <SelectItem value={EMPTY}>{isZh ? 'All priorities' : 'All priorities'}</SelectItem>
-                  {PRIORITY_OPTIONS.map((value) => <SelectItem key={value} value={value}>{labelForPriority(value, isZh)}</SelectItem>)}
+                  <SelectItem value={EMPTY}>{t('issues.filters.allPriorities')}</SelectItem>
+                  <SelectItem value={NO_PRIORITY_VALUE}>{t('views.new.preview.noPriority')}</SelectItem>
+                  {PRIORITY_OPTIONS.map((value) => <SelectItem key={value} value={value}>{t(labelForPriorityKey(value) ?? 'views.new.preview.noPriority')}</SelectItem>)}
                 </SimpleSelect>
               </FilterField>
-              <LookupField label={isZh ? 'Assignee' : 'Assignee'} items={members} value={draftFilters.assigneeId} emptyLabel={isZh ? 'All members' : 'All members'} onChange={(value) => setDraftFilters((current) => ({ ...current, assigneeId: value }))} />
-        <LookupField label={isZh ? 'Project' : 'Project'} items={projects} value={draftFilters.projectId} emptyLabel={isZh ? 'All projects' : 'All projects'} onChange={(value) => setDraftFilters((current) => ({ ...current, projectId: value }))} />
-        <LookupField label={isZh ? 'Team' : 'Team'} items={teams} value={draftFilters.teamId} emptyLabel={isZh ? 'All teams' : 'All teams'} onChange={(value) => setDraftFilters((current) => ({ ...current, teamId: value }))} />
+              <LookupField label={pageLabels.filterPanel.assignee} items={members} value={draftFilters.assigneeId} emptyLabel={pageLabels.filterPanel.allMembers} onChange={(value) => setDraftFilters((current) => ({ ...current, assigneeId: value }))} />
+        <LookupField label={pageLabels.filterPanel.project} items={projects} value={draftFilters.projectId} emptyLabel={t('issues.filters.allProjects')} onChange={(value) => setDraftFilters((current) => ({ ...current, projectId: value }))} />
+        <LookupField label={pageLabels.filterPanel.team} items={teams} value={draftFilters.teamId} emptyLabel={pageLabels.filterPanel.allTeams} onChange={(value) => setDraftFilters((current) => ({ ...current, teamId: value }))} />
             </div>
 
             {customFieldDefinitions.filter((field) => field.isFilterable).length ? (
               <>
                 <Separator />
                 <div className="space-y-4">
-                  <div className="text-sm font-medium text-ink-900">{isZh ? 'Custom fields' : 'Custom fields'}</div>
+                  <div className="text-sm font-medium text-ink-900">{pageLabels.filterPanel.customFields}</div>
                   <div className="grid gap-4 md:grid-cols-2">
                     {customFieldDefinitions.filter((field) => field.isFilterable).map((field) => (
                       <CustomFieldFilterControl
                         key={field.id}
                         field={field}
-                        isZh={isZh}
+                        pageLabels={pageLabels}
                         members={members}
                         teams={teams}
                         value={draftFilters.customFieldFilters[field.key] ?? ''}
@@ -514,8 +555,8 @@ function FilterSheet({
             ) : null}
 
             <div className="flex justify-end gap-3">
-              <Button variant="secondary" onClick={onClear}>{isZh ? 'Clear filters' : 'Clear filters'}</Button>
-              <Button onClick={onApply}>{isZh ? 'Apply filters' : 'Apply filters'}</Button>
+              <Button variant="secondary" onClick={onClear}>{pageLabels.clearFilters}</Button>
+              <Button onClick={onApply}>{pageLabels.filterPanel.applyFilters}</Button>
             </div>
           </div>
         </ScrollArea>
@@ -527,7 +568,7 @@ function FilterSheet({
 function CreateIssueDialog({
   open,
   setOpen,
-  isZh,
+  t,
   draft,
   setDraft,
   projects,
@@ -541,7 +582,7 @@ function CreateIssueDialog({
 }: {
   open: boolean;
   setOpen: (open: boolean) => void;
-  isZh: boolean;
+  t: (key: string, vars?: Record<string, string | number>) => string;
   draft: CreateDraft;
   setDraft: React.Dispatch<React.SetStateAction<CreateDraft>>;
   projects: Project[];
@@ -567,7 +608,7 @@ function CreateIssueDialog({
               {projects.find((project) => String(project.id) === draft.projectId)?.key ?? 'ISS'}
             </div>
             <span>{'>'}</span>
-            <span>{isZh ? 'New issue' : 'New issue'}</span>
+            <span>{t('issues.page.create.newIssue')}</span>
           </div>
           <div className="flex items-center gap-2">
             <button className="rounded-full p-2 text-ink-400 transition hover:bg-slate-100 hover:text-ink-700" type="button">
@@ -583,37 +624,37 @@ function CreateIssueDialog({
           <input
             value={draft.title}
             onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
-            placeholder={isZh ? 'Issue title' : 'Issue title'}
+            placeholder={t('issues.page.create.issueTitle')}
             className="w-full border-0 bg-transparent p-0 text-[34px] font-semibold tracking-[-0.03em] text-ink-900 outline-none placeholder:text-ink-300"
           />
 
           <textarea
             value={draft.description}
             onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
-            placeholder={isZh ? 'Add description...' : 'Add description...'}
+            placeholder={t('issues.page.create.addDescription')}
             className="min-h-[72px] w-full resize-none border-0 bg-transparent p-0 text-[17px] leading-7 text-ink-700 outline-none placeholder:text-ink-300"
           />
 
           <div className="flex flex-wrap items-center gap-2">
             <ModalPillSelect value={draft.state} onValueChange={(value) => setDraft((current) => ({ ...current, state: value }))}>
-              {GROUP_ORDER.filter((value) => value !== 'CANCELED').map((value) => <SelectItem key={value} value={value}>{labelForState(value, isZh)}</SelectItem>)}
+              {GROUP_ORDER.filter((value) => value !== 'CANCELED').map((value) => <SelectItem key={value} value={value}>{t(labelForStateKey(value))}</SelectItem>)}
             </ModalPillSelect>
             <ModalPillSelect value={draft.priority} onValueChange={(value) => setDraft((current) => ({ ...current, priority: value }))}>
-              {PRIORITY_OPTIONS.map((value) => <SelectItem key={value} value={value}>{labelForPriority(value, isZh)}</SelectItem>)}
+              {PRIORITY_OPTIONS.map((value) => <SelectItem key={value} value={value}>{t(labelForPriorityKey(value) ?? 'views.new.preview.noPriority')}</SelectItem>)}
             </ModalPillSelect>
             <ModalPillSelect value={draft.teamId || EMPTY} onValueChange={(value) => setDraft((current) => ({ ...current, teamId: value === EMPTY ? '' : value }))}>
-              <SelectItem value={EMPTY}>{isZh ? 'Team' : 'Team'}</SelectItem>
+              <SelectItem value={EMPTY}>{t('issues.page.create.team')}</SelectItem>
               {teams.map((team) => <SelectItem key={team.id} value={String(team.id)}>{team.name}</SelectItem>)}
             </ModalPillSelect>
             <ModalPillSelect value={draft.projectId || EMPTY} onValueChange={(value) => setDraft((current) => ({ ...current, projectId: value === EMPTY ? '' : value }))}>
-              <SelectItem value={EMPTY}>{isZh ? 'Project' : 'Project'}</SelectItem>
+              <SelectItem value={EMPTY}>{t('issues.page.create.project')}</SelectItem>
               {projects.map((project) => <SelectItem key={project.id} value={String(project.id)}>{project.name}</SelectItem>)}
             </ModalPillSelect>
             {createDefinitions.slice(0, 2).map((field) => (
               <ModalCustomFieldPill
                 key={field.id}
                 field={field}
-                isZh={isZh}
+                t={t}
                 value={draft.customFields[field.key]}
                 members={members}
                 teams={teams}
@@ -640,74 +681,13 @@ function CreateIssueDialog({
               >
                 <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${createMore ? 'left-[18px]' : 'left-0.5'}`} />
               </button>
-              <span>{isZh ? 'Create more' : 'Create more'}</span>
+              <span>{t('issues.page.create.createMore')}</span>
             </label>
             <Button onClick={onSubmit} disabled={!draft.title.trim() || !draft.projectId || createPending} className="rounded-full px-5">
-              {createPending ? (isZh ? 'Creating...' : 'Creating...') : (isZh ? 'Create issue' : 'Create issue')}
+              {createPending ? t('issues.page.create.creating') : t('issues.page.create.createIssue')}
             </Button>
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function IssueRow({
-  issue,
-  locale,
-  isZh,
-  members,
-  projects,
-  isLast,
-  onOpen,
-}: {
-  issue: Issue;
-  locale: string;
-  isZh: boolean;
-  members: TeamMember[];
-  projects: Project[];
-  isLast: boolean;
-  onOpen: () => void;
-}) {
-  const assignee = members.find((member) => member.id === issue.assigneeId);
-  const project = projects.find((item) => item.id === issue.projectId);
-  const assigneeLabel = assignee?.name ?? (isZh ? 'Not set' : 'Not set');
-  const priorityLabel = labelForPriority(issue.priority, isZh);
-  const resolutionLabel =
-    issue.state === 'CANCELED' && issue.resolution && issue.resolution !== 'CANCELED'
-      ? `${labelForState(issue.state, isZh)} · ${labelForResolution(issue.resolution, isZh)}`
-      : null;
-
-  return (
-    <div
-      onClick={onOpen}
-      className={`grid cursor-pointer grid-cols-[minmax(0,1fr)_170px_110px_72px] items-center gap-4 px-3 py-2.5 transition hover:bg-slate-50/40 ${isLast ? '' : 'border-b border-border-soft'}`}
-    >
-      <div className="min-w-0 space-y-1">
-        <div className="flex items-center gap-3 text-sm">
-          <span className="inline-flex h-5 w-5 items-center justify-center text-ink-500">
-            <StateIcon state={issue.state} />
-          </span>
-          <span className="font-medium text-ink-400">{issue.identifier}</span>
-          <span className="truncate text-[15px] text-ink-900">{issue.title}</span>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 pl-8 text-[12px] text-ink-400">
-          <span>{labelForType(issue.type, isZh)}</span>
-          {project ? <span>{project.name}</span> : null}
-          {resolutionLabel ? <span>{resolutionLabel}</span> : null}
-        </div>
-      </div>
-
-      <div className="truncate text-[13px] text-ink-500">
-        <span>{assigneeLabel}</span>
-      </div>
-
-      <div className="text-[13px] text-ink-500">
-        <span>{priorityLabel}</span>
-      </div>
-
-      <div className="text-right text-[12px] text-ink-400">
-        <span>{formatDate(issue.updatedAt, locale)}</span>
       </div>
     </div>
   );
@@ -763,14 +743,14 @@ function FilterField({ label, children }: { label: string; children: React.React
 
 function CustomFieldFilterControl({
   field,
-  isZh,
+  pageLabels,
   members,
   teams,
   value,
   onChange,
 }: {
   field: CustomFieldDefinition;
-  isZh: boolean;
+  pageLabels: IssuesPageLabels;
   members: TeamMember[];
   teams: Team[];
   value: string;
@@ -780,9 +760,9 @@ function CustomFieldFilterControl({
     return (
       <FilterField label={field.name}>
         <SimpleSelect value={value || EMPTY} onValueChange={(next) => onChange(next === EMPTY ? '' : next)}>
-          <SelectItem value={EMPTY}>{isZh ? 'Any' : 'Any'}</SelectItem>
-          <SelectItem value="true">{isZh ? 'True' : 'True'}</SelectItem>
-          <SelectItem value="false">{isZh ? 'False' : 'False'}</SelectItem>
+          <SelectItem value={EMPTY}>{pageLabels.filterPanel.any}</SelectItem>
+          <SelectItem value="true">{pageLabels.filterPanel.booleanTrue}</SelectItem>
+          <SelectItem value="false">{pageLabels.filterPanel.booleanFalse}</SelectItem>
         </SimpleSelect>
       </FilterField>
     );
@@ -792,7 +772,7 @@ function CustomFieldFilterControl({
     return (
       <FilterField label={field.name}>
         <SimpleSelect value={value || EMPTY} onValueChange={(next) => onChange(next === EMPTY ? '' : next)}>
-          <SelectItem value={EMPTY}>{isZh ? 'Any' : 'Any'}</SelectItem>
+          <SelectItem value={EMPTY}>{pageLabels.filterPanel.any}</SelectItem>
           {field.options.map((option) => <SelectItem key={option.id} value={option.value}>{option.label}</SelectItem>)}
         </SimpleSelect>
       </FilterField>
@@ -800,101 +780,16 @@ function CustomFieldFilterControl({
   }
 
   if (field.dataType === 'USER') {
-    return <LookupField label={field.name} items={members} value={value} emptyLabel={isZh ? 'Any' : 'Any'} onChange={onChange} />;
+    return <LookupField label={field.name} items={members} value={value} emptyLabel={pageLabels.filterPanel.any} onChange={onChange} />;
   }
 
   if (field.dataType === 'TEAM') {
-    return <LookupField label={field.name} items={teams} value={value} emptyLabel={isZh ? 'Any' : 'Any'} onChange={onChange} />;
+    return <LookupField label={field.name} items={teams} value={value} emptyLabel={pageLabels.filterPanel.any} onChange={onChange} />;
   }
 
   return (
     <FilterField label={field.name}>
       <Input value={value} onChange={(event) => onChange(event.target.value)} />
-    </FilterField>
-  );
-}
-
-function CustomFieldCreateControl({
-  field,
-  isZh,
-  members,
-  teams,
-  value,
-  onChange,
-}: {
-  field: CustomFieldDefinition;
-  isZh: boolean;
-  members: TeamMember[];
-  teams: Team[];
-  value: unknown;
-  onChange: (value: unknown) => void;
-}) {
-  if (field.dataType === 'TEXTAREA') {
-    return (
-      <FilterField label={field.name}>
-        <Textarea value={String(value ?? '')} onChange={(event) => onChange(event.target.value)} className="min-h-24" />
-      </FilterField>
-    );
-  }
-
-  if (field.dataType === 'BOOLEAN') {
-    return (
-      <FilterField label={field.name}>
-        <SimpleSelect value={String(value ?? EMPTY)} onValueChange={(next) => onChange(next === EMPTY ? undefined : next === 'true')}>
-          <SelectItem value={EMPTY}>{isZh ? 'Not set' : 'Not set'}</SelectItem>
-          <SelectItem value="true">{isZh ? 'True' : 'True'}</SelectItem>
-          <SelectItem value="false">{isZh ? 'False' : 'False'}</SelectItem>
-        </SimpleSelect>
-      </FilterField>
-    );
-  }
-
-  if (field.dataType === 'SINGLE_SELECT' || field.dataType === 'MULTI_SELECT') {
-    return (
-      <FilterField label={field.name}>
-        <SimpleSelect value={String(value ?? EMPTY)} onValueChange={(next) => onChange(next === EMPTY ? undefined : next)}>
-          <SelectItem value={EMPTY}>{isZh ? 'Not set' : 'Not set'}</SelectItem>
-          {field.options.map((option) => <SelectItem key={option.id} value={option.value}>{option.label}</SelectItem>)}
-        </SimpleSelect>
-      </FilterField>
-    );
-  }
-
-  if (field.dataType === 'USER') {
-    return <LookupField label={field.name} items={members} value={String(value ?? '')} emptyLabel={isZh ? 'Not set' : 'Not set'} onChange={(next) => onChange(next ? Number(next) : undefined)} />;
-  }
-
-  if (field.dataType === 'TEAM') {
-    return <LookupField label={field.name} items={teams} value={String(value ?? '')} emptyLabel={isZh ? 'Not set' : 'Not set'} onChange={(next) => onChange(next ? Number(next) : undefined)} />;
-  }
-
-  if (field.dataType === 'DATE') {
-    return (
-      <FilterField label={field.name}>
-        <Input type="date" value={String(value ?? '')} onChange={(event) => onChange(event.target.value || undefined)} />
-      </FilterField>
-    );
-  }
-
-  if (field.dataType === 'DATETIME') {
-    return (
-      <FilterField label={field.name}>
-        <Input type="datetime-local" value={String(value ?? '')} onChange={(event) => onChange(event.target.value || undefined)} />
-      </FilterField>
-    );
-  }
-
-  if (field.dataType === 'NUMBER') {
-    return (
-      <FilterField label={field.name}>
-        <Input type="number" value={String(value ?? '')} onChange={(event) => onChange(event.target.value === '' ? undefined : Number(event.target.value))} />
-      </FilterField>
-    );
-  }
-
-  return (
-    <FilterField label={field.name}>
-      <Input value={String(value ?? '')} onChange={(event) => onChange(event.target.value)} />
     </FilterField>
   );
 }
@@ -920,14 +815,14 @@ function ModalPillSelect({
 
 function ModalCustomFieldPill({
   field,
-  isZh,
+  t,
   value,
   members,
   teams,
   onChange,
 }: {
   field: CustomFieldDefinition;
-  isZh: boolean;
+  t: (key: string, vars?: Record<string, string | number>) => string;
   value: unknown;
   members: TeamMember[];
   teams: Team[];
@@ -946,8 +841,8 @@ function ModalCustomFieldPill({
     return (
       <ModalPillSelect value={String(value ?? EMPTY)} onValueChange={(next) => onChange(next === EMPTY ? undefined : next === 'true')}>
         <SelectItem value={EMPTY}>{field.name}</SelectItem>
-        <SelectItem value="true">{isZh ? 'True' : 'True'}</SelectItem>
-        <SelectItem value="false">{isZh ? 'False' : 'False'}</SelectItem>
+        <SelectItem value="true">{t('issues.page.filterPanel.booleanTrue')}</SelectItem>
+        <SelectItem value="false">{t('issues.page.filterPanel.booleanFalse')}</SelectItem>
       </ModalPillSelect>
     );
   }
@@ -1039,7 +934,7 @@ function buildCreateDraft(
     type: 'TASK',
     projectId: projects[0] ? String(projects[0].id) : '',
     state: presetState ?? 'TODO',
-    priority: 'MEDIUM',
+    priority: '',
     teamId: currentTeamId ? String(currentTeamId) : '',
     customFields: Object.fromEntries(customFieldDefinitions.filter((field) => field.showOnCreate).map((field) => [field.key, undefined])),
   };
@@ -1051,13 +946,13 @@ function buildFilterSummary(
   teams: Team[],
   members: TeamMember[],
   definitions: CustomFieldDefinition[],
-  isZh: boolean
+  t: (key: string, vars?: Record<string, string | number>) => string
 ) {
   const items: string[] = [];
-  if (filters.q) items.push(`${isZh ? 'Search' : 'Search'}: ${filters.q}`);
-  if (filters.type) items.push(labelForType(filters.type, isZh));
-  if (filters.state) items.push(labelForState(filters.state, isZh));
-  if (filters.priority) items.push(labelForPriority(filters.priority, isZh));
+  if (filters.q) items.push(`${t('issues.page.summary.search')}: ${filters.q}`);
+  if (filters.type) items.push(t(labelForTypeKey(filters.type)));
+  if (filters.state) items.push(t(labelForStateKey(filters.state)));
+  if (filters.priority) items.push(t(labelForPriorityKey(filters.priority) ?? 'views.new.preview.noPriority'));
   if (filters.assigneeId) items.push(members.find((member) => String(member.id) === filters.assigneeId)?.name ?? `#${filters.assigneeId}`);
   if (filters.projectId) items.push(projects.find((item) => String(item.id) === filters.projectId)?.name ?? `#${filters.projectId}`);
   if (filters.teamId) items.push(teams.find((item) => String(item.id) === filters.teamId)?.name ?? `#${filters.teamId}`);
@@ -1135,51 +1030,21 @@ function stateCategoryFor(state: string) {
   return map[state] ?? 'ACTIVE';
 }
 
-function labelForState(state: string, isZh: boolean) {
-  const map: Record<string, [string, string]> = {
-    BACKLOG: ['Backlog', '待规划'],
-    TODO: ['Todo', '待开始'],
-    IN_PROGRESS: ['In progress', '进行中'],
-    IN_REVIEW: ['In review', '待评审'],
-    DONE: ['Done', '已完成'],
-    CANCELED: ['Canceled', '已取消'],
-  };
-  const pair = map[state] ?? [state, state];
-  return isZh ? pair[1] : pair[0];
+function labelForStateKey(state: string) {
+  return `common.status.${state}`;
 }
 
-function labelForPriority(priority: string, isZh: boolean) {
-  const map: Record<string, [string, string]> = {
-    LOW: ['Low', '低'],
-    MEDIUM: ['Medium', '中'],
-    HIGH: ['High', '高'],
-    URGENT: ['Urgent', '紧急'],
-  };
-  const pair = map[priority] ?? [priority, priority];
-  return isZh ? pair[1] : pair[0];
+function labelForPriorityKey(priority: string | null) {
+  if (priority == null || priority === '' || priority === NO_PRIORITY_VALUE) return null;
+  return `common.priority.${priority}`;
 }
 
-function labelForResolution(resolution: string, isZh: boolean) {
-  const map: Record<string, [string, string]> = {
-    COMPLETED: ['Completed', '已完成'],
-    CANCELED: ['Canceled', '已取消'],
-    DUPLICATE: ['Duplicate', '重复'],
-    OBSOLETE: ['Obsolete', '已过时'],
-    WONT_DO: ["Won't do", '不处理'],
-  };
-  const pair = map[resolution] ?? [resolution, resolution];
-  return isZh ? pair[1] : pair[0];
+function labelForResolutionKey(resolution: string) {
+  return `common.resolution.${resolution}`;
 }
 
-function labelForType(type: string, isZh: boolean) {
-  const map: Record<string, [string, string]> = {
-    FEATURE: ['Feature', '需求'],
-    TASK: ['Task', '任务'],
-    BUG: ['Bug', '缺陷'],
-    TECH_DEBT: ['Tech debt', '技术债'],
-  };
-  const pair = map[type] ?? [type, type];
-  return isZh ? pair[1] : pair[0];
+function labelForTypeKey(type: string) {
+  return `issues.type.${type}`;
 }
 function formatDate(value: string, locale: string) {
   try {

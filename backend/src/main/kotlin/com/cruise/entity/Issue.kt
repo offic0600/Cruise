@@ -47,8 +47,8 @@ class Issue(
     @Column(length = 30)
     var resolution: String? = null,
 
-    @Column(nullable = false, length = 20)
-    var priority: String = "MEDIUM",
+    @Column(length = 20)
+    var priority: String? = null,
 
     @Column(name = "project_id")
     var projectId: Long? = null,

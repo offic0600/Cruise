@@ -16,7 +16,7 @@ export const getIssues = (params?: {
   parentIssueId?: number;
   state?: string;
   q?: string;
-  priority?: string;
+  priority?: string | null;
   customFieldFilters?: Record<string, unknown>;
   includeArchived?: boolean;
   page?: number;
@@ -42,7 +42,7 @@ export const createIssue = (data: {
   descriptionExport?: string | null;
   state?: string;
   resolution?: string | null;
-  priority?: string;
+  priority?: string | null;
   projectId?: number | null;
   teamId?: number | null;
   parentIssueId?: number | null;
@@ -70,7 +70,7 @@ export const updateIssue = (
     descriptionExport?: string | null;
     state?: string;
     resolution?: string | null;
-    priority?: string;
+    priority?: string | null;
     projectId?: number | null;
     teamId?: number | null;
     parentIssueId?: number | null;
