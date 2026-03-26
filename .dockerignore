@@ -1,0 +1,17 @@
+.git
+.gitignore
+.gradle
+**/.gradle
+**/build
+**/.next
+**/node_modules
+output
+bugscreenshot
+docs
+doc
+references
+storage
+backend/storage
+frontend/.next
+frontend/node_modules
+

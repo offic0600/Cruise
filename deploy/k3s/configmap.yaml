@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cruise-config
+data:
+  SERVER_PORT: "8080"
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://cruise-postgres:5432/cruise"
+  SPRING_DATASOURCE_USERNAME: "cruise"
+  SPRING_DATASOURCE_DRIVER_CLASS_NAME: "org.postgresql.Driver"
+  SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: "org.hibernate.dialect.PostgreSQLDialect"
+  SPRING_MAIL_HOST: "smtp.example.com"
+  SPRING_MAIL_PORT: "587"
+  SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: "true"
+  SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: "true"
+  CRUISE_AUTH_FRONTEND_BASE_URL: "https://cruise.example.com"
+  CRUISE_AUTH_BACKEND_BASE_URL: "https://cruise.example.com"
+  CRUISE_STORAGE_ATTACHMENTS_ROOT: "/var/lib/cruise/storage"
+  MINIMAX_MODEL: "MiniMax-M2.5"
+  MINIMAX_BASE_URL: "https://api.minimax.chat/v1"
+

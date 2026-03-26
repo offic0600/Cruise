@@ -404,7 +404,7 @@ class OidcAuthService(
     }
 
     private fun redirectUri(providerKey: String): String =
-        "http://localhost:8080/api/auth/oauth/$providerKey/callback"
+        "${authProperties.backendBaseUrl.trimEnd('/')}/api/auth/oauth/$providerKey/callback"
 
     private fun urlEncode(value: String): String = URLEncoder.encode(value, StandardCharsets.UTF_8)
 }
@@ -436,7 +436,7 @@ class MagicLinkAuthService(
         )
         magicLinkTokenRepository.save(tokenEntity)
 
-        val verifyUrl = "http://localhost:8080/api/auth/magic-link/verify?token=${urlEncode(rawToken)}"
+        val verifyUrl = "${authProperties.backendBaseUrl.trimEnd('/')}/api/auth/magic-link/verify?token=${urlEncode(rawToken)}"
         sendEmail(request.email, verifyUrl)
         logger.info("Magic link generated for {} -> {}", request.email, verifyUrl)
         authAuditService.record(provider.providerKey, request.email, null, request.organizationId, true, "magic_link_sent")

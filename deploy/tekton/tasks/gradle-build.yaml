@@ -1,0 +1,61 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: gradle-build
+  namespace: pipeline
+spec:
+  params:
+    - name: workdir
+      type: string
+      description: 子项目目录名（相对于 workspace 根目录）
+    - name: gradle-args
+      type: string
+      description: Gradle 参数（如 "bootJar -x test --no-daemon"）
+    - name: pre-script
+      type: string
+      default: ""
+      description: 可选的预构建脚本
+  workspaces:
+    - name: source
+      description: 包含项目源码的共享工作区
+    - name: gradle-cache
+      description: Gradle 缓存持久化存储
+      optional: true
+  steps:
+    - name: gradle-build
+      image: gradle:8.10.2-jdk21
+      workingDir: $(workspaces.source.path)
+      env:
+        - name: GRADLE_CACHE_BOUND
+          value: $(workspaces.gradle-cache.bound)
+        - name: GRADLE_USER_HOME
+          value: $(workspaces.gradle-cache.path)
+      script: |
+        #!/bin/bash
+        set -e
+
+        if [ "${GRADLE_CACHE_BOUND}" != "true" ]; then
+          export GRADLE_USER_HOME=/tmp/.gradle
+        fi
+        mkdir -p "${GRADLE_USER_HOME}"
+
+        cat > /tmp/pre-script.sh << 'PREOF'
+        $(params.pre-script)
+        PREOF
+        if grep -q '[^[:space:]]' /tmp/pre-script.sh; then
+          echo "=== 执行 pre-script ==="
+          bash /tmp/pre-script.sh
+        fi
+
+        echo "=== 开始 Gradle 构建 ==="
+        cd $(params.workdir)
+        if [ -x ./gradlew ] && [ -f ./gradle/wrapper/gradle-wrapper.jar ]; then
+          chmod +x ./gradlew
+          ./gradlew $(params.gradle-args)
+        elif [ -x ../gradlew ] && [ -f ../gradle/wrapper/gradle-wrapper.jar ]; then
+          chmod +x ../gradlew
+          ../gradlew -p "$(pwd)" $(params.gradle-args)
+        else
+          gradle $(params.gradle-args)
+        fi
+        echo "=== Gradle 构建完成 ==="

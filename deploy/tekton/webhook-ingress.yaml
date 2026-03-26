@@ -1,0 +1,29 @@
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: cruise-webhook-route
+  namespace: pipeline
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`pipeline.cleantrackhotel.com`) && PathPrefix(`/cruise-webhook`)
+      kind: Rule
+      middlewares:
+        - name: strip-cruise-prefix
+      services:
+        - name: el-cruise-event-listener
+          port: 8080
+  tls:
+    secretName: cleantrack-tls
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: strip-cruise-prefix
+  namespace: pipeline
+spec:
+  stripPrefix:
+    prefixes:
+      - /cruise-webhook

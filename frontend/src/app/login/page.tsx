@@ -96,7 +96,7 @@ export default function LoginPage() {
       setError(provider.disabledReason || t('login.providerConfigRequired'));
       return;
     }
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || '';
     window.location.href = `${apiBase}${provider.loginUrl}`;
   };
 

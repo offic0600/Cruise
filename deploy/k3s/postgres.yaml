@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cruise-postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cruise-postgres
+  template:
+    metadata:
+      labels:
+        app: cruise-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: cruise
+            - name: POSTGRES_USER
+              value: cruise
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cruise-secrets
+                  key: POSTGRES_PASSWORD
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            tcpSocket:
+              port: 5432
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 5432
+            initialDelaySeconds: 30
+            periodSeconds: 20
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: cruise-postgres-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cruise-postgres
+spec:
+  selector:
+    app: cruise-postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+

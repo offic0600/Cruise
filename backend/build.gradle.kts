@@ -42,8 +42,9 @@ dependencies {
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.5")
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.5")
 
-    // Database - H2 (embedded)
+    // Database
     runtimeOnly("com.h2database:h2")
+    runtimeOnly("org.postgresql:postgresql")
 
     // Kotlin
     implementation("org.jetbrains.kotlin:kotlin-stdlib")
@@ -71,5 +72,5 @@ tasks.withType<Test>().configureEach {
 }
 
 tasks.withType<org.springframework.boot.gradle.tasks.bundling.BootJar>().configureEach {
-    mainClass.set("com.cruise.CruiseApplication")
+    mainClass.set("com.cruise.CruiseApplicationKt")
 }
