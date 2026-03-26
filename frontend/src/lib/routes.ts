@@ -37,8 +37,18 @@ export function teamViewsPath(workspaceSlug: string, teamKey: string, resourceTy
   return normalizePath(`/${workspaceSlug}/team/${teamKey}/views/${resourceType}`);
 }
 
-export function workspaceViewPath(workspaceSlug: string, viewId: number | string) {
-  return normalizePath(`/${workspaceSlug}/view/${viewId}`);
+export function workspaceViewPath(
+  workspaceSlug: string,
+  view: number | string | { id: number | string; name?: string | null }
+) {
+  if (typeof view === 'object' && view !== null) {
+    const id = String(view.id);
+    const nameSegment = slugifyPathSegment(view.name ?? '');
+    return normalizePath(`/${workspaceSlug}/view/${nameSegment ? `${nameSegment}-${id}` : id}`);
+  }
+
+  const id = String(view);
+  return normalizePath(`/${workspaceSlug}/view/${id}`);
 }
 
 export function teamActivePath(workspaceSlug: string, teamKey: string) {
@@ -57,7 +67,7 @@ export function slugifyPathSegment(value: string) {
   return value
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/[^\p{Letter}\p{Number}-]+/gu, '-')
     .replace(/-{2,}/g, '-')
     .replace(/^-+|-+$/g, '');
 }

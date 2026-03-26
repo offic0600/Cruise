@@ -495,6 +495,21 @@ const zhCNMessages = {
       duplicate: '复制',
       favorite: '收藏',
       unfavorite: '取消收藏',
+      owner: '归属',
+      moveTo: '移动到',
+      subscribe: '订阅',
+      copyLink: '复制链接',
+    },
+    status: {
+      ...enMessages.views.status,
+      moved: '视图已更新',
+      ownerUpdated: '归属已更新',
+      subscriptionUpdated: '订阅已更新',
+      linkCopied: '已复制链接',
+    },
+    subscription: {
+      issueAdded: '有事项被添加到该视图',
+      issueCompletedOrCanceled: '有事项被标记为已完成或已取消',
     },
     new: {
       placeholder: {
@@ -514,7 +529,7 @@ const zhCNMessages = {
         updateFailed: '更新事项失败。',
       },
       filters: {
-        filterPlaceholder: 'Filter...',
+        filterPlaceholder: '筛选...',
         searchPlaceholder: '添加筛选器…',
         comingSoon: '该筛选项即将接入。',
         issueCount: '{count} 个事项',
@@ -535,7 +550,7 @@ const zhCNMessages = {
           advancedFilter: '高级筛选',
           status: '状态',
           assignee: '负责人',
-          agent: 'Agent',
+          agent: '代理',
           creator: '创建人',
           priority: '优先级',
           labels: '标签',

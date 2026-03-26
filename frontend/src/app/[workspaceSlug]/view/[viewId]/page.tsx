@@ -11,7 +11,8 @@ export default function WorkspaceViewDetailPage() {
   const params = useParams<{ workspaceSlug: string; viewId: string }>();
   const rawViewId = Array.isArray(params.viewId) ? params.viewId[0] : params.viewId;
   const workspaceSlug = Array.isArray(params.workspaceSlug) ? params.workspaceSlug[0] : params.workspaceSlug;
-  const viewId = Number(rawViewId);
+  const parsedViewId = rawViewId?.match(/-(\d+)$/)?.[1] ?? rawViewId;
+  const viewId = Number(parsedViewId);
   const viewQuery = useViewDetail(Number.isFinite(viewId) ? viewId : null);
 
   useEffect(() => {

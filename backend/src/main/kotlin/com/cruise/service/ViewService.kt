@@ -81,6 +81,9 @@ data class UpdateViewRequest(
     val description: String? = null,
     val icon: String? = null,
     val color: String? = null,
+    val ownerUserId: Long? = null,
+    val scopeType: String? = null,
+    val scopeId: Long? = null,
     val visibility: String? = null,
     val layout: String? = null,
     val position: Int? = null,
@@ -117,15 +120,6 @@ data class ViewResultsResponse(
     val groups: List<ViewResultGroupDto> = emptyList()
 )
 
-private data class ViewSystemDefinition(
-    val resourceType: String,
-    val systemKey: String,
-    val name: String,
-    val description: String?,
-    val visibility: String = "WORKSPACE",
-    val queryState: ObjectNode
-)
-
 @Service
 @Transactional
 class ViewService(
@@ -142,8 +136,7 @@ class ViewService(
     fun findAll(query: ViewQuery = ViewQuery()): List<ViewDto> {
         val userId = requireCurrentUserId()
         if (query.organizationId != null) {
-            val resourceTypes = query.resourceType?.let(::listOf) ?: listOf(RESOURCE_ISSUE, RESOURCE_PROJECT)
-            resourceTypes.forEach { ensureSystemViews(query.organizationId, it) }
+            purgeSystemViews(query.organizationId)
         }
         val favoriteIds = favoriteIdsByUser(userId)
         val memberships = membershipRepository.findByUserIdAndActiveTrue(userId)
@@ -161,12 +154,11 @@ class ViewService(
             .filter { query.resourceType == null || it.resourceType == query.resourceType }
             .filter { query.scopeType == null || it.scopeType == query.scopeType }
             .filter { query.scopeId == null || it.scopeId == query.scopeId }
-            .filter { query.includeSystem || !it.isSystem }
+            .filter { !it.isSystem }
             .filter { query.q.isNullOrBlank() || listOfNotNull(it.name, it.description).any { text -> text.contains(query.q, ignoreCase = true) } }
             .filter { canReadView(it, userId, memberships) }
             .sortedWith(
                 compareBy<View> { !favoriteIds.contains(it.id) }
-                    .thenBy { !it.isSystem }
                     .thenBy { it.position }
                     .thenBy { it.name.lowercase() }
             )
@@ -178,7 +170,9 @@ class ViewService(
         val userId = requireCurrentUserId()
         val memberships = membershipRepository.findByUserIdAndActiveTrue(userId)
         val view = getView(id)
-        ensureSystemViews(view.organizationId, view.resourceType)
+        if (view.isSystem) {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "View not found")
+        }
         if (!canReadView(view, userId, memberships)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "View not accessible")
         }
@@ -227,15 +221,20 @@ class ViewService(
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "View not editable")
         }
         val normalizedQueryState = request.queryState?.let { normalizeQueryState(it, request.layout ?: view.layout) } ?: effectiveQueryState(view)
-        val normalizedVisibility = normalizeVisibility(view.scopeType, request.visibility ?: view.visibility)
+        val normalizedScopeType = request.scopeType?.uppercase() ?: view.scopeType
+        val normalizedScopeId = if (request.scopeType != null) request.scopeId else view.scopeId
+        validateScopeAccess(view.organizationId, normalizedScopeType, normalizedScopeId, userId)
+        val nextOwnerUserId = request.ownerUserId ?: view.ownerUserId
+        validateOwnerAccess(view.organizationId, normalizedScopeType, normalizedScopeId, nextOwnerUserId)
+        val normalizedVisibility = normalizeVisibility(normalizedScopeType, request.visibility ?: view.visibility)
         val saved = viewRepository.save(
             View(
                 id = view.id,
                 organizationId = view.organizationId,
                 resourceType = view.resourceType,
-                scopeType = view.scopeType,
-                scopeId = view.scopeId,
-                ownerUserId = view.ownerUserId,
+                scopeType = normalizedScopeType,
+                scopeId = normalizedScopeId,
+                ownerUserId = nextOwnerUserId,
                 name = request.name ?: view.name,
                 description = request.description ?: view.description,
                 icon = request.icon ?: view.icon,
@@ -351,7 +350,9 @@ class ViewService(
         val userId = requireCurrentUserId()
         val memberships = membershipRepository.findByUserIdAndActiveTrue(userId)
         val view = getView(id)
-        ensureSystemViews(view.organizationId, view.resourceType)
+        if (view.isSystem) {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "View not found")
+        }
         if (!canReadView(view, userId, memberships)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "View not accessible")
         }
@@ -719,6 +720,19 @@ class ViewService(
         }
     }
 
+    private fun validateOwnerAccess(organizationId: Long, scopeType: String, scopeId: Long?, ownerUserId: Long?) {
+        if (ownerUserId == null) return
+        membershipRepository.findFirstByUserIdAndOrganizationIdAndActiveTrue(ownerUserId, organizationId)
+            ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Owner not in organization")
+        if (scopeType.uppercase() == SCOPE_TEAM) {
+            val teamMembership = membershipRepository.findByUserIdAndActiveTrue(ownerUserId)
+                .firstOrNull { it.organizationId == organizationId && it.teamId == scopeId }
+            if (teamMembership == null) {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Owner not in team")
+            }
+        }
+    }
+
     private fun normalizeVisibility(scopeType: String, requestedVisibility: String?): String {
         val visibility = requestedVisibility?.uppercase() ?: VISIBILITY_PERSONAL
         return when (scopeType.uppercase()) {
@@ -872,162 +886,39 @@ class ViewService(
         else -> node.toString()
     }
 
-    private fun ensureSystemViews(organizationId: Long, resourceType: String) {
+    private fun purgeSystemViews(organizationId: Long) {
         validateOrganizationAccess(organizationId, requireCurrentUserId())
-        val definitions = defaultSystemViews(organizationId, resourceType)
-        if (definitions.isEmpty()) return
-        val existingKeys = viewRepository.findByOrganizationId(organizationId)
-            .asSequence()
-            .filter { it.resourceType == resourceType && it.isSystem }
-            .mapNotNull { it.systemKey }
-            .toSet()
-
-        definitions
-            .filter { it.systemKey !in existingKeys }
-            .forEach { definition ->
+        viewRepository.findByOrganizationId(organizationId)
+            .filter { it.isSystem && it.archivedAt == null }
+            .forEach { view ->
+                viewFavoriteRepository.findByViewId(view.id).forEach(viewFavoriteRepository::delete)
                 viewRepository.save(
                     View(
-                        organizationId = organizationId,
-                        resourceType = definition.resourceType,
-                        scopeType = SCOPE_WORKSPACE,
-                        scopeId = null,
-                        ownerUserId = null,
-                        name = definition.name,
-                        description = definition.description,
-                        filterJson = deriveLegacyFilterJson(definition.queryState),
-                        groupBy = deriveLegacyGroupBy(definition.queryState),
-                        sortJson = deriveLegacySortJson(definition.queryState),
-                        queryState = serializeQueryState(definition.queryState),
-                        visibility = definition.visibility,
-                        isSystem = true,
-                        systemKey = definition.systemKey,
-                        position = nextPosition(organizationId, resourceType, SCOPE_WORKSPACE, null),
-                        layout = layoutFromQueryState(definition.queryState)
+                        id = view.id,
+                        organizationId = view.organizationId,
+                        resourceType = view.resourceType,
+                        scopeType = view.scopeType,
+                        scopeId = view.scopeId,
+                        ownerUserId = view.ownerUserId,
+                        name = view.name,
+                        description = view.description,
+                        icon = view.icon,
+                        color = view.color,
+                        filterJson = view.filterJson,
+                        groupBy = view.groupBy,
+                        sortJson = view.sortJson,
+                        queryState = view.queryState,
+                        visibility = view.visibility,
+                        isSystem = view.isSystem,
+                        systemKey = view.systemKey,
+                        position = view.position,
+                        layout = view.layout,
+                        createdAt = view.createdAt,
+                        updatedAt = LocalDateTime.now(),
+                        archivedAt = LocalDateTime.now()
                     )
                 )
             }
-    }
-
-    private fun defaultSystemViews(organizationId: Long, resourceType: String): List<ViewSystemDefinition> = when (resourceType) {
-        RESOURCE_ISSUE -> listOf(
-            ViewSystemDefinition(
-                resourceType = RESOURCE_ISSUE,
-                systemKey = "all",
-                name = "All issues",
-                description = "All issues in this workspace",
-                queryState = issueSystemQueryState()
-            ),
-            ViewSystemDefinition(
-                resourceType = RESOURCE_ISSUE,
-                systemKey = "active",
-                name = "Active",
-                description = "Active issues",
-                queryState = issueSystemQueryState(stateCategories = listOf("ACTIVE", "REVIEW"))
-            ),
-            ViewSystemDefinition(
-                resourceType = RESOURCE_ISSUE,
-                systemKey = "backlog",
-                name = "Backlog",
-                description = "Backlog issues",
-                queryState = issueSystemQueryState(states = listOf("BACKLOG"))
-            ),
-            ViewSystemDefinition(
-                resourceType = RESOURCE_ISSUE,
-                systemKey = "my-issues",
-                name = "My issues",
-                description = "Issues assigned to me",
-                queryState = issueSystemQueryState(
-                    extraConditions = listOf(
-                        objectMapper.createObjectNode().apply {
-                            put("field", "assigneeId")
-                            put("operator", "is")
-                            put("value", "\$me")
-                        }
-                    )
-                )
-            ),
-            ViewSystemDefinition(
-                resourceType = RESOURCE_ISSUE,
-                systemKey = "completed",
-                name = "Completed",
-                description = "Completed issues",
-                queryState = issueSystemQueryState(stateCategories = listOf("COMPLETED"))
-            ),
-            ViewSystemDefinition(
-                resourceType = RESOURCE_ISSUE,
-                systemKey = "canceled",
-                name = "Canceled",
-                description = "Canceled issues",
-                queryState = issueSystemQueryState(stateCategories = listOf("CANCELED"))
-            )
-        )
-        RESOURCE_PROJECT -> listOf(
-            ViewSystemDefinition(
-                resourceType = RESOURCE_PROJECT,
-                systemKey = "all",
-                name = "All projects",
-                description = "All projects in this workspace",
-                queryState = projectSystemQueryState()
-            ),
-            ViewSystemDefinition(
-                resourceType = RESOURCE_PROJECT,
-                systemKey = "active",
-                name = "Active projects",
-                description = "Active projects",
-                queryState = projectSystemQueryState(statuses = listOf("ACTIVE"))
-            ),
-            ViewSystemDefinition(
-                resourceType = RESOURCE_PROJECT,
-                systemKey = "completed",
-                name = "Completed projects",
-                description = "Completed projects",
-                queryState = projectSystemQueryState(statuses = listOf("COMPLETED"))
-            )
-        )
-        else -> emptyList()
-    }
-
-    private fun issueSystemQueryState(
-        states: List<String> = emptyList(),
-        stateCategories: List<String> = emptyList(),
-        extraConditions: List<ObjectNode> = emptyList()
-    ): ObjectNode {
-        val state = defaultQueryState()
-        val children = state.with("filters").withArray("children")
-        if (states.isNotEmpty()) {
-            children.add(
-                objectMapper.createObjectNode().apply {
-                    put("field", "state")
-                    put("operator", "in")
-                    set<ArrayNode>("value", objectMapper.createArrayNode().apply { states.forEach(::add) })
-                }
-            )
-        }
-        if (stateCategories.isNotEmpty()) {
-            children.add(
-                objectMapper.createObjectNode().apply {
-                    put("field", "stateCategory")
-                    put("operator", "in")
-                    set<ArrayNode>("value", objectMapper.createArrayNode().apply { stateCategories.forEach { add(it) } })
-                }
-            )
-        }
-        extraConditions.forEach(children::add)
-        return state
-    }
-
-    private fun projectSystemQueryState(statuses: List<String> = emptyList()): ObjectNode {
-        val state = defaultQueryState()
-        if (statuses.isNotEmpty()) {
-            state.with("filters").withArray("children").add(
-                objectMapper.createObjectNode().apply {
-                    put("field", "status")
-                    put("operator", "in")
-                    set<ArrayNode>("value", objectMapper.createArrayNode().apply { statuses.forEach(::add) })
-                }
-            )
-        }
-        return state
     }
 
     companion object {

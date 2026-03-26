@@ -42,6 +42,9 @@ export const updateView = (id: number, data: {
   description?: string | null;
   icon?: string | null;
   color?: string | null;
+  ownerUserId?: number;
+  scopeType?: ViewScopeType;
+  scopeId?: number | null;
   visibility?: ViewVisibility;
   layout?: ViewLayout;
   position?: number;

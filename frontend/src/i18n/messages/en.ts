@@ -842,6 +842,10 @@ const enMessages = {
     status: {
       saved: "View saved",
       created: "View created",
+      moved: "View updated",
+      ownerUpdated: "Owner updated",
+      subscriptionUpdated: "Subscription updated",
+      linkCopied: "Link copied",
     },
     resources: {
       issues: "Issues",
@@ -866,6 +870,14 @@ const enMessages = {
       duplicate: "Duplicate",
       favorite: "Favorite",
       unfavorite: "Unfavorite",
+      owner: "Owner",
+      moveTo: "Move to",
+      subscribe: "Subscribe",
+      copyLink: "Copy link",
+    },
+    subscription: {
+      issueAdded: "An issue is added to the view",
+      issueCompletedOrCanceled: "An issue is marked completed or canceled",
     },
     new: {
       placeholder: {

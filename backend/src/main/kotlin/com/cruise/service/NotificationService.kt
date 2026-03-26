@@ -34,6 +34,7 @@ data class NotificationSubscriptionDto(
     val userId: Long,
     val resourceType: String,
     val resourceId: Long,
+    val eventKey: String?,
     val active: Boolean,
     val createdAt: String,
     val updatedAt: String,
@@ -64,6 +65,7 @@ data class NotificationSubscriptionQuery(
     val userId: Long? = null,
     val resourceType: String? = null,
     val resourceId: Long? = null,
+    val eventKey: String? = null,
     val active: Boolean? = null,
     val includeArchived: Boolean = false
 )
@@ -105,10 +107,12 @@ data class CreateNotificationSubscriptionRequest(
     val userId: Long,
     val resourceType: String,
     val resourceId: Long,
+    val eventKey: String? = null,
     val active: Boolean? = null
 )
 
 data class UpdateNotificationSubscriptionRequest(
+    val eventKey: String? = null,
     val active: Boolean? = null,
     val archivedAt: String? = null
 )
@@ -219,6 +223,7 @@ class NotificationService(
             .filter { query.userId == null || it.userId == query.userId }
             .filter { query.resourceType == null || it.resourceType == query.resourceType }
             .filter { query.resourceId == null || it.resourceId == query.resourceId }
+            .filter { query.eventKey == null || it.eventKey == query.eventKey }
             .filter { query.active == null || it.active == query.active }
             .filter { query.includeArchived || it.archivedAt == null }
             .sortedByDescending { it.id }
@@ -233,6 +238,7 @@ class NotificationService(
                 userId = request.userId,
                 resourceType = request.resourceType,
                 resourceId = request.resourceId,
+                eventKey = request.eventKey,
                 active = request.active ?: true
             )
         ).toDto()
@@ -245,6 +251,7 @@ class NotificationService(
                 userId = subscription.userId,
                 resourceType = subscription.resourceType,
                 resourceId = subscription.resourceId,
+                eventKey = request.eventKey ?: subscription.eventKey,
                 active = request.active ?: subscription.active,
                 createdAt = subscription.createdAt,
                 updatedAt = LocalDateTime.now(),
@@ -330,6 +337,7 @@ class NotificationService(
         userId = userId,
         resourceType = resourceType,
         resourceId = resourceId,
+        eventKey = eventKey,
         active = active,
         createdAt = createdAt.toString(),
         updatedAt = updatedAt.toString(),
