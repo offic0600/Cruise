@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
-import { getStoredSession } from '@/lib/auth';
+import { clearSession, getStoredSession } from '@/lib/auth';
 import { publicPath, teamActivePath, workspaceRootPath } from '@/lib/routes';
 
 export default function Home() {
@@ -29,7 +29,11 @@ export default function Home() {
       replace(publicPath('/login'));
       return;
     }
-    if (error) return;
+    if (error) {
+      clearSession();
+      replace(publicPath('/login'));
+      return;
+    }
     if (isLoading) return;
     if (!organizations.length) {
       replace(publicPath('/create-workspace'));
@@ -43,21 +47,6 @@ export default function Home() {
       replace(workspaceRootPath(currentOrganizationSlug));
     }
   }, [currentOrganizationSlug, currentTeamKey, error, isLoading, organizations.length, router]);
-
-  if (error) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-page-glow text-ink-700">
-        <div>Failed to load workspace.</div>
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="rounded-full border border-border-soft bg-white px-4 py-2 text-sm transition hover:bg-slate-50"
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
 
   return <div className="flex min-h-screen items-center justify-center bg-page-glow text-ink-700">Loading workspace...</div>;
 }

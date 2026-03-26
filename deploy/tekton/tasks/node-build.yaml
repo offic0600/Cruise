@@ -7,23 +7,23 @@ spec:
   params:
     - name: workdir
       type: string
-      description: 子项目目录名（相对于 workspace 根目录）
+      description: Relative project directory inside the shared workspace.
     - name: build-script
       type: string
-      description: 构建命令（如 "npm run build" 或 "npx expo export --platform web"），为空则跳过
+      description: Build command to execute after dependencies are installed.
     - name: pre-script
       type: string
       default: ""
-      description: 可选的预构建脚本（如 "cp .env.web .env.local"），为空则跳过
+      description: Optional script to run before npm ci.
     - name: npm-registry
       type: string
-      default: "https://registry.npmmirror.com"
-      description: npm 镜像源地址
+      default: "https://registry.npmjs.org"
+      description: npm registry URL.
   workspaces:
     - name: source
-      description: 包含项目源码的共享工作区
+      description: Shared workspace containing the project source.
     - name: npm-cache
-      description: npm 缓存持久化存储（~/.npm）
+      description: Optional persistent npm cache workspace.
       optional: true
   steps:
     - name: node-build
@@ -36,39 +36,39 @@ spec:
           value: $(workspaces.npm-cache.path)/.npm
       script: |
         #!/bin/bash
-        set -e
+        set -euo pipefail
 
         if [ "${NPM_CACHE_BOUND}" = "true" ]; then
           mkdir -p "${NPM_CONFIG_CACHE}"
           echo "npm cache: ${NPM_CONFIG_CACHE}"
         fi
 
-        echo "=== 配置 npm registry ==="
+        echo "=== Configure npm registry ==="
         if [ -n "$(params.npm-registry)" ]; then
           npm config set registry "$(params.npm-registry)"
           echo "npm registry: $(params.npm-registry)"
         fi
 
-        echo "=== 进入项目目录 ==="
-        cd $(params.workdir)
-
-        echo "=== 执行 npm ci ==="
-        npm ci
+        echo "=== Enter project directory ==="
+        cd "$(params.workdir)"
 
         cat > /tmp/pre-script.sh << 'PREOF'
         $(params.pre-script)
         PREOF
         if grep -q '[^[:space:]]' /tmp/pre-script.sh; then
-          echo "=== 执行 pre-script ==="
+          echo "=== Run pre-script ==="
           bash /tmp/pre-script.sh
         fi
+
+        echo "=== Run npm ci ==="
+        npm ci
 
         cat > /tmp/build-script.sh << 'BUILDEOF'
         $(params.build-script)
         BUILDEOF
         if grep -q '[^[:space:]]' /tmp/build-script.sh; then
-          echo "=== 执行 build-script ==="
+          echo "=== Run build-script ==="
           bash /tmp/build-script.sh
         fi
 
-        echo "=== Node.js 构建完成 ==="
+        echo "=== Node.js build completed ==="

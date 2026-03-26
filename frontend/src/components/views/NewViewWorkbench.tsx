@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
+  ArrowDownWideNarrow,
   Bot,
   CalendarDays,
   Check,
@@ -18,8 +19,10 @@ import {
   FileText,
   Flame,
   FolderKanban,
+  LayoutGrid,
   Layers3,
   Link2,
+  List,
   LoaderCircle,
   Minus,
   Plus,
@@ -93,8 +96,6 @@ type FilterSubmenuKey =
   | 'content'
   | 'links'
   | 'template';
-type IssueInlineMenuKind = 'priority' | 'status' | 'assignee';
-type IssueStatusMenuValue = 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE' | 'CANCELED' | 'DUPLICATE';
 type FilterMenuEntry =
   | {
       type: 'action';
@@ -117,19 +118,20 @@ type FilterMenuEntry =
 
 const ISSUE_STATUS_OPTIONS: Array<Issue['state']> = ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELED'];
 const PRIORITY_OPTIONS: Array<Exclude<Issue['priority'], null>> = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
-const ISSUE_STATUS_MENU_OPTIONS: Array<{
-  value: IssueStatusMenuValue;
-  state: Issue['state'];
-  resolution: Issue['resolution'];
-}> = [
-  { value: 'BACKLOG', state: 'BACKLOG', resolution: null },
-  { value: 'TODO', state: 'TODO', resolution: null },
-  { value: 'IN_PROGRESS', state: 'IN_PROGRESS', resolution: null },
-  { value: 'IN_REVIEW', state: 'IN_REVIEW', resolution: null },
-  { value: 'DONE', state: 'DONE', resolution: 'COMPLETED' },
-  { value: 'CANCELED', state: 'CANCELED', resolution: 'CANCELED' },
-  { value: 'DUPLICATE', state: 'CANCELED', resolution: 'DUPLICATE' },
-];
+const ISSUE_GROUPING_FIELDS = ['state', 'priority', 'assigneeId', 'projectId'] as const;
+const ISSUE_ORDER_FIELDS = ['updatedAt', 'createdAt', 'priority', 'state', 'title'] as const;
+const ISSUE_DISPLAY_PROPERTY_OPTIONS = [
+  'identifier',
+  'state',
+  'assignee',
+  'priority',
+  'project',
+  'plannedEndDate',
+  'labels',
+  'createdAt',
+  'updatedAt',
+] as const;
+const ISSUE_DISABLED_DISPLAY_PROPERTY_OPTIONS = ['milestone', 'links', 'timeInStatus'] as const;
 const FILTER_MENU_ENTRIES: FilterMenuEntry[] = [
   { type: 'action', id: 'ai-filter', label: 'views.new.filters.entries.aiFilter', icon: Sparkles, keywords: ['ai', 'filter'] },
   { type: 'separator', id: 'sep-ai' },
@@ -161,7 +163,7 @@ function defaultQueryState(resourceType: ViewResourceType): ViewQueryState {
     display: {
       layout: 'LIST',
       visibleColumns: resourceType === 'ISSUE'
-        ? ['identifier', 'title', 'priority', 'state', 'assignee', 'project', 'labels', 'updatedAt']
+        ? [...ISSUE_DISPLAY_PROPERTY_OPTIONS]
         : ['key', 'name', 'status', 'ownerId', 'teamId', 'updatedAt'],
       density: 'comfortable',
       showSubIssues: true,
@@ -170,6 +172,46 @@ function defaultQueryState(resourceType: ViewResourceType): ViewQueryState {
     grouping: { field: resourceType === 'ISSUE' ? 'state' : 'status' },
     sorting: [{ field: 'updatedAt', direction: 'desc', nulls: 'last' }],
   };
+}
+
+function displayPropertyLabelKey(value: string) {
+  const map: Record<string, string> = {
+    identifier: 'views.display.properties.identifier',
+    state: 'views.display.properties.state',
+    assignee: 'views.display.properties.assignee',
+    priority: 'views.display.properties.priority',
+    project: 'views.display.properties.project',
+    plannedEndDate: 'views.display.properties.plannedEndDate',
+    labels: 'views.display.properties.labels',
+    createdAt: 'views.display.properties.createdAt',
+    updatedAt: 'views.display.properties.updatedAt',
+    milestone: 'views.display.properties.milestone',
+    links: 'views.display.properties.links',
+    timeInStatus: 'views.display.properties.timeInStatus',
+  };
+  return map[value] ?? value;
+}
+
+function groupingLabelKey(value: string | null) {
+  if (value == null) return 'views.display.noGrouping';
+  const map: Record<string, string> = {
+    state: 'views.display.groupingOptions.state',
+    priority: 'views.display.groupingOptions.priority',
+    assigneeId: 'views.display.groupingOptions.assignee',
+    projectId: 'views.display.groupingOptions.project',
+  };
+  return map[value] ?? value;
+}
+
+function orderingLabelKey(value: string) {
+  const map: Record<string, string> = {
+    updatedAt: 'views.display.orderingOptions.updatedAt',
+    createdAt: 'views.display.orderingOptions.createdAt',
+    priority: 'views.display.orderingOptions.priority',
+    state: 'views.display.orderingOptions.state',
+    title: 'views.display.orderingOptions.title',
+  };
+  return map[value] ?? value;
 }
 
 function inflateConditions(operator: 'AND' | 'OR', conditions: ConditionDraft[]): FilterGroup {
@@ -196,12 +238,6 @@ function inflateConditions(operator: 'AND' | 'OR', conditions: ConditionDraft[])
           }
     ),
   };
-}
-
-function statusOrder(value: string) {
-  const order = ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELED'];
-  const index = order.indexOf(value);
-  return index === -1 ? order.length : index;
 }
 
 function formatFieldLabel(field: string) {
@@ -240,25 +276,6 @@ function getInitials(name: string) {
   return parts.map((part) => part[0]).join('').toUpperCase();
 }
 
-function issueStateLabelKey(state: Issue['state']) {
-  return `common.status.${state}` as const;
-}
-
-function issueStatusMenuValue(issue: Issue): IssueStatusMenuValue {
-  if (issue.state === 'CANCELED' && issue.resolution === 'DUPLICATE') return 'DUPLICATE';
-  return issue.state;
-}
-
-function issueStatusMenuIcon(value: IssueStatusMenuValue) {
-  if (value === 'BACKLOG') return <CircleDashed className="h-4 w-4 text-slate-400" />;
-  if (value === 'TODO') return <Circle className="h-4 w-4 text-slate-400" />;
-  if (value === 'IN_PROGRESS') return <LoaderCircle className="h-4 w-4 text-amber-500" />;
-  if (value === 'IN_REVIEW') return <CircleEllipsis className="h-4 w-4 text-sky-500" />;
-  if (value === 'DONE') return <CheckCircle2 className="h-4 w-4 text-indigo-500" />;
-  if (value === 'DUPLICATE') return <XCircle className="h-4 w-4 text-slate-400" />;
-  return <XCircle className="h-4 w-4 text-slate-400" />;
-}
-
 function submenuConditionField(key: FilterSubmenuKey) {
   switch (key) {
     case 'status':
@@ -276,6 +293,67 @@ function submenuConditionField(key: FilterSubmenuKey) {
     default:
       return null;
   }
+}
+
+function DisplaySelectRow({
+  label,
+  valueLabel,
+  disabled,
+  children,
+}: {
+  label: string;
+  valueLabel: string;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <div className={disabled ? 'text-[15px] text-ink-400' : 'text-[15px] text-ink-700'}>
+        {label}
+      </div>
+      <div className="shrink-0" aria-label={valueLabel}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function DisplayToggleRow({
+  label,
+  checked,
+  disabled,
+  onToggle,
+}: {
+  label: string;
+  checked: boolean;
+  disabled?: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className={disabled ? 'text-[15px] text-ink-400' : 'text-[15px] text-ink-700'}>{label}</span>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={onToggle}
+        className={[
+          'relative inline-flex h-6 w-10 shrink-0 rounded-full transition',
+          disabled
+            ? 'cursor-not-allowed bg-slate-100'
+            : checked
+              ? 'bg-indigo-500'
+              : 'bg-slate-200',
+        ].join(' ')}
+      >
+        <span
+          className={[
+            'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition',
+            checked ? 'left-[18px]' : 'left-0.5',
+          ].join(' ')}
+        />
+      </button>
+    </div>
+  );
 }
 
 export default function NewViewWorkbench({
@@ -304,11 +382,6 @@ export default function NewViewWorkbench({
   const [filterSearch, setFilterSearch] = useState('');
   const [submenuSearch, setSubmenuSearch] = useState('');
   const [activeSubmenu, setActiveSubmenu] = useState<FilterSubmenuKey | null>(null);
-  const [activeIssueMenu, setActiveIssueMenu] = useState<{
-    issueId: number;
-    kind: IssueInlineMenuKind;
-  } | null>(null);
-  const [issueMenuSearch, setIssueMenuSearch] = useState('');
 
   const updateIssueMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Parameters<typeof updateIssue>[1] }) =>
@@ -369,7 +442,7 @@ export default function NewViewWorkbench({
     filters: inflateConditions('AND', conditions),
     grouping: {
       ...queryState.grouping,
-      field: queryState.grouping.field || (resourceType === 'ISSUE' ? 'state' : 'status'),
+      field: queryState.grouping.field ?? null,
     },
   }), [conditions, queryState, resourceType]);
 
@@ -459,6 +532,10 @@ export default function NewViewWorkbench({
     () => (resourceType === 'ISSUE' ? ((previewQuery.data?.items ?? []) as Issue[]) : []),
     [previewQuery.data?.items, resourceType]
   );
+  const previewGroupDefinitions = useMemo(
+    () => (resourceType === 'ISSUE' ? (previewQuery.data?.groups ?? []).map((group) => ({ key: group.key, label: group.label, count: group.count })) : []),
+    [previewQuery.data?.groups, resourceType]
+  );
 
   const saveTargetOptions = [
     { value: 'PERSONAL' as const, label: t('views.visibility.personal') },
@@ -517,6 +594,31 @@ export default function NewViewWorkbench({
       const next = JSON.parse(JSON.stringify(current)) as ViewQueryState;
       updater(next);
       return next;
+    });
+  }
+
+  function setGroupingField(value: string) {
+    updateQueryState((draft) => {
+      draft.grouping.field = value === '__none__' ? null : value;
+    });
+  }
+
+  function setOrderingField(value: string) {
+    updateQueryState((draft) => {
+      draft.sorting = [{
+        field: value,
+        direction: 'desc',
+        nulls: 'last',
+      }];
+    });
+  }
+
+  function toggleDisplayProperty(value: string) {
+    updateQueryState((draft) => {
+      const next = new Set(draft.display.visibleColumns);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      draft.display.visibleColumns = Array.from(next);
     });
   }
 
@@ -657,25 +759,12 @@ export default function NewViewWorkbench({
   async function updatePreviewIssue(id: number, data: Parameters<typeof updateIssue>[1]) {
     try {
       await updateIssueMutation.mutateAsync({ id, data });
-      setActiveIssueMenu(null);
     } catch {
       pushToast({
         title: t('views.new.preview.updateFailed'),
         description: t('views.new.preview.updateFailed'),
       });
     }
-  }
-
-  function formatCreatedDate(value: string) {
-    return new Date(value).toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-    });
-  }
-
-  function openIssueMenu(issueId: number, kind: IssueInlineMenuKind) {
-    setIssueMenuSearch('');
-    setActiveIssueMenu({ issueId, kind });
   }
 
   return (
@@ -883,9 +972,165 @@ export default function NewViewWorkbench({
                 </Popover>
               </div>
 
-              <Button variant="ghost" size="icon" className="rounded-full border border-border-soft bg-white">
-                <SlidersHorizontal className="h-4 w-4" />
-              </Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-full border border-border-soft bg-white">
+                    <SlidersHorizontal className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" sideOffset={10} className="w-[354px] overflow-hidden rounded-[22px] border border-border-subtle bg-white p-0 shadow-elevated">
+                  <div className="max-h-[72vh] overflow-y-auto px-5 py-5">
+                    <div className="flex items-center gap-2 rounded-full border border-border-soft bg-slate-50 p-1">
+                      <button
+                        type="button"
+                        className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-full bg-white text-[15px] font-medium text-ink-900 shadow-sm"
+                      >
+                        <List className="h-4 w-4" />
+                        <span>{t('views.display.list')}</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled
+                        className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-full text-[15px] font-medium text-ink-400"
+                      >
+                        <LayoutGrid className="h-4 w-4" />
+                        <span>{t('views.display.board')}</span>
+                      </button>
+                    </div>
+
+                    <div className="mt-6 space-y-4">
+                      <DisplaySelectRow
+                        label={t('views.display.grouping')}
+                        valueLabel={t(groupingLabelKey(queryState.grouping.field))}
+                      >
+                        <Select value={queryState.grouping.field ?? '__none__'} onValueChange={setGroupingField}>
+                          <SelectTrigger className="h-10 min-w-[150px] rounded-full border-border-soft bg-white shadow-none">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">{t('views.display.noGrouping')}</SelectItem>
+                            {ISSUE_GROUPING_FIELDS.map((field) => (
+                              <SelectItem key={field} value={field}>{t(groupingLabelKey(field))}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </DisplaySelectRow>
+
+                      <DisplaySelectRow
+                        label={t('views.display.subGrouping')}
+                        valueLabel={t('views.display.noGrouping')}
+                        disabled
+                      >
+                        <button
+                          type="button"
+                          disabled
+                          className="inline-flex h-10 min-w-[150px] items-center justify-between rounded-full border border-border-soft px-4 text-[15px] text-ink-400"
+                        >
+                          <span>{t('views.display.noGrouping')}</span>
+                          <ChevronDown className="h-4 w-4" />
+                        </button>
+                      </DisplaySelectRow>
+
+                      <DisplaySelectRow
+                        label={t('views.display.ordering')}
+                        valueLabel={t(orderingLabelKey(queryState.sorting[0]?.field ?? 'updatedAt'))}
+                      >
+                        <Select value={queryState.sorting[0]?.field ?? 'updatedAt'} onValueChange={setOrderingField}>
+                          <SelectTrigger className="h-10 min-w-[150px] rounded-full border-border-soft bg-white shadow-none">
+                            <div className="flex items-center gap-2">
+                              <ArrowDownWideNarrow className="h-4 w-4 text-ink-500" />
+                              <SelectValue />
+                            </div>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ISSUE_ORDER_FIELDS.map((field) => (
+                              <SelectItem key={field} value={field}>{t(orderingLabelKey(field))}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </DisplaySelectRow>
+
+                      <DisplayToggleRow
+                        label={t('views.display.orderCompletedByRecency')}
+                        checked={false}
+                        disabled
+                        onToggle={() => undefined}
+                      />
+                    </div>
+
+                    <div className="mt-6 space-y-4 border-t border-border-soft pt-5">
+                      <DisplaySelectRow
+                        label={t('views.display.completedIssues')}
+                        valueLabel={t('views.display.completedIssuesAll')}
+                        disabled
+                      >
+                        <button
+                          type="button"
+                          disabled
+                          className="inline-flex h-10 min-w-[104px] items-center justify-between rounded-full border border-border-soft px-4 text-[15px] text-ink-400"
+                        >
+                          <span>{t('views.display.completedIssuesAll')}</span>
+                          <ChevronDown className="h-4 w-4" />
+                        </button>
+                      </DisplaySelectRow>
+
+                      <DisplayToggleRow
+                        label={t('views.display.showSubIssues')}
+                        checked={queryState.display.showSubIssues ?? true}
+                        onToggle={() => updateQueryState((draft) => { draft.display.showSubIssues = !(draft.display.showSubIssues ?? true); })}
+                      />
+                    </div>
+
+                    <div className="mt-6 space-y-4 border-t border-border-soft pt-5">
+                      <div className="text-[15px] font-medium text-ink-900">{t('views.display.listOptions')}</div>
+                      <DisplayToggleRow
+                        label={t('views.display.nestedSubIssues')}
+                        checked={false}
+                        disabled
+                        onToggle={() => undefined}
+                      />
+                      <DisplayToggleRow
+                        label={t('views.display.showEmptyGroups')}
+                        checked={queryState.display.showEmptyGroups ?? true}
+                        onToggle={() => updateQueryState((draft) => { draft.display.showEmptyGroups = !(draft.display.showEmptyGroups ?? true); })}
+                      />
+                      <div className="space-y-3">
+                        <div className="text-[15px] text-ink-700">{t('views.display.displayProperties')}</div>
+                        <div className="flex flex-wrap gap-2">
+                          {ISSUE_DISPLAY_PROPERTY_OPTIONS.map((column) => {
+                            const checked = queryState.display.visibleColumns.includes(column);
+                            return (
+                              <button
+                                key={column}
+                                type="button"
+                                onClick={() => toggleDisplayProperty(column)}
+                                className={[
+                                  'inline-flex h-9 items-center rounded-full border px-3 text-[14px] transition',
+                                  checked
+                                    ? 'border-ink-900 bg-ink-900 text-white'
+                                    : 'border-border-soft bg-white text-ink-700 hover:bg-slate-50',
+                                ].join(' ')}
+                              >
+                                {t(displayPropertyLabelKey(column))}
+                              </button>
+                            );
+                          })}
+                          {ISSUE_DISABLED_DISPLAY_PROPERTY_OPTIONS.map((column) => (
+                            <button
+                              key={column}
+                              type="button"
+                              disabled
+                              className="inline-flex h-9 items-center rounded-full border border-border-soft bg-slate-50 px-3 text-[14px] text-ink-400"
+                            >
+                              {t(displayPropertyLabelKey(column))}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         </div>
@@ -915,6 +1160,9 @@ export default function NewViewWorkbench({
               variant="preview"
               locale={locale}
               emptyLabel={t('views.new.filters.noResults.issue')}
+              groupingField={(previewQueryState.grouping.field as 'state' | 'priority' | 'assigneeId' | 'projectId' | null) ?? null}
+              groupDefinitions={previewGroupDefinitions}
+              displayConfig={previewQueryState.display}
               onOpenIssue={() => {}}
               members={memberOptions}
               projects={projectOptions}

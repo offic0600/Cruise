@@ -3,7 +3,7 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 COPY frontend/package*.json ./
-RUN npm ci
+RUN npm config set registry https://registry.npmjs.org && npm ci
 
 COPY frontend/ ./
 
@@ -30,3 +30,4 @@ COPY --from=builder /app/components.json ./components.json
 EXPOSE 3000
 
 CMD ["npm", "run", "start", "--", "-p", "3000"]
+

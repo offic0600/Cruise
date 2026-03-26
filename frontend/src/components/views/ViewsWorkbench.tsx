@@ -235,10 +235,10 @@ export default function ViewsWorkbench({
     () => (resourceType === 'ISSUE' ? ((resultsQuery.data?.items ?? []) as Issue[]) : []),
     [resourceType, resultsQuery.data?.items]
   );
-  const canRenderSharedIssueList = resourceType === 'ISSUE' && (!draftQueryState.grouping.field || draftQueryState.grouping.field === 'state');
-  const resultGroupKeys = useMemo(
-    () => (draftQueryState.grouping.field === 'state' ? (resultsQuery.data?.groups ?? []).map((group) => group.key) : undefined),
-    [draftQueryState.grouping.field, resultsQuery.data?.groups]
+  const canRenderSharedIssueList = resourceType === 'ISSUE';
+  const resultGroupDefinitions = useMemo(
+    () => (resultsQuery.data?.groups ?? []).map((group) => ({ key: group.key, label: group.label, count: group.count })),
+    [resultsQuery.data?.groups]
   );
   const membershipsQuery = useQuery({
     queryKey: ['view-memberships', organizationId ?? 0],
@@ -585,7 +585,9 @@ export default function ViewsWorkbench({
                   variant="preview"
                   locale={typeof locale === 'string' ? locale : 'zh'}
                   emptyLabel={t('views.empty')}
-                  groupKeys={resultGroupKeys}
+                  groupingField={(draftQueryState.grouping.field as 'state' | 'priority' | 'assigneeId' | 'projectId' | null) ?? null}
+                  groupDefinitions={resultGroupDefinitions}
+                  displayConfig={draftQueryState.display}
                   onOpenIssue={(issue) => {
                     if (currentOrganizationSlug) {
                       router.push(issueDetailPath(currentOrganizationSlug, issue));
@@ -917,7 +919,9 @@ export default function ViewsWorkbench({
                       variant="preview"
                       locale={typeof locale === 'string' ? locale : 'zh'}
                       emptyLabel={t('views.empty')}
-                      groupKeys={resultGroupKeys}
+                      groupingField={(draftQueryState.grouping.field as 'state' | 'priority' | 'assigneeId' | 'projectId' | null) ?? null}
+                      groupDefinitions={resultGroupDefinitions}
+                      displayConfig={draftQueryState.display}
                       onOpenIssue={(issue) => {
                         if (currentOrganizationSlug) {
                           router.push(issueDetailPath(currentOrganizationSlug, issue));

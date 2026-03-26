@@ -43,7 +43,7 @@ spec:
         - name: build-script
           value: "npm run build"
         - name: npm-registry
-          value: https://registry.npmmirror.com
+          value: https://registry.npmjs.org
       workspaces:
         - name: source
           workspace: shared-workspace
@@ -82,3 +82,4 @@ spec:
           value: "223.254.144.74:5000/cruise-frontend:$(params.image-tag)"
         - name: namespace
           value: cruise
+
