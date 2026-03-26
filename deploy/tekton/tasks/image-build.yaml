@@ -1,0 +1,111 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: image-build
+  namespace: pipeline
+spec:
+  params:
+    - name: image-name
+      type: string
+      description: 容器镜像名称（如 cleantrack-backend）
+    - name: image-tag
+      type: string
+      description: 镜像 tag（git commit short hash）
+    - name: dockerfile
+      type: string
+      description: Dockerfile 路径（相对于 context 目录）
+    - name: context
+      type: string
+      description: 构建上下文目录（相对于 workspace 根目录）
+    - name: registry
+      type: string
+      description: Registry 地址（如 223.254.144.74:5000），为空则使用本地模式
+      default: ""
+    - name: push
+      type: string
+      description: 是否 push 到 Registry（true/false）
+      default: "false"
+  workspaces:
+    - name: source
+      description: 包含项目源码的共享工作区
+  steps:
+    - name: build
+      image: docker:cli
+      workingDir: $(workspaces.source.path)
+      script: |
+        set -e
+
+        REGISTRY="$(params.registry)"
+        PUSH="$(params.push)"
+
+        if [ -n "$REGISTRY" ]; then
+          # Registry 模式: 镜像名带 Registry 前缀
+          FULL_IMAGE="${REGISTRY}/$(params.image-name):$(params.image-tag)"
+          echo "=== Registry 模式: 构建 ${FULL_IMAGE} ==="
+          DOCKER_BUILDKIT=1 docker build \
+            -t "${FULL_IMAGE}" \
+            -f $(params.context)/$(params.dockerfile) \
+            $(params.context)
+
+          if [ "$PUSH" = "true" ]; then
+            echo "=== Push 镜像到 Registry ==="
+            docker push "${FULL_IMAGE}"
+            echo "=== Push 完成 ==="
+          fi
+        else
+          # 本地模式: 构建后导出给 K3s containerd 导入
+          LOCAL_IMAGE="$(params.image-name):$(params.image-tag)"
+          echo "=== 本地模式: 构建 ${LOCAL_IMAGE} ==="
+          DOCKER_BUILDKIT=1 docker build \
+            -t "${LOCAL_IMAGE}" \
+            -f $(params.context)/$(params.dockerfile) \
+            $(params.context)
+          echo "=== 导出镜像 ==="
+          docker save "${LOCAL_IMAGE}" -o /tmp/image-transfer/image.tar
+        fi
+
+        echo "=== 镜像构建完成 ==="
+      securityContext:
+        privileged: true
+      volumeMounts:
+        - name: docker-sock
+          mountPath: /var/run/docker.sock
+        - name: image-transfer
+          mountPath: /tmp/image-transfer
+    - name: import-to-k3s
+      image: docker:cli
+      script: |
+        set -e
+
+        # Registry 模式下跳过本地导入
+        if [ -n "$(params.registry)" ]; then
+          echo "=== Registry 模式，跳过 K3s 本地导入 ==="
+          exit 0
+        fi
+
+        echo "=== 导入镜像到 K3s containerd ==="
+        /host-bin/k3s ctr images import /tmp/image-transfer/image.tar
+        echo "=== 镜像导入完成 ==="
+        /host-bin/k3s ctr images list | grep "$(params.image-name)" || true
+      securityContext:
+        privileged: true
+      volumeMounts:
+        - name: k3s-bin
+          mountPath: /host-bin
+          readOnly: true
+        - name: k3s-containerd-sock
+          mountPath: /run/k3s/containerd/containerd.sock
+        - name: image-transfer
+          mountPath: /tmp/image-transfer
+  volumes:
+    - name: docker-sock
+      hostPath:
+        path: /var/run/docker.sock
+    - name: image-transfer
+      emptyDir: {}
+    - name: k3s-bin
+      hostPath:
+        path: /usr/local/bin
+    - name: k3s-containerd-sock
+      hostPath:
+        path: /run/k3s/containerd/containerd.sock

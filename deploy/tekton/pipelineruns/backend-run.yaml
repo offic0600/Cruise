@@ -1,0 +1,26 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  generateName: cruise-backend-run-
+  namespace: pipeline
+spec:
+  pipelineRef:
+    name: cruise-backend-pipeline
+  taskRunTemplate:
+    serviceAccountName: tekton-sa
+  params:
+    - name: repo-url
+      value: https://github.com/offic0600/Cruise.git
+    - name: revision
+      value: main
+    - name: image-tag
+      value: latest
+  workspaces:
+    - name: shared-workspace
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 5Gi

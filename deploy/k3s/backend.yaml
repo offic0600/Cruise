@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cruise-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cruise-backend
+  template:
+    metadata:
+      labels:
+        app: cruise-backend
+    spec:
+      containers:
+        - name: cruise-backend
+          image: registry.example.com/cruise/backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: cruise-config
+            - secretRef:
+                name: cruise-secrets
+          env:
+            - name: MANAGEMENT_HEALTH_MAIL_ENABLED
+              value: "false"
+          volumeMounts:
+            - name: storage
+              mountPath: /var/lib/cruise/storage
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: cruise-backend-storage
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cruise-backend
+spec:
+  selector:
+    app: cruise-backend
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080

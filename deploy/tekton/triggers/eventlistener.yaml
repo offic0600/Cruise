@@ -1,0 +1,52 @@
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: EventListener
+metadata:
+  name: cruise-event-listener
+  namespace: pipeline
+spec:
+  serviceAccountName: tekton-sa
+  triggers:
+    - name: cruise-backend-trigger
+      interceptors:
+        - ref:
+            name: "cel"
+          params:
+            - name: "filter"
+              value: >-
+                body.ref == 'refs/heads/main' &&
+                body.commits.exists(c,
+                  c.added.exists(f, f.startsWith('backend/')) ||
+                  c.modified.exists(f, f.startsWith('backend/')) ||
+                  c.removed.exists(f, f.startsWith('backend/'))
+                )
+            - name: "overlays"
+              value:
+                - key: image_tag
+                  expression: "body.after.truncate(7)"
+      bindings:
+        - ref: cruise-git-push-binding
+      template:
+        ref: cruise-backend-trigger-template
+
+    - name: cruise-frontend-trigger
+      interceptors:
+        - ref:
+            name: "cel"
+          params:
+            - name: "filter"
+              value: >-
+                body.ref == 'refs/heads/main' &&
+                body.commits.exists(c,
+                  c.added.exists(f, f.startsWith('frontend/')) ||
+                  c.modified.exists(f, f.startsWith('frontend/')) ||
+                  c.removed.exists(f, f.startsWith('frontend/'))
+                )
+            - name: "overlays"
+              value:
+                - key: image_tag
+                  expression: "body.after.truncate(7)"
+      bindings:
+        - ref: cruise-git-push-binding
+      template:
+        ref: cruise-frontend-trigger-template

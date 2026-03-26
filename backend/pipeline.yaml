@@ -1,0 +1,79 @@
+# Cruise Backend - Tekton Pipeline CRD
+# 流程：git-clone -> gradle-build -> image-build -> deploy
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: cruise-backend-pipeline
+  namespace: pipeline
+spec:
+  params:
+    - name: repo-url
+      default: "https://github.com/offic0600/Cruise.git"
+    - name: revision
+      default: "main"
+    - name: image-tag
+      default: "latest"
+  workspaces:
+    - name: shared-workspace
+  tasks:
+    - name: git-clone
+      taskRef:
+        name: git-clone
+      params:
+        - name: url
+          value: "$(params.repo-url)"
+        - name: revision
+          value: "$(params.revision)"
+        - name: sslVerify
+          value: "false"
+      workspaces:
+        - name: output
+          workspace: shared-workspace
+
+    - name: gradle-build
+      taskRef:
+        name: gradle-build
+      runAfter: [git-clone]
+      params:
+        - name: workdir
+          value: backend
+        - name: gradle-args
+          value: "bootJar -x test --no-daemon"
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+
+    - name: image-build
+      taskRef:
+        name: image-build
+      runAfter: [gradle-build]
+      params:
+        - name: image-name
+          value: cruise-backend
+        - name: image-tag
+          value: "$(params.image-tag)"
+        - name: dockerfile
+          value: Dockerfile
+        - name: context
+          value: backend
+        - name: registry
+          value: "223.254.144.74:5000"
+        - name: push
+          value: "true"
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+
+    - name: deploy
+      taskRef:
+        name: kubectl-set-image
+      runAfter: [image-build]
+      params:
+        - name: deployment
+          value: cruise-backend
+        - name: container
+          value: cruise-backend
+        - name: image
+          value: "223.254.144.74:5000/cruise-backend:$(params.image-tag)"
+        - name: namespace
+          value: cruise

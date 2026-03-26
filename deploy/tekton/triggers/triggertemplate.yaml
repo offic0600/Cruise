@@ -1,0 +1,82 @@
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: cruise-backend-trigger-template
+  namespace: pipeline
+spec:
+  params:
+    - name: repo-url
+      default: "https://github.com/offic0600/Cruise.git"
+    - name: revision
+      default: "main"
+    - name: image-tag
+      default: "latest"
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1
+      kind: PipelineRun
+      metadata:
+        generateName: cruise-backend-run-
+        namespace: pipeline
+      spec:
+        pipelineRef:
+          name: cruise-backend-pipeline
+        taskRunTemplate:
+          serviceAccountName: tekton-sa
+        params:
+          - name: repo-url
+            value: $(tt.params.repo-url)
+          - name: revision
+            value: $(tt.params.revision)
+          - name: image-tag
+            value: $(tt.params.image-tag)
+        workspaces:
+          - name: shared-workspace
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 5Gi
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: cruise-frontend-trigger-template
+  namespace: pipeline
+spec:
+  params:
+    - name: repo-url
+      default: "https://github.com/offic0600/Cruise.git"
+    - name: revision
+      default: "main"
+    - name: image-tag
+      default: "latest"
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1
+      kind: PipelineRun
+      metadata:
+        generateName: cruise-frontend-run-
+        namespace: pipeline
+      spec:
+        pipelineRef:
+          name: cruise-frontend-pipeline
+        taskRunTemplate:
+          serviceAccountName: tekton-sa
+        params:
+          - name: repo-url
+            value: $(tt.params.repo-url)
+          - name: revision
+            value: $(tt.params.revision)
+          - name: image-tag
+            value: $(tt.params.image-tag)
+        workspaces:
+          - name: shared-workspace
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 5Gi
