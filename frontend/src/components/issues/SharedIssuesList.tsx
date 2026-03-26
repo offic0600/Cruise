@@ -5,13 +5,15 @@ import { Check, ChevronDown, ChevronRight, Plus, UserCircle2 } from 'lucide-reac
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useI18n } from '@/i18n/useI18n';
 import type { Issue, Project } from '@/lib/api/types';
+import { getStoredUser } from '@/lib/auth';
+import { IssueAssigneeSelectMenu } from './IssueAssigneeSelectMenu';
+import { IssuePrioritySelectMenu } from './IssuePrioritySelectMenu';
+import { IssueStatusSelectMenu } from './IssueStatusSelectMenu';
 import {
   formatIssueDate,
   getIssueInitials,
   groupIssuesByState,
-  NO_PRIORITY_VALUE,
   ISSUE_GROUP_ORDER,
-  ISSUE_PRIORITY_ORDER,
   ISSUE_STATUS_MENU_OPTIONS,
   issuePriorityIcon,
   issuePriorityLabelKey,
@@ -69,6 +71,9 @@ export default function SharedIssuesList({
   isLoading = false,
 }: SharedIssuesListProps) {
   const { t } = useI18n();
+  const storedUser = getStoredUser();
+  const currentUser =
+    storedUser?.id && storedUser?.username ? { id: storedUser.id, name: storedUser.username } : null;
   const [activeIssueMenu, setActiveIssueMenu] = useState<{
     issueId: number;
     kind: IssueInlineMenuKind;
@@ -147,6 +152,7 @@ export default function SharedIssuesList({
                         issue={issue}
                         locale={locale}
                         members={members}
+                        currentUser={currentUser}
                         activeIssueMenu={activeIssueMenu}
                         issueMenuSearch={issueMenuSearch}
                         memberNameById={memberNameById}
@@ -184,6 +190,7 @@ function PreviewIssueRow({
   issue,
   locale,
   members,
+  currentUser,
   activeIssueMenu,
   issueMenuSearch,
   memberNameById,
@@ -196,6 +203,7 @@ function PreviewIssueRow({
   issue: Issue;
   locale: string;
   members: SharedMember[];
+  currentUser?: { id: number; name: string } | null;
   activeIssueMenu: { issueId: number; kind: IssueInlineMenuKind } | null;
   issueMenuSearch: string;
   memberNameById: Map<string, string>;
@@ -206,19 +214,6 @@ function PreviewIssueRow({
   rowActions?: SharedRowActions;
 }) {
   const { t } = useI18n();
-  const filteredPriorityOptions = [NO_PRIORITY_VALUE, ...ISSUE_PRIORITY_ORDER].filter((priority) => {
-    const label =
-      priority === NO_PRIORITY_VALUE
-        ? t('views.new.preview.noPriority')
-        : t(issuePriorityLabelKey(priority) ?? 'views.new.preview.noPriority');
-    return label.toLowerCase().includes(issueMenuSearch.trim().toLowerCase());
-  });
-  const filteredStatusOptions = ISSUE_STATUS_MENU_OPTIONS.filter((option) =>
-    t(issueStatusMenuLabelKey(option.value)).toLowerCase().includes(issueMenuSearch.trim().toLowerCase())
-  );
-  const filteredMembers = members.filter((member) =>
-    member.name.toLowerCase().includes(issueMenuSearch.trim().toLowerCase())
-  );
 
   return (
     <div className="group grid grid-cols-[16px_16px_74px_16px_minmax(0,1fr)_24px_68px] items-center gap-2.5 rounded-[12px] px-4 py-2.5 transition hover:bg-slate-50">
@@ -238,32 +233,18 @@ function PreviewIssueRow({
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" sideOffset={10} className="w-[260px] overflow-hidden rounded-[18px] border border-border-subtle bg-white p-0 shadow-elevated">
-          <IssueMenuInput
-            value={issueMenuSearch}
-            onChange={onIssueMenuSearchChange}
+          <IssuePrioritySelectMenu
+            value={issue.priority}
+            query={issueMenuSearch}
+            onQueryChange={onIssueMenuSearchChange}
             placeholder={t('views.new.preview.changePriorityTo')}
             shortcut="P"
+            t={t}
+            onSelect={async (nextValue) => {
+              await rowActions?.onChangePriority?.(issue, nextValue);
+              onSetActiveIssueMenu(null);
+            }}
           />
-          <div className="px-1 py-1.5">
-            {filteredPriorityOptions.map((priority, index) => (
-              <button
-                key={priority}
-                type="button"
-                onClick={async () => {
-                  await rowActions?.onChangePriority?.(issue, priority === NO_PRIORITY_VALUE ? null : priority);
-                  onSetActiveIssueMenu(null);
-                }}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-[15px] text-ink-700 transition hover:bg-slate-100"
-              >
-                <span className="flex w-4 justify-center">{priority === NO_PRIORITY_VALUE ? issuePriorityIcon(null) : issuePriorityIcon(priority)}</span>
-                <span className="truncate">{priority === NO_PRIORITY_VALUE ? t('views.new.preview.noPriority') : t(issuePriorityLabelKey(priority) ?? 'views.new.preview.noPriority')}</span>
-                <span className="ml-auto flex items-center gap-2 text-sm text-ink-500">
-                  <span className="inline-flex w-4 justify-center">{(priority === NO_PRIORITY_VALUE ? issue.priority == null : issue.priority === priority) ? <Check className="h-4 w-4 text-ink-700" /> : null}</span>
-                  <span>{index + 1}</span>
-                </span>
-              </button>
-            ))}
-          </div>
         </PopoverContent>
       </Popover>
 
@@ -281,35 +262,20 @@ function PreviewIssueRow({
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" sideOffset={10} className="w-[260px] overflow-hidden rounded-[18px] border border-border-subtle bg-white p-0 shadow-elevated">
-          <IssueMenuInput
-            value={issueMenuSearch}
-            onChange={onIssueMenuSearchChange}
+          <IssueStatusSelectMenu
+            value={issueStatusMenuValue(issue)}
+            query={issueMenuSearch}
+            onQueryChange={onIssueMenuSearchChange}
             placeholder={t('views.new.preview.changeStatusTo')}
             shortcut="S"
+            t={t}
+            onSelect={async (nextValue) => {
+              const option = ISSUE_STATUS_MENU_OPTIONS.find((candidate) => candidate.value === nextValue);
+              if (!option) return;
+              await rowActions?.onChangeStatus?.(issue, { state: option.state, resolution: option.resolution });
+              onSetActiveIssueMenu(null);
+            }}
           />
-          <div className="px-1 py-1.5">
-            {filteredStatusOptions.map((option, index) => {
-              const currentValue = issueStatusMenuValue(issue);
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={async () => {
-                    await rowActions?.onChangeStatus?.(issue, { state: option.state, resolution: option.resolution });
-                    onSetActiveIssueMenu(null);
-                  }}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-[15px] text-ink-700 transition hover:bg-slate-100"
-                >
-                  <span className="flex w-4 justify-center">{issueStatusMenuIcon(option.value)}</span>
-                  <span className="truncate">{t(issueStatusMenuLabelKey(option.value))}</span>
-                  <span className="ml-auto flex items-center gap-2 text-sm text-ink-500">
-                    <span className="inline-flex w-4 justify-center">{currentValue === option.value ? <Check className="h-4 w-4 text-ink-700" /> : null}</span>
-                    <span>{index + 1}</span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
         </PopoverContent>
       </Popover>
 
@@ -335,50 +301,20 @@ function PreviewIssueRow({
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" sideOffset={10} className="w-[260px] overflow-hidden rounded-[18px] border border-border-subtle bg-white p-0 shadow-elevated">
-          <IssueMenuInput
-            value={issueMenuSearch}
-            onChange={onIssueMenuSearchChange}
+          <IssueAssigneeSelectMenu
+            value={issue.assigneeId}
+            members={members}
+            currentUser={currentUser}
+            query={issueMenuSearch}
+            onQueryChange={onIssueMenuSearchChange}
             placeholder={t('views.new.preview.assignTo')}
             shortcut="A"
+            t={t}
+            onSelect={async (nextAssigneeId) => {
+              await rowActions?.onChangeAssignee?.(issue, nextAssigneeId);
+              onSetActiveIssueMenu(null);
+            }}
           />
-          <div className="px-1 py-1.5">
-            <button
-              type="button"
-              onClick={async () => {
-                await rowActions?.onChangeAssignee?.(issue, null);
-                onSetActiveIssueMenu(null);
-              }}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-[15px] text-ink-700 transition hover:bg-slate-100"
-            >
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-border-soft bg-white text-ink-300" />
-              <span className="truncate">{t('views.new.preview.noAssignee')}</span>
-              <span className="ml-auto flex items-center gap-2 text-sm text-ink-500">
-                <span className="inline-flex w-4 justify-center">{issue.assigneeId == null ? <Check className="h-4 w-4 text-ink-700" /> : null}</span>
-                <span>0</span>
-              </span>
-            </button>
-            {filteredMembers.length ? <div className="px-3 pb-1 pt-2 text-xs font-medium uppercase tracking-[0.08em] text-ink-400">{t('views.new.preview.teamMembers')}</div> : null}
-            {filteredMembers.map((member, index) => (
-              <button
-                key={member.id}
-                type="button"
-                onClick={async () => {
-                  await rowActions?.onChangeAssignee?.(issue, Number(member.id));
-                  onSetActiveIssueMenu(null);
-                }}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-[15px] text-ink-700 transition hover:bg-slate-100"
-              >
-                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-coral-300 text-[9px] font-semibold text-white">
-                  {getIssueInitials(member.name)}
-                </span>
-                <span className="truncate">{member.name}</span>
-                <span className="ml-auto flex items-center gap-2 text-sm text-ink-500">
-                  <span className="inline-flex w-4 justify-center">{String(issue.assigneeId ?? '') === String(member.id) ? <Check className="h-4 w-4 text-ink-700" /> : null}</span>
-                  <span>{index + 1}</span>
-                </span>
-              </button>
-            ))}
-          </div>
         </PopoverContent>
       </Popover>
 
@@ -441,33 +377,6 @@ function WorkspaceIssueRow({
       <div className="text-right text-[12px] text-ink-400">
         <span>{formatIssueDate(issue.updatedAt, locale)}</span>
       </div>
-    </div>
-  );
-}
-
-function IssueMenuInput({
-  value,
-  onChange,
-  placeholder,
-  shortcut,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder: string;
-  shortcut: string;
-}) {
-  return (
-    <div className="flex items-center gap-3 border-b border-border-soft px-4 py-3">
-      <input
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        spellCheck={false}
-        className="min-w-0 flex-1 bg-transparent text-[14px] text-ink-700 outline-none placeholder:text-ink-400"
-      />
-      <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-md border border-border-soft px-1.5 text-[11px] font-medium text-ink-500">
-        {shortcut}
-      </span>
     </div>
   );
 }

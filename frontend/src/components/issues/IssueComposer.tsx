@@ -27,6 +27,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { type Locale } from '@/i18n/config';
 import { useI18n } from '@/i18n/useI18n';
+import { IssueAssigneeSelectMenu } from './IssueAssigneeSelectMenu';
+import { IssueLabelsSelectMenu } from './IssueLabelsSelectMenu';
+import { IssuePrioritySelectMenu } from './IssuePrioritySelectMenu';
+import { IssueStatusSelectMenu } from './IssueStatusSelectMenu';
 import {
   createLabel,
   createRecurringIssue,
@@ -66,6 +70,7 @@ import { queryKeys } from '@/lib/query/keys';
 import { issueDetailPath, teamSettingsPath, workspaceSectionPath } from '@/lib/routes';
 import { buildIssueCreatedToast } from '@/lib/toast/issue-created';
 import { cn } from '@/lib/utils';
+import { issuePriorityIcon, issuePriorityLabelKey, issueStatusMenuIcon, issueStatusMenuLabelKey } from './issues-list-utils';
 
 type TeamMember = {
   id: number;
@@ -627,14 +632,6 @@ function QuickCreateView({
   onDraftChange: React.Dispatch<React.SetStateAction<IssueComposerDraft | null>>;
 }) {
   const labelsLabel = t('settings.composer.labels');
-  const stateOptions = ISSUE_STATES.map((value) => buildStateOption(value, t));
-  const priorityOptions = ISSUE_PRIORITIES.map((value) => buildPriorityOption(value, t));
-  const assigneeOptions = members.map((member) => ({
-    value: String(member.id),
-    label: member.name,
-    avatarText: getInitials(member.name),
-    avatarClassName: 'bg-rose-100 text-rose-600',
-  } satisfies SingleValueOptionDef));
   const dueDateInputRef = useRef<HTMLInputElement | null>(null);
 
   return (
@@ -695,28 +692,25 @@ function QuickCreateView({
       </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
-        <SingleValuePill
+        <ComposerStatusPill
           label={issueStateLabel(draft.state, t)}
           value={draft.state}
-          options={stateOptions}
-          onChange={(value) => onDraftChange((current) => (current ? { ...current, state: value as Issue['state'] } : current))}
+          t={t}
+          onChange={(value) => onDraftChange((current) => (current ? { ...current, state: value } : current))}
         />
-        <SingleValuePill
+        <ComposerPriorityPill
           label={issuePriorityLabel(draft.priority, t)}
-          value={draft.priority || '__empty__'}
-          options={priorityOptions}
-          onChange={(value) => onDraftChange((current) => (current ? { ...current, priority: value === '__empty__' ? '' : (value as Issue['priority']) } : current))}
-          emptyLabel={t('views.new.preview.noPriority')}
+          value={draft.priority || null}
+          t={t}
+          onChange={(value) => onDraftChange((current) => (current ? { ...current, priority: value ?? '' } : current))}
         />
-        <SingleValuePill
-          label={members.find((member) => String(member.id) === draft.assigneeId)?.name ?? (draft.assigneeId === currentUserId ? currentUserName : undefined) ?? t('common.notSet')}
-          value={draft.assigneeId || '__empty__'}
-          options={assigneeOptions}
-          onChange={(value) => onDraftChange((current) => (current ? { ...current, assigneeId: value === '__empty__' ? '' : value } : current))}
-          emptyLabel={t('common.notSet')}
-          searchable
-          searchPlaceholder={t('settings.composer.searchAssignee')}
-          noSearchResultsLabel={t('settings.composer.noAssigneeResults')}
+        <ComposerAssigneePill
+          label={members.find((member) => String(member.id) === draft.assigneeId)?.name ?? (draft.assigneeId === currentUserId ? currentUserName : undefined) ?? t('issues.detailPage.assignee')}
+          value={draft.assigneeId ? Number(draft.assigneeId) : null}
+          members={members}
+          currentUser={currentUserId && currentUserName ? { id: Number(currentUserId), name: currentUserName } : null}
+          t={t}
+          onChange={(value) => onDraftChange((current) => (current ? { ...current, assigneeId: value == null ? '' : String(value) } : current))}
         />
         <LabelsPill
           label={labelsLabel}
@@ -1331,30 +1325,6 @@ function LabelsPill({
   t: (key: string, params?: Record<string, string | number>) => string;
 }) {
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const [creating, setCreating] = useState<'TEAM' | 'WORKSPACE' | null>(null);
-
-  const normalizedQuery = query.trim().toLowerCase();
-  const filteredLabels = normalizedQuery ? labels.filter((item) => item.name.toLowerCase().includes(normalizedQuery)) : labels;
-  const selectedSet = new Set(selectedLabelIds);
-  const frequentLabels = filteredLabels.filter((item) => selectedSet.has(String(item.id)));
-  const teamLabels = (labelCatalog?.teamLabels ?? filteredLabels)
-    .filter((item) => (!normalizedQuery || item.name.toLowerCase().includes(normalizedQuery)) && !selectedSet.has(String(item.id)));
-  const workspaceLabels = (labelCatalog?.workspaceLabels ?? filteredLabels)
-    .filter((item) => (!normalizedQuery || item.name.toLowerCase().includes(normalizedQuery)) && !selectedSet.has(String(item.id)));
-  const canCreate = Boolean(normalizedQuery) && !labels.some((item) => item.name.toLowerCase() === normalizedQuery);
-
-  const handleCreate = async (scopeType: 'TEAM' | 'WORKSPACE') => {
-    const name = query.trim();
-    if (!name) return;
-    setCreating(scopeType);
-    try {
-      await onCreateLabel(scopeType, name);
-      setQuery('');
-    } finally {
-      setCreating(null);
-    }
-  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -1368,113 +1338,187 @@ function LabelsPill({
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[360px] overflow-hidden p-0">
-        <div className="flex items-center gap-3 border-b border-border-soft px-4 py-3">
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={t('settings.composer.searchLabels')}
-            className="h-auto border-0 bg-transparent px-0 py-0 text-[16px] shadow-none focus:ring-0"
-          />
-          <span className="rounded-lg border border-border-soft px-2 py-1 text-xs font-medium text-ink-400">L</span>
-        </div>
-
-        <div className="max-h-80 overflow-y-auto py-2">
-          {canCreate ? (
-            <div className="space-y-1 px-2 pb-3">
-              {teamId ? (
-                <button
-                  type="button"
-                  onClick={() => void handleCreate('TEAM')}
-                  className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50"
-                  disabled={creating != null}
-                >
-                  <span className="text-xl leading-none text-ink-500">+</span>
-                  <span>{t('settings.composer.createTeamLabel', { value: query.trim() })}</span>
-                </button>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => void handleCreate('WORKSPACE')}
-                className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50"
-                disabled={creating != null}
-              >
-                <span className="text-xl leading-none text-ink-500">+</span>
-                <span>{t('settings.composer.createWorkspaceLabel', { value: query.trim() })}</span>
-              </button>
-            </div>
-          ) : null}
-
-          {labels.length ? (
-            <>
-              {frequentLabels.length ? (
-              <>
-                <div className="px-6 pb-2 text-sm font-medium text-ink-400">{t('settings.composer.frequentlyUsedLabels')}</div>
-                <div className="space-y-1 px-2 pb-3">
-                  {frequentLabels.map((tag) => (
-                    <LabelOption key={tag.id} tag={tag} selected={true} onToggle={onToggle} />
-                  ))}
-                </div>
-              </>
-              ) : null}
-
-              {teamLabels.length ? (
-              <>
-                <div className="px-6 pb-2 text-sm font-medium text-ink-400">{t('settings.composer.teamLabels')}</div>
-                <div className="space-y-1 px-2 pb-3">
-                  {teamLabels.map((tag) => (
-                    <LabelOption key={tag.id} tag={tag} selected={false} onToggle={onToggle} />
-                  ))}
-                </div>
-              </>
-              ) : null}
-
-              {workspaceLabels.length ? (
-              <>
-                <div className="px-6 pb-2 text-sm font-medium text-ink-400">{t('settings.composer.workspaceLabels')}</div>
-                <div className="space-y-1 px-2">
-                  {workspaceLabels.map((tag) => (
-                    <LabelOption key={tag.id} tag={tag} selected={false} onToggle={onToggle} />
-                  ))}
-                </div>
-              </>
-              ) : normalizedQuery && !canCreate ? (
-              <div className="px-4 py-6 text-center text-sm text-ink-400">{t('settings.composer.noLabels')}</div>
-              ) : null}
-            </>
-          ) : !canCreate ? (
-            <div className="px-4 py-6 text-center text-sm text-ink-400">{t('settings.composer.noLabels')}</div>
-          ) : null}
-        </div>
+        <IssueLabelsSelectMenu
+          labels={labels}
+          labelCatalog={labelCatalog}
+          selectedLabelIds={selectedLabelIds}
+          teamId={teamId}
+          onToggle={onToggle}
+          onCreateLabel={onCreateLabel}
+          t={t}
+        />
       </PopoverContent>
     </Popover>
   );
 }
 
-function LabelOption({
-  tag,
-  selected,
-  onToggle,
+function ComposerStatusPill({
+  label,
+  value,
+  t,
+  onChange,
 }: {
-  tag: Label;
-  selected: boolean;
-  onToggle: (labelId: number) => void;
+  label: string;
+  value: Issue['state'];
+  t: (key: string, params?: Record<string, string | number>) => string;
+  onChange: (value: Issue['state']) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+
   return (
-    <button
-      type="button"
-      onClick={() => onToggle(tag.id)}
-      className={`flex w-full items-center gap-4 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50 ${selected ? 'bg-slate-100' : ''}`}
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) setQuery('');
+      }}
     >
-      <span
-        className={`flex h-6 w-6 items-center justify-center rounded-md border ${selected ? 'border-brand-500 bg-brand-50 text-brand-600' : 'border-border-soft bg-white text-transparent'}`}
-      >
-        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 fill-current" aria-hidden="true">
-          <path d="M6.4 11.2 3.6 8.4l-.8.8 3.6 3.6 6.8-6.8-.8-.8z" />
-        </svg>
-      </span>
-      <span className="h-3.5 w-3.5 rounded-full" style={{ backgroundColor: tag.color ?? '#94a3b8' }} />
-      <span className="truncate">{tag.name}</span>
-    </button>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
+        >
+          <span className="inline-flex items-center gap-2">
+            <span className="inline-flex items-center justify-center text-ink-500">{issueStatusMenuIcon(value)}</span>
+            <span className="truncate">{label}</span>
+          </span>
+          <ChevronDown className="h-4 w-4 text-ink-300" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[260px] overflow-hidden rounded-[18px] border border-border-subtle bg-white p-0 shadow-elevated">
+        <IssueStatusSelectMenu
+          value={value}
+          query={query}
+          onQueryChange={setQuery}
+          placeholder={t('views.new.preview.changeStatusTo')}
+          shortcut="S"
+          t={t}
+          onSelect={(nextValue) => {
+            onChange(nextValue);
+            setOpen(false);
+            setQuery('');
+          }}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function ComposerPriorityPill({
+  label,
+  value,
+  t,
+  onChange,
+}: {
+  label: string;
+  value: Issue['priority'];
+  t: (key: string, params?: Record<string, string | number>) => string;
+  onChange: (value: Issue['priority']) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) setQuery('');
+      }}
+    >
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
+        >
+          <span className="inline-flex items-center gap-2">
+            <span className="inline-flex items-center justify-center text-ink-500">{issuePriorityIcon(value)}</span>
+            <span className="truncate">{label}</span>
+          </span>
+          <ChevronDown className="h-4 w-4 text-ink-300" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[260px] overflow-hidden rounded-[18px] border border-border-subtle bg-white p-0 shadow-elevated">
+        <IssuePrioritySelectMenu
+          value={value}
+          query={query}
+          onQueryChange={setQuery}
+          placeholder={t('views.new.preview.changePriorityTo')}
+          shortcut="P"
+          t={t}
+          onSelect={(nextValue) => {
+            onChange(nextValue);
+            setOpen(false);
+            setQuery('');
+          }}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function ComposerAssigneePill({
+  label,
+  value,
+  members,
+  currentUser,
+  t,
+  onChange,
+}: {
+  label: string;
+  value: number | null;
+  members: TeamMember[];
+  currentUser?: TeamMember | null;
+  t: (key: string, params?: Record<string, string | number>) => string;
+  onChange: (value: number | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const currentMember = members.find((member) => member.id === value) ?? null;
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) setQuery('');
+      }}
+    >
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
+        >
+          <span className="inline-flex items-center gap-2">
+            {currentMember ? (
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-rose-100 text-[11px] font-semibold uppercase text-rose-600">
+                {getInitials(currentMember.name)}
+              </span>
+            ) : null}
+            <span className="truncate">{label}</span>
+          </span>
+          <ChevronDown className="h-4 w-4 text-ink-300" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[320px] overflow-hidden p-0">
+        <IssueAssigneeSelectMenu
+          value={value}
+          members={members}
+          currentUser={currentUser}
+          query={query}
+          onQueryChange={setQuery}
+          placeholder={t('settings.composer.searchAssignee')}
+          shortcut="A"
+          t={t}
+          onSelect={(nextValue) => {
+            onChange(nextValue);
+            setOpen(false);
+            setQuery('');
+          }}
+        />
+      </PopoverContent>
+    </Popover>
   );
 }
 

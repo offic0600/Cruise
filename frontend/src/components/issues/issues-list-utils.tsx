@@ -5,14 +5,7 @@ export const ISSUE_GROUP_ORDER = ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW',
 export const ISSUE_PRIORITY_ORDER = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const;
 export const NO_PRIORITY_VALUE = 'NO_PRIORITY' as const;
 
-export type IssueStatusMenuValue =
-  | 'BACKLOG'
-  | 'TODO'
-  | 'IN_PROGRESS'
-  | 'IN_REVIEW'
-  | 'DONE'
-  | 'CANCELED'
-  | 'DUPLICATE';
+export type IssueStatusMenuValue = Issue['state'];
 
 export const ISSUE_STATUS_MENU_OPTIONS: Array<{
   value: IssueStatusMenuValue;
@@ -25,7 +18,6 @@ export const ISSUE_STATUS_MENU_OPTIONS: Array<{
   { value: 'IN_REVIEW', state: 'IN_REVIEW', resolution: null },
   { value: 'DONE', state: 'DONE', resolution: 'COMPLETED' },
   { value: 'CANCELED', state: 'CANCELED', resolution: 'CANCELED' },
-  { value: 'DUPLICATE', state: 'CANCELED', resolution: 'DUPLICATE' },
 ];
 
 export function issueStateOrder(value: string) {
@@ -60,7 +52,6 @@ export function issuePriorityIcon(priority: Issue['priority']) {
 }
 
 export function issueStatusMenuValue(issue: Issue): IssueStatusMenuValue {
-  if (issue.state === 'CANCELED' && issue.resolution === 'DUPLICATE') return 'DUPLICATE';
   return issue.state;
 }
 
@@ -69,8 +60,6 @@ export function issueStateLabelKey(state: Issue['state']) {
 }
 
 export function issueStatusMenuLabelKey(value: IssueStatusMenuValue) {
-  if (value === 'DUPLICATE') return 'common.resolution.DUPLICATE' as const;
-  if (value === 'CANCELED') return 'common.status.CANCELED' as const;
   return `common.status.${value}` as const;
 }
 
