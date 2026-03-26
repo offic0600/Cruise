@@ -38,7 +38,7 @@ open class SecurityConfig(
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests { authorize ->
                 authorize
-                    .requestMatchers("/api/auth/**", "/actuator/health", "/h2-console/**").permitAll()
+                    .requestMatchers("/api/auth/**", "/actuator/health", "/actuator/health/**", "/health", "/h2-console/**").permitAll()
                     .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                     .anyRequest().authenticated()
             }

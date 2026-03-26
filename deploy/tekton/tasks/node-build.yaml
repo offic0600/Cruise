@@ -1,0 +1,74 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: node-build
+  namespace: pipeline
+spec:
+  params:
+    - name: workdir
+      type: string
+      description: 子项目目录名（相对于 workspace 根目录）
+    - name: build-script
+      type: string
+      description: 构建命令（如 "npm run build" 或 "npx expo export --platform web"），为空则跳过
+    - name: pre-script
+      type: string
+      default: ""
+      description: 可选的预构建脚本（如 "cp .env.web .env.local"），为空则跳过
+    - name: npm-registry
+      type: string
+      default: "https://registry.npmmirror.com"
+      description: npm 镜像源地址
+  workspaces:
+    - name: source
+      description: 包含项目源码的共享工作区
+    - name: npm-cache
+      description: npm 缓存持久化存储（~/.npm）
+      optional: true
+  steps:
+    - name: node-build
+      image: node:20-slim
+      workingDir: $(workspaces.source.path)
+      env:
+        - name: NPM_CACHE_BOUND
+          value: $(workspaces.npm-cache.bound)
+        - name: NPM_CONFIG_CACHE
+          value: $(workspaces.npm-cache.path)/.npm
+      script: |
+        #!/bin/bash
+        set -e
+
+        if [ "${NPM_CACHE_BOUND}" = "true" ]; then
+          mkdir -p "${NPM_CONFIG_CACHE}"
+          echo "npm cache: ${NPM_CONFIG_CACHE}"
+        fi
+
+        echo "=== 配置 npm registry ==="
+        if [ -n "$(params.npm-registry)" ]; then
+          npm config set registry "$(params.npm-registry)"
+          echo "npm registry: $(params.npm-registry)"
+        fi
+
+        echo "=== 进入项目目录 ==="
+        cd $(params.workdir)
+
+        echo "=== 执行 npm ci ==="
+        npm ci
+
+        cat > /tmp/pre-script.sh << 'PREOF'
+        $(params.pre-script)
+        PREOF
+        if grep -q '[^[:space:]]' /tmp/pre-script.sh; then
+          echo "=== 执行 pre-script ==="
+          bash /tmp/pre-script.sh
+        fi
+
+        cat > /tmp/build-script.sh << 'BUILDEOF'
+        $(params.build-script)
+        BUILDEOF
+        if grep -q '[^[:space:]]' /tmp/build-script.sh; then
+          echo "=== 执行 build-script ==="
+          bash /tmp/build-script.sh
+        fi
+
+        echo "=== Node.js 构建完成 ==="

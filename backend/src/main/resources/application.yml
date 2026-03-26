@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
 
 spring:
   application:
@@ -20,10 +20,10 @@ spring:
       force: true
 
   datasource:
-    url: jdbc:h2:mem:cruise_db;DB_CLOSE_DELAY=-1
-    username: sa
-    password:
-    driver-class-name: org.h2.Driver
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:mem:cruise_db;DB_CLOSE_DELAY=-1}
+    username: ${SPRING_DATASOURCE_USERNAME:sa}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:org.h2.Driver}
 
   h2:
     console:
@@ -36,7 +36,7 @@ spring:
     show-sql: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.H2Dialect
+        dialect: ${SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT:org.hibernate.dialect.H2Dialect}
         format_sql: true
 
   sql:
@@ -44,14 +44,14 @@ spring:
       mode: always
 
   mail:
-    host: localhost
-    port: 1025
+    host: ${SPRING_MAIL_HOST:localhost}
+    port: ${SPRING_MAIL_PORT:1025}
     properties:
       mail:
         smtp:
-          auth: false
+          auth: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH:false}
           starttls:
-            enable: false
+            enable: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE:false}
 
 management:
   endpoints:
@@ -70,12 +70,13 @@ logging:
     org.hibernate: WARN
 
 jwt:
-  secret: cruise-secret-key-for-jwt-token-generation-must-be-long-enough-256-bits
-  expiration: 86400000
+  secret: ${JWT_SECRET:cruise-secret-key-for-jwt-token-generation-must-be-long-enough-256-bits}
+  expiration: ${JWT_EXPIRATION:86400000}
 
 cruise:
   auth:
-    frontend-base-url: http://localhost:3000
+    frontend-base-url: ${CRUISE_AUTH_FRONTEND_BASE_URL:http://localhost:3000}
+    backend-base-url: ${CRUISE_AUTH_BACKEND_BASE_URL:http://localhost:8080}
     legacy-password-enabled: true
     default-organization-slug: cruise
     magic-link:
@@ -102,9 +103,9 @@ cruise:
       scopes: openid profile email
       is-default: false
   storage:
-    attachments-root: storage
+    attachments-root: ${CRUISE_STORAGE_ATTACHMENTS_ROOT:storage}
 
 minimax:
-  api-key: sk-cp-EQCCFxfVKNv4mVcruv_PRd5YPKOEBOugbUGfhbyIIh9O161hLWOyXsglcRySfy4v_H_Peda8FVQ1EKlYtYBByKBS4zwQLNMazIgvrTr1xdd4VcAg_vEG1Xw
-  model: MiniMax-M2.5
-  base-url: https://api.minimax.chat/v1
+  api-key: ${MINIMAX_API_KEY:}
+  model: ${MINIMAX_MODEL:MiniMax-M2.5}
+  base-url: ${MINIMAX_BASE_URL:https://api.minimax.chat/v1}

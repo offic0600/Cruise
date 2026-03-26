@@ -5,6 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 @ConfigurationProperties(prefix = "cruise.auth")
 data class AuthProperties(
     var frontendBaseUrl: String = "http://localhost:3000",
+    var backendBaseUrl: String = "http://localhost:8080",
     var legacyPasswordEnabled: Boolean = true,
     var defaultOrganizationSlug: String = "cruise",
     var magicLink: MagicLinkProperties = MagicLinkProperties(),

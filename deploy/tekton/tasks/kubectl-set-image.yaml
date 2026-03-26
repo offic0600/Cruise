@@ -1,0 +1,65 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: kubectl-set-image
+  namespace: pipeline
+spec:
+  params:
+    - name: deployment
+      type: string
+      description: Deployment 名称
+    - name: container
+      type: string
+      description: 容器名称
+    - name: image
+      type: string
+      description: 完整镜像地址（如 registry.cleantrackhotel.com/battery-backend:abc1234）
+    - name: namespace
+      type: string
+      description: 目标命名空间
+      default: battery
+  workspaces:
+    - name: kubeconfig
+      description: 可选 kubeconfig 工作区；绑定后优先使用该 kubeconfig 连接远程集群
+      optional: true
+  steps:
+    - name: set-image
+      image: bitnami/kubectl:latest
+      script: |
+        set -e
+        echo "=== 更新 Deployment $(params.deployment) 镜像 ==="
+        echo "  namespace: $(params.namespace)"
+        echo "  container: $(params.container)"
+        echo "  image:     $(params.image)"
+
+        KUBECTL_BIN="/host-bin/k3s kubectl"
+        KUBECTL_ARGS=""
+        if [ -f "$(workspaces.kubeconfig.path)/config" ]; then
+          echo "=== 使用远程 kubeconfig: $(workspaces.kubeconfig.path)/config ==="
+          KUBECTL_BIN="kubectl"
+          KUBECTL_ARGS="--kubeconfig=$(workspaces.kubeconfig.path)/config"
+        else
+          echo "=== 未绑定 kubeconfig workspace，回退到本地 k3s 集群 ==="
+        fi
+
+        ${KUBECTL_BIN} ${KUBECTL_ARGS} set image deployment/$(params.deployment) \
+          $(params.container)=$(params.image) \
+          -n $(params.namespace)
+
+        echo "=== 等待滚动更新完成 ==="
+        ${KUBECTL_BIN} ${KUBECTL_ARGS} rollout status deployment/$(params.deployment) \
+          -n $(params.namespace) \
+          --timeout=180s
+
+        echo "=== 部署完成，当前 Pod 状态 ==="
+        ${KUBECTL_BIN} ${KUBECTL_ARGS} get pods -n $(params.namespace) -l app=$(params.deployment) -o wide
+      securityContext:
+        privileged: true
+      volumeMounts:
+        - name: k3s-bin
+          mountPath: /host-bin
+          readOnly: true
+  volumes:
+    - name: k3s-bin
+      hostPath:
+        path: /usr/local/bin
