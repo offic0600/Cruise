@@ -93,6 +93,16 @@ data class ViewResultsRequest(
     val queryState: JsonNode? = null
 )
 
+data class ViewPreviewResultsRequest(
+    val organizationId: Long,
+    val resourceType: String = "ISSUE",
+    val scopeType: String = "WORKSPACE",
+    val scopeId: Long? = null,
+    val queryState: JsonNode? = null,
+    val page: Int? = 0,
+    val size: Int? = 50
+)
+
 data class ViewResultGroupDto(
     val key: String,
     val label: String,
@@ -351,6 +361,33 @@ class ViewService(
         return when (view.resourceType) {
             RESOURCE_ISSUE -> buildIssueResults(view, queryState, userId, page, size)
             RESOURCE_PROJECT -> buildProjectResults(view, queryState, userId, page, size)
+            else -> throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported resource type")
+        }
+    }
+
+    fun findPreviewResults(request: ViewPreviewResultsRequest): ViewResultsResponse {
+        val userId = requireCurrentUserId()
+        validateOrganizationAccess(request.organizationId, userId)
+        validateScopeAccess(request.organizationId, request.scopeType, request.scopeId, userId)
+        val normalizedScopeType = request.scopeType.uppercase()
+        val resourceType = request.resourceType.uppercase()
+        val queryState = normalizeQueryState(request.queryState, null)
+        val page = request.page ?: 0
+        val size = request.size ?: 50
+        val previewView = View(
+            organizationId = request.organizationId,
+            resourceType = resourceType,
+            scopeType = normalizedScopeType,
+            scopeId = request.scopeId,
+            ownerUserId = userId,
+            name = "Preview",
+            queryState = serializeQueryState(queryState),
+            visibility = VISIBILITY_PERSONAL,
+            layout = layoutFromQueryState(queryState)
+        )
+        return when (resourceType) {
+            RESOURCE_ISSUE -> buildIssueResults(previewView, queryState, userId, page, size)
+            RESOURCE_PROJECT -> buildProjectResults(previewView, queryState, userId, page, size)
             else -> throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported resource type")
         }
     }
@@ -827,7 +864,11 @@ class ViewService(
         node.isArray -> node.map { resolveFilterValue(it, currentUserId) }
         node.isNumber -> node.asLong()
         node.isBoolean -> node.asBoolean()
-        node.isTextual -> if (node.asText() == "\$me") currentUserId else node.asText()
+        node.isTextual -> when (node.asText()) {
+            "\$me" -> currentUserId
+            IssueService.NO_PRIORITY_FILTER -> null
+            else -> node.asText()
+        }
         else -> node.toString()
     }
 

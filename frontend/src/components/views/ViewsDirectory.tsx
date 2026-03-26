@@ -10,7 +10,7 @@ import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import { getTeamMembers } from '@/lib/api/legacy';
 import type { View, ViewResourceType, ViewScopeType } from '@/lib/api/types';
 import { useCreateView, useViewsIndex } from '@/lib/query/views';
-import { workspaceViewPath, workspaceViewsPath } from '@/lib/routes';
+import { workspaceNewViewPath, workspaceViewPath, workspaceViewsPath } from '@/lib/routes';
 import { useI18n } from '@/i18n/useI18n';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -124,23 +124,12 @@ export default function ViewsDirectory({
 
   const workspaceLabel = currentOrganization?.name ?? currentOrganizationSlug ?? t('common.workspace');
   const scopeLabel = scopeType === 'TEAM'
-    ? `${teamKey ?? currentTeamKey ?? ''} · Team`
-    : `${workspaceLabel} · Workspace`;
+    ? `${teamKey ?? currentTeamKey ?? ''} · ${t('views.directory.scope.team')}`
+    : `${workspaceLabel} · ${t('views.directory.scope.workspace')}`;
 
   async function handleCreate() {
-    if (!organizationId || !currentOrganizationSlug) return;
-    const created = await createViewMutation.mutateAsync({
-      organizationId,
-      resourceType,
-      scopeType,
-      scopeId: effectiveScopeId,
-      name: t('views.newView'),
-      description: null,
-      visibility: scopeType === 'TEAM' ? 'TEAM' : 'PERSONAL',
-      queryState: defaultQueryState(resourceType),
-      layout: 'LIST',
-    });
-    router.push(workspaceViewPath(currentOrganizationSlug, created.id));
+    if (!currentOrganizationSlug) return;
+    router.push(workspaceNewViewPath(currentOrganizationSlug, resourceType === 'PROJECT' ? 'projects' : 'issues'));
   }
 
   return (
@@ -151,7 +140,7 @@ export default function ViewsDirectory({
             <div className="space-y-2">
               <div className="text-[34px] font-semibold tracking-[-0.03em] text-ink-900">{t('views.title')}</div>
               <div className="max-w-[560px] text-sm leading-6 text-ink-500">
-                Organize reusable work contexts for this scope. Save filters, grouping, and ownership without splitting the underlying graph.
+                {t('views.directory.description')}
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -228,8 +217,8 @@ export default function ViewsDirectory({
 
         <div className="border-t border-border-soft pt-5">
           <div className="grid grid-cols-[minmax(0,1fr)_220px_40px] items-center px-1 pb-3 text-sm text-ink-500">
-            <div className="font-medium text-ink-700">Name</div>
-            <div className="font-medium text-ink-700">Owner</div>
+            <div className="font-medium text-ink-700">{t('views.directory.columns.name')}</div>
+            <div className="font-medium text-ink-700">{t('views.directory.columns.owner')}</div>
             <div />
           </div>
 
@@ -242,7 +231,7 @@ export default function ViewsDirectory({
                 <div className="text-[15px] font-medium text-ink-800">{scopeLabel}</div>
               </div>
               <div className="text-sm text-ink-400">
-                {orderedViews.length ? `${orderedViews.length} view${orderedViews.length === 1 ? '' : 's'}` : null}
+                {orderedViews.length ? t('views.directory.count', { count: orderedViews.length }) : null}
               </div>
               <button type="button" onClick={handleCreate} className="text-lg leading-none text-ink-500 transition hover:text-ink-900">+</button>
             </div>
@@ -280,7 +269,7 @@ export default function ViewsDirectory({
                             <span className="truncate">{owner}</span>
                           </>
                         ) : (
-                          <span className="text-ink-400">System</span>
+                          <span className="text-ink-400">{t('views.directory.systemOwner')}</span>
                         )}
                       </div>
 
@@ -300,7 +289,7 @@ export default function ViewsDirectory({
                     onClick={() => void viewsQuery.refetch()}
                     className="mt-3 text-sm font-medium text-ink-700 transition hover:text-ink-900"
                   >
-                    Retry
+                    {t('views.directory.retry')}
                   </button>
                 ) : null}
               </div>

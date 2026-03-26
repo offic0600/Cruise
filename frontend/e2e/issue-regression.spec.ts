@@ -25,8 +25,10 @@ test('workspace -> create issue -> edit -> sub-issue -> activity -> comment regr
 
   const statePill = page.getByTestId('issue-detail-sidebar-state-pill');
   const initialStateLabel = (await statePill.textContent())?.trim() ?? '';
-  const nextStatePattern = /待开始|Todo/i.test(initialStateLabel) ? /进行中|In progress/i : /待开始|Todo/i;
-  const stateActivityPattern = /待开始|Todo/i.test(initialStateLabel) ? /将状态从.*改为.*进行中|moved from.*to.*In progress/i : /将状态从.*改为.*待开始|moved from.*to.*Todo/i;
+  const nextStatePattern = /寰呭紑濮媩Todo/i.test(initialStateLabel) ? /杩涜涓瓅In progress/i : /寰呭紑濮媩Todo/i;
+  const stateActivityPattern = /寰呭紑濮媩Todo/i.test(initialStateLabel)
+    ? /灏嗙姸鎬佷粠.*鏀逛负.*杩涜涓瓅moved from.*to.*In progress/i
+    : /灏嗙姸鎬佷粠.*鏀逛负.*寰呭紑濮媩moved from.*to.*Todo/i;
 
   await statePill.click();
   await selectMenuItem(page, nextStatePattern);
@@ -36,9 +38,9 @@ test('workspace -> create issue -> edit -> sub-issue -> activity -> comment regr
   await expect(activitySection).toContainText(stateActivityPattern);
 
   await page.getByTestId('issue-detail-sidebar-priority-pill').click();
-  await selectMenuItem(page, /高|High/i);
-  await expect(page.getByTestId('issue-detail-sidebar-priority-pill')).toContainText(/高|High/i);
-  await expect(activitySection).toContainText(/将优先级从|changed priority/i);
+  await selectMenuItem(page, /楂榺High/i);
+  await expect(page.getByTestId('issue-detail-sidebar-priority-pill')).toContainText(/楂榺High/i);
+  await expect(activitySection).toContainText(/灏嗕紭鍏堢骇浠巪changed priority/i);
 
   await page.getByTestId('issue-detail-add-subissue-button').click();
   await page.getByTestId('issue-detail-subissue-title-input').fill(issue.subIssueTitle);
@@ -51,5 +53,25 @@ test('workspace -> create issue -> edit -> sub-issue -> activity -> comment regr
   await page.getByTestId('issue-detail-comment-submit-button').click();
   await expect(page.getByText(issue.commentBody, { exact: true })).toBeVisible();
 
-  await expect(activitySection).toContainText(/创建了该事项|created the issue/i);
+  await expect(activitySection).toContainText(/鍒涘缓浜嗚浜嬮」|created the issue/i);
+});
+
+test('shared issues list renders in new view preview and issues page', async ({ page, request }) => {
+  const user = await registerUser(request);
+  const workspace = buildWorkspaceFixture();
+  const issue = buildIssueFixture();
+
+  await loginViaPassword(page, user);
+  await createWorkspaceViaUi(page, workspace);
+  await createIssueViaUi(page, issue.title);
+
+  const teamMatch = page.url().match(/\/team\/([^/]+)\//);
+  expect(teamMatch, 'expected current team key in URL').toBeTruthy();
+  const teamKey = teamMatch?.[1];
+
+  await page.goto(`/${workspace.slug}/views/issues/new`);
+  await expect(page.getByText(issue.title, { exact: true })).toBeVisible();
+
+  await page.goto(`/${workspace.slug}/team/${teamKey}/active`);
+  await expect(page.getByText(issue.title, { exact: true })).toBeVisible();
 });

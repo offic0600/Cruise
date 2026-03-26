@@ -29,6 +29,10 @@ export function workspaceViewsPath(workspaceSlug: string, resourceType: 'issues'
   return normalizePath(`/${workspaceSlug}/views/${resourceType}`);
 }
 
+export function workspaceNewViewPath(workspaceSlug: string, resourceType: 'issues' | 'projects') {
+  return normalizePath(`/${workspaceSlug}/views/${resourceType}/new`);
+}
+
 export function teamViewsPath(workspaceSlug: string, teamKey: string, resourceType: 'issues') {
   return normalizePath(`/${workspaceSlug}/team/${teamKey}/views/${resourceType}`);
 }

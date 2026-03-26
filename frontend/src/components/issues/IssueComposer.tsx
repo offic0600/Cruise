@@ -304,7 +304,7 @@ export default function IssueComposer({
         description: draft.description.trim() || null,
         type: draft.type,
         state: draft.state,
-        priority: draft.priority,
+        priority: draft.priority || null,
         assigneeId: draft.assigneeId ? Number(draft.assigneeId) : null,
         estimatePoints: draft.estimatePoints ? Number(draft.estimatePoints) : null,
         cadenceType: recurringUnit === 'day' ? 'DAILY' : recurringUnit === 'month' ? 'MONTHLY' : 'WEEKLY',
@@ -344,7 +344,7 @@ export default function IssueComposer({
       title: draft.title.trim(),
       description: draft.description.trim() || undefined,
       state: draft.state,
-      priority: draft.priority,
+      priority: draft.priority || null,
       projectId: draft.projectId ? Number(draft.projectId) : null,
       teamId: draft.teamId ? Number(draft.teamId) : null,
       assigneeId: draft.assigneeId ? Number(draft.assigneeId) : null,
@@ -412,7 +412,7 @@ export default function IssueComposer({
         description: draft.description,
         type: draft.type,
         state: draft.state,
-        priority: draft.priority,
+        priority: draft.priority || null,
         assigneeId: draft.assigneeId ? Number(draft.assigneeId) : null,
         parentIssueId: draft.parentIssueId ? Number(draft.parentIssueId) : null,
         estimatePoints: draft.estimatePoints ? Number(draft.estimatePoints) : null,
@@ -444,7 +444,7 @@ export default function IssueComposer({
       description: draft.description || null,
       type: draft.type,
       state: draft.state,
-      priority: draft.priority,
+      priority: draft.priority || null,
       assigneeId: draft.assigneeId ? Number(draft.assigneeId) : null,
       estimatePoints: draft.estimatePoints ? Number(draft.estimatePoints) : null,
       plannedStartDate: draft.plannedStartDate || null,
@@ -703,9 +703,10 @@ function QuickCreateView({
         />
         <SingleValuePill
           label={issuePriorityLabel(draft.priority, t)}
-          value={draft.priority}
+          value={draft.priority || '__empty__'}
           options={priorityOptions}
-          onChange={(value) => onDraftChange((current) => (current ? { ...current, priority: value as Issue['priority'] } : current))}
+          onChange={(value) => onDraftChange((current) => (current ? { ...current, priority: value === '__empty__' ? '' : (value as Issue['priority']) } : current))}
+          emptyLabel={t('views.new.preview.noPriority')}
         />
         <SingleValuePill
           label={members.find((member) => String(member.id) === draft.assigneeId)?.name ?? (draft.assigneeId === currentUserId ? currentUserName : undefined) ?? t('common.notSet')}
@@ -972,9 +973,11 @@ function FullCreateView({
           />
           <SelectField
             label={t('issues.filters.priority')}
-            value={draft.priority}
-            onChange={(value) => onDraftChange((current) => (current ? { ...current, priority: value as Issue['priority'] } : current))}
+            value={draft.priority || '__empty__'}
+            onChange={(value) => onDraftChange((current) => (current ? { ...current, priority: value === '__empty__' ? '' : (value as Issue['priority']) } : current))}
             options={ISSUE_PRIORITIES.map((value) => ({ value, label: issuePriorityLabel(value, t) }))}
+            allowEmpty
+            emptyLabel={t('views.new.preview.noPriority')}
           />
           <SelectField
             label={t('issues.detailPage.assignee')}
@@ -1776,8 +1779,8 @@ function issueStateLabel(value: Issue['state'], t: (key: string, params?: Record
   return t(`common.status.${value}`);
 }
 
-function issuePriorityLabel(value: Issue['priority'], t: (key: string, params?: Record<string, string | number>) => string) {
-  return t(`common.priority.${value}`);
+function issuePriorityLabel(value: Issue['priority'] | '', t: (key: string, params?: Record<string, string | number>) => string) {
+  return value ? t(`common.priority.${value}`) : t('views.new.preview.noPriority');
 }
 
 function issueTypeLabel(value: Issue['type'], t: (key: string, params?: Record<string, string | number>) => string) {
@@ -1809,7 +1812,7 @@ function buildStateOption(value: Issue['state'], t: (key: string, params?: Recor
   return { value, label, icon: <XCircle className="h-4 w-4" />, iconClassName: 'text-rose-500' };
 }
 
-function buildPriorityOption(value: Issue['priority'], t: (key: string, params?: Record<string, string | number>) => string): SingleValueOptionDef {
+function buildPriorityOption(value: Exclude<Issue['priority'], null>, t: (key: string, params?: Record<string, string | number>) => string): SingleValueOptionDef {
   const label = issuePriorityLabel(value, t);
 
   if (value === 'LOW') {

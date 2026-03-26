@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { type ReactNode, useState } from 'react';
 import {
@@ -30,7 +30,7 @@ import { cn } from '@/lib/utils';
 
 const EMPTY = '__empty__';
 const ISSUE_STATES: Issue['state'][] = ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELED'];
-const ISSUE_PRIORITIES: Issue['priority'][] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
+const ISSUE_PRIORITIES: Exclude<Issue['priority'], null>[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
 
 type SidebarDraft = {
   state: Issue['state'];
@@ -87,8 +87,7 @@ export function IssueDetailSidebar({
   ) => ReactNode;
   formatCustomFieldValue: (field: CustomFieldDefinition, value: unknown) => string;
 }) {
-  const isZh = locale.startsWith('zh');
-  const notSetLabel = translateIssueValue(t, 'common.notSet', isZh ? '未设置' : 'Not set');
+  const notSetLabel = t('common.notSet');
   const stateOptions = ISSUE_STATES.map((value) => buildStateOption(value, t));
   const priorityOptions = ISSUE_PRIORITIES.map((value) => buildPriorityOption(value, t));
   const assigneeOptions = members.map((member) => ({
@@ -103,7 +102,7 @@ export function IssueDetailSidebar({
 
   return (
     <aside className="space-y-3 xl:sticky xl:top-24 xl:self-start">
-      <SidebarCard title="Properties" bodyClassName="flex flex-col items-start gap-2.5">
+      <SidebarCard title={t('issues.detailPage.properties')} bodyClassName="flex flex-col items-start gap-2.5">
         <SingleValuePill
           testId="issue-detail-sidebar-state-pill"
           label={stateOptions.find((option) => option.value === draftIssue.state)?.label ?? ''}
@@ -119,13 +118,18 @@ export function IssueDetailSidebar({
         />
         <SingleValuePill
           testId="issue-detail-sidebar-priority-pill"
-          label={priorityOptions.find((option) => option.value === draftIssue.priority)?.label ?? ''}
-          value={draftIssue.priority}
+          label={
+            draftIssue.priority == null
+              ? t('views.new.preview.noPriority')
+              : priorityOptions.find((option) => option.value === draftIssue.priority)?.label ?? ''
+          }
+          value={draftIssue.priority ?? EMPTY}
           options={priorityOptions}
+          emptyLabel={t('views.new.preview.noPriority')}
           onChange={(value) =>
             onSetDraftIssue((current) => ({
               ...current,
-              priority: value as Issue['priority'],
+              priority: value === EMPTY ? null : (value as Issue['priority']),
             }))
           }
         />
@@ -136,8 +140,8 @@ export function IssueDetailSidebar({
           options={assigneeOptions}
           emptyLabel={notSetLabel}
           searchable
-          searchPlaceholder={isZh ? '搜索负责人' : 'Search assignee'}
-          noSearchResultsLabel={isZh ? '没有匹配负责人' : 'No assignee results'}
+          searchPlaceholder={t('issues.detailSidebar.searchAssignee')}
+          noSearchResultsLabel={t('issues.detailSidebar.noAssigneeResults')}
           onChange={(value) =>
             onSetDraftIssue((current) => ({
               ...current,
@@ -147,12 +151,11 @@ export function IssueDetailSidebar({
         />
       </SidebarCard>
 
-      <SidebarCard title="Labels">
+      <SidebarCard title={t('settings.composer.labels')}>
         <LabelsPill
           labels={labels}
           selectedLabelIds={draftIssue.labelIds}
           teamId={issue.teamId}
-          isZh={isZh}
           t={t}
           onToggle={(labelId) =>
             onSetDraftIssue((current) => ({
@@ -166,10 +169,10 @@ export function IssueDetailSidebar({
         />
       </SidebarCard>
 
-      <SidebarCard title="Project" bodyClassName="flex flex-col items-start gap-2.5">
+      <SidebarCard title={t('issues.detailSidebar.project')} bodyClassName="flex flex-col items-start gap-2.5">
         <SingleValuePill
           testId="issue-detail-sidebar-project-pill"
-          label={selectedProject?.name ?? (isZh ? 'Add to project' : 'Add to project')}
+          label={selectedProject?.name ?? t('issues.detailSidebar.addToProject')}
           value={draftIssue.projectId == null ? EMPTY : String(draftIssue.projectId)}
           emptyLabel={notSetLabel}
           options={projects.map((project) => ({
@@ -180,7 +183,7 @@ export function IssueDetailSidebar({
           }))}
           fallbackOption={{
             value: EMPTY,
-            label: selectedProject?.name ?? 'Add to project',
+            label: selectedProject?.name ?? t('issues.detailSidebar.addToProject'),
             icon: <FolderKanban className="h-4 w-4" />,
             iconClassName: 'text-ink-400',
           }}
@@ -194,7 +197,7 @@ export function IssueDetailSidebar({
       </SidebarCard>
 
       {visibleCustomFields.length ? (
-        <SidebarCard title={isZh ? '更多字段' : 'Additional fields'} bodyClassName="space-y-2">
+        <SidebarCard title={t('issues.detailSidebar.additionalFields')} bodyClassName="space-y-2">
           {visibleCustomFields.map((field) => {
             const fieldKey = `custom-${field.id}`;
             const isEditing = activeProperty === fieldKey;
@@ -358,7 +361,6 @@ function LabelsPill({
   labels,
   selectedLabelIds,
   teamId,
-  isZh,
   t,
   onToggle,
   onCreateLabel,
@@ -366,7 +368,6 @@ function LabelsPill({
   labels: Label[];
   selectedLabelIds: number[];
   teamId: number | null;
-  isZh: boolean;
   t: (key: string, vars?: Record<string, string | number>) => string;
   onToggle: (labelId: number) => void;
   onCreateLabel: (scopeType: 'TEAM' | 'WORKSPACE', name: string) => Promise<void>;
@@ -417,7 +418,7 @@ function LabelsPill({
           ) : (
             <>
               <Tag className="h-4 w-4 text-ink-400" />
-              <span>{isZh ? '标签' : 'Labels'}</span>
+              <span>{t('settings.composer.labels')}</span>
             </>
           )}
         </button>
@@ -578,7 +579,7 @@ function buildStateOption(value: Issue['state'], t: (key: string) => string): Si
   return { value, label, icon: <XCircle className="h-4 w-4" />, iconClassName: 'text-rose-500' };
 }
 
-function buildPriorityOption(value: Issue['priority'], t: (key: string) => string): SidebarOption {
+function buildPriorityOption(value: Exclude<Issue['priority'], null>, t: (key: string) => string): SidebarOption {
   const label = translateIssueValue(t, `common.priority.${value}`, value);
   if (value === 'LOW') return { value, label, icon: <Minus className="h-4 w-4" />, iconClassName: 'text-slate-400' };
   if (value === 'MEDIUM') return { value, label, icon: <Equal className="h-4 w-4" />, iconClassName: 'text-sky-500' };

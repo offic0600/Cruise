@@ -6,7 +6,7 @@ export type IssueComposerDraft = {
   description: string;
   type: Issue['type'];
   state: Issue['state'];
-  priority: Issue['priority'];
+  priority: Issue['priority'] | '';
   teamId: string;
   projectId: string;
   assigneeId: string;
@@ -21,7 +21,7 @@ export type IssueComposerDraft = {
 
 export const ISSUE_TYPES: Issue['type'][] = ['TASK', 'FEATURE', 'BUG', 'TECH_DEBT'];
 export const ISSUE_STATES: Issue['state'][] = ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELED'];
-export const ISSUE_PRIORITIES: Issue['priority'][] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
+export const ISSUE_PRIORITIES: Exclude<Issue['priority'], null>[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
 
 export function createEmptyIssueComposerDraft(
   projects: Project[],
@@ -33,7 +33,7 @@ export function createEmptyIssueComposerDraft(
     description: '',
     type: 'TASK',
     state: 'TODO',
-    priority: 'MEDIUM',
+    priority: '',
     teamId: '',
     projectId: projects[0] ? String(projects[0].id) : '',
     assigneeId: '',
@@ -86,7 +86,7 @@ export function applySavedDraftToComposer(
     description: draft.description ?? current.description,
     type: draft.type,
     state: (draft.state as Issue['state'] | null) ?? current.state,
-    priority: (draft.priority as Issue['priority'] | null) ?? current.priority,
+    priority: (draft.priority as Issue['priority'] | null) ?? '',
     teamId: draft.teamId ? String(draft.teamId) : current.teamId,
     projectId: draft.projectId ? String(draft.projectId) : current.projectId,
     assigneeId: draft.assigneeId ? String(draft.assigneeId) : current.assigneeId,
@@ -110,7 +110,7 @@ export function parseIssueCreateParams(
     description: searchParams.get('description') ?? '',
     type: ((searchParams.get('type') ?? 'TASK').toUpperCase() as Issue['type']) ?? 'TASK',
     state: ((searchParams.get('state') ?? 'TODO').toUpperCase() as Issue['state']) ?? 'TODO',
-    priority: ((searchParams.get('priority') ?? 'MEDIUM').toUpperCase() as Issue['priority']) ?? 'MEDIUM',
+    priority: ((searchParams.get('priority') ?? '').toUpperCase() as Issue['priority']) ?? '',
     projectId: searchParams.get('projectId') ?? (projects[0] ? String(projects[0].id) : ''),
     teamId: searchParams.get('teamId') ?? '',
     assigneeId: searchParams.get('assigneeId') ?? '',
@@ -175,6 +175,6 @@ export function teamLabel(teamId: number | null | undefined, teams: Team[]) {
   return teams.find((item) => item.id === teamId)?.name ?? '';
 }
 
-function setIfPresent(params: URLSearchParams, key: string, value: string) {
-  if (value.trim()) params.set(key, value.trim());
+function setIfPresent(params: URLSearchParams, key: string, value: string | null) {
+  if (value?.trim()) params.set(key, value.trim());
 }

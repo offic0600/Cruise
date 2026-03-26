@@ -5,6 +5,7 @@ import {
   duplicateView,
   favoriteView,
   getView,
+  getViewPreviewResults,
   getViewResults,
   getViews,
   unfavoriteView,
@@ -66,6 +67,39 @@ export function useViewResults<T = Issue | Project>(
     }),
     queryFn: () => getViewResults<T>(viewId ?? 0, params),
     enabled: viewId != null,
+  });
+}
+
+export function useViewPreviewResults<T = Issue | Project>(params: {
+  organizationId?: number | null;
+  resourceType?: ViewResourceType;
+  scopeType?: ViewScopeType;
+  scopeId?: number | null;
+  queryState?: ViewQueryState | null;
+  page?: number;
+  size?: number;
+}) {
+  return useQuery({
+    queryKey: queryKeys.viewPreviewResults({
+      organizationId: params.organizationId ?? null,
+      resourceType: params.resourceType ?? null,
+      scopeType: params.scopeType ?? null,
+      scopeId: params.scopeId ?? null,
+      queryState: params.queryState ?? null,
+      page: params.page ?? 0,
+      size: params.size ?? 100,
+    }),
+    queryFn: () =>
+      getViewPreviewResults<T>({
+        organizationId: params.organizationId ?? 0,
+        resourceType: params.resourceType ?? 'ISSUE',
+        scopeType: params.scopeType ?? 'WORKSPACE',
+        scopeId: params.scopeId ?? null,
+        queryState: params.queryState ?? null,
+        page: params.page ?? 0,
+        size: params.size ?? 100,
+      }),
+    enabled: params.organizationId != null && params.resourceType != null && params.scopeType != null,
   });
 }
 

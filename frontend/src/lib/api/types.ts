@@ -24,7 +24,7 @@ export interface Issue {
   state: 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE' | 'CANCELED';
   stateCategory: 'BACKLOG' | 'ACTIVE' | 'REVIEW' | 'COMPLETED' | 'CANCELED' | string;
   resolution: 'COMPLETED' | 'CANCELED' | 'DUPLICATE' | 'OBSOLETE' | 'WONT_DO' | null;
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT' | null;
   projectId: number | null;
   teamId: number | null;
   parentIssueId: number | null;

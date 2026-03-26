@@ -61,3 +61,13 @@ export const deleteView = (id: number) => apiClient.delete(`/views/${id}`);
 
 export const getViewResults = <T = unknown>(id: number, data?: { page?: number; size?: number; queryState?: ViewQueryState | null }) =>
   apiClient.post<ViewResultsResponse<T>>(`/views/${id}/results`, data ?? {}).then((r) => r.data);
+
+export const getViewPreviewResults = <T = unknown>(data: {
+  organizationId: number;
+  resourceType: ViewResourceType;
+  scopeType: ViewScopeType;
+  scopeId?: number | null;
+  queryState?: ViewQueryState | null;
+  page?: number;
+  size?: number;
+}) => apiClient.post<ViewResultsResponse<T>>('/views/preview-results', data).then((r) => r.data);

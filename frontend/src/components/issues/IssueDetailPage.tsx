@@ -82,7 +82,7 @@ import { cn } from '@/lib/utils';
 
 const EMPTY = '__empty__';
 const ISSUE_STATES: Issue['state'][] = ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELED'];
-const ISSUE_PRIORITIES: Issue['priority'][] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
+const ISSUE_PRIORITIES: Exclude<Issue['priority'], null>[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
 const ISSUE_RESOLUTIONS: NonNullable<Issue['resolution']>[] = ['COMPLETED', 'CANCELED', 'DUPLICATE', 'OBSOLETE', 'WONT_DO'];
 const RELATION_TYPES = ['BLOCKS', 'BLOCKED_BY', 'RELATES_TO', 'DUPLICATES', 'CAUSED_BY', 'SPLIT_FROM'] as const;
 
@@ -432,7 +432,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
       projectName: projectMap.get(currentIssue.projectId ?? -1) ?? null,
       assigneeName: memberMap.get(currentIssue.assigneeId ?? -1) ?? null,
       stateLabel: translateIssueValue(t, `common.status.${currentIssue.state}`, currentIssue.state),
-      priorityLabel: translateIssueValue(t, `common.priority.${currentIssue.priority}`, currentIssue.priority),
+      priorityLabel: issuePriorityLabel(currentIssue.priority, t),
       labelNames: draftIssue?.labelIds.map((labelId) => labelMap.get(labelId)).filter(Boolean) as string[] | undefined,
     });
     await copyText(prompt, issue.identifier);
@@ -556,7 +556,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
       parentIssueId: relation === 'subIssue' ? issue.id : null,
       reporterId: user?.id ?? 1,
       state: 'TODO',
-      priority: 'MEDIUM',
+      priority: null,
     });
     if (relation === 'related') {
       await createRelationMutation.mutateAsync({ issueId: issue.id, toIssueId: created.id, relationType: 'RELATES_TO' });
@@ -930,10 +930,14 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                             />
                             <InlineIssuePill
                               label={issuePriorityLabel(subIssueDraft.priority, t)}
-                              value={subIssueDraft.priority}
+                              value={subIssueDraft.priority ?? EMPTY}
                               options={ISSUE_PRIORITIES.map((value) => buildInlinePriorityOption(value, t))}
+                              emptyLabel={t('views.new.preview.noPriority')}
                               onChange={(value) =>
-                                setSubIssueDraft((current) => ({ ...current, priority: value as Issue['priority'] }))
+                                setSubIssueDraft((current) => ({
+                                  ...current,
+                                  priority: value === EMPTY ? null : (value as Issue['priority']),
+                                }))
                               }
                             />
                             <InlineIssuePill
@@ -1292,9 +1296,11 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                     label={t('issues.columns.priority')}
                     editor={
                       <Select
-                        value={draftIssue.priority}
+                        value={draftIssue.priority ?? EMPTY}
                         onValueChange={(value) => {
-                          setDraftIssue((current) => (current ? { ...current, priority: value as Issue['priority'] } : current));
+                          setDraftIssue((current) =>
+                            current ? { ...current, priority: value === EMPTY ? null : (value as Issue['priority']) } : current
+                          );
                           setActiveProperty(null);
                         }}
                       >
@@ -1302,6 +1308,7 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value={EMPTY}>{t('views.new.preview.noPriority')}</SelectItem>
                           {ISSUE_PRIORITIES.map((value) => (
                             <SelectItem key={value} value={value}>
                               {t(`common.priority.${value}`)}
@@ -2545,7 +2552,7 @@ function createSubIssueDraft(issue?: Issue): SubIssueDraft {
     title: '',
     description: '',
     state: 'TODO',
-    priority: 'MEDIUM',
+    priority: null,
     assigneeId: issue?.assigneeId ?? null,
     labelIds: issue?.labels.map((label) => label.id) ?? [],
     plannedEndDate: issue?.plannedEndDate ?? null,
@@ -2557,6 +2564,7 @@ function issueStateLabel(state: Issue['state'], t: (key: string) => string) {
 }
 
 function issuePriorityLabel(priority: Issue['priority'], t: (key: string) => string) {
+  if (priority == null) return t('views.new.preview.noPriority');
   return translateIssueValue(t, `common.priority.${priority}`, priority);
 }
 
@@ -2583,7 +2591,7 @@ function buildInlineStateOption(state: Issue['state'], t: (key: string) => strin
   };
 }
 
-function buildInlinePriorityOption(priority: Issue['priority'], t: (key: string) => string): InlinePillOption {
+function buildInlinePriorityOption(priority: Exclude<Issue['priority'], null>, t: (key: string) => string): InlinePillOption {
   const icon =
     priority === 'LOW' ? (
       <Minus className="h-4 w-4 text-slate-400" />
@@ -2734,6 +2742,7 @@ function translateActivityStateValue(value: unknown, t: (key: string) => string)
 }
 
 function translateActivityPriorityValue(value: unknown, t: (key: string) => string) {
+  if (value == null) return issuePriorityLabel(null, t);
   return typeof value === 'string' ? issuePriorityLabel(value as Issue['priority'], t) : String(value ?? '');
 }
 

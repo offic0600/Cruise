@@ -126,6 +126,106 @@ class OrganizationAccessIntegrationTest {
     }
 
     @Test
+    fun `issue create defaults to no priority and issue query can filter no priority`() {
+        val token = loginAndGetToken("admin", "admin123")
+        val workspacePayload = createWorkspace(token, "priority-${UUID.randomUUID().toString().take(8)}", "Priority Workspace")
+        val organizationId = workspacePayload["organization"]["id"].asLong()
+        val teamId = workspacePayload["initialTeam"]["id"].asLong()
+
+        val firstIssue = mockMvc.perform(
+            post("/api/issues")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "organizationId": $organizationId,
+                      "teamId": $teamId,
+                      "type": "TASK",
+                      "title": "No priority issue"
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.priority").doesNotExist())
+            .andReturn()
+            .response
+            .contentAsString
+
+        val firstIssueId = objectMapper.readTree(firstIssue)["id"].asLong()
+
+        mockMvc.perform(
+            post("/api/issues")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "organizationId": $organizationId,
+                      "teamId": $teamId,
+                      "type": "TASK",
+                      "title": "High priority issue",
+                      "priority": "HIGH"
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isCreated)
+
+        mockMvc.perform(
+            get("/api/issues")
+                .header("Authorization", "Bearer $token")
+                .param("organizationId", organizationId.toString())
+                .param("priority", "NO_PRIORITY")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.totalCount").value(1))
+            .andExpect(jsonPath("$.items[0].id").value(firstIssueId))
+    }
+
+    @Test
+    fun `issue update can explicitly clear priority with null`() {
+        val token = loginAndGetToken("admin", "admin123")
+        val workspacePayload = createWorkspace(token, "priority-${UUID.randomUUID().toString().take(8)}", "Priority Update Workspace")
+        val organizationId = workspacePayload["organization"]["id"].asLong()
+        val teamId = workspacePayload["initialTeam"]["id"].asLong()
+
+        val createdIssueResponse = mockMvc.perform(
+            post("/api/issues")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "organizationId": $organizationId,
+                      "teamId": $teamId,
+                      "type": "TASK",
+                      "title": "Priority clear issue",
+                      "priority": "HIGH"
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.priority").value("HIGH"))
+            .andReturn()
+            .response
+            .contentAsString
+
+        val issueId = objectMapper.readTree(createdIssueResponse)["id"].asLong()
+
+        mockMvc.perform(
+            put("/api/issues/$issueId")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{ "priority": null }""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.priority").doesNotExist())
+    }
+
+    @Test
     fun `issue can be fetched directly by organization and identifier`() {
         val token = loginAndGetToken("admin", "admin123")
         val workspaceSlug = "test-${UUID.randomUUID().toString().take(8)}"
@@ -601,7 +701,8 @@ class OrganizationAccessIntegrationTest {
         assertThat(stateChanged["payload"]["to"].asText()).isEqualTo("IN_PROGRESS")
         assertThat(assigneeChanged["payload"]["fromName"].asText()).isEqualTo("Unassigned")
         assertThat(assigneeChanged["payload"]["toName"].asText()).isEqualTo("Cruise Admin")
-        assertThat(priorityChanged["payload"]["from"].asText()).isEqualTo("MEDIUM")
+        val priorityFrom = priorityChanged["payload"].path("from")
+        assertThat(priorityFrom.isMissingNode || priorityFrom.isNull).isTrue()
         assertThat(priorityChanged["payload"]["to"].asText()).isEqualTo("HIGH")
         assertThat(projectChanged["payload"]["fromName"].asText()).isEqualTo("No project")
         assertThat(projectChanged["payload"]["toName"].asText()).isEqualTo("Activity Project")

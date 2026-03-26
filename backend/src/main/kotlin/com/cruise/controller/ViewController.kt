@@ -3,6 +3,7 @@ package com.cruise.controller
 import com.cruise.service.CreateViewRequest
 import com.cruise.service.UpdateViewRequest
 import com.cruise.service.ViewDto
+import com.cruise.service.ViewPreviewResultsRequest
 import com.cruise.service.ViewQuery
 import com.cruise.service.ViewResultsRequest
 import com.cruise.service.ViewResultsResponse
@@ -69,6 +70,10 @@ class ViewController(
     @PostMapping("/{id}/results")
     fun results(@PathVariable id: Long, @RequestBody(required = false) request: ViewResultsRequest?): ViewResultsResponse =
         viewService.findResults(id, request ?: ViewResultsRequest())
+
+    @PostMapping("/preview-results")
+    fun previewResults(@RequestBody request: ViewPreviewResultsRequest): ViewResultsResponse =
+        viewService.findPreviewResults(request)
 
     @DeleteMapping("/{id}")
     fun delete(@PathVariable id: Long): ResponseEntity<Void> {
