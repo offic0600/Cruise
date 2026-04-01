@@ -1,4 +1,5 @@
 import type { Issue } from '@/lib/api';
+import type { ViewResourceType } from '@/lib/api/types';
 
 const PUBLIC_PATHS = ['/login', '/login/callback', '/create-workspace'];
 
@@ -25,11 +26,48 @@ export function workspaceSectionPath(workspaceSlug: string, section: string) {
   return normalizePath(`/${workspaceSlug}/${section}`);
 }
 
-export function workspaceViewsPath(workspaceSlug: string, resourceType: 'issues' | 'projects') {
+export function workspaceMyIssuesPath(workspaceSlug: string) {
+  return normalizePath(`/${workspaceSlug}/my-issues`);
+}
+
+export function workspaceInboxPath(workspaceSlug: string) {
+  return normalizePath(`/${workspaceSlug}/inbox`);
+}
+
+export function workspaceProjectsAllPath(workspaceSlug: string) {
+  return normalizePath(`/${workspaceSlug}/projects/all`);
+}
+
+export function workspaceProjectViewPath(
+  workspaceSlug: string,
+  view: number | string | { id: number | string; name?: string | null }
+) {
+  if (typeof view === 'object' && view !== null) {
+    const id = String(view.id);
+    const nameSegment = slugifyPathSegment(view.name ?? '');
+    return normalizePath(`/${workspaceSlug}/projects/view/${nameSegment ? `${nameSegment}-${id}` : id}`);
+  }
+  return normalizePath(`/${workspaceSlug}/projects/view/${String(view)}`);
+}
+
+export type WorkspaceViewResourceSegment = 'issues' | 'projects' | 'initiatives';
+
+export function resourceTypeToViewSegment(resourceType: ViewResourceType): WorkspaceViewResourceSegment {
+  switch (resourceType) {
+    case 'PROJECT':
+      return 'projects';
+    case 'INITIATIVE':
+      return 'initiatives';
+    default:
+      return 'issues';
+  }
+}
+
+export function workspaceViewsPath(workspaceSlug: string, resourceType: WorkspaceViewResourceSegment) {
   return normalizePath(`/${workspaceSlug}/views/${resourceType}`);
 }
 
-export function workspaceNewViewPath(workspaceSlug: string, resourceType: 'issues' | 'projects') {
+export function workspaceNewViewPath(workspaceSlug: string, resourceType: WorkspaceViewResourceSegment) {
   return normalizePath(`/${workspaceSlug}/views/${resourceType}/new`);
 }
 

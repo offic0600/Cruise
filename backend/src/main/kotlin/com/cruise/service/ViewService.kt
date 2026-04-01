@@ -131,6 +131,7 @@ class ViewService(
     private val userRepository: UserRepository,
     private val issueService: IssueService,
     private val projectService: ProjectService,
+    private val initiativeService: InitiativeService,
     private val objectMapper: ObjectMapper
 ) {
     fun findAll(query: ViewQuery = ViewQuery()): List<ViewDto> {
@@ -147,14 +148,16 @@ class ViewService(
             viewRepository.findAll().filter { it.organizationId in organizationIds }
         }
 
+        val normalizedResourceType = query.resourceType?.let(::normalizeResourceType)
+
         return candidateViews
             .asSequence()
             .filter { it.archivedAt == null }
             .filter { query.organizationId == null || it.organizationId == query.organizationId }
-            .filter { query.resourceType == null || it.resourceType == query.resourceType }
+            .filter { normalizedResourceType == null || it.resourceType == normalizedResourceType }
             .filter { query.scopeType == null || it.scopeType == query.scopeType }
             .filter { query.scopeId == null || it.scopeId == query.scopeId }
-            .filter { !it.isSystem }
+            .filter { query.includeSystem || !it.isSystem }
             .filter { query.q.isNullOrBlank() || listOfNotNull(it.name, it.description).any { text -> text.contains(query.q, ignoreCase = true) } }
             .filter { canReadView(it, userId, memberships) }
             .sortedWith(
@@ -185,11 +188,12 @@ class ViewService(
         validateScopeAccess(request.organizationId, request.scopeType, request.scopeId, userId)
         val normalizedQueryState = normalizeQueryState(request.queryState, request.layout)
         val normalizedScopeType = request.scopeType.uppercase()
+        val normalizedResourceType = normalizeResourceType(request.resourceType)
         val visibility = normalizeVisibility(normalizedScopeType, request.visibility)
         val saved = viewRepository.save(
             View(
                 organizationId = request.organizationId,
-                resourceType = request.resourceType.uppercase(),
+                resourceType = normalizedResourceType,
                 scopeType = normalizedScopeType,
                 scopeId = request.scopeId,
                 ownerUserId = if (request.isSystem ?: false) null else userId,
@@ -204,7 +208,7 @@ class ViewService(
                 visibility = visibility,
                 isSystem = request.isSystem ?: false,
                 systemKey = request.systemKey,
-                position = nextPosition(request.organizationId, request.resourceType.uppercase(), normalizedScopeType, request.scopeId),
+                position = nextPosition(request.organizationId, normalizedResourceType, normalizedScopeType, request.scopeId),
                 layout = layoutFromQueryState(normalizedQueryState)
             )
         )
@@ -362,6 +366,7 @@ class ViewService(
         return when (view.resourceType) {
             RESOURCE_ISSUE -> buildIssueResults(view, queryState, userId, page, size)
             RESOURCE_PROJECT -> buildProjectResults(view, queryState, userId, page, size)
+            RESOURCE_INITIATIVE -> buildInitiativeResults(view, queryState, userId, page, size)
             else -> throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported resource type")
         }
     }
@@ -371,7 +376,7 @@ class ViewService(
         validateOrganizationAccess(request.organizationId, userId)
         validateScopeAccess(request.organizationId, request.scopeType, request.scopeId, userId)
         val normalizedScopeType = request.scopeType.uppercase()
-        val resourceType = request.resourceType.uppercase()
+        val resourceType = normalizeResourceType(request.resourceType)
         val queryState = normalizeQueryState(request.queryState, null)
         val page = request.page ?: 0
         val size = request.size ?: 50
@@ -389,6 +394,7 @@ class ViewService(
         return when (resourceType) {
             RESOURCE_ISSUE -> buildIssueResults(previewView, queryState, userId, page, size)
             RESOURCE_PROJECT -> buildProjectResults(previewView, queryState, userId, page, size)
+            RESOURCE_INITIATIVE -> buildInitiativeResults(previewView, queryState, userId, page, size)
             else -> throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported resource type")
         }
     }
@@ -451,6 +457,34 @@ class ViewService(
         )
     }
 
+    private fun buildInitiativeResults(
+        view: View,
+        queryState: ObjectNode,
+        currentUserId: Long,
+        page: Int,
+        size: Int
+    ): ViewResultsResponse {
+        val allInitiatives = initiativeService.findAll(
+            InitiativeQuery(
+                organizationId = view.organizationId,
+                includeArchived = false,
+                page = 0,
+                size = Int.MAX_VALUE
+            )
+        ).items
+        val filtered = allInitiatives.filter { matchesInitiativeFilters(queryState.path("filters"), it, currentUserId) }
+        val sorted = sortItems(filtered, queryState.path("sorting")) { item, field -> initiativeFieldValue(item, field) }
+        val groups = buildGroups(sorted, queryState.path("grouping")) { item, field -> initiativeFieldValue(item, field) }
+        val paged = sorted.toRestPage(page, size)
+        return ViewResultsResponse(
+            items = paged.items,
+            pageInfo = paged.pageInfo,
+            totalCount = paged.totalCount,
+            appliedQueryState = queryState,
+            groups = groups
+        )
+    }
+
     private fun <T> sortItems(
         items: List<T>,
         sortingNode: JsonNode,
@@ -492,6 +526,9 @@ class ViewService(
 
     private fun matchesProjectFilters(filtersNode: JsonNode, project: ProjectDto, currentUserId: Long): Boolean =
         evaluateFilterNode(filtersNode, currentUserId) { field -> projectFieldValue(project, field) }
+
+    private fun matchesInitiativeFilters(filtersNode: JsonNode, initiative: InitiativeDto, currentUserId: Long): Boolean =
+        evaluateFilterNode(filtersNode, currentUserId) { field -> initiativeFieldValue(initiative, field) }
 
     private fun evaluateFilterNode(
         node: JsonNode,
@@ -621,12 +658,26 @@ class ViewService(
     private fun projectFieldValue(project: ProjectDto, field: String): Any? = when (field) {
         "name" -> project.name
         "status" -> project.status
+        "priority" -> project.priority
         "ownerId" -> project.ownerId
         "teamId" -> project.teamId
         "createdAt" -> project.createdAt
         "updatedAt" -> project.updatedAt
         "targetDate" -> project.targetDate
         "key" -> project.key
+        else -> null
+    }
+
+    private fun initiativeFieldValue(initiative: InitiativeDto, field: String): Any? = when (field) {
+        "name" -> initiative.name
+        "slugId" -> initiative.slugId
+        "status" -> initiative.status
+        "health" -> initiative.health
+        "ownerId" -> initiative.ownerId
+        "parentInitiativeId" -> initiative.parentInitiativeId
+        "targetDate" -> initiative.targetDate
+        "createdAt" -> initiative.createdAt
+        "updatedAt" -> initiative.updatedAt
         else -> null
     }
 
@@ -770,6 +821,11 @@ class ViewService(
             .maxOfOrNull { it.position }
             ?.plus(1)
             ?: 0
+
+    private fun normalizeResourceType(resourceType: String): String = when (resourceType.uppercase()) {
+        RESOURCE_ISSUE, RESOURCE_PROJECT, RESOURCE_INITIATIVE -> resourceType.uppercase()
+        else -> throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported resource type")
+    }
 
     private fun normalizeQueryState(queryState: JsonNode?, requestedLayout: String?): ObjectNode {
         val normalized = when {
@@ -924,6 +980,7 @@ class ViewService(
     companion object {
         const val RESOURCE_ISSUE = "ISSUE"
         const val RESOURCE_PROJECT = "PROJECT"
+        const val RESOURCE_INITIATIVE = "INITIATIVE"
 
         const val SCOPE_WORKSPACE = "WORKSPACE"
         const val SCOPE_TEAM = "TEAM"

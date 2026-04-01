@@ -36,7 +36,8 @@ data class UpdateProjectUpdateRequest(
 
 @Service
 class ProjectUpdateService(
-    private val projectUpdateRepository: ProjectUpdateRepository
+    private val projectUpdateRepository: ProjectUpdateRepository,
+    private val notificationService: NotificationService
 ) {
     fun findByProject(projectId: Long, includeArchived: Boolean = false): List<ProjectUpdateDto> =
         projectUpdateRepository.findAll()
@@ -58,7 +59,9 @@ class ProjectUpdateService(
                 health = request.health,
                 userId = request.userId
             )
-        ).toDto()
+        ).toDto().also { createdUpdate ->
+            notificationService.notifyProjectUpdated(projectId, createdUpdate.id, createdUpdate.title, createdUpdate.userId)
+        }
 
     fun update(projectId: Long, id: Long, request: UpdateProjectUpdateRequest): ProjectUpdateDto {
         val update = getUpdate(projectId, id)

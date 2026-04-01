@@ -11,7 +11,7 @@ import IssueComposer from '@/components/issues/IssueComposer';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/i18n/useI18n';
 import { clearSession, getStoredSession, type StoredUser } from '@/lib/auth';
-import { publicPath, teamActivePath, teamSettingsPath, teamViewsPath, workspaceRootPath, workspaceSectionPath, workspaceViewsPath } from '@/lib/routes';
+import { publicPath, teamActivePath, teamSettingsPath, workspaceInboxPath, workspaceMyIssuesPath, workspaceProjectsAllPath, workspaceRootPath, workspaceSectionPath, workspaceViewsPath } from '@/lib/routes';
 
 interface NavItem {
   href: string;
@@ -56,7 +56,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const navItems = useMemo<NavItem[]>(
     () => [
+      { href: '/inbox', label: t('nav.inbox'), icon: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.389 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9' },
       { href: 'team-active', label: t('nav.issues'), icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 7h6m-6 4h6m-7-8h.01M9 16h.01' },
+      { href: '/my-issues', label: t('nav.myIssues'), icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
       { href: '/projects', label: t('nav.projects'), icon: 'M4 7a2 2 0 012-2h4l2 2h6a2 2 0 012 2v2H4V7zm0 4h16v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6z' },
       { href: '/views/issues', label: t('nav.views'), icon: 'M4 6h16M4 12h10M4 18h7' },
       { href: '/teams', label: t('nav.teams'), icon: 'M3 7h18M6 3h12a2 2 0 012 2v14l-4-2-4 2-4-2-4 2V5a2 2 0 012-2z' },
@@ -66,7 +68,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     [t]
   );
 
-  const primaryNavItems = useMemo(() => navItems.filter((item) => item.href === 'team-active'), [navItems]);
+  const primaryNavItems = useMemo(() => navItems.filter((item) => item.href === '/inbox' || item.href === 'team-active'), [navItems]);
   const workspaceNavItems = useMemo(
     () => workspaceNavItemKeys
       .map((key) => navItems.find((item) => item.href === key))
@@ -213,8 +215,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const resolveNavHref = (item: NavItem) =>
     item.href === 'team-active'
       ? (currentOrganizationSlug && currentTeamKey ? teamActivePath(currentOrganizationSlug, currentTeamKey) : '#')
+      : item.href === '/inbox'
+        ? (currentOrganizationSlug ? workspaceInboxPath(currentOrganizationSlug) : '#')
+      : item.href === '/my-issues'
+        ? (currentOrganizationSlug ? workspaceMyIssuesPath(currentOrganizationSlug) : '#')
       : item.href === '/teams'
         ? (currentOrganizationSlug && currentTeamKey ? teamSettingsPath(currentOrganizationSlug, currentTeamKey) : '#')
+      : item.href === '/projects'
+        ? (currentOrganizationSlug ? workspaceProjectsAllPath(currentOrganizationSlug) : '#')
       : item.href === '/views/issues'
         ? (
             currentOrganizationSlug
@@ -230,6 +238,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       && (
         pathname === href
         || (item.href !== 'team-active' && pathname.startsWith(`${href}/`))
+        || (item.href === '/projects' && currentOrganizationSlug != null && pathname.startsWith(`/${currentOrganizationSlug}/projects/`))
         || (item.href === '/views/issues' && currentOrganizationSlug != null && pathname.startsWith(`/${currentOrganizationSlug}/view/`))
       );
 

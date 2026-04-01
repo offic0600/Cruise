@@ -154,9 +154,34 @@ export interface Project {
   name: string;
   description: string | null;
   status: 'PLANNED' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'ARCHIVED' | string;
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT' | null;
   ownerId: number | null;
   startDate: string | null;
   targetDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+}
+
+export interface WorkspaceProjectRow {
+  id: number;
+  key: string | null;
+  name: string;
+  description: string | null;
+  teamId: number | null;
+  leadUserId: number | null;
+  leadUserName: string | null;
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT' | null;
+  targetDate: string | null;
+  status: string;
+  health: string | null;
+  latestUpdateId: number | null;
+  latestUpdateAt: string | null;
+  progressPercent: number;
+  issueCount: number;
+  completedIssueCount: number;
+  nextMilestoneId: number | null;
+  nextMilestoneName: string | null;
   createdAt: string;
   updatedAt: string;
   archivedAt: string | null;
@@ -486,7 +511,7 @@ export interface JoinWorkspaceInviteResponse {
   };
 }
 
-export type ViewResourceType = 'ISSUE' | 'PROJECT';
+export type ViewResourceType = 'ISSUE' | 'PROJECT' | 'INITIATIVE';
 export type ViewScopeType = 'WORKSPACE' | 'TEAM' | 'PROJECT';
 export type ViewVisibility = 'PERSONAL' | 'WORKSPACE' | 'TEAM';
 export type ViewLayout = 'LIST' | 'BOARD';
@@ -576,7 +601,7 @@ export interface ViewResultGroup {
   count: number;
 }
 
-export interface ViewResultsResponse<T = Issue | Project> {
+export interface ViewResultsResponse<T = Issue | Project | Initiative> {
   items: T[];
   pageInfo: RestPageInfo;
   totalCount: number;
@@ -791,10 +816,28 @@ export interface Notification {
   title: string;
   body: string;
   payloadJson: string | null;
+  payload: Record<string, unknown> | null;
+  eventKey: string | null;
+  actorName: string | null;
+  actorAvatarUrl: string | null;
+  resourceTitle: string | null;
   readAt: string | null;
   updatedAt: string;
   createdAt: string;
   archivedAt: string | null;
+}
+
+export interface InboxListItemViewModel {
+  id: number;
+  resourceType: string | null;
+  resourceId: number | null;
+  primaryText: string;
+  secondaryText: string;
+  actorName: string | null;
+  actorAvatarUrl: string | null;
+  relativeTime: string;
+  isUnread: boolean;
+  detailKind: 'ISSUE' | 'PROJECT' | 'VIEW' | 'INITIATIVE' | 'UNKNOWN';
 }
 
 export interface NotificationSubscription {

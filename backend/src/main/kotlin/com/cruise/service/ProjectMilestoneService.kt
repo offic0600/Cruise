@@ -40,7 +40,8 @@ data class UpdateProjectMilestoneRequest(
 
 @Service
 class ProjectMilestoneService(
-    private val projectMilestoneRepository: ProjectMilestoneRepository
+    private val projectMilestoneRepository: ProjectMilestoneRepository,
+    private val notificationService: NotificationService
 ) {
     fun findByProject(projectId: Long, includeArchived: Boolean = false): List<ProjectMilestoneDto> =
         projectMilestoneRepository.findAll()
@@ -63,7 +64,9 @@ class ProjectMilestoneService(
                 status = request.status ?: "planned",
                 sortOrder = request.sortOrder ?: 0
             )
-        ).toDto()
+        ).toDto().also { milestone ->
+            notificationService.notifyProjectMilestoneAdded(projectId, milestone.id, milestone.name, null)
+        }
 
     fun update(projectId: Long, id: Long, request: UpdateProjectMilestoneRequest): ProjectMilestoneDto {
         val milestone = getMilestone(projectId, id)

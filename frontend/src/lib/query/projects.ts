@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
-import { createProject, getActivityEvents, getDocs, getIssues, getProjects, updateProject } from '@/lib/api';
+import { createProject, getActivityEvents, getDocs, getIssues, getProjects, getWorkspaceProjects, updateProject } from '@/lib/api';
+import type { WorkspaceProjectRow } from '@/lib/api/types';
 import { queryKeys } from './keys';
 
 export function useProjectsWorkspace() {
@@ -49,4 +50,57 @@ export function useProjectMutations() {
       onSuccess: invalidate,
     }),
   };
+}
+
+export function useWorkspaceProjects(params: {
+  organizationId?: number | null;
+  teamId?: number | null;
+  q?: string;
+  status?: string;
+  priority?: string;
+  ownerId?: number | null;
+  health?: string;
+  hasMilestone?: boolean;
+  viewId?: number | null;
+  includeArchived?: boolean;
+  page?: number;
+  size?: number;
+}) {
+  return useQuery({
+    queryKey: [
+      ...queryKeys.projects,
+      'workspace',
+      {
+        organizationId: params.organizationId ?? null,
+        teamId: params.teamId ?? null,
+        q: params.q ?? '',
+        status: params.status ?? null,
+        priority: params.priority ?? null,
+        ownerId: params.ownerId ?? null,
+        health: params.health ?? null,
+        hasMilestone: params.hasMilestone ?? null,
+        viewId: params.viewId ?? null,
+        includeArchived: params.includeArchived ?? false,
+        page: params.page ?? 0,
+        size: params.size ?? 100,
+      },
+    ],
+    queryFn: () =>
+      getWorkspaceProjects({
+        organizationId: params.organizationId ?? 0,
+        teamId: params.teamId ?? null,
+        q: params.q,
+        status: params.status,
+        priority: params.priority,
+        ownerId: params.ownerId ?? null,
+        health: params.health,
+        hasMilestone: params.hasMilestone,
+        viewId: params.viewId ?? null,
+        includeArchived: params.includeArchived,
+        page: params.page,
+        size: params.size,
+      }),
+    enabled: params.organizationId != null,
+    select: (response) => response as { items: WorkspaceProjectRow[]; totalCount: number; pageInfo: { hasNextPage: boolean; hasPreviousPage: boolean; nextCursor: string | null; prevCursor: string | null } },
+  });
 }

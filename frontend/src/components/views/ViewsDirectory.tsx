@@ -10,7 +10,13 @@ import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import { getTeamMembers } from '@/lib/api/legacy';
 import type { View, ViewResourceType, ViewScopeType } from '@/lib/api/types';
 import { useCreateView, useViewsIndex } from '@/lib/query/views';
-import { workspaceNewViewPath, workspaceViewPath, workspaceViewsPath } from '@/lib/routes';
+import {
+  resourceTypeToViewSegment,
+  workspaceNewViewPath,
+  workspaceProjectViewPath,
+  workspaceViewPath,
+  workspaceViewsPath,
+} from '@/lib/routes';
 import { useI18n } from '@/i18n/useI18n';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,7 +36,9 @@ function defaultQueryState(resourceType: ViewResourceType) {
       layout: 'LIST' as const,
       visibleColumns: resourceType === 'ISSUE'
         ? ['identifier', 'title', 'priority', 'state', 'assignee', 'project', 'labels', 'updatedAt', 'createdAt']
-        : ['key', 'name', 'status', 'ownerId', 'teamId', 'updatedAt', 'createdAt'],
+        : resourceType === 'PROJECT'
+          ? ['key', 'name', 'status', 'ownerId', 'teamId', 'updatedAt', 'createdAt']
+          : ['slugId', 'name', 'status', 'health', 'ownerId', 'targetDate', 'updatedAt', 'createdAt'],
       density: 'comfortable' as const,
       showSubIssues: true,
       showEmptyGroups: true,
@@ -123,7 +131,8 @@ export default function ViewsDirectory({
 
   async function handleCreate() {
     if (!currentOrganizationSlug) return;
-    router.push(workspaceNewViewPath(currentOrganizationSlug, resourceType === 'PROJECT' ? 'projects' : 'issues'));
+    if (resourceType === 'INITIATIVE') return;
+    router.push(workspaceNewViewPath(currentOrganizationSlug, resourceTypeToViewSegment(resourceType)));
   }
 
   return (
@@ -179,7 +188,7 @@ export default function ViewsDirectory({
 
         <div className="flex items-center justify-between gap-4 py-5">
           {scopeType === 'WORKSPACE' ? (
-            <Tabs value={resourceType} onValueChange={(value) => currentOrganizationSlug && router.push(workspaceViewsPath(currentOrganizationSlug, value === 'PROJECT' ? 'projects' : 'issues'))}>
+            <Tabs value={resourceType} onValueChange={(value) => currentOrganizationSlug && router.push(workspaceViewsPath(currentOrganizationSlug, resourceTypeToViewSegment(value as ViewResourceType)))}>
               <TabsList className="rounded-full border border-border-soft bg-white p-1 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
                 <TabsTrigger
                   value="ISSUE"
@@ -192,6 +201,12 @@ export default function ViewsDirectory({
                   className="min-w-[92px] rounded-full border border-transparent px-5 text-[15px] text-ink-600 transition data-[state=active]:border-border-soft data-[state=active]:bg-slate-50 data-[state=active]:font-medium data-[state=active]:text-ink-900 data-[state=active]:shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
                 >
                   {t('views.resources.projects')}
+                </TabsTrigger>
+                <TabsTrigger
+                  value="INITIATIVE"
+                  className="min-w-[104px] rounded-full border border-transparent px-5 text-[15px] text-ink-600 transition data-[state=active]:border-border-soft data-[state=active]:bg-slate-50 data-[state=active]:font-medium data-[state=active]:text-ink-900 data-[state=active]:shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
+                >
+                  {t('views.resources.initiatives')}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -227,7 +242,14 @@ export default function ViewsDirectory({
               <div className="text-sm text-ink-400">
                 {orderedViews.length ? t('views.directory.count', { count: orderedViews.length }) : null}
               </div>
-              <button type="button" onClick={handleCreate} className="text-lg leading-none text-ink-500 transition hover:text-ink-900">+</button>
+              <button
+                type="button"
+                onClick={handleCreate}
+                disabled={resourceType === 'INITIATIVE'}
+                className="text-lg leading-none text-ink-500 transition hover:text-ink-900 disabled:cursor-not-allowed disabled:text-ink-300"
+              >
+                +
+              </button>
             </div>
 
             {viewsQuery.isPending && showLoadingState ? (
@@ -239,7 +261,13 @@ export default function ViewsDirectory({
                   return (
                     <Link
                       key={view.id}
-                        href={currentOrganizationSlug ? workspaceViewPath(currentOrganizationSlug, view) : '#'}
+                        href={
+                          currentOrganizationSlug
+                            ? view.resourceType === 'PROJECT'
+                              ? workspaceProjectViewPath(currentOrganizationSlug, view)
+                              : workspaceViewPath(currentOrganizationSlug, view)
+                            : '#'
+                        }
                       className="grid grid-cols-[minmax(0,1fr)_220px_40px] items-center gap-3 rounded-[18px] px-4 py-4 transition hover:bg-slate-50"
                     >
                       <div className="min-w-0">

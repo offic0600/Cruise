@@ -18,6 +18,8 @@ import com.cruise.service.RestPageResponse
 import com.cruise.service.UpdateProjectRequest
 import com.cruise.service.UpdateProjectMilestoneRequest
 import com.cruise.service.UpdateProjectUpdateRequest
+import com.cruise.service.WorkspaceProjectQuery
+import com.cruise.service.WorkspaceProjectRowDto
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -61,6 +63,37 @@ class ProjectController(
 
     @GetMapping("/{id}")
     fun getById(@PathVariable id: Long): ProjectDto = projectService.findById(id)
+
+    @GetMapping("/workspace")
+    fun getWorkspaceProjects(
+        @RequestParam organizationId: Long,
+        @RequestParam(required = false) teamId: Long?,
+        @RequestParam(required = false) q: String?,
+        @RequestParam(required = false) status: String?,
+        @RequestParam(required = false) priority: String?,
+        @RequestParam(required = false) ownerId: Long?,
+        @RequestParam(required = false) health: String?,
+        @RequestParam(required = false) hasMilestone: Boolean?,
+        @RequestParam(required = false) viewId: Long?,
+        @RequestParam(required = false, defaultValue = "false") includeArchived: Boolean,
+        @RequestParam(required = false, defaultValue = "0") page: Int,
+        @RequestParam(required = false, defaultValue = "100") size: Int
+    ): RestPageResponse<WorkspaceProjectRowDto> = projectService.findWorkspaceProjects(
+        WorkspaceProjectQuery(
+            organizationId = organizationId,
+            teamId = teamId,
+            q = q,
+            status = status,
+            priority = priority,
+            ownerId = ownerId,
+            health = health,
+            hasMilestone = hasMilestone,
+            includeArchived = includeArchived,
+            viewId = viewId,
+            page = page,
+            size = size
+        )
+    )
 
     @PostMapping
     fun create(@RequestBody request: CreateProjectRequest): ResponseEntity<ProjectDto> =

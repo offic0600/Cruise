@@ -35,8 +35,10 @@ class NotificationController(
     fun getAll(
         @RequestParam(required = false) userId: Long?,
         @RequestParam(required = false, defaultValue = "false") unreadOnly: Boolean,
+        @RequestParam(required = false) actorId: Long?,
         @RequestParam(required = false) type: String?,
         @RequestParam(required = false) category: String?,
+        @RequestParam(required = false) eventKey: String?,
         @RequestParam(required = false) resourceType: String?,
         @RequestParam(required = false) resourceId: Long?,
         @RequestParam(required = false, defaultValue = "false") includeArchived: Boolean
@@ -44,8 +46,10 @@ class NotificationController(
         NotificationQuery(
             userId = userId,
             unreadOnly = unreadOnly,
+            actorId = actorId,
             type = type,
             category = category,
+            eventKey = eventKey,
             resourceType = resourceType,
             resourceId = resourceId,
             includeArchived = includeArchived
@@ -65,6 +69,9 @@ class NotificationController(
 
     @PatchMapping("/{id}/read")
     fun markRead(@PathVariable id: Long): NotificationDto = notificationService.markRead(id)
+
+    @PatchMapping("/{id}/archive")
+    fun archive(@PathVariable id: Long): NotificationDto = notificationService.archive(id)
 
     @DeleteMapping("/{id}")
     fun delete(@PathVariable id: Long): ResponseEntity<Void> {

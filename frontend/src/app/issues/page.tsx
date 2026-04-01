@@ -18,6 +18,7 @@ import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetDismissButton, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { useI18n } from '@/i18n/useI18n';
+import { getStoredSession } from '@/lib/auth';
 import type { CustomFieldDefinition, Issue, Project, Team } from '@/lib/api';
 import { issueDetailPath, workspaceSectionPath } from '@/lib/routes';
 import { useIssueMutations, useIssueWorkspace } from '@/lib/query/issues';
@@ -153,12 +154,16 @@ export default function IssuesPage() {
     [t]
   );
   const currentView = normalizeView(searchParams.get('view'));
+  const session = useMemo(() => getStoredSession(), [pathname]);
+  const currentUserId = session?.user.id ?? null;
+  const currentUserName = session?.user.username ?? session?.user.email ?? null;
+  const isMyIssuesCollection = pathname.includes('/my-issues');
   const searchParamsKey = searchParams.toString();
   const collapsedStates = useMemo(() => readCollapsedStates(searchParams), [searchParamsKey]);
 
   const apiFilters = useMemo(
-    () => buildIssueFilters(searchParams, organizationId ?? 1, currentTeamId),
-    [organizationId, currentTeamId, searchParamsKey]
+    () => buildIssueFilters(searchParams, organizationId ?? 1, currentTeamId, isMyIssuesCollection ? currentUserId : null),
+    [organizationId, currentTeamId, currentUserId, isMyIssuesCollection, searchParamsKey]
   );
   const {
     issuesQuery,
@@ -184,13 +189,13 @@ export default function IssuesPage() {
   const [quickCreateState, setQuickCreateState] = useState<string | null>(null);
   const [createMore, setCreateMore] = useState(false);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
-  const [draftFilters, setDraftFilters] = useState<FilterDraft>(() => readFilterDraft(searchParams, []));
+  const [draftFilters, setDraftFilters] = useState<FilterDraft>(() => readFilterDraft(searchParams, [], isMyIssuesCollection ? currentUserId : null));
   const [createDraft, setCreateDraft] = useState<CreateDraft>(() => buildCreateDraft([], null, [], currentTeamId));
 
   useEffect(() => {
     setSearchValue(searchParams.get('q') ?? '');
-    setDraftFilters(readFilterDraft(searchParams, customFieldDefinitions));
-  }, [customFieldDefinitions, searchParamsKey]);
+    setDraftFilters(readFilterDraft(searchParams, customFieldDefinitions, isMyIssuesCollection ? currentUserId : null));
+  }, [customFieldDefinitions, currentUserId, isMyIssuesCollection, searchParamsKey]);
 
   useEffect(() => {
     if (issuesQuery.isError) {
@@ -231,8 +236,8 @@ export default function IssuesPage() {
   const visibleGroupKeys = useMemo(() => GROUP_ORDER.filter((state) => groupBelongsToView(state, currentView)), [currentView]);
 
   const filterSummary = useMemo(
-    () => buildFilterSummary(draftFilters, projects, teams, members, customFieldDefinitions, t),
-    [customFieldDefinitions, draftFilters, members, projects, t, teams]
+    () => buildFilterSummary(draftFilters, projects, teams, members, customFieldDefinitions, t, currentUserId, currentUserName),
+    [currentUserId, currentUserName, customFieldDefinitions, draftFilters, members, projects, t, teams]
   );
   const createDefinitions = useMemo(
     () => customFieldDefinitions.filter((field) => field.showOnCreate).sort((a, b) => a.sortOrder - b.sortOrder),
@@ -253,7 +258,7 @@ export default function IssuesPage() {
     writeValue(params, 'type', normalizeEmpty(draftFilters.type));
     writeValue(params, 'state', normalizeEmpty(draftFilters.state));
     writeValue(params, 'priority', normalizeEmpty(draftFilters.priority));
-    writeValue(params, 'assigneeId', normalizeEmpty(draftFilters.assigneeId));
+    writeValue(params, 'assigneeId', isMyIssuesCollection ? (currentUserId != null ? String(currentUserId) : null) : normalizeEmpty(draftFilters.assigneeId));
     writeValue(params, 'projectId', normalizeEmpty(draftFilters.projectId));
     writeValue(params, 'teamId', normalizeEmpty(draftFilters.teamId));
     Object.entries(draftFilters.customFieldFilters).forEach(([key, value]) => writeValue(params, `cf_${key}`, value));
@@ -268,7 +273,7 @@ export default function IssuesPage() {
     clearCustomFieldParams(params);
     const next = params.toString();
     router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
-    setDraftFilters(readFilterDraft(new URLSearchParams(), customFieldDefinitions));
+    setDraftFilters(readFilterDraft(new URLSearchParams(), customFieldDefinitions, isMyIssuesCollection ? currentUserId : null));
     setFilterOpen(false);
   };
 
@@ -412,6 +417,7 @@ export default function IssuesPage() {
         advancedFilterLabel={t('issues.actions.advancedFilter')}
         draftFilters={draftFilters}
         setDraftFilters={setDraftFilters}
+        lockAssigneeId={isMyIssuesCollection ? currentUserId : null}
         customFieldDefinitions={customFieldDefinitions}
         members={members}
         projects={projects}
@@ -466,6 +472,7 @@ function FilterSheet({
   advancedFilterLabel,
   draftFilters,
   setDraftFilters,
+  lockAssigneeId,
   customFieldDefinitions,
   members,
   projects,
@@ -479,6 +486,7 @@ function FilterSheet({
   advancedFilterLabel: string;
   draftFilters: FilterDraft;
   setDraftFilters: React.Dispatch<React.SetStateAction<FilterDraft>>;
+  lockAssigneeId: number | null;
   customFieldDefinitions: CustomFieldDefinition[];
   members: TeamMember[];
   projects: Project[];
@@ -524,7 +532,7 @@ function FilterSheet({
                   {PRIORITY_OPTIONS.map((value) => <SelectItem key={value} value={value}>{t(labelForPriorityKey(value) ?? 'views.new.preview.noPriority')}</SelectItem>)}
                 </SimpleSelect>
               </FilterField>
-              <LookupField label={pageLabels.filterPanel.assignee} items={members} value={draftFilters.assigneeId} emptyLabel={pageLabels.filterPanel.allMembers} onChange={(value) => setDraftFilters((current) => ({ ...current, assigneeId: value }))} />
+              <LookupField label={pageLabels.filterPanel.assignee} items={members} value={draftFilters.assigneeId} emptyLabel={pageLabels.filterPanel.allMembers} disabled={lockAssigneeId != null} onChange={(value) => setDraftFilters((current) => ({ ...current, assigneeId: value }))} />
         <LookupField label={pageLabels.filterPanel.project} items={projects} value={draftFilters.projectId} emptyLabel={t('issues.filters.allProjects')} onChange={(value) => setDraftFilters((current) => ({ ...current, projectId: value }))} />
         <LookupField label={pageLabels.filterPanel.team} items={teams} value={draftFilters.teamId} emptyLabel={pageLabels.filterPanel.allTeams} onChange={(value) => setDraftFilters((current) => ({ ...current, teamId: value }))} />
             </div>
@@ -696,14 +704,16 @@ function CreateIssueDialog({
 function SimpleSelect({
   value,
   onValueChange,
+  disabled = false,
   children,
 }: {
   value: string;
   onValueChange: (value: string) => void;
+  disabled?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <Select value={value} onValueChange={onValueChange}>
+    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
       <SelectTrigger><SelectValue /></SelectTrigger>
       <SelectContent>{children}</SelectContent>
     </Select>
@@ -714,17 +724,19 @@ function LookupField<T extends { id: number; name?: string; title?: string }>({
   items,
   value,
   emptyLabel,
+  disabled = false,
   onChange,
 }: {
   label: string;
   items: T[];
   value: string;
   emptyLabel: string;
+  disabled?: boolean;
   onChange: (value: string) => void;
 }) {
   return (
     <FilterField label={label}>
-      <SimpleSelect value={value || EMPTY} onValueChange={(next) => onChange(next === EMPTY ? '' : next)}>
+      <SimpleSelect value={value || EMPTY} disabled={disabled} onValueChange={(next) => onChange(next === EMPTY ? '' : next)}>
         <SelectItem value={EMPTY}>{emptyLabel}</SelectItem>
         {items.map((item) => <SelectItem key={item.id} value={String(item.id)}>{item.name ?? item.title ?? `#${item.id}`}</SelectItem>)}
       </SimpleSelect>
@@ -882,7 +894,12 @@ function StateIcon({ state }: { state: string }) {
   return <Circle className="h-4 w-4 text-slate-400" />;
 }
 
-function buildIssueFilters(searchParams: URLSearchParams, organizationId: number, currentTeamId: number | null) {
+function buildIssueFilters(
+  searchParams: URLSearchParams,
+  organizationId: number,
+  currentTeamId: number | null,
+  forcedAssigneeId: number | null
+) {
   const customFieldFilters: Record<string, string> = {};
   searchParams.forEach((value, key) => {
     if (key.startsWith('cf_') && value) customFieldFilters[key.slice(3)] = value;
@@ -894,14 +911,18 @@ function buildIssueFilters(searchParams: URLSearchParams, organizationId: number
     type: searchParams.get('type') ?? undefined,
     state: searchParams.get('state') ?? undefined,
     priority: searchParams.get('priority') ?? undefined,
-    assigneeId: searchParams.get('assigneeId') ? Number(searchParams.get('assigneeId')) : undefined,
+    assigneeId: forcedAssigneeId ?? (searchParams.get('assigneeId') ? Number(searchParams.get('assigneeId')) : undefined),
     projectId: searchParams.get('projectId') ? Number(searchParams.get('projectId')) : undefined,
     teamId: searchParams.get('teamId') ? Number(searchParams.get('teamId')) : currentTeamId ?? undefined,
     customFieldFilters: Object.keys(customFieldFilters).length ? customFieldFilters : undefined,
   };
 }
 
-function readFilterDraft(searchParams: URLSearchParams, customFieldDefinitions: CustomFieldDefinition[]): FilterDraft {
+function readFilterDraft(
+  searchParams: URLSearchParams,
+  customFieldDefinitions: CustomFieldDefinition[],
+  forcedAssigneeId: number | null
+): FilterDraft {
   const customFieldFilters: Record<string, string> = {};
   searchParams.forEach((value, key) => {
     if (key.startsWith('cf_') && value) customFieldFilters[key.slice(3)] = value;
@@ -915,7 +936,7 @@ function readFilterDraft(searchParams: URLSearchParams, customFieldDefinitions: 
     type: searchParams.get('type') ?? '',
     state: searchParams.get('state') ?? '',
     priority: searchParams.get('priority') ?? '',
-    assigneeId: searchParams.get('assigneeId') ?? '',
+    assigneeId: forcedAssigneeId != null ? String(forcedAssigneeId) : (searchParams.get('assigneeId') ?? ''),
     projectId: searchParams.get('projectId') ?? '',
     teamId: searchParams.get('teamId') ?? '',
     customFieldFilters,
@@ -946,14 +967,22 @@ function buildFilterSummary(
   teams: Team[],
   members: TeamMember[],
   definitions: CustomFieldDefinition[],
-  t: (key: string, vars?: Record<string, string | number>) => string
+  t: (key: string, vars?: Record<string, string | number>) => string,
+  currentUserId: number | null,
+  currentUserName: string | null
 ) {
   const items: string[] = [];
   if (filters.q) items.push(`${t('issues.page.summary.search')}: ${filters.q}`);
   if (filters.type) items.push(t(labelForTypeKey(filters.type)));
   if (filters.state) items.push(t(labelForStateKey(filters.state)));
   if (filters.priority) items.push(t(labelForPriorityKey(filters.priority) ?? 'views.new.preview.noPriority'));
-  if (filters.assigneeId) items.push(members.find((member) => String(member.id) === filters.assigneeId)?.name ?? `#${filters.assigneeId}`);
+  if (filters.assigneeId) {
+    items.push(
+      members.find((member) => String(member.id) === filters.assigneeId)?.name
+        ?? (currentUserId != null && String(currentUserId) === filters.assigneeId ? currentUserName : null)
+        ?? `#${filters.assigneeId}`
+    );
+  }
   if (filters.projectId) items.push(projects.find((item) => String(item.id) === filters.projectId)?.name ?? `#${filters.projectId}`);
   if (filters.teamId) items.push(teams.find((item) => String(item.id) === filters.teamId)?.name ?? `#${filters.teamId}`);
   Object.entries(filters.customFieldFilters).forEach(([key, value]) => {

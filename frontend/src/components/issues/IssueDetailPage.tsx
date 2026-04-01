@@ -88,6 +88,7 @@ const RELATION_TYPES = ['BLOCKS', 'BLOCKED_BY', 'RELATES_TO', 'DUPLICATES', 'CAU
 
 interface IssueDetailPageProps {
   issueId: number;
+  embedded?: boolean;
 }
 
 interface DraftIssue {
@@ -128,7 +129,7 @@ type InlinePillOption = {
   avatarClassName?: string;
 };
 
-export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
+export default function IssueDetailPage({ issueId, embedded = false }: IssueDetailPageProps) {
   const { locale, t } = useI18n();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -729,51 +730,47 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
     );
   };
 
+  const wrapShell = (content: ReactNode) =>
+    embedded ? <div className="h-full overflow-y-auto bg-transparent">{content}</div> : <AppLayout>{content}</AppLayout>;
+
   if (issueQuery.isLoading || !draftIssue) {
-    return (
-      <AppLayout>
-        <div className="py-16 text-center text-ink-400">{t('common.loading')}</div>
-      </AppLayout>
-    );
+    return wrapShell(<div className="py-16 text-center text-ink-400">{t('common.loading')}</div>);
   }
 
   if (!issue) {
-    return (
-      <AppLayout>
-        <div className="py-16 text-center text-ink-400">{t('common.empty')}</div>
-      </AppLayout>
-    );
+    return wrapShell(<div className="py-16 text-center text-ink-400">{t('common.empty')}</div>);
   }
 
-  return (
-    <AppLayout>
-      <div className="mx-auto max-w-[1280px]">
+  return wrapShell(
+      <div className={cn(embedded ? 'px-6 py-5' : 'mx-auto max-w-[1280px]')}>
         <div className="flex flex-col gap-8 pb-10">
           <header className="flex flex-col gap-6 border-b border-border-soft/80 pb-7">
             <div className="flex items-start justify-between gap-6">
               <div className="min-w-0 space-y-4">
-                <div className="flex items-center gap-2 text-sm text-ink-500">
-                  <Link
-                    href={currentOrganizationSlug && currentTeamKey ? teamActivePath(currentOrganizationSlug, currentTeamKey) : '#'}
-                    className="inline-flex items-center gap-1.5 transition hover:text-ink-900"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    {t('issues.detailPage.backToIssues')}
-                  </Link>
-                  <ChevronRight className="h-4 w-4 text-ink-300" />
-                  {parentIssue && currentOrganizationSlug ? (
-                    <>
-                      <Link
-                        href={issueDetailPath(currentOrganizationSlug, parentIssue)}
-                        className="truncate transition hover:text-ink-900"
-                      >
-                        {parentIssue.identifier}
-                      </Link>
-                      <ChevronRight className="h-4 w-4 text-ink-300" />
-                    </>
-                  ) : null}
-                  <span className="truncate text-ink-700">{issue.identifier}</span>
-                </div>
+                {!embedded ? (
+                  <div className="flex items-center gap-2 text-sm text-ink-500">
+                    <Link
+                      href={currentOrganizationSlug && currentTeamKey ? teamActivePath(currentOrganizationSlug, currentTeamKey) : '#'}
+                      className="inline-flex items-center gap-1.5 transition hover:text-ink-900"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      {t('issues.detailPage.backToIssues')}
+                    </Link>
+                    <ChevronRight className="h-4 w-4 text-ink-300" />
+                    {parentIssue && currentOrganizationSlug ? (
+                      <>
+                        <Link
+                          href={issueDetailPath(currentOrganizationSlug, parentIssue)}
+                          className="truncate transition hover:text-ink-900"
+                        >
+                          {parentIssue.identifier}
+                        </Link>
+                        <ChevronRight className="h-4 w-4 text-ink-300" />
+                      </>
+                    ) : null}
+                    <span className="truncate text-ink-700">{issue.identifier}</span>
+                  </div>
+                ) : null}
                 <EditableTitle
                   value={draftIssue.title}
                   onChange={(value) => setDraftIssue((current) => (current ? { ...current, title: value } : current))}
@@ -1542,7 +1539,6 @@ export default function IssueDetailPage({ issueId }: IssueDetailPageProps) {
           </div>
         </div>
       </div>
-    </AppLayout>
   );
 }
 

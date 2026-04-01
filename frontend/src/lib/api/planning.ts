@@ -1,5 +1,5 @@
 import apiClient from './client';
-import { Comment, CreateOrganizationRequest, CreateOrganizationResponse, CreateWorkspaceInviteRequest, CreateWorkspaceInviteResponse, Customer, CustomerNeed, Initiative, InitiativeProject, InitiativeUpdate, IssueRelation, JoinWorkspaceInviteRequest, JoinWorkspaceInviteResponse, Membership, Organization, Project, ProjectMilestone, ProjectUpdate, RestPageResponse, Roadmap, RoadmapProject, SlugAvailability, Team, Workflow } from './types';
+import { Comment, CreateOrganizationRequest, CreateOrganizationResponse, CreateWorkspaceInviteRequest, CreateWorkspaceInviteResponse, Customer, CustomerNeed, Initiative, InitiativeProject, InitiativeUpdate, IssueRelation, JoinWorkspaceInviteRequest, JoinWorkspaceInviteResponse, Membership, Organization, Project, ProjectMilestone, ProjectUpdate, RestPageResponse, Roadmap, RoadmapProject, SlugAvailability, Team, Workflow, WorkspaceProjectRow } from './types';
 
 export const getOrganizations = () =>
   apiClient.get<Organization[]>('/organizations').then((r) => r.data);
@@ -25,6 +25,21 @@ export const getProjects = (params?: {
   page?: number;
   size?: number;
 }) => apiClient.get<RestPageResponse<Project>>('/projects', { params }).then((r) => r.data);
+
+export const getWorkspaceProjects = (params: {
+  organizationId: number;
+  teamId?: number | null;
+  q?: string;
+  status?: string;
+  priority?: string;
+  ownerId?: number | null;
+  health?: string;
+  hasMilestone?: boolean;
+  viewId?: number | null;
+  includeArchived?: boolean;
+  page?: number;
+  size?: number;
+}) => apiClient.get<RestPageResponse<WorkspaceProjectRow>>('/projects/workspace', { params }).then((r) => r.data);
 
 export const getInitiatives = (params?: {
   organizationId?: number;
@@ -192,6 +207,7 @@ export const createProject = (data: {
   name: string;
   description?: string | null;
   status?: string;
+  priority?: string | null;
   ownerId?: number | null;
   startDate?: string | null;
   targetDate?: string | null;
@@ -203,6 +219,7 @@ export const updateProject = (id: number, data: {
   name?: string;
   description?: string | null;
   status?: string;
+  priority?: string | null;
   ownerId?: number | null;
   startDate?: string | null;
   targetDate?: string | null;

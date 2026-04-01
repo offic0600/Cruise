@@ -34,6 +34,7 @@ import { getMemberships } from '@/lib/api/planning';
 import type {
   FilterCondition,
   FilterGroup,
+  Initiative,
   Issue,
   NotificationSubscription,
   Project,
@@ -54,7 +55,14 @@ import {
   useViewsIndex,
 } from '@/lib/query/views';
 import { useIssueMutations, useIssueWorkspace } from '@/lib/query/issues';
-import { issueDetailPath, teamViewsPath, workspaceViewPath, workspaceViewsPath } from '@/lib/routes';
+import {
+  issueDetailPath,
+  resourceTypeToViewSegment,
+  teamViewsPath,
+  workspaceProjectViewPath,
+  workspaceViewPath,
+  workspaceViewsPath,
+} from '@/lib/routes';
 
 type ConditionDraft = {
   field: string;
@@ -77,6 +85,26 @@ const ISSUE_FIELDS = [
 
 const ISSUE_COLUMNS = ['identifier', 'title', 'priority', 'state', 'assignee', 'project', 'labels', 'updatedAt', 'createdAt'] as const;
 const PROJECT_COLUMNS = ['key', 'name', 'status', 'ownerId', 'teamId', 'updatedAt', 'createdAt'] as const;
+const INITIATIVE_FIELDS = ['status', 'health', 'ownerId', 'parentInitiativeId', 'targetDate', 'createdAt', 'updatedAt'] as const;
+const INITIATIVE_COLUMNS = ['slugId', 'name', 'status', 'health', 'ownerId', 'targetDate', 'updatedAt', 'createdAt'] as const;
+
+function resourceColumns(resourceType: ViewResourceType) {
+  if (resourceType === 'ISSUE') return [...ISSUE_COLUMNS];
+  if (resourceType === 'PROJECT') return [...PROJECT_COLUMNS];
+  return [...INITIATIVE_COLUMNS];
+}
+
+function resourceFilterFields(resourceType: ViewResourceType) {
+  if (resourceType === 'ISSUE') return [...ISSUE_FIELDS];
+  if (resourceType === 'PROJECT') return ['status', 'ownerId', 'teamId', 'createdAt', 'updatedAt', 'targetDate'];
+  return [...INITIATIVE_FIELDS];
+}
+
+function resourceGroupingFields(resourceType: ViewResourceType) {
+  if (resourceType === 'ISSUE') return ['state', 'priority', 'assigneeId', 'projectId', 'teamId'];
+  if (resourceType === 'PROJECT') return ['status', 'ownerId', 'teamId'];
+  return ['status', 'health', 'ownerId', 'parentInitiativeId'];
+}
 
 function deepClone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -87,7 +115,7 @@ function defaultQueryState(resourceType: ViewResourceType): ViewQueryState {
     filters: { operator: 'AND', children: [] },
     display: {
       layout: 'LIST',
-      visibleColumns: resourceType === 'ISSUE' ? [...ISSUE_COLUMNS] : [...PROJECT_COLUMNS],
+      visibleColumns: resourceColumns(resourceType),
       density: 'comfortable',
       showSubIssues: true,
       showEmptyGroups: true,
@@ -140,6 +168,12 @@ const VIEW_SUBSCRIPTION_EVENT_KEYS = ['ISSUE_ADDED', 'ISSUE_COMPLETED_OR_CANCELE
 function fallbackOwnerName(ownerUserId: number | null, ownerOptions: Array<{ id: number; label: string }>, t: (key: string, params?: Record<string, string | number>) => string) {
   if (ownerUserId == null) return t('common.notSet');
   return ownerOptions.find((option) => option.id === ownerUserId)?.label ?? `User #${ownerUserId}`;
+}
+
+function viewHref(workspaceSlug: string, view: Pick<View, 'id' | 'name' | 'resourceType'>) {
+  return view.resourceType === 'PROJECT'
+    ? workspaceProjectViewPath(workspaceSlug, view)
+    : workspaceViewPath(workspaceSlug, view);
 }
 
 export default function ViewsWorkbench({
@@ -197,7 +231,7 @@ export default function ViewsWorkbench({
     setDraftVisibility(effectiveScopeType === 'TEAM' ? 'TEAM' : 'PERSONAL');
   }, [activeView, effectiveScopeType]);
 
-  const resultsQuery = useViewResults<Issue | Project>(activeView?.id ?? null, {
+  const resultsQuery = useViewResults<Issue | Project | Initiative>(activeView?.id ?? null, {
     page: 0,
     size: 100,
     queryState: activeView ? draftQueryState : undefined,
@@ -342,7 +376,7 @@ export default function ViewsWorkbench({
         },
       });
       setStatusMessage(t('views.status.saved'));
-      if (currentOrganizationSlug) router.replace(workspaceViewPath(currentOrganizationSlug, updated));
+      if (currentOrganizationSlug) router.replace(viewHref(currentOrganizationSlug, updated));
       return;
     }
 
@@ -358,7 +392,7 @@ export default function ViewsWorkbench({
       layout: nextQueryState.display.layout,
     });
     setStatusMessage(t('views.status.created'));
-    if (currentOrganizationSlug) router.push(workspaceViewPath(currentOrganizationSlug, created));
+    if (currentOrganizationSlug) router.push(viewHref(currentOrganizationSlug, created));
   }
 
   async function handleFavoriteToggle() {
@@ -369,7 +403,7 @@ export default function ViewsWorkbench({
   async function handleDuplicate() {
     if (!activeView || !currentOrganizationSlug) return;
     const duplicated = await duplicateViewMutation.mutateAsync(activeView.id);
-    router.push(workspaceViewPath(currentOrganizationSlug, duplicated));
+    router.push(viewHref(currentOrganizationSlug, duplicated));
   }
 
   async function handleDelete() {
@@ -380,7 +414,7 @@ export default function ViewsWorkbench({
       router.push(teamViewsPath(currentOrganizationSlug, nextTeamKey, 'issues'));
       return;
     }
-    router.push(workspaceViewsPath(currentOrganizationSlug, activeView.resourceType === 'ISSUE' ? 'issues' : 'projects'));
+    router.push(workspaceViewsPath(currentOrganizationSlug, resourceTypeToViewSegment(activeView.resourceType)));
   }
 
   async function handleCopyLink() {
@@ -397,10 +431,10 @@ export default function ViewsWorkbench({
     });
     setStatusMessage(t('views.status.ownerUpdated'));
     if (updated.visibility === 'PERSONAL' && ownerUserId !== currentUserId) {
-      router.push(workspaceViewsPath(currentOrganizationSlug, updated.resourceType === 'ISSUE' ? 'issues' : 'projects'));
+      router.push(workspaceViewsPath(currentOrganizationSlug, resourceTypeToViewSegment(updated.resourceType)));
       return;
     }
-    router.replace(workspaceViewPath(currentOrganizationSlug, updated));
+    router.replace(viewHref(currentOrganizationSlug, updated));
   }
 
   async function handleMoveView(scopeType: ViewScopeType, scopeId: number | null, visibility: ViewVisibility) {
@@ -414,7 +448,7 @@ export default function ViewsWorkbench({
       },
     });
     setStatusMessage(t('views.status.moved'));
-    router.replace(workspaceViewPath(currentOrganizationSlug, updated));
+    router.replace(viewHref(currentOrganizationSlug, updated));
   }
 
   async function handleToggleSubscription(eventKey: (typeof VIEW_SUBSCRIPTION_EVENT_KEYS)[number]) {
@@ -426,7 +460,7 @@ export default function ViewsWorkbench({
     setStatusMessage(t('views.status.subscriptionUpdated'));
   }
 
-  function renderValue(item: Issue | Project, column: string) {
+  function renderValue(item: Issue | Project | Initiative, column: string) {
     if ('identifier' in item) {
       const issue = item as Issue;
       switch (column) {
@@ -439,6 +473,21 @@ export default function ViewsWorkbench({
         case 'labels': return issue.labels.map((label) => label.name).join(', ') || t('common.notSet');
         case 'updatedAt': return new Date(issue.updatedAt).toLocaleDateString();
         case 'createdAt': return new Date(issue.createdAt).toLocaleDateString();
+        default: return '';
+      }
+    }
+    if ('slugId' in item) {
+      const initiative = item as Initiative;
+      switch (column) {
+        case 'slugId': return initiative.slugId ?? t('common.notSet');
+        case 'name': return initiative.name;
+        case 'status': return initiative.status;
+        case 'health': return initiative.health ?? t('common.notSet');
+        case 'ownerId': return initiative.ownerId ? `#${initiative.ownerId}` : t('common.notSet');
+        case 'parentInitiativeId': return initiative.parentInitiativeId ? `#${initiative.parentInitiativeId}` : t('common.notSet');
+        case 'targetDate': return initiative.targetDate ? new Date(initiative.targetDate).toLocaleDateString() : t('common.notSet');
+        case 'updatedAt': return new Date(initiative.updatedAt).toLocaleDateString();
+        case 'createdAt': return new Date(initiative.createdAt).toLocaleDateString();
         default: return '';
       }
     }
@@ -637,7 +686,7 @@ export default function ViewsWorkbench({
                       </thead>
                       <tbody className="divide-y divide-border-soft">
                         {resultsQuery.data.items.map((item) => (
-                          <tr key={`identifier` in item ? `issue-${item.id}` : `project-${item.id}`}>
+                          <tr key={'identifier' in item ? `issue-${item.id}` : 'slugId' in item ? `initiative-${item.id}` : `project-${item.id}`}>
                             {visibleColumns.map((column) => (
                               <td key={column} className="px-3 py-3 text-ink-900">
                                 {renderValue(item as Issue | Project, column)}
@@ -670,12 +719,13 @@ export default function ViewsWorkbench({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {effectiveScopeType === 'WORKSPACE' ? (
-              <Tabs value={resourceType} onValueChange={(value) => currentOrganizationSlug && router.push(workspaceViewsPath(currentOrganizationSlug, value === 'PROJECT' ? 'projects' : 'issues'))}>
-                <TabsList>
-                  <TabsTrigger value="ISSUE">{t('views.resources.issues')}</TabsTrigger>
-                  <TabsTrigger value="PROJECT">{t('views.resources.projects')}</TabsTrigger>
-                </TabsList>
-              </Tabs>
+                <Tabs value={resourceType} onValueChange={(value) => currentOrganizationSlug && router.push(workspaceViewsPath(currentOrganizationSlug, resourceTypeToViewSegment(value as ViewResourceType)))}>
+                  <TabsList>
+                    <TabsTrigger value="ISSUE">{t('views.resources.issues')}</TabsTrigger>
+                    <TabsTrigger value="PROJECT">{t('views.resources.projects')}</TabsTrigger>
+                    <TabsTrigger value="INITIATIVE">{t('views.resources.initiatives')}</TabsTrigger>
+                  </TabsList>
+                </Tabs>
             ) : (
               <Tabs value="ISSUE">
                 <TabsList>
@@ -757,7 +807,7 @@ export default function ViewsWorkbench({
                         <div className="space-y-2">
                           <div className="text-sm font-medium text-ink-900">{t('views.display.visibleColumns')}</div>
                           <div className="grid grid-cols-2 gap-2">
-                            {(resourceType === 'ISSUE' ? ISSUE_COLUMNS : PROJECT_COLUMNS).map((column) => (
+                            {resourceColumns(resourceType).map((column) => (
                               <label key={column} className="flex items-center gap-2 text-sm text-ink-700">
                                 <input
                                   type="checkbox"
@@ -820,7 +870,7 @@ export default function ViewsWorkbench({
                               <Select value={condition.field} onValueChange={(value) => setConditions((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, field: value } : item))}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
-                                  {(resourceType === 'ISSUE' ? ISSUE_FIELDS : ['status', 'ownerId', 'teamId', 'createdAt', 'updatedAt', 'targetDate']).map((field) => (
+                                  {resourceFilterFields(resourceType).map((field) => (
                                     <SelectItem key={field} value={field}>{columnLabel(field)}</SelectItem>
                                   ))}
                                 </SelectContent>
@@ -853,7 +903,7 @@ export default function ViewsWorkbench({
                           <Select value={draftQueryState.sorting[0]?.field ?? 'updatedAt'} onValueChange={(value) => updateDraft((draft) => { draft.sorting = [{ ...(draft.sorting[0] ?? { direction: 'desc', nulls: 'last' }), field: value }]; })}>
                             <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent>
-                              {(resourceType === 'ISSUE' ? ISSUE_COLUMNS : PROJECT_COLUMNS).map((field) => (
+                              {resourceColumns(resourceType).map((field) => (
                                 <SelectItem key={field} value={field}>{columnLabel(field)}</SelectItem>
                               ))}
                             </SelectContent>
@@ -875,7 +925,7 @@ export default function ViewsWorkbench({
                             <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="__none__">{t('views.grouping.none')}</SelectItem>
-                              {(resourceType === 'ISSUE' ? ['state', 'priority', 'assigneeId', 'projectId', 'teamId'] : ['status', 'ownerId', 'teamId']).map((field) => (
+                              {resourceGroupingFields(resourceType).map((field) => (
                                 <SelectItem key={field} value={field}>{columnLabel(field)}</SelectItem>
                               ))}
                             </SelectContent>
@@ -1002,7 +1052,7 @@ function ViewSection({
         {views.map((view) => (
           <Link
             key={view.id}
-            href={currentOrganizationSlug ? workspaceViewPath(currentOrganizationSlug, view) : '#'}
+            href={currentOrganizationSlug ? viewHref(currentOrganizationSlug, view) : '#'}
             className={`flex items-center justify-between rounded-xl px-3 py-2 text-sm transition ${
               activeId === view.id ? 'bg-ink-900 text-white' : 'text-ink-700 hover:bg-slate-100'
             }`}

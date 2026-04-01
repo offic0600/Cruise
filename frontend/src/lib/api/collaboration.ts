@@ -94,8 +94,10 @@ export const deleteActivityEvent = (id: number) => apiClient.delete(`/activity/$
 export const getNotifications = (params?: {
   userId?: number;
   unreadOnly?: boolean;
+  actorId?: number;
   type?: string;
   category?: string;
+  eventKey?: string;
   resourceType?: string;
   resourceId?: number;
   includeArchived?: boolean;
@@ -135,6 +137,9 @@ export const updateNotification = (id: number, data: {
 
 export const markNotificationRead = (id: number) =>
   apiClient.patch<Notification>(`/notifications/${id}/read`).then((r) => r.data);
+
+export const archiveNotification = (id: number) =>
+  apiClient.patch<Notification>(`/notifications/${id}/archive`).then((r) => r.data);
 
 export const deleteNotification = (id: number) => apiClient.delete(`/notifications/${id}`);
 

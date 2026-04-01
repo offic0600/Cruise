@@ -27,6 +27,9 @@ class Project(
     @Column(length = 50)
     var status: String = "ACTIVE",
 
+    @Column(length = 20)
+    var priority: String? = null,
+
     @Column(name = "owner_id")
     var ownerId: Long? = null,
 

@@ -6,6 +6,14 @@ import com.cruise.entity.NotificationSubscription
 import com.cruise.repository.NotificationPreferenceRepository
 import com.cruise.repository.NotificationRepository
 import com.cruise.repository.NotificationSubscriptionRepository
+import com.cruise.repository.InitiativeRepository
+import com.cruise.repository.IssueRepository
+import com.cruise.repository.ProjectRepository
+import com.cruise.repository.UserRepository
+import com.cruise.repository.ViewRepository
+import com.fasterxml.jackson.core.type.TypeReference
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
@@ -23,6 +31,11 @@ data class NotificationDto(
     val title: String,
     val body: String,
     val payloadJson: String?,
+    val payload: Map<String, Any?>?,
+    val eventKey: String?,
+    val actorName: String?,
+    val actorAvatarUrl: String?,
+    val resourceTitle: String?,
     val readAt: String?,
     val updatedAt: String,
     val createdAt: String,
@@ -54,8 +67,10 @@ data class NotificationPreferenceDto(
 data class NotificationQuery(
     val userId: Long? = null,
     val unreadOnly: Boolean = false,
+    val actorId: Long? = null,
     val type: String? = null,
     val category: String? = null,
+    val eventKey: String? = null,
     val resourceType: String? = null,
     val resourceId: Long? = null,
     val includeArchived: Boolean = false
@@ -132,19 +147,27 @@ data class UpdateNotificationPreferenceRequest(
 class NotificationService(
     private val notificationRepository: NotificationRepository,
     private val notificationSubscriptionRepository: NotificationSubscriptionRepository,
-    private val notificationPreferenceRepository: NotificationPreferenceRepository
+    private val notificationPreferenceRepository: NotificationPreferenceRepository,
+    private val userRepository: UserRepository,
+    private val viewRepository: ViewRepository,
+    private val projectRepository: ProjectRepository,
+    private val issueRepository: IssueRepository,
+    private val initiativeRepository: InitiativeRepository,
+    private val objectMapper: ObjectMapper
 ) {
     fun findAll(query: NotificationQuery = NotificationQuery()): List<NotificationDto> =
         notificationRepository.findAll()
             .asSequence()
             .filter { query.userId == null || it.userId == query.userId }
+            .filter { query.actorId == null || it.actorId == query.actorId }
             .filter { query.type == null || it.type == query.type }
             .filter { query.category == null || it.category == query.category }
             .filter { query.resourceType == null || it.resourceType == query.resourceType }
             .filter { query.resourceId == null || it.resourceId == query.resourceId }
             .filter { !query.unreadOnly || it.readAt == null }
+            .filter { query.eventKey == null || extractEventKey(it.payloadJson) == query.eventKey }
             .filter { query.includeArchived || it.archivedAt == null }
-            .sortedByDescending { it.id }
+            .sortedByDescending { it.createdAt }
             .map { it.toDto() }
             .toList()
 
@@ -209,6 +232,30 @@ class NotificationService(
                 updatedAt = LocalDateTime.now(),
                 createdAt = notification.createdAt,
                 archivedAt = notification.archivedAt
+            )
+        ).toDto()
+    }
+
+    fun archive(id: Long): NotificationDto {
+        val notification = getNotification(id)
+        val now = LocalDateTime.now()
+        return notificationRepository.save(
+            Notification(
+                id = notification.id,
+                userId = notification.userId,
+                eventId = notification.eventId,
+                actorId = notification.actorId,
+                type = notification.type,
+                category = notification.category,
+                resourceType = notification.resourceType,
+                resourceId = notification.resourceId,
+                title = notification.title,
+                body = notification.body,
+                payloadJson = notification.payloadJson,
+                readAt = notification.readAt,
+                updatedAt = now,
+                createdAt = notification.createdAt,
+                archivedAt = now
             )
         ).toDto()
     }
@@ -305,6 +352,69 @@ class NotificationService(
         notificationPreferenceRepository.delete(getPreference(id))
     }
 
+    fun notifyIssueAddedToMatchingViews(issue: IssueDto, actorId: Long?) {
+        notifyMatchingIssueViewSubscriptions(
+            issue = issue,
+            actorId = actorId,
+            eventKey = VIEW_EVENT_ISSUE_ADDED,
+            titleBuilder = { viewName -> "${issue.identifier} was added to $viewName" },
+            bodyBuilder = { issue.title }
+        )
+    }
+
+    fun notifyIssueCompletedOrCanceledInMatchingViews(issue: IssueDto, actorId: Long?) {
+        notifyMatchingIssueViewSubscriptions(
+            issue = issue,
+            actorId = actorId,
+            eventKey = VIEW_EVENT_ISSUE_COMPLETED_OR_CANCELED,
+            titleBuilder = { viewName -> "${issue.identifier} changed status in $viewName" },
+            bodyBuilder = { "${displayIssueState(issue.state)} · ${issue.title}" }
+        )
+    }
+
+    fun notifyProjectUpdated(projectId: Long, updateId: Long?, updateTitle: String, actorId: Long?) {
+        val project = projectRepository.findById(projectId).orElse(null) ?: return
+        notifyResourceSubscribers(
+            resourceType = "PROJECT",
+            resourceId = projectId,
+            eventKey = PROJECT_EVENT_UPDATED,
+            actorId = actorId,
+            eventId = updateId ?: projectId,
+            type = "SYSTEM",
+            category = "project",
+            title = "${project.name} received an update",
+            body = updateTitle,
+            payload = mapOf(
+                "eventKey" to PROJECT_EVENT_UPDATED,
+                "projectId" to projectId,
+                "projectName" to project.name,
+                "projectUpdateId" to updateId
+            )
+        )
+    }
+
+    fun notifyProjectMilestoneAdded(projectId: Long, milestoneId: Long?, milestoneName: String, actorId: Long?) {
+        val project = projectRepository.findById(projectId).orElse(null) ?: return
+        notifyResourceSubscribers(
+            resourceType = "PROJECT",
+            resourceId = projectId,
+            eventKey = PROJECT_EVENT_MILESTONE_ADDED,
+            actorId = actorId,
+            eventId = milestoneId ?: projectId,
+            type = "SYSTEM",
+            category = "project",
+            title = "Milestone added to ${project.name}",
+            body = milestoneName,
+            payload = mapOf(
+                "eventKey" to PROJECT_EVENT_MILESTONE_ADDED,
+                "projectId" to projectId,
+                "projectName" to project.name,
+                "milestoneId" to milestoneId,
+                "milestoneName" to milestoneName
+            )
+        )
+    }
+
     private fun getNotification(id: Long): Notification = notificationRepository.findById(id)
         .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Notification not found") }
 
@@ -314,23 +424,32 @@ class NotificationService(
     private fun getPreference(id: Long): NotificationPreference = notificationPreferenceRepository.findById(id)
         .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Notification preference not found") }
 
-    private fun Notification.toDto(): NotificationDto = NotificationDto(
-        id = id,
-        userId = userId,
-        eventId = eventId,
-        actorId = actorId,
-        type = type,
-        category = category,
-        resourceType = resourceType,
-        resourceId = resourceId,
-        title = title,
-        body = body,
-        payloadJson = payloadJson,
-        readAt = readAt?.toString(),
-        updatedAt = updatedAt.toString(),
-        createdAt = createdAt.toString(),
-        archivedAt = archivedAt?.toString()
-    )
+    private fun Notification.toDto(): NotificationDto {
+        val payload = payloadJson?.let(::deserializePayload)
+        val actor = actorId?.let { userRepository.findById(it).orElse(null) }
+        return NotificationDto(
+            id = id,
+            userId = userId,
+            eventId = eventId,
+            actorId = actorId,
+            type = type,
+            category = category,
+            resourceType = resourceType,
+            resourceId = resourceId,
+            title = title,
+            body = body,
+            payloadJson = payloadJson,
+            payload = payload,
+            eventKey = extractEventKey(payload),
+            actorName = actor?.displayName ?: actor?.username ?: actor?.email,
+            actorAvatarUrl = actor?.avatarUrl,
+            resourceTitle = resolveResourceTitle(resourceType, resourceId, payload),
+            readAt = readAt?.toString(),
+            updatedAt = updatedAt.toString(),
+            createdAt = createdAt.toString(),
+            archivedAt = archivedAt?.toString()
+        )
+    }
 
     private fun NotificationSubscription.toDto(): NotificationSubscriptionDto = NotificationSubscriptionDto(
         id = id,
@@ -356,4 +475,232 @@ class NotificationService(
 
     private fun parseDateTime(value: String?): LocalDateTime? =
         value?.takeIf(String::isNotBlank)?.let(LocalDateTime::parse)
+
+    private fun notifyMatchingIssueViewSubscriptions(
+        issue: IssueDto,
+        actorId: Long?,
+        eventKey: String,
+        titleBuilder: (String) -> String,
+        bodyBuilder: () -> String
+    ) {
+        val hasSubIssues = issueRepository.findAll().any { it.parentIssueId == issue.id && it.archivedAt == null }
+        notificationSubscriptionRepository.findAll()
+            .asSequence()
+            .filter { it.active && it.archivedAt == null }
+            .filter { it.resourceType == "VIEW" && it.eventKey == eventKey }
+            .forEach { subscription ->
+                val view = viewRepository.findById(subscription.resourceId).orElse(null) ?: return@forEach
+                if (view.archivedAt != null || view.resourceType != "ISSUE") return@forEach
+                if (view.organizationId != issue.organizationId) return@forEach
+                if (view.scopeType == "TEAM" && view.scopeId != issue.teamId) return@forEach
+                if (view.scopeType == "PROJECT" && view.scopeId != issue.projectId) return@forEach
+                if (!issueMatchesView(issue, hasSubIssues, view.queryState, subscription.userId)) return@forEach
+                create(
+                    CreateNotificationRequest(
+                        userId = subscription.userId,
+                        eventId = issue.id,
+                        actorId = actorId,
+                        type = "SYSTEM",
+                        category = "view",
+                        resourceType = "VIEW",
+                        resourceId = view.id,
+                        title = titleBuilder(view.name),
+                        body = bodyBuilder(),
+                        payloadJson = serializePayload(
+                            mapOf(
+                                "eventKey" to eventKey,
+                                "issueId" to issue.id,
+                                "issueIdentifier" to issue.identifier,
+                                "issueTitle" to issue.title,
+                                "viewId" to view.id,
+                                "viewName" to view.name,
+                                "viewResourceType" to view.resourceType
+                            )
+                        )
+                    )
+                )
+            }
+    }
+
+    private fun notifyResourceSubscribers(
+        resourceType: String,
+        resourceId: Long,
+        eventKey: String,
+        actorId: Long?,
+        eventId: Long,
+        type: String,
+        category: String,
+        title: String,
+        body: String,
+        payload: Map<String, Any?>
+    ) {
+        notificationSubscriptionRepository.findAll()
+            .asSequence()
+            .filter { it.active && it.archivedAt == null }
+            .filter { it.resourceType == resourceType && it.resourceId == resourceId && it.eventKey == eventKey }
+            .forEach { subscription ->
+                create(
+                    CreateNotificationRequest(
+                        userId = subscription.userId,
+                        eventId = eventId,
+                        actorId = actorId,
+                        type = type,
+                        category = category,
+                        resourceType = resourceType,
+                        resourceId = resourceId,
+                        title = title,
+                        body = body,
+                        payloadJson = serializePayload(payload)
+                    )
+                )
+            }
+    }
+
+    private fun issueMatchesView(issue: IssueDto, hasSubIssues: Boolean, queryStateRaw: String?, currentUserId: Long): Boolean {
+        val queryState = queryStateRaw?.takeIf { it.isNotBlank() }?.let { objectMapper.readTree(it) } ?: return true
+        return evaluateIssueFilterNode(queryState.path("filters"), issue, hasSubIssues, currentUserId)
+    }
+
+    private fun evaluateIssueFilterNode(node: JsonNode, issue: IssueDto, hasSubIssues: Boolean, currentUserId: Long): Boolean {
+        if (node.isMissingNode || node.isNull || !node.isObject) return true
+        val children = node.path("children")
+        if (!children.isArray || children.isEmpty) return true
+        val operator = node.path("operator").asText("AND").uppercase()
+        val results = children.map { child ->
+            if (child.path("children").isArray) evaluateIssueFilterNode(child, issue, hasSubIssues, currentUserId)
+            else evaluateIssueCondition(child, issue, hasSubIssues, currentUserId)
+        }
+        return if (operator == "OR") results.any { it } else results.all { it }
+    }
+
+    private fun evaluateIssueCondition(node: JsonNode, issue: IssueDto, hasSubIssues: Boolean, currentUserId: Long): Boolean {
+        val field = node.path("field").asText("")
+        val operator = node.path("operator").asText("is")
+        if (field.isBlank()) return true
+        val actual = issueFieldValue(issue, field, hasSubIssues)
+        val value = resolveIssueFilterValue(node.get("value"), currentUserId)
+        return when (operator) {
+            "is" -> valuesEqual(actual, value)
+            "isNot" -> !valuesEqual(actual, value)
+            "in" -> listContains(value, actual)
+            "notIn" -> !listContains(value, actual)
+            "contains" -> containsValue(actual, value)
+            "notContains" -> !containsValue(actual, value)
+            "isEmpty" -> isEmptyValue(actual)
+            "isNotEmpty" -> !isEmptyValue(actual)
+            else -> true
+        }
+    }
+
+    private fun issueFieldValue(issue: IssueDto, field: String, hasSubIssues: Boolean): Any? = when (field) {
+        "identifier" -> issue.identifier
+        "title" -> issue.title
+        "state" -> issue.state
+        "stateCategory" -> issue.stateCategory
+        "priority" -> issue.priority
+        "assigneeId" -> issue.assigneeId
+        "creatorId" -> issue.reporterId
+        "projectId" -> issue.projectId
+        "teamId" -> issue.teamId
+        "labelIds" -> issue.labels.map { it.id }
+        "labels" -> issue.labels.map { it.name }
+        "createdAt" -> issue.createdAt
+        "updatedAt" -> issue.updatedAt
+        "completedAt" -> if (issue.stateCategory == "COMPLETED" || issue.stateCategory == "CANCELED") issue.updatedAt else null
+        "hasDescription" -> !issue.description.isNullOrBlank()
+        "hasSubIssues" -> hasSubIssues
+        else -> issue.customFields[field]
+    }
+
+    private fun resolveIssueFilterValue(node: JsonNode?, currentUserId: Long): Any? = when {
+        node == null || node.isNull -> null
+        node.isArray -> node.map { resolveIssueFilterValue(it, currentUserId) }
+        node.isNumber -> node.asLong()
+        node.isBoolean -> node.asBoolean()
+        node.isTextual -> when (node.asText()) {
+            "\$me" -> currentUserId
+            IssueService.NO_PRIORITY_FILTER -> null
+            else -> node.asText()
+        }
+        else -> node.toString()
+    }
+
+    private fun valuesEqual(actual: Any?, expected: Any?): Boolean =
+        if (actual is Collection<*>) actual.any { normalizeComparable(it) == normalizeComparable(expected) }
+        else normalizeComparable(actual) == normalizeComparable(expected)
+
+    private fun listContains(container: Any?, actual: Any?): Boolean {
+        val expectedValues = when (container) {
+            is Collection<*> -> container.map(::normalizeComparable)
+            else -> listOf(normalizeComparable(container))
+        }
+        return when (actual) {
+            is Collection<*> -> actual.any { normalizeComparable(it) in expectedValues }
+            else -> normalizeComparable(actual) in expectedValues
+        }
+    }
+
+    private fun containsValue(actual: Any?, expected: Any?): Boolean = when (actual) {
+        is String -> actual.contains(expected?.toString().orEmpty(), ignoreCase = true)
+        is Collection<*> -> actual.any { it?.toString()?.contains(expected?.toString().orEmpty(), ignoreCase = true) == true }
+        else -> false
+    }
+
+    private fun isEmptyValue(actual: Any?): Boolean = when (actual) {
+        null -> true
+        is String -> actual.isBlank()
+        is Collection<*> -> actual.isEmpty()
+        else -> false
+    }
+
+    private fun normalizeComparable(value: Any?): Any? = when (value) {
+        null -> null
+        is Int -> value.toLong()
+        is Long -> value
+        is Float -> value.toDouble()
+        is Double -> value
+        is Boolean -> value
+        is String -> value
+        else -> value.toString()
+    }
+
+    private fun resolveResourceTitle(resourceType: String?, resourceId: Long?, payload: Map<String, Any?>?): String? {
+        if (resourceType == null || resourceId == null) return null
+        return when (resourceType) {
+            "VIEW" -> payload?.get("viewName")?.toString() ?: viewRepository.findById(resourceId).orElse(null)?.name
+            "PROJECT" -> payload?.get("projectName")?.toString() ?: projectRepository.findById(resourceId).orElse(null)?.name
+            "ISSUE" -> issueRepository.findById(resourceId).orElse(null)?.let { "${it.identifier} · ${it.title}" }
+            "INITIATIVE" -> initiativeRepository.findById(resourceId).orElse(null)?.name
+            else -> null
+        }
+    }
+
+    private fun extractEventKey(payloadJson: String?): String? =
+        payloadJson?.let(::deserializePayload)?.let(::extractEventKey)
+
+    private fun extractEventKey(payload: Map<String, Any?>?): String? =
+        payload?.get("eventKey")?.toString()
+
+    private fun deserializePayload(payloadJson: String): Map<String, Any?> =
+        objectMapper.readValue(payloadJson, object : TypeReference<Map<String, Any?>>() {})
+
+    private fun serializePayload(payload: Map<String, Any?>): String =
+        objectMapper.writeValueAsString(payload)
+
+    private fun displayIssueState(state: String): String = when (state) {
+        "BACKLOG" -> "Backlog"
+        "TODO" -> "Todo"
+        "IN_PROGRESS" -> "In Progress"
+        "IN_REVIEW" -> "In Review"
+        "DONE" -> "Done"
+        "CANCELED" -> "Canceled"
+        else -> state
+    }
+
+    companion object {
+        const val VIEW_EVENT_ISSUE_ADDED = "ISSUE_ADDED"
+        const val VIEW_EVENT_ISSUE_COMPLETED_OR_CANCELED = "ISSUE_COMPLETED_OR_CANCELED"
+        const val PROJECT_EVENT_UPDATED = "PROJECT_UPDATED"
+        const val PROJECT_EVENT_MILESTONE_ADDED = "PROJECT_MILESTONE_ADDED"
+    }
 }

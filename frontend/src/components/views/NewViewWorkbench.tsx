@@ -52,7 +52,7 @@ import type {
   ViewScopeType,
   ViewVisibility,
 } from '@/lib/api/types';
-import { workspaceNewViewPath, workspaceViewPath, workspaceViewsPath } from '@/lib/routes';
+import { workspaceNewViewPath, workspaceProjectViewPath, workspaceViewPath, workspaceViewsPath } from '@/lib/routes';
 import { queryKeys } from '@/lib/query/keys';
 import { useCreateView, useViewPreviewResults } from '@/lib/query/views';
 import { Button } from '@/components/ui/button';
@@ -732,7 +732,11 @@ export default function NewViewWorkbench({
       queryState: previewQueryState,
       layout: previewQueryState.display.layout,
     });
-        router.push(workspaceViewPath(currentOrganizationSlug, created));
+        router.push(
+          created.resourceType === 'PROJECT'
+            ? workspaceProjectViewPath(currentOrganizationSlug, created)
+            : workspaceViewPath(currentOrganizationSlug, created)
+        );
   }
 
   const activeSubmenuOptions = activeSubmenu ? submenuOptions(activeSubmenu) : [];

@@ -17,6 +17,7 @@
 |------|------|------|
 | 开发日志 | `docs/planning/dev-logbook.md` | 每次 Session 更新 |
 | 规划基线 | `docs/planning/plan-baseline.md` | 我们要造什么 |
+| Cruise 改造路线图 | `docs/planning/cruise-refactor-roadmap.md` | 基于 HAR 与当前实现现状收敛的阶段性改造路线 |
 
 ## 基线文档
 

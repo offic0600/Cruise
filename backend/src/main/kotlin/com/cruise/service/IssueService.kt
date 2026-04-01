@@ -137,6 +137,7 @@ open class IssueService(
     private val issueCustomFieldService: IssueCustomFieldService,
     private val labelService: LabelService,
     private val activityEventService: ActivityEventService,
+    private val notificationService: NotificationService,
     private val userRepository: UserRepository,
     private val projectRepository: ProjectRepository,
     private val objectMapper: ObjectMapper
@@ -259,7 +260,9 @@ open class IssueService(
             eventType = "ISSUE_CREATED",
             payload = emptyMap()
         )
-        return findById(saved.id)
+        return findById(saved.id).also { createdIssue ->
+            notificationService.notifyIssueAddedToMatchingViews(createdIssue, actorId)
+        }
     }
 
     @Transactional
@@ -331,7 +334,11 @@ open class IssueService(
             nextLabels = labelService.getLabelsForIssues(listOf(saved.id))[saved.id].orEmpty(),
             actorId = actorId
         )
-        return findById(saved.id)
+        return findById(saved.id).also { updatedIssue ->
+            if (snapshot.state != updatedIssue.state && (updatedIssue.state == "DONE" || updatedIssue.state == "CANCELED")) {
+                notificationService.notifyIssueCompletedOrCanceledInMatchingViews(updatedIssue, actorId)
+            }
+        }
     }
 
     fun updateState(id: Long, state: String, resolution: String? = null): IssueDto {

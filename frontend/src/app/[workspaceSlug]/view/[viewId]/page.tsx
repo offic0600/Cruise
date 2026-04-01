@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect } from 'react';
-import { notFound, useParams } from 'next/navigation';
+import { notFound, useParams, useRouter } from 'next/navigation';
 import ViewsWorkbench from '@/components/views/ViewsWorkbench';
 import { useViewDetail } from '@/lib/query/views';
+import { workspaceProjectViewPath } from '@/lib/routes';
 
 const LAST_ACTIVE_VIEW_KEY_PREFIX = 'lastActiveView';
 
 export default function WorkspaceViewDetailPage() {
+  const router = useRouter();
   const params = useParams<{ workspaceSlug: string; viewId: string }>();
   const rawViewId = Array.isArray(params.viewId) ? params.viewId[0] : params.viewId;
   const workspaceSlug = Array.isArray(params.workspaceSlug) ? params.workspaceSlug[0] : params.workspaceSlug;
@@ -17,6 +19,10 @@ export default function WorkspaceViewDetailPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined' || !viewQuery.data || !workspaceSlug) return;
+    if (viewQuery.data.resourceType === 'PROJECT') {
+      router.replace(workspaceProjectViewPath(workspaceSlug, viewQuery.data));
+      return;
+    }
     const scopeSegment =
       viewQuery.data.scopeType === 'TEAM'
         ? `${viewQuery.data.scopeType}:${viewQuery.data.scopeId ?? 'unknown'}`
@@ -25,7 +31,7 @@ export default function WorkspaceViewDetailPage() {
       `${LAST_ACTIVE_VIEW_KEY_PREFIX}:${workspaceSlug}:${scopeSegment}:${viewQuery.data.resourceType}`,
       String(viewQuery.data.id)
     );
-  }, [viewQuery.data, workspaceSlug]);
+  }, [router, viewQuery.data, workspaceSlug]);
 
   if (!Number.isFinite(viewId)) {
     notFound();
