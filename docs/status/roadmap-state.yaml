@@ -1,0 +1,51 @@
+version: 1
+roadmap:
+  path: docs/plans/2026-04-16-linear-parity-roadmap.md
+  total_tasks: 20
+project:
+  repo_path: /opt/data/projects/Cruise
+  branch: codex/unify-issue-model
+  head: 21b6774
+  baseline_commit: 21b6774
+last_completed_task:
+  id: bootstrap
+  title: Lock branch and initialize roadmap autopilot
+  status: done
+  summary: >-
+    Locked Cruise to origin/codex/unify-issue-model, audited current docs/baselines,
+    created a Linear parity roadmap, created the canonical roadmap state file, and
+    updated docs index / dev logbook / worktime for future autonomous continuation.
+  tests:
+    - git status --short: passed (clean worktree before doc changes)
+    - git branch --show-current: passed (codex/unify-issue-model)
+    - documentation writes: passed
+  review:
+    code: approved
+  commit: pending
+  next_task: task01a
+current_task:
+  id: task01a
+  parent_task: task01
+  title: Audit and unify issue/project shared queryState DTO
+  status: pending
+history:
+  - id: bootstrap
+    status: done
+    summary: >-
+      Planning and autopilot bootstrap completed on Cruise codex/unify-issue-model.
+    tests:
+      - git status --short: passed
+      - git branch --show-current: passed
+    review:
+      code: approved
+    commit: pending
+    next_task: task01a
+notes:
+  execution_rules:
+    - docs/status/roadmap-state.yaml is the single source of truth for roadmap progress.
+    - Execute exactly one smallest deliverable task per execution unit.
+    - Every task must close with implementation, tests, docs update, one post-completion review, commit, and state write-back.
+    - If blocked, record the blocker and a suggested next action, then move to another unblocked task.
+  next_run_prompt_summary: >-
+    Restore from this state file, perform only task01a, update tests/docs/review/commit fields,
+    set the next task, then stop.

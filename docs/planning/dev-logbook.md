@@ -602,4 +602,64 @@
 
 ---
 
+## Session 10 — 2026-04-16：Linear 复刻计划 + Autopilot 初始化
+
+**目标**：锁定 Cruise 的 `codex/unify-issue-model` 分支，基于现有 HAR 设计文档与当前代码状态建立“Linear 一比一复刻”执行计划，并初始化唯一状态源与 cron 自动推进机制。
+
+### 10.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 执行 | `git checkout -B codex/unify-issue-model origin/codex/unify-issue-model` | 锁定用户指定分支，确认 HEAD=`21b6774` |
+| 阅读 | `docs/planning/plan-baseline.md` | 确认 Cruise 当前产品定位与 Phase 基线 |
+| 阅读 | `docs/baselines/design-baseline.md` | 确认当前代码、模块与 API 基线 |
+| 阅读 | `docs/planning/cruise-refactor-roadmap.md` | 提取已有的共享内核 / project / notification / planning / membership 收敛路线 |
+| 阅读 | `docs/linear-har-module-design-checklist.md` | 提取 HAR 对 Linear 产品层对象的直接证据与高置信推断 |
+| 新增 | `docs/plans/2026-04-16-linear-parity-roadmap.md` | 建立基于当前分支的 Linear 复刻执行计划 |
+| 新增 | `docs/status/roadmap-state.yaml` | 建立唯一状态源，供 cron 按单任务执行单元续跑 |
+| 修改 | `docs/index.md` | 将新计划与状态源加入文档导航 |
+| 修改 | `docs/worktime.md` | 增加 Phase 5 / Session 10 工时记录 |
+| 修改 | `docs/planning/dev-logbook.md` | 记录本 Session |
+
+### 10.2 关键决策
+
+| 决策 | 结论 | 理由 |
+|------|------|------|
+| 工作分支 | `codex/unify-issue-model` | 用户明确指定；该分支也比另一个 `codex/*` 分支更新 |
+| 复刻策略 | 以产品层一比一复刻为目标，但不机械还原 Linear 后端 schema | HAR 文档已明确：按产品层模型收敛 Cruise，而非倒推数据库 |
+| 执行方式 | 单任务执行单元 + `docs/status/roadmap-state.yaml` + cron 自动续跑 | 避免超长会话失焦，便于稳定收口 |
+| 第一优先级 | 先收口共享 issue/project/view/member 内核，再铺具体页面 | 现有仓库已具备相当多雏形，先统一核心契约比继续堆孤立页面更有效 |
+
+### 10.3 当前基线快照
+
+| 项目 | 快照 |
+|------|------|
+| 分支 | `codex/unify-issue-model` |
+| HEAD | `21b6774` |
+| 最近提交 | `Build workspace projects and inbox workbench` |
+| 后端栈 | Kotlin 1.9 + Spring Boot 3.2.5 + JDK 21 |
+| 前端栈 | Next.js 15 + React 19 + TypeScript strict |
+| 已有路线图 | `docs/planning/cruise-refactor-roadmap.md` |
+| HAR 设计依据 | `docs/linear-har-module-design-checklist.md` |
+
+### 10.4 经验沉淀
+
+- 对这类“已有较大存量代码 + 用户要长期自动推进”的项目，先锁分支、再写计划、再建状态源，比直接编码更能减少返工
+- HAR 对 Cruise 的价值主要在产品层对象边界与页面内核，不在数据库逆向；计划必须围绕共享内核收口，而不是逐页散修
+- 对多日任务，`docs/status/roadmap-state.yaml` 应成为唯一真相源，聊天只是观察窗口
+
+### 10.5 验证
+
+| 检查 | 结果 |
+|------|------|
+| `git status --short` | ✅ 干净工作树 |
+| `git branch --show-current` | ✅ `codex/unify-issue-model` |
+| 文档写入 | ✅ 完成 |
+
+### 10.6 Git Commit
+
+待提交
+
+---
+
 > *下次 Session 开始时，先读本文件最后一条记录恢复上下文。*
