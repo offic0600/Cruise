@@ -70,6 +70,7 @@
 |---------|------|------|---------|---------|------|
 | S10 | 2026-04-16 | 锁定 `codex/unify-issue-model` 分支，建立 Linear 复刻计划 + 状态源 + cron 自动推进 | 2h | 1h | 纯规划 / 自动化基础设施 |
 | S11 | 2026-04-17 | 完成 task01a，统一 issue/project/initiative view queryState 默认契约并锁定审计文档 | 2h | 1h | 前端验证通过；后端 Gradle 测试受 cron 环境缺少 Java/JAVA_HOME 限制 |
+| S12 | 2026-04-17 | 完成 task01b1 repair closure，补齐 malformed project saved view 的 fail-closed 修复与回归覆盖 | 2h | 1h | 后端 Gradle 测试仍受 cron 环境缺少 Java/JAVA_HOME 限制 |
 
 ---
 

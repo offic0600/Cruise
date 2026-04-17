@@ -719,4 +719,52 @@
 
 ---
 
+## Session 12 — 2026-04-17：task01b1 saved-view fail-closed 修复收口
+
+**目标**：完成 task01b1 的 repair closure，补齐 malformed project saved view 的 fail-closed 行为与回归覆盖，并保持 `current_task` 继续指向 `task01b2`。
+
+### 12.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 修改 | `backend/src/main/kotlin/com/cruise/service/ProjectService.kt` | 收紧 `/api/projects/workspace` saved view 读取权限：PROJECT+TEAM 且 project 无 team 时改为 fail closed；未知 visibility 改为拒绝 |
+| 修改 | `backend/src/main/kotlin/com/cruise/service/ViewService.kt` | 同步通用 view 读取路径的 fail-closed 判定，避免其他入口继续放行异常 legacy view |
+| 修改 | `backend/src/test/kotlin/com/cruise/OrganizationAccessIntegrationTest.kt` | 新增 malformed legacy saved view 回归测试，覆盖断链 team project view 与未知 visibility 两种 403 场景 |
+| 修改 | `docs/status/roadmap-state.yaml` | 将 task01b1 的最终实现 commit 更新为修复收口提交，并保持下一任务为 `task01b2` |
+| 修改 | `docs/worktime.md` | 记录 Session 12 工时 |
+| 修改 | `docs/planning/dev-logbook.md` | 记录本 Session |
+
+### 12.2 Bug / 漂移修复
+
+- **saved view fail-open 漏洞**：`/api/projects/workspace` 实际读取路径仍对 malformed legacy view 走 fail-open 分支，PROJECT scope 的 TEAM view 在 project.teamId 丢失时会退回 organization member 放行，未知 visibility 也会放行。
+- **修复方案**：将 `ProjectService` 与 `ViewService` 的可读性判定统一改为 fail-closed，仅允许 `PERSONAL` / `WORKSPACE` / 合法 `TEAM` 语义通过；project.teamId 缺失、未知 visibility、未知 scopeType 一律拒绝。
+
+### 12.3 经验沉淀
+
+- 对这类“评审指出真实读取路径与抽象层不一致”的修复收口任务，不能只改共用 service 名称看起来相近的位置，必须顺着实际 endpoint 调用链核对到最终权限判定函数。
+- 当 cron 环境缺少 Java/JAVA_HOME 时，Kotlin 集成测试可以先以 `git diff --check` + 安全扫描 + 独立静态评审收口，但要在状态和日志中明确记录验证受阻原因，避免下次重复排查环境问题。
+
+### 12.4 验证
+
+| 检查 | 结果 |
+|------|------|
+| `git diff --check` | ✅ 通过 |
+| `python3` added-line security scan | ✅ 通过 |
+| `bash ./gradlew :backend:test --tests com.cruise.OrganizationAccessIntegrationTest` | ⚠️ 受阻：cron 环境缺少 Java/JAVA_HOME |
+| 独立 post-completion review | ✅ approved |
+
+### 12.5 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 修复读取路径 | 2（`ProjectService` / `ViewService`） |
+| 新增回归测试 | 1 |
+| 本次闭环后的下一任务 | `task01b2` |
+
+### 12.6 Git Commit
+
+`a5004db` — `[verified] fix: fail closed malformed project saved views`
+
+---
+
 > *下次 Session 开始时，先读本文件最后一条记录恢复上下文。*
