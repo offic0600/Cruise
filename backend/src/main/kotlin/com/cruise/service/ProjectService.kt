@@ -3,15 +3,17 @@ package com.cruise.service
 import com.cruise.entity.Project
 import com.cruise.entity.ProjectMilestone
 import com.cruise.entity.ProjectUpdate
+import com.cruise.entity.View
 import com.cruise.repository.IssueRepository
+import com.cruise.repository.MembershipRepository
 import com.cruise.repository.ProjectRepository
 import com.cruise.repository.ProjectMilestoneRepository
 import com.cruise.repository.ProjectUpdateRepository
 import com.cruise.repository.UserRepository
 import com.cruise.repository.ViewRepository
 import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.http.HttpStatus
+import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
 import java.time.LocalDate
@@ -115,8 +117,9 @@ class ProjectService(
     private val projectMilestoneRepository: ProjectMilestoneRepository,
     private val issueRepository: IssueRepository,
     private val userRepository: UserRepository,
+    private val membershipRepository: MembershipRepository,
     private val viewRepository: ViewRepository,
-    private val objectMapper: ObjectMapper
+    private val persistedViewQueryStateResolver: PersistedViewQueryStateResolver
 ) {
     fun findAll(query: ProjectQuery = ProjectQuery()): RestPageResponse<ProjectDto> =
         findAllMatching(query).toRestPage(query.page, query.size)
@@ -182,6 +185,7 @@ class ProjectService(
     }
 
     fun findWorkspaceProjects(query: WorkspaceProjectQuery): RestPageResponse<WorkspaceProjectRowDto> {
+        val view = resolveWorkspaceProjectView(query)
         val baseProjects = projectRepository.findAll()
             .asSequence()
             .filter { it.organizationId == query.organizationId }
@@ -246,11 +250,11 @@ class ProjectService(
                 updatedAt = project.updatedAt.toString(),
                 archivedAt = project.archivedAt?.toString()
             )
-        }
+        }.sortedWith(compareBy<WorkspaceProjectRowDto> { it.name.lowercase() }.thenBy { it.id })
 
         rows = applyWorkspaceProjectFilters(rows, query)
-        rows = applyWorkspaceProjectView(rows, query.viewId)
-        rows = applyWorkspaceProjectSorting(rows, query.viewId)
+        rows = applyWorkspaceProjectView(rows, view)
+        rows = applyWorkspaceProjectSorting(rows, view)
 
         val page = query.page.coerceAtLeast(0)
         val size = query.size.coerceAtLeast(1)
@@ -306,36 +310,81 @@ class ProjectService(
         .filter { query.hasMilestone == null || (query.hasMilestone && it.nextMilestoneId != null) || (!query.hasMilestone && it.nextMilestoneId == null) }
         .toList()
 
-    private fun applyWorkspaceProjectView(items: List<WorkspaceProjectRowDto>, viewId: Long?): List<WorkspaceProjectRowDto> {
-        if (viewId == null) return items
-        val view = viewRepository.findById(viewId).orElseThrow {
-            ResponseStatusException(HttpStatus.NOT_FOUND, "View not found")
-        }
-        if (view.resourceType != "PROJECT" || view.archivedAt != null) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid project view")
-        }
-        val queryState = view.queryState?.takeIf { it.isNotBlank() }?.let { objectMapper.readTree(it) } ?: return items
+    private fun applyWorkspaceProjectView(items: List<WorkspaceProjectRowDto>, view: View?): List<WorkspaceProjectRowDto> {
+        if (view == null) return items
+        val queryState = persistedViewQueryStateResolver.effectiveQueryState(view)
         val filtersNode = queryState.path("filters")
         return items.filter { evaluateProjectFilterNode(filtersNode) { field -> projectFieldValue(it, field) } }
     }
 
-    private fun applyWorkspaceProjectSorting(items: List<WorkspaceProjectRowDto>, viewId: Long?): List<WorkspaceProjectRowDto> {
-        if (viewId == null) {
+    private fun applyWorkspaceProjectSorting(items: List<WorkspaceProjectRowDto>, view: View?): List<WorkspaceProjectRowDto> {
+        if (view == null) {
             return items.sortedWith(compareBy<WorkspaceProjectRowDto> { it.name.lowercase() }.thenBy { it.id })
         }
-        val view = viewRepository.findById(viewId).orElse(null) ?: return items
-        val queryState = view.queryState?.takeIf { it.isNotBlank() }?.let { objectMapper.readTree(it) } ?: return items
+        val queryState = persistedViewQueryStateResolver.effectiveQueryState(view)
         val sortingNode = queryState.path("sorting")
-        if (!sortingNode.isArray || sortingNode.isEmpty) {
-            return items.sortedWith(compareBy<WorkspaceProjectRowDto> { it.name.lowercase() }.thenBy { it.id })
+        if (!sortingNode.isArray) {
+            return items
         }
-        val rule = sortingNode.first()
-        val field = rule.path("field").asText("updatedAt")
-        val direction = rule.path("direction").asText("desc")
-        val sorted = items.sortedWith { left, right ->
-            compareValues(projectFieldValue(left, field), projectFieldValue(right, field))
+        if (sortingNode.isEmpty) {
+            return items
         }
-        return if (direction == "asc") sorted else sorted.reversed()
+        val rules = sortingNode.filter { it.isObject }
+        val comparator = Comparator<WorkspaceProjectRowDto> { left, right ->
+            for (rule in rules) {
+                val field = rule.path("field").asText("")
+                if (field.isBlank()) continue
+                val direction = rule.path("direction").asText("asc")
+                val nulls = rule.path("nulls").asText("last")
+                val comparison = compareValues(projectFieldValue(left, field), projectFieldValue(right, field), nulls)
+                if (comparison != 0) {
+                    return@Comparator if (direction.equals("desc", ignoreCase = true)) -comparison else comparison
+                }
+            }
+            compareValues(left.name, right.name, "last").takeIf { it != 0 } ?: compareValues(left.id, right.id, "last")
+        }
+        return items.sortedWith(comparator)
+    }
+
+    private fun resolveWorkspaceProjectView(query: WorkspaceProjectQuery): View? {
+        val viewId = query.viewId ?: return null
+        val userId = requireCurrentUserId()
+        val memberships = membershipRepository.findByUserIdAndActiveTrue(userId)
+        val view = viewRepository.findById(viewId).orElseThrow {
+            ResponseStatusException(HttpStatus.NOT_FOUND, "View not found")
+        }
+        if (view.resourceType != "PROJECT" || view.archivedAt != null || view.organizationId != query.organizationId) {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "View not found")
+        }
+        if (!canReadView(view, userId, memberships)) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "View not accessible")
+        }
+        return view
+    }
+
+    private fun canReadView(view: View, userId: Long, memberships: List<com.cruise.entity.Membership>): Boolean {
+        val organizationMember = memberships.any { it.organizationId == view.organizationId }
+        if (!organizationMember) return false
+        return when (view.visibility) {
+            "PERSONAL" -> view.ownerUserId == userId
+            "TEAM" -> when (view.scopeType) {
+                "TEAM" -> memberships.any { it.teamId == view.scopeId }
+                "PROJECT" -> {
+                    val project = view.scopeId?.let { projectRepository.findById(it).orElse(null) }
+                    project?.teamId?.let { teamId -> memberships.any { it.teamId == teamId } } ?: organizationMember
+                }
+                else -> organizationMember
+            }
+            else -> organizationMember
+        }
+    }
+
+    private fun requireCurrentUserId(): Long {
+        val principal = SecurityContextHolder.getContext().authentication?.name
+            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required")
+        return userRepository.findByUsername(principal)?.id
+            ?: userRepository.findByEmail(principal)?.id
+            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found")
     }
 
     private fun projectFieldValue(project: WorkspaceProjectRowDto, field: String): Any? = when (field) {
@@ -427,10 +476,10 @@ class ProjectService(
         else -> false
     }
 
-    private fun compareValues(left: Any?, right: Any?): Int {
+    private fun compareValues(left: Any?, right: Any?, nulls: String = "last"): Int {
         if (left == null && right == null) return 0
-        if (left == null) return 1
-        if (right == null) return -1
+        if (left == null) return if (nulls.equals("first", ignoreCase = true)) -1 else 1
+        if (right == null) return if (nulls.equals("first", ignoreCase = true)) 1 else -1
         val normalizedLeft = normalizeComparable(left)
         val normalizedRight = normalizeComparable(right)
         return when {

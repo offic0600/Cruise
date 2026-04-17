@@ -1,5 +1,7 @@
 package com.cruise
 
+import com.cruise.entity.View
+import com.cruise.repository.ViewRepository
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.assertj.core.api.Assertions.assertThat
@@ -26,6 +28,9 @@ class OrganizationAccessIntegrationTest {
 
     @Autowired
     private lateinit var objectMapper: ObjectMapper
+
+    @Autowired
+    private lateinit var viewRepository: ViewRepository
 
     @Test
     fun `membershipless user can list organizations and receives empty array`() {
@@ -905,6 +910,75 @@ class OrganizationAccessIntegrationTest {
     }
 
     @Test
+    fun `legacy-only view duplication and layout updates materialize normalized queryState`() {
+        val token = loginAndGetToken("admin", "admin123")
+        val workspacePayload = createWorkspace(token, "views-${UUID.randomUUID().toString().take(8)}", "Legacy View Materialization Workspace")
+        val organizationId = workspacePayload["organization"]["id"].asLong()
+
+        val legacyView = viewRepository.save(
+            View(
+                organizationId = organizationId,
+                resourceType = "PROJECT",
+                scopeType = "WORKSPACE",
+                ownerUserId = 1,
+                name = "Legacy project view",
+                filterJson = """
+                    {
+                      "operator": "AND",
+                      "children": [
+                        { "field": "status", "operator": "is", "value": "ACTIVE" }
+                      ]
+                    }
+                """.trimIndent(),
+                sortJson = """
+                    [
+                      { "field": "name", "direction": "desc", "nulls": "last" }
+                    ]
+                """.trimIndent(),
+                queryState = null,
+                visibility = "WORKSPACE",
+                layout = "LIST"
+            )
+        )
+
+        mockMvc.perform(
+            put("/api/views/${legacyView.id}")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{ "layout": "BOARD" }""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.layout").value("BOARD"))
+            .andExpect(jsonPath("$.queryState.display.layout").value("BOARD"))
+            .andExpect(jsonPath("$.queryState.filters.children[0].field").value("status"))
+
+        val duplicatedPayload = mockMvc.perform(
+            post("/api/views/${legacyView.id}/duplicate")
+                .header("Authorization", "Bearer $token")
+        )
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.name").value("Legacy project view Copy"))
+            .andExpect(jsonPath("$.queryState.display.layout").value("BOARD"))
+            .andExpect(jsonPath("$.queryState.filters.children[0].field").value("status"))
+            .andExpect(jsonPath("$.queryState.sorting[0].field").value("name"))
+            .andReturn()
+            .response
+            .contentAsString
+
+        val duplicatedView = objectMapper.readTree(duplicatedPayload)
+        val duplicatedViewId = duplicatedView["id"].asLong()
+
+        mockMvc.perform(
+            get("/api/views/$duplicatedViewId")
+                .header("Authorization", "Bearer $token")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.queryState.display.layout").value("BOARD"))
+            .andExpect(jsonPath("$.queryState.filters.children[0].field").value("status"))
+            .andExpect(jsonPath("$.queryState.sorting[0].field").value("name"))
+    }
+
+    @Test
     fun `issue and project views share normalized queryState schema while keeping resource defaults`() {
         val token = loginAndGetToken("admin", "admin123")
         val workspacePayload = createWorkspace(token, "views-${UUID.randomUUID().toString().take(8)}", "Views QueryState Workspace")
@@ -1020,6 +1094,145 @@ class OrganizationAccessIntegrationTest {
         )
             .andExpect(status().isCreated)
             .andExpect(jsonPath("$.visibility").value("TEAM"))
+    }
+
+    @Test
+    fun `workspace project list applies legacy-only view queryState fallback for filters and shared sorting semantics`() {
+        val token = loginAndGetToken("admin", "admin123")
+        val workspacePayload = createWorkspace(token, "projects-${UUID.randomUUID().toString().take(8)}", "Legacy Project View Workspace")
+        val organizationId = workspacePayload["organization"]["id"].asLong()
+        val teamId = workspacePayload["initialTeam"]["id"].asLong()
+
+        fun createProject(name: String, status: String, targetDate: String?) {
+            val targetDateJson = targetDate?.let { ",\n                          \"targetDate\": \"$it\"" } ?: ""
+            mockMvc.perform(
+                post("/api/projects")
+                    .header("Authorization", "Bearer $token")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        """
+                        {
+                          "organizationId": $organizationId,
+                          "teamId": $teamId,
+                          "name": "$name",
+                          "status": "$status"$targetDateJson
+                        }
+                        """.trimIndent()
+                    )
+            )
+                .andExpect(status().isCreated)
+        }
+
+        createProject(name = "Alpha Active", status = "ACTIVE", targetDate = "2026-05-01")
+        createProject(name = "Beta Active", status = "ACTIVE", targetDate = null)
+        createProject(name = "Zulu Active", status = "ACTIVE", targetDate = null)
+        createProject(name = "Planned Project", status = "PLANNED", targetDate = "2026-01-01")
+
+        val legacyView = viewRepository.save(
+            View(
+                organizationId = organizationId,
+                resourceType = "PROJECT",
+                scopeType = "WORKSPACE",
+                ownerUserId = 1,
+                name = "Legacy active projects",
+                filterJson = """
+                    {
+                      "operator": "AND",
+                      "children": [
+                        { "field": "status", "operator": "is", "value": "ACTIVE" }
+                      ]
+                    }
+                """.trimIndent(),
+                sortJson = """
+                    [
+                      { "field": "targetDate", "direction": "asc", "nulls": "first" },
+                      { "field": "name", "direction": "desc", "nulls": "last" }
+                    ]
+                """.trimIndent(),
+                queryState = null,
+                visibility = "WORKSPACE",
+                layout = "LIST"
+            )
+        )
+
+        mockMvc.perform(
+            get("/api/projects/workspace")
+                .header("Authorization", "Bearer $token")
+                .param("organizationId", organizationId.toString())
+                .param("viewId", legacyView.id.toString())
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.totalCount").value(3))
+            .andExpect(jsonPath("$.items[0].name").value("Zulu Active"))
+            .andExpect(jsonPath("$.items[1].name").value("Beta Active"))
+            .andExpect(jsonPath("$.items[2].name").value("Alpha Active"))
+    }
+
+    @Test
+    fun `workspace project list rejects inaccessible or cross-organization saved views`() {
+        val adminToken = loginAndGetToken("admin", "admin123")
+        val workspacePayload = createWorkspace(adminToken, "views-${UUID.randomUUID().toString().take(8)}", "Project View Access Workspace")
+        val organizationId = workspacePayload["organization"]["id"].asLong()
+
+        val personalView = viewRepository.save(
+            View(
+                organizationId = organizationId,
+                resourceType = "PROJECT",
+                scopeType = "WORKSPACE",
+                ownerUserId = 999_999,
+                name = "Unowned personal project view",
+                queryState = """
+                    {
+                      "filters": { "operator": "AND", "children": [] },
+                      "display": { "layout": "LIST", "visibleColumns": ["name"] },
+                      "grouping": { "field": null },
+                      "subGrouping": { "field": null },
+                      "sorting": [{ "field": "name", "direction": "asc", "nulls": "last" }]
+                    }
+                """.trimIndent(),
+                visibility = "PERSONAL",
+                layout = "LIST"
+            )
+        )
+
+        mockMvc.perform(
+            get("/api/projects/workspace")
+                .header("Authorization", "Bearer $adminToken")
+                .param("organizationId", organizationId.toString())
+                .param("viewId", personalView.id.toString())
+        )
+            .andExpect(status().isForbidden)
+
+        val otherWorkspacePayload = createWorkspace(adminToken, "views-${UUID.randomUUID().toString().take(8)}", "Other Workspace")
+        val otherOrganizationId = otherWorkspacePayload["organization"]["id"].asLong()
+        val crossOrgView = viewRepository.save(
+            View(
+                organizationId = otherOrganizationId,
+                resourceType = "PROJECT",
+                scopeType = "WORKSPACE",
+                ownerUserId = 1,
+                name = "Cross org project view",
+                queryState = """
+                    {
+                      "filters": { "operator": "AND", "children": [] },
+                      "display": { "layout": "LIST", "visibleColumns": ["name"] },
+                      "grouping": { "field": null },
+                      "subGrouping": { "field": null },
+                      "sorting": [{ "field": "name", "direction": "asc", "nulls": "last" }]
+                    }
+                """.trimIndent(),
+                visibility = "WORKSPACE",
+                layout = "LIST"
+            )
+        )
+
+        mockMvc.perform(
+            get("/api/projects/workspace")
+                .header("Authorization", "Bearer $adminToken")
+                .param("organizationId", organizationId.toString())
+                .param("viewId", crossOrgView.id.toString())
+        )
+            .andExpect(status().isNotFound)
     }
 
     private fun createWorkspace(token: String, slug: String, name: String): JsonNode {
