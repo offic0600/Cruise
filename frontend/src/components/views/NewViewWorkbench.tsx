@@ -55,6 +55,7 @@ import type {
 import { workspaceNewViewPath, workspaceProjectViewPath, workspaceViewPath, workspaceViewsPath } from '@/lib/routes';
 import { queryKeys } from '@/lib/query/keys';
 import { useCreateView, useViewPreviewResults } from '@/lib/query/views';
+import { createDefaultViewQueryState } from '@/lib/views/queryState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -156,23 +157,6 @@ const FILTER_MENU_ENTRIES: FilterMenuEntry[] = [
   { type: 'submenu', id: 'links', label: 'views.new.filters.entries.links', icon: Link2, keywords: ['links'] },
   { type: 'submenu', id: 'template', label: 'views.new.filters.entries.template', icon: FileText, keywords: ['template'] },
 ];
-
-function defaultQueryState(resourceType: ViewResourceType): ViewQueryState {
-  return {
-    filters: { operator: 'AND', children: [] },
-    display: {
-      layout: 'LIST',
-      visibleColumns: resourceType === 'ISSUE'
-        ? [...ISSUE_DISPLAY_PROPERTY_OPTIONS]
-        : ['key', 'name', 'status', 'ownerId', 'teamId', 'updatedAt'],
-      density: 'comfortable',
-      showSubIssues: true,
-      showEmptyGroups: true,
-    },
-    grouping: { field: resourceType === 'ISSUE' ? 'state' : 'status' },
-    sorting: [{ field: 'updatedAt', direction: 'desc', nulls: 'last' }],
-  };
-}
 
 function displayPropertyLabelKey(value: string) {
   const map: Record<string, string> = {
@@ -376,7 +360,7 @@ export default function NewViewWorkbench({
   const [saveTarget, setSaveTarget] = useState<SaveTarget>('PERSONAL');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [queryState, setQueryState] = useState<ViewQueryState>(() => defaultQueryState(resourceType));
+  const [queryState, setQueryState] = useState<ViewQueryState>(() => createDefaultViewQueryState(resourceType));
   const [conditions, setConditions] = useState<ConditionDraft[]>([]);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [filterSearch, setFilterSearch] = useState('');

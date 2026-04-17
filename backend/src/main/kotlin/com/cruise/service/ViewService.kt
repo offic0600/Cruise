@@ -186,9 +186,9 @@ class ViewService(
         val userId = requireCurrentUserId()
         validateOrganizationAccess(request.organizationId, userId)
         validateScopeAccess(request.organizationId, request.scopeType, request.scopeId, userId)
-        val normalizedQueryState = normalizeQueryState(request.queryState, request.layout)
-        val normalizedScopeType = request.scopeType.uppercase()
         val normalizedResourceType = normalizeResourceType(request.resourceType)
+        val normalizedQueryState = normalizeQueryState(request.queryState, request.layout, normalizedResourceType)
+        val normalizedScopeType = request.scopeType.uppercase()
         val visibility = normalizeVisibility(normalizedScopeType, request.visibility)
         val saved = viewRepository.save(
             View(
@@ -224,7 +224,7 @@ class ViewService(
         if (!canEditView(view, userId)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "View not editable")
         }
-        val normalizedQueryState = request.queryState?.let { normalizeQueryState(it, request.layout ?: view.layout) } ?: effectiveQueryState(view)
+        val normalizedQueryState = request.queryState?.let { normalizeQueryState(it, request.layout ?: view.layout, view.resourceType) } ?: effectiveQueryState(view)
         val normalizedScopeType = request.scopeType?.uppercase() ?: view.scopeType
         val normalizedScopeId = if (request.scopeType != null) request.scopeId else view.scopeId
         validateScopeAccess(view.organizationId, normalizedScopeType, normalizedScopeId, userId)
@@ -360,7 +360,7 @@ class ViewService(
         if (!canReadView(view, userId, memberships)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "View not accessible")
         }
-        val queryState = request.queryState?.let { normalizeQueryState(it, null) } ?: effectiveQueryState(view)
+        val queryState = request.queryState?.let { normalizeQueryState(it, null, view.resourceType) } ?: effectiveQueryState(view)
         val page = request.page ?: 0
         val size = request.size ?: 50
         return when (view.resourceType) {
@@ -377,7 +377,7 @@ class ViewService(
         validateScopeAccess(request.organizationId, request.scopeType, request.scopeId, userId)
         val normalizedScopeType = request.scopeType.uppercase()
         val resourceType = normalizeResourceType(request.resourceType)
-        val queryState = normalizeQueryState(request.queryState, null)
+        val queryState = normalizeQueryState(request.queryState, null, resourceType)
         val page = request.page ?: 0
         val size = request.size ?: 50
         val previewView = View(
@@ -827,20 +827,26 @@ class ViewService(
         else -> throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported resource type")
     }
 
-    private fun normalizeQueryState(queryState: JsonNode?, requestedLayout: String?): ObjectNode {
+    private fun normalizeQueryState(queryState: JsonNode?, requestedLayout: String?, resourceType: String): ObjectNode {
         val normalized = when {
-            queryState == null || queryState.isNull -> defaultQueryState()
+            queryState == null || queryState.isNull -> defaultQueryState(resourceType)
             queryState.isObject -> queryState.deepCopy<ObjectNode>()
-            else -> defaultQueryState()
+            else -> defaultQueryState(resourceType)
         }
         if (!normalized.has("filters") || !normalized.get("filters").isObject) {
             normalized.set<ObjectNode>("filters", defaultFilters())
         }
         if (!normalized.has("display") || !normalized.get("display").isObject) {
-            normalized.set<ObjectNode>("display", defaultDisplay())
+            normalized.set<ObjectNode>("display", defaultDisplay(resourceType))
+        }
+        if (!normalized.path("display").path("visibleColumns").isArray) {
+            normalized.with("display").set<ArrayNode>("visibleColumns", defaultVisibleColumns(resourceType))
         }
         if (!normalized.has("grouping") || !normalized.get("grouping").isObject) {
             normalized.set<ObjectNode>("grouping", defaultGrouping())
+        }
+        if (!normalized.has("subGrouping") || !normalized.get("subGrouping").isObject) {
+            normalized.set<ObjectNode>("subGrouping", defaultGrouping())
         }
         if (!normalized.has("sorting") || !normalized.get("sorting").isArray) {
             normalized.set<ArrayNode>("sorting", defaultSorting())
@@ -851,10 +857,11 @@ class ViewService(
         return normalized
     }
 
-    private fun defaultQueryState(): ObjectNode = objectMapper.createObjectNode().apply {
+    private fun defaultQueryState(resourceType: String): ObjectNode = objectMapper.createObjectNode().apply {
         set<ObjectNode>("filters", defaultFilters())
-        set<ObjectNode>("display", defaultDisplay())
+        set<ObjectNode>("display", defaultDisplay(resourceType))
         set<ObjectNode>("grouping", defaultGrouping())
+        set<ObjectNode>("subGrouping", defaultGrouping())
         set<ArrayNode>("sorting", defaultSorting())
     }
 
@@ -863,19 +870,21 @@ class ViewService(
         set<ArrayNode>("children", objectMapper.createArrayNode())
     }
 
-    private fun defaultDisplay(): ObjectNode = objectMapper.createObjectNode().apply {
+    private fun defaultDisplay(resourceType: String): ObjectNode = objectMapper.createObjectNode().apply {
         put("layout", "LIST")
-        set<ArrayNode>("visibleColumns", objectMapper.createArrayNode().apply {
-            add("identifier")
-            add("title")
-            add("priority")
-            add("state")
-            add("assignee")
-            add("updatedAt")
-        })
+        set<ArrayNode>("visibleColumns", defaultVisibleColumns(resourceType))
         put("density", "comfortable")
         put("showSubIssues", true)
         put("showEmptyGroups", true)
+    }
+
+    private fun defaultVisibleColumns(resourceType: String): ArrayNode = objectMapper.createArrayNode().apply {
+        when (resourceType) {
+            RESOURCE_ISSUE -> listOf("identifier", "title", "priority", "state", "assignee", "project", "labels", "updatedAt", "createdAt")
+            RESOURCE_PROJECT -> listOf("key", "name", "status", "ownerId", "teamId", "updatedAt", "createdAt")
+            RESOURCE_INITIATIVE -> listOf("slugId", "name", "status", "health", "ownerId", "targetDate", "updatedAt", "createdAt")
+            else -> listOf("identifier", "title", "priority", "state", "assignee", "project", "labels", "updatedAt", "createdAt")
+        }.forEach(::add)
     }
 
     private fun defaultGrouping(): ObjectNode = objectMapper.createObjectNode().apply {
@@ -897,11 +906,11 @@ class ViewService(
 
     private fun effectiveQueryState(view: View): ObjectNode {
         val stored = view.queryState?.takeIf { it.isNotBlank() }?.let { objectMapper.readTree(it) as? ObjectNode }
-        return stored ?: legacyQueryState(view)
+        return normalizeQueryState(stored ?: legacyQueryState(view), view.layout, view.resourceType)
     }
 
     private fun legacyQueryState(view: View): ObjectNode {
-        val state = defaultQueryState()
+        val state = defaultQueryState(view.resourceType)
         val filters = view.filterJson?.takeIf { it.isNotBlank() }?.let { objectMapper.readTree(it) } ?: defaultFilters()
         state.set<JsonNode>("filters", filters)
         if (!view.groupBy.isNullOrBlank()) {

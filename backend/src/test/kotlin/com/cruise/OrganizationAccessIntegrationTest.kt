@@ -905,6 +905,66 @@ class OrganizationAccessIntegrationTest {
     }
 
     @Test
+    fun `issue and project views share normalized queryState schema while keeping resource defaults`() {
+        val token = loginAndGetToken("admin", "admin123")
+        val workspacePayload = createWorkspace(token, "views-${UUID.randomUUID().toString().take(8)}", "Views QueryState Workspace")
+        val organizationId = workspacePayload["organization"]["id"].asLong()
+
+        val issueViewPayload = mockMvc.perform(
+            post("/api/views")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "organizationId": $organizationId,
+                      "resourceType": "ISSUE",
+                      "scopeType": "WORKSPACE",
+                      "name": "Issue default schema"
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isCreated)
+            .andReturn()
+            .response
+            .contentAsString
+
+        val projectViewPayload = mockMvc.perform(
+            post("/api/views")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "organizationId": $organizationId,
+                      "resourceType": "PROJECT",
+                      "scopeType": "WORKSPACE",
+                      "name": "Project default schema"
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isCreated)
+            .andReturn()
+            .response
+            .contentAsString
+
+        val issueQueryState = objectMapper.readTree(issueViewPayload)["queryState"]
+        val projectQueryState = objectMapper.readTree(projectViewPayload)["queryState"]
+
+        assertThat(issueQueryState.fieldNames().asSequence().toList())
+            .containsExactly("filters", "display", "grouping", "subGrouping", "sorting")
+        assertThat(projectQueryState.fieldNames().asSequence().toList())
+            .containsExactly("filters", "display", "grouping", "subGrouping", "sorting")
+        assertThat(issueQueryState["display"]["visibleColumns"].map { it.asText() })
+            .containsExactly("identifier", "title", "priority", "state", "assignee", "project", "labels", "updatedAt", "createdAt")
+        assertThat(projectQueryState["display"]["visibleColumns"].map { it.asText() })
+            .containsExactly("key", "name", "status", "ownerId", "teamId", "updatedAt", "createdAt")
+        assertThat(projectQueryState["subGrouping"]["field"].isNull).isTrue()
+    }
+
+    @Test
     fun `view visibility must match scope type`() {
         val token = loginAndGetToken("admin", "admin123")
         val workspacePayload = createWorkspace(token, "views-${UUID.randomUUID().toString().take(8)}", "Views Scope Workspace")

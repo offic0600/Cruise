@@ -55,6 +55,7 @@ import {
   useViewsIndex,
 } from '@/lib/query/views';
 import { useIssueMutations, useIssueWorkspace } from '@/lib/query/issues';
+import { createDefaultViewQueryState } from '@/lib/views/queryState';
 import {
   issueDetailPath,
   resourceTypeToViewSegment,
@@ -108,21 +109,6 @@ function resourceGroupingFields(resourceType: ViewResourceType) {
 
 function deepClone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
-}
-
-function defaultQueryState(resourceType: ViewResourceType): ViewQueryState {
-  return {
-    filters: { operator: 'AND', children: [] },
-    display: {
-      layout: 'LIST',
-      visibleColumns: resourceColumns(resourceType),
-      density: 'comfortable',
-      showSubIssues: true,
-      showEmptyGroups: true,
-    },
-    grouping: { field: null },
-    sorting: [{ field: 'updatedAt', direction: 'desc', nulls: 'last' }],
-  };
 }
 
 function queryStateEquals(left: ViewQueryState | null | undefined, right: ViewQueryState | null | undefined) {
@@ -209,7 +195,7 @@ export default function ViewsWorkbench({
     includeSystem: true,
   });
   const indexViews = viewsIndexQuery.data ?? [];
-  const [draftQueryState, setDraftQueryState] = useState<ViewQueryState>(() => defaultQueryState(resourceType));
+  const [draftQueryState, setDraftQueryState] = useState<ViewQueryState>(() => createDefaultViewQueryState(resourceType));
   const [draftName, setDraftName] = useState('');
   const [draftDescription, setDraftDescription] = useState('');
   const [draftVisibility, setDraftVisibility] = useState<ViewVisibility>('PERSONAL');
@@ -218,7 +204,7 @@ export default function ViewsWorkbench({
 
   useEffect(() => {
     if (!activeView) return;
-    const nextState = deepClone(activeView.queryState ?? defaultQueryState(activeView.resourceType));
+    const nextState = deepClone(activeView.queryState ?? createDefaultViewQueryState(activeView.resourceType));
     setDraftQueryState(nextState);
     setDraftName(activeView.name);
     setDraftDescription(activeView.description ?? '');

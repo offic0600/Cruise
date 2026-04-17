@@ -10,6 +10,7 @@ import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import { getTeamMembers } from '@/lib/api/legacy';
 import type { View, ViewResourceType, ViewScopeType } from '@/lib/api/types';
 import { useCreateView, useViewsIndex } from '@/lib/query/views';
+import { createDefaultViewQueryState } from '@/lib/views/queryState';
 import {
   resourceTypeToViewSegment,
   workspaceNewViewPath,
@@ -28,25 +29,6 @@ type TeamMember = {
   name: string;
   email?: string | null;
 };
-
-function defaultQueryState(resourceType: ViewResourceType) {
-  return {
-    filters: { operator: 'AND' as const, children: [] },
-    display: {
-      layout: 'LIST' as const,
-      visibleColumns: resourceType === 'ISSUE'
-        ? ['identifier', 'title', 'priority', 'state', 'assignee', 'project', 'labels', 'updatedAt', 'createdAt']
-        : resourceType === 'PROJECT'
-          ? ['key', 'name', 'status', 'ownerId', 'teamId', 'updatedAt', 'createdAt']
-          : ['slugId', 'name', 'status', 'health', 'ownerId', 'targetDate', 'updatedAt', 'createdAt'],
-      density: 'comfortable' as const,
-      showSubIssues: true,
-      showEmptyGroups: true,
-    },
-    grouping: { field: null as string | null },
-    sorting: [{ field: 'updatedAt', direction: 'desc' as const, nulls: 'last' as const }],
-  };
-}
 
 function initials(value: string) {
   return value
@@ -109,6 +91,7 @@ export default function ViewsDirectory({
   const createViewMutation = useCreateView();
   const members = Array.isArray(membersQuery.data) ? membersQuery.data : [];
   const views = viewsQuery.data ?? [];
+  const defaultQueryState = useMemo(() => createDefaultViewQueryState(resourceType), [resourceType]);
 
   const orderedViews = useMemo(() => views.filter((view) => !view.isSystem), [views]);
 
@@ -131,7 +114,7 @@ export default function ViewsDirectory({
 
   async function handleCreate() {
     if (!currentOrganizationSlug) return;
-    if (resourceType === 'INITIATIVE') return;
+    if (resourceType === 'INITIATIVE' || defaultQueryState.display.visibleColumns.length === 0) return;
     router.push(workspaceNewViewPath(currentOrganizationSlug, resourceTypeToViewSegment(resourceType)));
   }
 
@@ -245,7 +228,7 @@ export default function ViewsDirectory({
               <button
                 type="button"
                 onClick={handleCreate}
-                disabled={resourceType === 'INITIATIVE'}
+                disabled={resourceType === 'INITIATIVE' || defaultQueryState.display.visibleColumns.length === 0}
                 className="text-lg leading-none text-ink-500 transition hover:text-ink-900 disabled:cursor-not-allowed disabled:text-ink-300"
               >
                 +

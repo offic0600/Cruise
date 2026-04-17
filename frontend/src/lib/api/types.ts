@@ -541,6 +541,11 @@ export interface FilterGroup {
   children: Array<FilterGroup | FilterCondition>;
 }
 
+export interface ViewGrouping {
+  field: string | null;
+  direction?: 'asc' | 'desc';
+}
+
 export interface ViewQueryState {
   filters: FilterGroup;
   display: {
@@ -551,10 +556,8 @@ export interface ViewQueryState {
     showSubIssues?: boolean;
     showEmptyGroups?: boolean;
   };
-  grouping: {
-    field: string | null;
-    direction?: 'asc' | 'desc';
-  };
+  grouping: ViewGrouping;
+  subGrouping: ViewGrouping;
   sorting: Array<{
     field: string;
     direction: 'asc' | 'desc';
