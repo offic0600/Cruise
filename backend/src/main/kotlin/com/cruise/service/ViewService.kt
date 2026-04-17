@@ -728,15 +728,16 @@ class ViewService(
         if (!organizationMember) return false
         return when (view.visibility) {
             VISIBILITY_PERSONAL -> view.ownerUserId == userId
+            VISIBILITY_WORKSPACE -> organizationMember
             VISIBILITY_TEAM -> when (view.scopeType) {
                 SCOPE_TEAM -> memberships.any { it.teamId == view.scopeId }
                 SCOPE_PROJECT -> {
                     val project = view.scopeId?.let { projectRepository.findById(it).orElse(null) }
-                    project?.teamId?.let { teamId -> memberships.any { it.teamId == teamId } } ?: organizationMember
+                    project?.teamId?.let { teamId -> memberships.any { it.teamId == teamId } } ?: false
                 }
-                else -> organizationMember
+                else -> false
             }
-            else -> organizationMember
+            else -> false
         }
     }
 

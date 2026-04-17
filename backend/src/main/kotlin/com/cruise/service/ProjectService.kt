@@ -367,15 +367,16 @@ class ProjectService(
         if (!organizationMember) return false
         return when (view.visibility) {
             "PERSONAL" -> view.ownerUserId == userId
+            "WORKSPACE" -> organizationMember
             "TEAM" -> when (view.scopeType) {
                 "TEAM" -> memberships.any { it.teamId == view.scopeId }
                 "PROJECT" -> {
                     val project = view.scopeId?.let { projectRepository.findById(it).orElse(null) }
-                    project?.teamId?.let { teamId -> memberships.any { it.teamId == teamId } } ?: organizationMember
+                    project?.teamId?.let { teamId -> memberships.any { it.teamId == teamId } } ?: false
                 }
-                else -> organizationMember
+                else -> false
             }
-            else -> organizationMember
+            else -> false
         }
     }
 

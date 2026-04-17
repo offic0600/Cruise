@@ -1,6 +1,7 @@
 package com.cruise
 
 import com.cruise.entity.View
+import com.cruise.repository.ProjectRepository
 import com.cruise.repository.ViewRepository
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -31,6 +32,9 @@ class OrganizationAccessIntegrationTest {
 
     @Autowired
     private lateinit var viewRepository: ViewRepository
+
+    @Autowired
+    private lateinit var projectRepository: ProjectRepository
 
     @Test
     fun `membershipless user can list organizations and receives empty array`() {
@@ -1233,6 +1237,97 @@ class OrganizationAccessIntegrationTest {
                 .param("viewId", crossOrgView.id.toString())
         )
             .andExpect(status().isNotFound)
+    }
+
+    @Test
+    fun `workspace project list denies malformed legacy saved views fail closed`() {
+        val token = loginAndGetToken("admin", "admin123")
+        val workspacePayload = createWorkspace(token, "views-${UUID.randomUUID().toString().take(8)}", "Malformed Project View Workspace")
+        val organizationId = workspacePayload["organization"]["id"].asLong()
+        val teamId = workspacePayload["initialTeam"]["id"].asLong()
+
+        val projectResponse = mockMvc.perform(
+            post("/api/projects")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "organizationId": $organizationId,
+                      "teamId": $teamId,
+                      "name": "Broken Team Project"
+                    }
+                    """.trimIndent()
+                )
+        )
+            .andExpect(status().isCreated)
+            .andReturn()
+            .response
+            .contentAsString
+
+        val projectId = objectMapper.readTree(projectResponse)["id"].asLong()
+        val project = projectRepository.findById(projectId).orElseThrow()
+        project.teamId = null
+        projectRepository.save(project)
+
+        val brokenTeamProjectView = viewRepository.save(
+            View(
+                organizationId = organizationId,
+                resourceType = "PROJECT",
+                scopeType = "PROJECT",
+                scopeId = projectId,
+                ownerUserId = 1,
+                name = "Broken team project view",
+                queryState = """
+                    {
+                      "filters": { "operator": "AND", "children": [] },
+                      "display": { "layout": "LIST", "visibleColumns": ["name"] },
+                      "grouping": { "field": null },
+                      "subGrouping": { "field": null },
+                      "sorting": [{ "field": "name", "direction": "asc", "nulls": "last" }]
+                    }
+                """.trimIndent(),
+                visibility = "TEAM",
+                layout = "LIST"
+            )
+        )
+
+        mockMvc.perform(
+            get("/api/projects/workspace")
+                .header("Authorization", "Bearer $token")
+                .param("organizationId", organizationId.toString())
+                .param("viewId", brokenTeamProjectView.id.toString())
+        )
+            .andExpect(status().isForbidden)
+
+        val unknownVisibilityView = viewRepository.save(
+            View(
+                organizationId = organizationId,
+                resourceType = "PROJECT",
+                scopeType = "WORKSPACE",
+                ownerUserId = 1,
+                name = "Unknown visibility project view",
+                queryState = """
+                    {
+                      "filters": { "operator": "AND", "children": [] },
+                      "display": { "layout": "LIST", "visibleColumns": ["name"] },
+                      "grouping": { "field": null },
+                      "subGrouping": { "field": null },
+                      "sorting": [{ "field": "name", "direction": "asc", "nulls": "last" }]
+                    }
+                """.trimIndent(),
+                visibility = "LEGACY_WORKSPACE",
+                layout = "LIST"
+            )
+        )
+
+        mockMvc.perform(
+            get("/api/projects/workspace")
+                .header("Authorization", "Bearer $token")
+                .param("organizationId", organizationId.toString())
+                .param("viewId", unknownVisibilityView.id.toString())
+        )
+            .andExpect(status().isForbidden)
     }
 
     private fun createWorkspace(token: String, slug: String, name: String): JsonNode {
