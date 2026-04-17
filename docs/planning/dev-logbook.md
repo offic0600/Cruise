@@ -658,7 +658,64 @@
 
 ### 10.6 Git Commit
 
-待提交
+`7ec6786` — `[verified] docs: add linear parity roadmap state`
+
+---
+
+## Session 11 — 2026-04-17：task01a queryState 契约审计与最小收口
+
+**目标**：完成路线图 task01a，锁定 issue/project/initiative 共享 queryState DTO 外形，清理前后端默认 schema 漂移。
+
+### 11.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 新增 | `docs/planning/task01a-query-state-audit.md` | 记录当前 schema 漂移点、统一 DTO 结构、兼容策略与后续切分 |
+| 修改 | `backend/src/main/kotlin/com/cruise/service/ViewService.kt` | 按资源类型统一默认 queryState，补齐 `subGrouping` 与资源特定 `visibleColumns` |
+| 修改 | `backend/src/test/kotlin/com/cruise/OrganizationAccessIntegrationTest.kt` | 增加 issue/project 默认 queryState schema 对齐回归测试 |
+| 新增 | `frontend/src/lib/views/queryState.ts` | 提取前端统一默认 queryState 生成器 |
+| 新增 | `frontend/src/lib/views/queryState.test.ts` | 增加前端 schema 对齐最小回归测试 |
+| 修改 | `frontend/src/lib/api/types.ts` | 显式锁定 `ViewGrouping` / `subGrouping` 类型 |
+| 修改 | `frontend/src/components/views/NewViewWorkbench.tsx` | 改为复用共享 queryState 默认生成器 |
+| 修改 | `frontend/src/components/views/ViewsDirectory.tsx` | 改为复用共享 queryState 默认生成器 |
+| 修改 | `frontend/src/components/views/ViewsWorkbench.tsx` | 改为复用共享 queryState 默认生成器 |
+| 修改 | `docs/status/roadmap-state.yaml` | 将 task01a 标记为完成并推进到 task01b |
+| 修改 | `docs/worktime.md` | 记录 Session 11 工时 |
+| 修改 | `docs/planning/dev-logbook.md` | 记录本 Session |
+
+### 11.2 Bug / 漂移修复
+
+- **queryState 默认 schema 漂移**：后端默认列固定偏 issue，前端三个 views 页面各自维护默认 state，导致 project / initiative 的默认列和分组结构不一致。
+- **修复方案**：后端 `normalizeQueryState()` 接入 `resourceType` 并按资源类型生成默认 `visibleColumns`；前端抽取单一 `createDefaultViewQueryState()` 作为共享生成源，同时显式纳入 `subGrouping`。
+
+### 11.3 经验沉淀
+
+- 对这种“前后端都各自 hardcode 默认 schema”的共享内核任务，先写一份审计文档锁定契约，再抽一个前端共享生成器 + 一个后端 normalize 入口，比逐页追修更稳。
+- `roadmap-state.yaml` 里的旧任务 commit 字段若已被真实 git 历史覆盖，应在下一次闭环时顺手修正，避免状态文件长期漂移。
+- cron 环境下前端 Next.js build 可能因默认 Node 堆内存不足 OOM，必要时使用 `NODE_OPTIONS=--max-old-space-size=4096` 重新验证。
+
+### 11.4 验证
+
+| 检查 | 结果 |
+|------|------|
+| `git diff --check` | ✅ 通过 |
+| `cd frontend && npm test -- --run src/lib/views/queryState.test.ts` | ✅ 通过 |
+| `cd frontend && NODE_OPTIONS=--max-old-space-size=4096 npm run build` | ✅ 通过 |
+| `bash ./gradlew :backend:test --tests com.cruise.OrganizationAccessIntegrationTest` | ⚠️ 受阻：cron 环境缺少 Java/JAVA_HOME |
+| 独立 post-completion review | ✅ approved |
+
+### 11.5 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 新增前端共享工具文件 | 1 |
+| 新增回归测试 | 2（前端 1 / 后端 1） |
+| 统一后的 queryState 顶层 key | 5（`filters/display/grouping/subGrouping/sorting`） |
+| 当前下一任务 | `task01b` |
+
+### 11.6 Git Commit
+
+`c5da9e1` — `[verified] feat: unify view query state defaults`
 
 ---
 

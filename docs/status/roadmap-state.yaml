@@ -5,30 +5,46 @@ roadmap:
 project:
   repo_path: /opt/data/projects/Cruise
   branch: codex/unify-issue-model
-  head: 21b6774
+  head: c5da9e1bdfb2dee4e67e3f712c4ab4d0369c95b8
   baseline_commit: 21b6774
 last_completed_task:
-  id: bootstrap
-  title: Lock branch and initialize roadmap autopilot
+  id: task01a
+  title: Audit and unify issue/project shared queryState DTO
   status: done
   summary: >-
-    Locked Cruise to origin/codex/unify-issue-model, audited current docs/baselines,
-    created a Linear parity roadmap, created the canonical roadmap state file, and
-    updated docs index / dev logbook / worktime for future autonomous continuation.
+    Locked a shared queryState DTO contract for issue/project/initiative views, moved
+    frontend default state generation into one shared helper, and normalized backend
+    resource-specific visibleColumns plus subGrouping defaults to stop schema drift.
   tests:
-    - git status --short: passed (clean worktree before doc changes)
-    - git branch --show-current: passed (codex/unify-issue-model)
-    - documentation writes: passed
+    - git diff --check: passed
+    - frontend npm test -- --run src/lib/views/queryState.test.ts: passed
+    - frontend NODE_OPTIONS=--max-old-space-size=4096 npm run build: passed
+    - backend bash ./gradlew :backend:test --tests com.cruise.OrganizationAccessIntegrationTest: blocked (cron env missing Java/JAVA_HOME)
   review:
     code: approved
-  commit: pending
-  next_task: task01a
+  commit: c5da9e1bdfb2dee4e67e3f712c4ab4d0369c95b8
+  next_task: task01b
 current_task:
-  id: task01a
+  id: task01b
   parent_task: task01
-  title: Audit and unify issue/project shared queryState DTO
+  title: Unify backend view DTO/service queryState contract
   status: pending
 history:
+  - id: task01a
+    status: done
+    summary: >-
+      Shared queryState defaults were unified across backend and frontend, with
+      resource-specific visibleColumns and an explicit subGrouping key locked into
+      the contract.
+    tests:
+      - git diff --check: passed
+      - frontend npm test -- --run src/lib/views/queryState.test.ts: passed
+      - frontend NODE_OPTIONS=--max-old-space-size=4096 npm run build: passed
+      - backend bash ./gradlew :backend:test --tests com.cruise.OrganizationAccessIntegrationTest: blocked (cron env missing Java/JAVA_HOME)
+    review:
+      code: approved
+    commit: c5da9e1bdfb2dee4e67e3f712c4ab4d0369c95b8
+    next_task: task01b
   - id: bootstrap
     status: done
     summary: >-
@@ -38,7 +54,7 @@ history:
       - git branch --show-current: passed
     review:
       code: approved
-    commit: pending
+    commit: 7ec678643c6a1b408a6f9966b9fd234ec1056710
     next_task: task01a
 notes:
   execution_rules:
@@ -47,5 +63,6 @@ notes:
     - Every task must close with implementation, tests, docs update, one post-completion review, commit, and state write-back.
     - If blocked, record the blocker and a suggested next action, then move to another unblocked task.
   next_run_prompt_summary: >-
-    Restore from this state file, perform only task01a, update tests/docs/review/commit fields,
+    Restore from this state file, perform only task01b, unify backend view DTO/service
+    queryState contract around the locked schema, update tests/docs/review/commit fields,
     set the next task, then stop.
