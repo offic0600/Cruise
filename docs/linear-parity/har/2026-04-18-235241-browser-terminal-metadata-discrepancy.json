@@ -1,0 +1,74 @@
+{
+  "capturedAt": "2026-04-18 23:52:41 CST",
+  "target": "https://linear.app/cleantrack/team/CLE/active",
+  "metadata": {
+    "terminalJsonVersionStatus": "HTTPError 502 Bad Gateway",
+    "terminalJsonListStatus": "HTTPError 502 Bad Gateway",
+    "browserJsonVersion": {
+      "browser": "Chrome/147.0.7727.56",
+      "protocolVersion": "1.3",
+      "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/browser/1cb02d1f-3fe5-4829-836a-275b4e10b506"
+    },
+    "linearTarget": {
+      "id": "81A3713C33BCA35B2A0B8C7D177F43AD",
+      "title": "Cleantrack › Active issues",
+      "url": "https://linear.app/cleantrack/team/CLE/active",
+      "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/81A3713C33BCA35B2A0B8C7D177F43AD"
+    },
+    "supportingTargets": [
+      {
+        "title": "Codex Proxy Developer Dashboard",
+        "url": "https://openai.heliumlabz.com/#/"
+      },
+      {
+        "title": "[verified] feat: add ask threads SQLx migration slice · leozhengliu-pixel/codescope@1600901",
+        "url": "https://github.com/leozhengliu-pixel/codescope/commit/160090194cd947856e31186a5ce87bb4ac5ad196"
+      },
+      {
+        "title": "澳洲云服务器推荐 - Kimi",
+        "url": "https://www.kimi.com/chat/19d65546-f2f2-842f-8000-09d90ad26c3f?chat_enter_method=history"
+      }
+    ]
+  },
+  "browserProbe": {
+    "handoffPage": {
+      "title": "Linear",
+      "url": "https://linear.app/cleantrack/team/CLE/active",
+      "bodyText": "Link opened in the Linear app\n\nYour browser will ask for permission to open future links in the desktop app faster. Learn more.\n\nOpen here instead",
+      "buttons": ["Open here instead"],
+      "links": ["Learn more"],
+      "screenshot": "/Users/liuzheng/.hermes/cache/screenshots/browser_screenshot_3ea2ee9f55964bed9cdcf4b240f7e764.png"
+    },
+    "afterOpenHereInstead": {
+      "title": "Linear",
+      "url": "https://linear.app/cleantrack/team/CLE/active",
+      "bodyText": "Log in to Linear\nContinue with Google\nContinue with email\nContinue with SAML SSO\nLog in with passkey\n\nDon’t have an account? Sign up or learn more",
+      "visibleControls": [
+        "Continue with Google",
+        "Continue with email",
+        "Continue with SAML SSO",
+        "Log in with passkey",
+        "Sign up",
+        "learn more"
+      ],
+      "navigationEntry": {
+        "name": "https://linear.app/cleantrack/team/CLE/active",
+        "type": "navigate",
+        "domContentLoadedMs": 1361.1000001430511,
+        "loadMs": 1744.4000000953674
+      },
+      "screenshot": "/Users/liuzheng/.hermes/cache/screenshots/browser_screenshot_1e6ee0a69b8b4237be1543b137ec823f.png"
+    }
+  },
+  "classification": {
+    "metadataPath": "split state: terminal returns 502 while Hermes browser still reads live metadata",
+    "authenticatedPageReuse": "blocked",
+    "blocker": "Deep-link still opens Linear desktop-app handoff page and browser fallback still lands on login/auth gate instead of authenticated Active issues page"
+  },
+  "stillBlocked": [
+    "Active issues toolbar/tabs/search/filter/display/sort/new button capture",
+    "Issue list row click-through evidence",
+    "Issue detail page evidence",
+    "Create/edit issue entry evidence"
+  ]
+}
