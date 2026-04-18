@@ -70,7 +70,8 @@
 | IMP-13 | 为 team-active 工具栏补最小可见 filter summary 聚合反馈 | done | IMP-08, IMP-12 | 已将 team-active filter 按钮与侧栏摘要升级为首项 + 余量的聚合反馈文案，避免多条件筛选时仅暴露第一项状态；补充了 `filterSummaryLabel(...)` 回归测试，定向 `vitest` 9/9 通过 | 受仓库既有 `MarkdownEditor.tsx` tiptap 缺依赖与 `issue-view.test.ts` 旧字面量类型不收窄影响，`npx tsc --noEmit` 仍未全绿，但本轮新增变更已通过定向验证 |
 | IMP-14 | 为 team-active 高级筛选补最小 labels URL/摘要闭环 | done | IMP-13 | 已让 `labelIds=` URL 状态进入 team-active filter draft / query / summary 闭环：侧板可选择标签，Filter 按钮与摘要区会显示标签名称，并补充 helper 回归测试；定向 `vitest` 9/9 通过 | `npx tsc --noEmit` 仍受仓库既有 Vitest/路径别名/JSX 配置与 `MarkdownEditor.tsx` 依赖问题影响，未能作为本轮全局绿灯，但本轮增量已通过定向验证 |
 | IMP-15 | 收紧 team-active 多条件筛选摘要为首项 + 余量聚合文案 | done | IMP-14 | 已将 `filterSummaryLabel(...)` 从全量拼接改为首项 + 余量聚合（如 `Search: foo + 2 more` / `搜索: foo 等 2 项`），并让页内 search summary 复用同一套短摘要逻辑，降低多条件时摘要噪声；补充 `summarizeFilterTokens(...)` helper 与回归测试，定向 `vitest` 6/6 通过 | `npx tsc --noEmit` 仍受仓库既有 `MarkdownEditor.tsx` tiptap 依赖缺失影响，但本轮变更对应测试已通过 |
-| IMP-16 | 评估 issue 详情页 route shell 与页面骨架落地切口 | pending | CAP-07 | 基于已采 issue 详情页证据，先落一个不破坏现有结构的 route shell / page shell 最小实现方案 | 依赖 capture lane 先拿到 issue 详情页页面级证据 |
+| IMP-16 | 为 team-active 工具栏状态说明补 helper 级回归测试 | done | IMP-15 | 已把 `searchStatusText(...)` / `noteText(...)` / `sortSummaryLabel(...)` 导出到可测试 seam，并补齐 team-active 工具栏状态说明文案的中英文回归测试；定向 `vitest` 9/9 通过 | `npx tsc --noEmit` 仍受仓库既有 `MarkdownEditor.tsx` tiptap 依赖缺失影响，且当前组件文案仍保留既有 `IN_PROGRESS` / “过滤条件” 字面量，后续若做文案对标可在此 seam 上继续收敛 |
+| IMP-17 | 评估 issue 详情页 route shell 与页面骨架落地切口 | pending | CAP-07 | 基于已采 issue 详情页证据，先落一个不破坏现有结构的 route shell / page shell 最小实现方案 | 依赖 capture lane 先拿到 issue 详情页页面级证据 |
 
 ## 最近一次人工调整
 

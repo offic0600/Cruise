@@ -25,3 +25,4 @@
 | Linear 对标 | Session 55 | 2026-04-18 | 22:40 复测确认 9222 再回 split state 且 Active issues 深链继续落登录页，并同步任务板/日志/工时 | 0.2h | 0.2h |
 | Linear 对标 | Session 57 | 2026-04-18 | 23:05 复测确认 9222 metadata 已恢复双侧可读但 Active issues 深链仍落登录页，并同步任务板/日志/工时 | 0.2h | 0.2h |
 | Linear 对标 | Session 58 | 2026-04-18 | 收紧 team-active 多条件筛选摘要为首项 + 余量聚合文案，并让页内 search summary 复用短摘要逻辑 | 0.2h | 0.2h |
+| Linear 对标 | Session 59 | 2026-04-18 | 为 team-active 工具栏状态说明补 helper 级回归测试，并同步任务板/日志/工时 | 0.2h | 0.2h |

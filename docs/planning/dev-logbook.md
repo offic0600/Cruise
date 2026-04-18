@@ -130,6 +130,55 @@
 
 ---
 
+## Session 59 — 2026-04-18：为 team-active 工具栏状态说明补 helper 级回归测试
+
+**目标**：按 implementation lane 任务板顺序继续推进 team-active workbench，在多条件筛选摘要已收紧为短摘要的基础上，再落一个 5~15 分钟级最小可验证实现增量：把页面中实际对外展示的搜索状态、说明文案、排序摘要抽成可测试 seam，并补 helper 级回归测试，防止后续继续迁移 toolbar 行为时把现有 URL 状态说明文案悄悄改坏。
+
+### 59.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 读取 | `AGENTS.md` / `docs/linear-parity/task-board.md` / `gap-analysis.md` / `implementation-roadmap.md` / `full-parity-capture-plan.md` | 按 cron 规范完成启动检查，确认 implementation lane 仍应围绕 team-active toolbar 做最小实现增量，而不是转去采集 |
+| 检查 | `git status --short` | 提前确认仓库存在大量既有未提交改动；本轮仅窄改 team-active toolbar 文案 helper、测试与必需日志 |
+| 查阅 | `docs/linear-parity/active-issues-toolbar-gap.md` 与 `docs/linear-parity/` 现有证据 | 仅为实现核对当前 toolbar 对标方向，不扩展新取证 |
+| 读取 | `frontend/src/components/issues/ActiveIssuesWorkbenchPage.tsx` / `frontend/src/components/issues/issue-view.test.ts` | 确认 `searchStatusText(...)` / `noteText(...)` / `sortSummaryLabel(...)` 已承载真实页面状态说明，但此前未被独立回归保护 |
+| 修改 | `frontend/src/components/issues/ActiveIssuesWorkbenchPage.tsx` | 导出 `searchStatusText(...)` 与 `noteText(...)`，让 team-active 工具栏状态说明具备可测试 seam |
+| 修改 | `frontend/src/components/issues/issue-view.test.ts` | 新增 team-active 搜索状态、说明文案、排序摘要回归测试，并按当前实现字面量校准中英文断言 |
+| 验证 | `frontend` -> `npm test -- --run frontend/src/components/issues/issue-view.test.ts` | 首次使用错误路径过滤语法，返回 `No test files found`；已立即改用仓库原生相对路径重试 |
+| 验证 | `frontend` -> `npm test -- --run src/components/issues/issue-view.test.ts` | 9/9 通过，确认新增 seam 与既有 helper 回归稳定 |
+| 验证 | `frontend` -> `npx tsc --noEmit` | 仍失败，但失败点继续集中在仓库既有 `MarkdownEditor.tsx` tiptap 依赖缺失与隐式 any，非本轮新增测试 seam 引入 |
+| 修改 | `docs/linear-parity/task-board.md` / `docs/planning/dev-logbook.md` / `docs/worktime.md` / `doc/worktime.md` | 同步任务板、开发日志与工时记录 |
+
+### 59.2 本轮落地结果
+
+- `ActiveIssuesWorkbenchPage` 中实际驱动 team-active 页面反馈的 `searchStatusText(...)` 与 `noteText(...)` 现在已经暴露为可测试的 helper seam，后续如果继续对标 Linear toolbar 行为，可以先收敛 helper 断言再调整 UI。
+- `issue-view.test.ts` 补上了 team-active 工具栏状态说明的低成本回归保护，覆盖了：无搜索词时的 `q` 参数提示、有搜索词时的当前查询回显、筛选说明 note，以及排序摘要文案。
+- 本轮仍严格停留在 implementation lane：没有新增截图/DOM/HAR/浏览器采集，只基于已存在证据把当前已落地的 toolbar 状态反馈补齐了可验证保护。
+
+### 59.3 经验沉淀
+
+- 对仍在迁移中的页面来说，把“用户可见状态说明文案”抽成可测试 helper seam 是很划算的 5 分钟增量：它不会扩大功能面，却能显著降低未来小改动引入的回归噪声。
+- patch 工具自动触发的 TypeScript 检查在当前仓库里仍会混入既有 Vitest/JSX/路径别名噪声，因此最终结论仍应以手工 repo-native 验证命令为准。
+- 当首次测试命令因为 runner 路径写法错误而报 `No test files found` 时，应该立即修正为工具链原生写法，而不是把这类调用错误记成实现阻塞。
+
+### 59.4 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 本轮任务类型 | 最小实现任务（team-active 工具栏状态说明 helper 回归测试） |
+| 代码改动文件 | `frontend/src/components/issues/ActiveIssuesWorkbenchPage.tsx`, `frontend/src/components/issues/issue-view.test.ts` |
+| 文档改动文件 | `docs/linear-parity/task-board.md`, `docs/planning/dev-logbook.md`, `docs/worktime.md`, `doc/worktime.md` |
+| 新增验证能力 | `searchStatusText(...)` / `noteText(...)` / `sortSummaryLabel(...)` 的 team-active 状态说明回归测试 |
+| 定向测试结果 | `npm test -- --run src/components/issues/issue-view.test.ts` => 9/9 通过 |
+| 全量类型检查现状 | `npx tsc --noEmit` 仍受仓库既有 `MarkdownEditor.tsx` tiptap 依赖缺失与隐式 any 影响，非本轮引入 |
+| 当前是否存在真实阻塞 | 否 |
+
+### 59.5 Git commit hash
+
+（未回填：本轮完成的是最小增量与日志同步，未将更大功能任务整体推进到需立即 commit/push 的独立完成态）
+
+---
+
 ## Session 46 · 20:51 复测确认 metadata 分裂态仍在且认证页仍不可复用
 
 **目标**：在不做 Cruise 产品代码实现的前提下，对 CAP-06 再做一次最小 metadata + 会话复用复测；把 20:51 时刻 browser/terminal 对 9222 的分裂状态，以及真实页面仍落到中转页→登录页的事实补写到 `docs/linear-parity/` 与项目日志，避免后续 cron 误判链路已恢复。

@@ -97,7 +97,8 @@
 | S56 | 2026-04-18 | 22:50 复测确认 9222 仍为 browser/terminal split state 且 Active issues 深链继续落登录页 | 0.5h | 0.5h | terminal 直连 `/json/version` 与 `/json/list` 仍为 502，但 browser 仍可读 metadata，且 `/json/list` 还能看到多个其它实时 target；深链仍为中转页→登录页，已新增 22:50 HAR/flow/page-inventory/task-board/api-catalog/route-map |
 | S57 | 2026-04-18 | 23:05 复测确认 9222 metadata 已恢复双侧可读但 Active issues 深链仍落登录页 | 0.5h | 0.5h | terminal 与 browser 现都可读 `/json/version` 与 `/json/list`，并继续枚举到 Active issues target；但深链仍为中转页→登录页，已新增 23:05 HAR/flow/page-inventory/task-board/api-catalog |
 | S58 | 2026-04-18 | 收紧 team-active 多条件筛选摘要为首项 + 余量聚合文案 | 0.5h | 0.5h | 新增 `summarizeFilterTokens(...)` helper，并让页内 search summary 复用短摘要；定向 Vitest 6/6 通过 |
-| **合计** | — | 进行中 | **22.5h** | **22.5h** | |
+| S59 | 2026-04-18 | 为 team-active 工具栏状态说明补 helper 级回归测试 | 0.5h | 0.5h | 导出 `searchStatusText(...)` / `noteText(...)` 形成可测试 seam，并补齐排序/搜索/说明文案回归；定向 Vitest 9/9 通过 |
+| **合计** | — | 进行中 | **23.0h** | **23.0h** | |
 
 ---
 
