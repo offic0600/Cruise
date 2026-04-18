@@ -93,6 +93,10 @@ export function teamActivePath(workspaceSlug: string, teamKey: string) {
   return normalizePath(`/${workspaceSlug}/team/${teamKey}/active`);
 }
 
+export function teamIssuesPath(workspaceSlug: string, teamKey: string, view: Exclude<'all' | 'active' | 'backlog' | 'done', 'all'> = 'active') {
+  return normalizePath(`/${workspaceSlug}/team/${teamKey}/${view}`);
+}
+
 export function teamSettingsPath(workspaceSlug: string, teamKey: string, section?: string) {
   return normalizePath(
     section
@@ -134,6 +138,13 @@ export function parseTeamRoute(pathname: string) {
     teamKey: segments[2] ?? null,
     suffix: segments.slice(3),
   };
+}
+
+export function issueViewFromTeamRoute(pathname: string) {
+  const route = parseTeamRoute(pathname);
+  const view = route?.suffix[0] ?? null;
+  if (view === 'active' || view === 'backlog' || view === 'done') return view;
+  return null;
 }
 
 export function replaceTeamKeyInPath(pathname: string, nextTeamKey: string) {

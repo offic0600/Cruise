@@ -33,6 +33,13 @@ export function useIssueWorkspace(filters?: Parameters<typeof getIssues>[0]) {
   const membersQuery = useQuery({
     queryKey: [...queryKeys.teamMembers, organizationId ?? 1, currentTeamId ?? 'all'],
     queryFn: () => getTeamMembers({ organizationId: organizationId ?? 1, teamId: currentTeamId ?? undefined }),
+    select: (response) => response.items,
+  });
+  const labelsQuery = useQuery({
+    queryKey: queryKeys.labels({ organizationId: organizationId ?? 1, teamId: scopedFilters.teamId ?? currentTeamId ?? undefined }),
+    queryFn: () => getLabels({ organizationId: organizationId ?? 1, teamId: scopedFilters.teamId ?? currentTeamId ?? undefined }),
+    select: (catalog) => [...catalog.workspaceLabels, ...catalog.teamLabels],
+    staleTime: 60 * 1000,
   });
 
   return {
@@ -41,6 +48,7 @@ export function useIssueWorkspace(filters?: Parameters<typeof getIssues>[0]) {
     projectsQuery,
     teamsQuery,
     membersQuery,
+    labelsQuery,
   };
 }
 
