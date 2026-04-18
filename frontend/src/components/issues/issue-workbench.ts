@@ -176,16 +176,38 @@ export function activeFilterSummary(filters: FilterDraft, isZh: boolean, context
   return tokens;
 }
 
+export function summarizeFilterTokens(tokens: string[], isZh: boolean) {
+  if (tokens.length === 0) {
+    return {
+      count: 0,
+      buttonLabel: isZh ? '过滤器' : 'Filter',
+      summaryLabel: isZh ? '当前未应用过滤条件。' : 'No active filters applied.',
+    };
+  }
+
+  if (tokens.length === 1) {
+    return {
+      count: 1,
+      buttonLabel: isZh ? '过滤器 · 1' : 'Filter · 1',
+      summaryLabel: tokens[0],
+    };
+  }
+
+  const [first, ...rest] = tokens;
+  const restCount = rest.length;
+  return {
+    count: tokens.length,
+    buttonLabel: isZh ? `过滤器 · ${tokens.length}` : `Filter · ${tokens.length}`,
+    summaryLabel: isZh ? `${first} 等 ${restCount} 项` : `${first} + ${restCount} more`,
+  };
+}
+
 export function filterButtonLabel(filters: FilterDraft, isZh: boolean, context: FilterSummaryContext = {}) {
-  const count = activeFilterSummary(filters, isZh, context).length;
-  if (count === 0) return isZh ? '过滤器' : 'Filter';
-  return isZh ? `过滤器 · ${count}` : `Filter · ${count}`;
+  return summarizeFilterTokens(activeFilterSummary(filters, isZh, context), isZh).buttonLabel;
 }
 
 export function filterSummaryLabel(filters: FilterDraft, isZh: boolean, context: FilterSummaryContext = {}) {
-  const tokens = activeFilterSummary(filters, isZh, context);
-  if (!tokens.length) return isZh ? '当前未应用过滤条件。' : 'No active filters applied.';
-  return tokens.join(' · ');
+  return summarizeFilterTokens(activeFilterSummary(filters, isZh, context), isZh).summaryLabel;
 }
 
 export function buildActiveWorkbenchRows(
@@ -213,7 +235,7 @@ export function buildActiveWorkbenchRows(
       typeLabel: resolutionLabel ?? labelForType(issue.type, isZh),
       projectName: project?.name ?? null,
       assigneeLabel: assignee?.name ?? (isZh ? '未设置' : 'Not set'),
-      priorityLabel: labelForPriority(issue.priority, isZh),
+      priorityLabel: issue.priority ? labelForPriority(issue.priority, isZh) : (isZh ? '未设置' : 'Not set'),
       updatedLabel: formatIssueDate(issue.updatedAt, locale),
       updatedTimestamp: Number.isFinite(updatedTimestamp) ? updatedTimestamp : Number.MIN_SAFE_INTEGER,
       state: issue.state,
