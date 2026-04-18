@@ -1,0 +1,80 @@
+{
+  "captured_at": "2026-04-18 22:40 CST",
+  "target": "https://linear.app/cleantrack/team/CLE/active",
+  "task": "CAP-06",
+  "probe_type": "metadata-split-and-auth-gate-reprobe",
+  "terminal_probe": {
+    "json_version": {
+      "status": 502,
+      "error": "HTTP Error 502: Bad Gateway"
+    },
+    "json_list": {
+      "status": 502,
+      "error": "HTTP Error 502: Bad Gateway"
+    }
+  },
+  "browser_probe": {
+    "json_version": {
+      "status": 200,
+      "bodyReadable": true,
+      "browser": "Chrome/147.0.7727.56",
+      "protocolVersion": "1.3",
+      "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/browser/1cb02d1f-3fe5-4829-836a-275b4e10b506"
+    },
+    "json_list": {
+      "status": 200,
+      "bodyReadable": true,
+      "linearTarget": {
+        "id": "81A3713C33BCA35B2A0B8C7D177F43AD",
+        "title": "Cleantrack › Active issues",
+        "url": "https://linear.app/cleantrack/team/CLE/active",
+        "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/81A3713C33BCA35B2A0B8C7D177F43AD"
+      }
+    },
+    "deep_link_open": {
+      "url": "https://linear.app/cleantrack/team/CLE/active",
+      "title": "Linear",
+      "state": "app-handoff-interstitial",
+      "visibleText": [
+        "Link opened in the Linear app",
+        "Your browser will ask for permission to open future links in the desktop app faster.",
+        "Open here instead"
+      ],
+      "screenshot": "/Users/liuzheng/.hermes/cache/screenshots/browser_screenshot_da12751975c64b678a2902f00f932126.png"
+    },
+    "open_here_instead": {
+      "resultState": "login-gate",
+      "urlAfterClick": "https://linear.app/cleantrack/team/CLE/active",
+      "titleAfterClick": "Linear",
+      "visibleLoginEntrypoints": [
+        "Continue with Google",
+        "Continue with email",
+        "Continue with SAML SSO",
+        "Log in with passkey"
+      ],
+      "captchaVisible": false,
+      "signUpVisible": true,
+      "learnMoreVisible": true,
+      "screenshot": "/Users/liuzheng/.hermes/cache/screenshots/browser_screenshot_a09c8abff2664d38b80115d4c3578b6f.png"
+    },
+    "resource_summary_after_click": [
+      "https://static.linear.app/client/assets/resolveIssueViewAndRelatedModels.BnkLdTpi.js",
+      "https://static.linear.app/client/assets/DiffComputer.DI4fXNaS.js",
+      "https://static.linear.app/client/assets/RenderPerformanceReporting.3libSnXi.js",
+      "https://static.linear.app/client/assets/redirects.Db46-Giv.js",
+      "https://static.linear.app/client/assets/reviewPageMode.BkFfysqC.js",
+      "https://static.linear.app/client/assets/routeProtection.6e2rI3Yx.js",
+      "https://static.linear.app/client/assets/AuthDesktopRedirect.ty7Vm-V5.js",
+      "https://static.linear.app/client/assets/LazyLoginView.D6Tlbzql.js",
+      "https://static.linear.app/client/assets/authenticationSessionsQuery.oMhDstY7.js",
+      "https://static.linear.app/client/assets/Root-CrYfb3fb.css"
+    ]
+  },
+  "classification": {
+    "metadata_path_terminal": "502-bad-gateway",
+    "metadata_path_browser": "still-readable",
+    "authenticated_page_reuse": "still-blocked",
+    "blocker": "Browser-visible 9222 metadata still exposes the Active issues target, but direct terminal probes regressed to 502 and the deep link still falls through app handoff interstitial to the Linear login gate instead of reusing the already logged-in page"
+  },
+  "next_smallest_task": "Prefer CDP/page websocket read-only capture against target id 81A3713C33BCA35B2A0B8C7D177F43AD while browser-side metadata remains readable; avoid repeating generic metadata probes unless the split state changes again."
+}

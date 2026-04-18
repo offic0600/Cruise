@@ -1,0 +1,64 @@
+{
+  "capturedAt": "2026-04-18 20:51:12 CST",
+  "probeTarget": "Linear Active issues capture session",
+  "terminalProbe": {
+    "endpoints": [
+      {
+        "endpoint": "/json/version",
+        "status": 502,
+        "error": "HTTP Error 502: Bad Gateway"
+      },
+      {
+        "endpoint": "/json/list",
+        "status": 502,
+        "error": "HTTP Error 502: Bad Gateway"
+      }
+    ]
+  },
+  "browserProbe": {
+    "jsonVersion": {
+      "Browser": "Chrome/147.0.7727.56",
+      "Protocol-Version": "1.3",
+      "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/browser/1cb02d1f-3fe5-4829-836a-275b4e10b506"
+    },
+    "jsonListTarget": {
+      "id": "81A3713C33BCA35B2A0B8C7D177F43AD",
+      "title": "Cleantrack › Active issues",
+      "url": "https://linear.app/cleantrack/team/CLE/active",
+      "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/81A3713C33BCA35B2A0B8C7D177F43AD"
+    },
+    "navigationFallback": {
+      "initialPage": {
+        "url": "https://linear.app/cleantrack/team/CLE/active",
+        "heading": "Link opened in the Linear app",
+        "cta": "Open here instead",
+        "screenshot": "/Users/liuzheng/.hermes/cache/screenshots/browser_screenshot_b8b4760bb067427e99e8b85848e3fd69.png"
+      },
+      "afterOpenHereInstead": {
+        "url": "https://linear.app/cleantrack/team/CLE/active",
+        "title": "Linear",
+        "heading": "Log in to Linear",
+        "visibleLoginMethods": [
+          "Continue with Google",
+          "Continue with email",
+          "Continue with SAML SSO",
+          "Log in with passkey"
+        ],
+        "activeIssuesControlsVisible": false,
+        "screenshot": "/Users/liuzheng/.hermes/cache/screenshots/browser_screenshot_86f22c5b140a493e8c437ff43235f0ef.png"
+      }
+    }
+  },
+  "classification": "browser metadata still readable while terminal direct HTTP probe is back to 502; authenticated Active issues capture remains blocked because browser navigation still falls through interstitial to login",
+  "still_blocked": [
+    "Reuse of the already logged-in Linear web session inside Hermes browser automation",
+    "Read-only capture of Active issues toolbar/tabs interactions on the authenticated page",
+    "Issue detail and create/edit evidence work that depends on entering the authenticated issues surface"
+  ],
+  "still_possible": [
+    "Persist exact /json/version and /json/list metadata that browser can still read",
+    "Persist fresh interstitial and login fallback screenshots and DOM evidence",
+    "Continue project-side documentation and blocker tracking without touching Cruise product code"
+  ],
+  "recommended_next_smallest_task": "Recover a stable way for Hermes/browser automation to reuse the already logged-in local Linear Chrome session; once the authenticated Active issues page opens directly, resume CAP-06 from tabs plus search control group."
+}

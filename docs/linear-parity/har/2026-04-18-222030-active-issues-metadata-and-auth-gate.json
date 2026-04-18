@@ -1,0 +1,78 @@
+{
+  "capturedAt": "2026-04-18 22:20:30 CST",
+  "target": "https://linear.app/cleantrack/team/CLE/active",
+  "task": "CAP-06",
+  "probeSummary": {
+    "terminal": {
+      "jsonVersion": {
+        "status": 200,
+        "browser": "Chrome/147.0.7727.56",
+        "protocolVersion": "1.3",
+        "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/browser/1cb02d1f-3fe5-4829-836a-275b4e10b506"
+      },
+      "jsonList": {
+        "status": 200,
+        "linearTarget": {
+          "id": "81A3713C33BCA35B2A0B8C7D177F43AD",
+          "title": "Cleantrack › Active issues",
+          "url": "https://linear.app/cleantrack/team/CLE/active",
+          "type": "page",
+          "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/81A3713C33BCA35B2A0B8C7D177F43AD"
+        }
+      }
+    },
+    "browser": {
+      "jsonVersion": {
+        "status": 200,
+        "browser": "Chrome/147.0.7727.56",
+        "protocolVersion": "1.3",
+        "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/browser/1cb02d1f-3fe5-4829-836a-275b4e10b506"
+      },
+      "jsonList": {
+        "status": 200,
+        "linearTarget": {
+          "id": "81A3713C33BCA35B2A0B8C7D177F43AD",
+          "title": "Cleantrack › Active issues",
+          "url": "https://linear.app/cleantrack/team/CLE/active",
+          "type": "page",
+          "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/81A3713C33BCA35B2A0B8C7D177F43AD"
+        }
+      }
+    }
+  },
+  "navigationEvidence": {
+    "initialUrl": "https://linear.app/cleantrack/team/CLE/active",
+    "interstitial": {
+      "title": "Linear",
+      "bodyText": "Link opened in the Linear app\n\nYour browser will ask for permission to open future links in the desktop app faster. Learn more.\n\nOpen here instead",
+      "action": "click Open here instead",
+      "screenshot": "/Users/liuzheng/.hermes/cache/screenshots/browser_screenshot_78c2034cf4124756a870bec8ecb59a3a.png"
+    },
+    "postClick": {
+      "title": "Linear",
+      "bodyText": "Log in to Linear\nContinue with Google\nContinue with email\nContinue with SAML SSO\nLog in with passkey\n\nDon’t have an account? Sign up or learn more",
+      "loginButtons": [
+        "Continue with Google",
+        "Continue with email",
+        "Continue with SAML SSO",
+        "Log in with passkey"
+      ],
+      "screenshot": "/Users/liuzheng/.hermes/cache/screenshots/browser_screenshot_bbd675c3ff1148698d874e2b5c10a9fa.png"
+    }
+  },
+  "networkSummary": {
+    "browserToolNetworkCapture": "not available in Hermes browser tool",
+    "stableFacts": [
+      "9222 /json/version terminal probe returned HTTP 200",
+      "9222 /json/list terminal probe returned HTTP 200 and still lists the Linear Active issues page target",
+      "Hermes browser can also read both metadata endpoints",
+      "Direct navigation to the target URL still does not land on the authenticated Active issues page",
+      "Clicking 'Open here instead' still reaches the Linear login page rather than the already logged-in workspace"
+    ]
+  },
+  "statusClassification": {
+    "metadataPath": "recovered in both terminal and browser probes",
+    "authenticatedPageReuse": "still blocked",
+    "deepCaptureReadiness": "blocked for real Active issues toolbar/tabs/dropdowns evidence"
+  }
+}

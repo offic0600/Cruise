@@ -1,0 +1,84 @@
+{
+  "captured_at": "2026-04-18 22:30 CST",
+  "target": "https://linear.app/cleantrack/team/CLE/active",
+  "task": "CAP-06",
+  "probe_type": "metadata-and-auth-gate-reprobe",
+  "terminal_probe": {
+    "json_version": {
+      "status": 200,
+      "browser": "Chrome/147.0.7727.56",
+      "protocolVersion": "1.3",
+      "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/browser/1cb02d1f-3fe5-4829-836a-275b4e10b506"
+    },
+    "json_list": {
+      "status": 200,
+      "linearTarget": {
+        "id": "81A3713C33BCA35B2A0B8C7D177F43AD",
+        "title": "Cleantrack › Active issues",
+        "url": "https://linear.app/cleantrack/team/CLE/active",
+        "type": "page",
+        "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/81A3713C33BCA35B2A0B8C7D177F43AD"
+      },
+      "pageCount": 7,
+      "sharedWorkerCount": 1
+    }
+  },
+  "browser_probe": {
+    "json_version": {
+      "status": 200,
+      "bodyReadable": true,
+      "browser": "Chrome/147.0.7727.56",
+      "protocolVersion": "1.3"
+    },
+    "json_list": {
+      "status": 200,
+      "bodyReadable": true,
+      "linearTarget": {
+        "id": "81A3713C33BCA35B2A0B8C7D177F43AD",
+        "title": "Cleantrack › Active issues",
+        "url": "https://linear.app/cleantrack/team/CLE/active",
+        "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/81A3713C33BCA35B2A0B8C7D177F43AD"
+      }
+    },
+    "deep_link_open": {
+      "url": "https://linear.app/cleantrack/team/CLE/active",
+      "title": "Linear",
+      "state": "app-handoff-interstitial",
+      "visibleText": [
+        "Link opened in the Linear app",
+        "Your browser will ask for permission to open future links in the desktop app faster.",
+        "Open here instead"
+      ],
+      "screenshot": "/Users/liuzheng/.hermes/cache/screenshots/browser_screenshot_d886ffc02e524605ade5e8c8bded794b.png"
+    },
+    "open_here_instead": {
+      "resultState": "login-gate",
+      "urlAfterClick": "https://linear.app/cleantrack/team/CLE/active",
+      "titleAfterClick": "Linear",
+      "visibleLoginEntrypoints": [
+        "Continue with Google",
+        "Continue with email",
+        "Continue with SAML SSO",
+        "Log in with passkey"
+      ],
+      "captchaVisible": false,
+      "signUpVisible": true,
+      "learnMoreVisible": true,
+      "screenshot": "/Users/liuzheng/.hermes/cache/screenshots/browser_screenshot_eebcee2d1797457f84d25bd04d0951ad.png"
+    },
+    "resource_summary_after_click": [
+      "https://static.linear.app/client/assets/authenticationSessionsQuery.oMhDstY7.js",
+      "https://static.linear.app/client/assets/ActionMenu.BgvEYPYx.js",
+      "https://static.linear.app/client/assets/ElevatedPanel.DUuZ2ZIv.js",
+      "https://static.linear.app/client/assets/Scrollable.DLduDSzh.js",
+      "https://static.linear.app/client/assets/Root-CrYfb3fb.css",
+      "https://static.linear.app/client/assets/TabsHelper.sysHtqM9.js"
+    ]
+  },
+  "classification": {
+    "metadata_path": "recovered-and-readable-from-terminal-and-browser",
+    "authenticated_page_reuse": "still-blocked",
+    "blocker": "Deep link still falls through app handoff interstitial to Linear login gate instead of reusing the already logged-in Active issues page"
+  },
+  "next_smallest_task": "Prefer CDP/page websocket read-only capture against target id 81A3713C33BCA35B2A0B8C7D177F43AD instead of repeating metadata probes; if session reuse remains impossible, continue documenting authenticated-page blocker precisely."
+}

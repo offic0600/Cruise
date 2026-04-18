@@ -1,0 +1,70 @@
+{
+  "timestamp": "2026-04-18 20:19:51 CST",
+  "target": "Linear Chrome remote debugging on 127.0.0.1:9222",
+  "intended_scope": "Minimal re-probe for CAP-06 Active issues toolbar evidence path before any deeper capture attempt",
+  "probe_methods": [
+    {
+      "type": "terminal_http_probe",
+      "endpoints": [
+        "http://127.0.0.1:9222/json/version",
+        "http://127.0.0.1:9222/json/list"
+      ],
+      "result": [
+        {
+          "endpoint": "/json/version",
+          "status": 502,
+          "error": "HTTP Error 502: Bad Gateway"
+        },
+        {
+          "endpoint": "/json/list",
+          "status": 502,
+          "error": "HTTP Error 502: Bad Gateway"
+        }
+      ]
+    },
+    {
+      "type": "browser_probe",
+      "endpoints": [
+        "http://127.0.0.1:9222/json/list"
+      ],
+      "result": {
+        "json_list": {
+          "status": 200,
+          "linearTarget": {
+            "id": "81A3713C33BCA35B2A0B8C7D177F43AD",
+            "title": "Cleantrack › Active issues",
+            "url": "https://linear.app/cleantrack/team/CLE/active",
+            "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/81A3713C33BCA35B2A0B8C7D177F43AD"
+          }
+        }
+      }
+    }
+  ],
+  "dom_checks": {
+    "linear_interstitial": {
+      "title": "Linear",
+      "href": "https://linear.app/cleantrack/team/CLE/active",
+      "bodyText": "Link opened in the Linear app\n\nYour browser will ask for permission to open future links in the desktop app faster. Learn more.\n\nOpen here instead"
+    },
+    "after_open_here_instead": {
+      "title": "Linear",
+      "href": "https://linear.app/cleantrack/team/CLE/active",
+      "bodyText": "Log in to Linear\nContinue with Google\nContinue with email\nContinue with SAML SSO\nLog in with passkey\n\nDon’t have an account? Sign up or learn more"
+    }
+  },
+  "screenshots": {
+    "linear_interstitial": "/Users/liuzheng/.hermes/cache/screenshots/browser_screenshot_797dd011f50d479dba7da214e52bfc1e.png",
+    "linear_login": "/Users/liuzheng/.hermes/cache/screenshots/browser_screenshot_a49141b2c4a240949bf5939d66f9ef3a.png"
+  },
+  "classification": "terminal path still 502, browser metadata readable, authenticated Linear page capture blocked because Hermes browser lands on interstitial then login",
+  "still_blocked": [
+    "Authenticated Active issues toolbar/tabs/search/filter/display/sort/new control capture",
+    "Reliable DOM diff / screenshot / visible feedback collection on the real logged-in Active issues page"
+  ],
+  "still_possible": [
+    "Persist exact target metadata values from browser-readable /json endpoints",
+    "Persist interstitial and login-page fallback path as evidence",
+    "Update CAP-06 blocker notes and task ordering"
+  ],
+  "recommended_next_smallest_task": "Recover a stable way for Hermes/browser automation to reuse the already logged-in local Linear Chrome session; once authenticated Active issues can be opened directly, resume CAP-06 from tabs plus search control group."
+}

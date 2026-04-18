@@ -1,0 +1,57 @@
+{
+  "capturedAt": "2026-04-18 21:06:42 CST",
+  "target": {
+    "page": "Active issues",
+    "url": "https://linear.app/cleantrack/team/CLE/active"
+  },
+  "terminalProbe": {
+    "jsonVersion": {
+      "status": "error",
+      "error": "HTTP Error 502: Bad Gateway"
+    },
+    "jsonList": {
+      "status": "error",
+      "error": "HTTP Error 502: Bad Gateway"
+    }
+  },
+  "browserProbe": {
+    "jsonVersion": {
+      "browser": "Chrome/147.0.7727.56",
+      "protocolVersion": "1.3",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+      "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/browser/1cb02d1f-3fe5-4829-836a-275b4e10b506"
+    },
+    "jsonList": {
+      "targetCount": 8,
+      "linearActiveIssuesTarget": {
+        "id": "81A3713C33BCA35B2A0B8C7D177F43AD",
+        "title": "Cleantrack › Active issues",
+        "type": "page",
+        "url": "https://linear.app/cleantrack/team/CLE/active",
+        "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/81A3713C33BCA35B2A0B8C7D177F43AD"
+      }
+    }
+  },
+  "pageReuseProbe": {
+    "initialNavigation": {
+      "url": "https://linear.app/cleantrack/team/CLE/active",
+      "title": "Linear",
+      "bodyText": "Link opened in the Linear app\n\nYour browser will ask for permission to open future links in the desktop app faster. Learn more.\n\nOpen here instead"
+    },
+    "afterOpenHereInstead": {
+      "url": "https://linear.app/cleantrack/team/CLE/active",
+      "title": "Linear",
+      "bodyText": "Log in to Linear\nContinue with Google\nContinue with email\nContinue with SAML SSO\nLog in with passkey\n\nDon’t have an account? Sign up or learn more"
+    }
+  },
+  "screenshots": {
+    "deepLinkInterstitial": "/Users/liuzheng/.hermes/cache/screenshots/browser_screenshot_09ca0db32f064482b665ed6e337f8b19.png",
+    "loginPage": "/Users/liuzheng/.hermes/cache/screenshots/browser_screenshot_418eec2011954ec29e5711dc98a245ce.png"
+  },
+  "finding": {
+    "metadataPath": "browser-readable / terminal-502 split persists",
+    "authenticatedPageReuse": "blocked",
+    "blockerType": "deeplink interstitial followed by login page instead of authenticated Active issues content",
+    "safeNextTask": "继续等待/恢复已登录会话复用能力后，再回到 CAP-06 顶部工具栏与 tabs 的真实控件采集。"
+  }
+}

@@ -1,5 +1,6 @@
 // Cruise Backend — Spring Boot Application
 repositories {
+    maven(url = "https://repo1.maven.org/maven2")
     mavenCentral()
 }
 

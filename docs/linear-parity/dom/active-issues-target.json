@@ -1,0 +1,10 @@
+{
+  "description": "",
+  "devtoolsFrontendUrl": "https://chrome-devtools-frontend.appspot.com/serve_rev/@b28eac7a1a97ec8d7bc58eca0242958254be494d/inspector.html?ws=127.0.0.1:9222/devtools/page/81A3713C33BCA35B2A0B8C7D177F43AD",
+  "faviconUrl": "https://static.linear.app/client/assets/favicon-D8hcELd9.svg",
+  "id": "81A3713C33BCA35B2A0B8C7D177F43AD",
+  "title": "Cleantrack › Active issues",
+  "type": "page",
+  "url": "https://linear.app/cleantrack/team/CLE/active",
+  "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/81A3713C33BCA35B2A0B8C7D177F43AD"
+}

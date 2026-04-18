@@ -1,0 +1,58 @@
+{
+  "capturedAt": "2026-04-18 21:56:46 CST",
+  "target": {
+    "name": "Linear Active issues",
+    "url": "https://linear.app/cleantrack/team/CLE/active"
+  },
+  "probeSummary": {
+    "terminal": {
+      "/json/version": {
+        "status": 502,
+        "error": "Bad Gateway"
+      },
+      "/json/list": {
+        "status": 502,
+        "error": "Bad Gateway"
+      }
+    },
+    "browser": {
+      "/json/list": {
+        "status": 200,
+        "matchedTarget": {
+          "id": "81A3713C33BCA35B2A0B8C7D177F43AD",
+          "title": "Cleantrack › Active issues",
+          "url": "https://linear.app/cleantrack/team/CLE/active",
+          "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/81A3713C33BCA35B2A0B8C7D177F43AD"
+        }
+      }
+    }
+  },
+  "browserFallbackFlow": {
+    "initialNavigation": {
+      "url": "https://linear.app/cleantrack/team/CLE/active",
+      "title": "Linear",
+      "bodyText": "Link opened in the Linear app\n\nYour browser will ask for permission to open future links in the desktop app faster. Learn more.\n\nOpen here instead"
+    },
+    "afterOpenHereInstead": {
+      "url": "https://linear.app/cleantrack/team/CLE/active",
+      "title": "Linear",
+      "bodyText": "Log in to Linear\nContinue with Google\nContinue with email\nContinue with SAML SSO\nLog in with passkey\n\nDon’t have an account? Sign up or learn more"
+    }
+  },
+  "evidence": {
+    "jsonListScreenshot": null,
+    "interstitialScreenshot": "/Users/liuzheng/.hermes/cache/screenshots/browser_screenshot_24b9594c68494174a10ff5ef18e25280.png",
+    "loginScreenshot": "/Users/liuzheng/.hermes/cache/screenshots/browser_screenshot_c453558f7c6c439c8afd3e07d3951062.png"
+  },
+  "classification": {
+    "metadataPath": "recovered in browser only",
+    "terminalHttpPath": "still failing with 502",
+    "authenticatedPageReuse": "blocked",
+    "blockerType": "browser/terminal discrepancy + authenticated session unavailable"
+  },
+  "stillBlocked": [
+    "Active issues 真页顶部 tabs / search / filter / display / sort / new 按钮的真实交互取证",
+    "从已登录 Active issues 进入 issue 详情页或创建弹窗的只读取证"
+  ],
+  "nextSmallestTask": "若后续 run 仍无法复用已登录页，继续记录 metadata 与认证态分裂；一旦能进入真实已登录列表页，优先补 CAP-06 顶部工具栏逐控件证据。"
+}

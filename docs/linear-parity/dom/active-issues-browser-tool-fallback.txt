@@ -1,0 +1,18 @@
+browser tool fallback result
+===========================
+目标 URL: https://linear.app/cleantrack/team/CLE/active
+结果: browser 工具未能复用本机已登录 Chrome，会跳转到 Linear app deep-link 提示页；点击 'Open here instead' 后进入 Linear 登录页。
+
+full snapshot:
+- generic [ref=e1] clickable [onclick]
+  - generic [ref=e2] focusable [tabindex]
+    - heading "Log in to Linear" [level=1, ref=e3]
+    - button "Continue with Google" [ref=e4]
+    - button "Continue with email" [ref=e5]
+    - button "Continue with SAML SSO" [ref=e6]
+    - button "Log in with passkey" [ref=e7]
+    - paragraph
+      - StaticText "Don’t have an account? "
+      - link "Sign up" [ref=e8]
+      - StaticText " or "
+      - link "learn more" [ref=e9]

@@ -1,0 +1,120 @@
+{
+  "captured_at": "2026-04-18 22:50:31 CST",
+  "target": "https://linear.app/cleantrack/team/CLE/active",
+  "task": "CAP-06",
+  "probe_type": "metadata-split-and-auth-gate-reprobe",
+  "terminal_probe": {
+    "json_version": {
+      "status": 502,
+      "error": "HTTP Error 502: Bad Gateway"
+    },
+    "json_list": {
+      "status": 502,
+      "error": "HTTP Error 502: Bad Gateway"
+    }
+  },
+  "browser_probe": {
+    "json_version": {
+      "status": 200,
+      "bodyReadable": true,
+      "browser": "Chrome/147.0.7727.56",
+      "protocolVersion": "1.3",
+      "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/browser/1cb02d1f-3fe5-4829-836a-275b4e10b506"
+    },
+    "json_list": {
+      "status": 200,
+      "bodyReadable": true,
+      "linearTarget": {
+        "id": "81A3713C33BCA35B2A0B8C7D177F43AD",
+        "title": "Cleantrack › Active issues",
+        "url": "https://linear.app/cleantrack/team/CLE/active",
+        "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/81A3713C33BCA35B2A0B8C7D177F43AD"
+      },
+      "additionalTargets": [
+        {
+          "id": "222925BC791008C4FF6104DE0578F96D",
+          "title": "Codex Proxy Developer Dashboard",
+          "url": "https://openai.heliumlabz.com/#/",
+          "type": "page"
+        },
+        {
+          "id": "E59EE459BF275D802D1C8AB82C9AF201",
+          "title": "Branches · offic0600/Cruise",
+          "url": "https://github.com/offic0600/Cruise/branches",
+          "type": "page"
+        }
+      ]
+    },
+    "deep_link_open": {
+      "url": "https://linear.app/cleantrack/team/CLE/active",
+      "pathname": "/cleantrack/team/CLE/active",
+      "title": "Linear",
+      "state": "app-handoff-interstitial",
+      "visibleText": [
+        "Link opened in the Linear app",
+        "Your browser will ask for permission to open future links in the desktop app faster.",
+        "Open here instead"
+      ],
+      "screenshot": "/Users/liuzheng/.hermes/cache/screenshots/browser_screenshot_3e0fe73b40f644a49729d08269b42588.png"
+    },
+    "open_here_instead": {
+      "resultState": "login-gate",
+      "urlAfterClick": "https://linear.app/cleantrack/team/CLE/active",
+      "pathnameAfterClick": "/cleantrack/team/CLE/active",
+      "titleAfterClick": "Linear",
+      "visibleLoginEntrypoints": [
+        "Continue with Google",
+        "Continue with email",
+        "Continue with SAML SSO",
+        "Log in with passkey"
+      ],
+      "auxiliaryLinks": [
+        {
+          "text": "Sign up",
+          "href": "/signup"
+        },
+        {
+          "text": "learn more",
+          "href": "/homepage"
+        }
+      ],
+      "captchaVisible": false,
+      "screenshot": "/Users/liuzheng/.hermes/cache/screenshots/browser_screenshot_8183ce827e724d578768bbd4f32af5b3.png"
+    },
+    "navigation_entry": {
+      "name": "https://linear.app/cleantrack/team/CLE/active",
+      "type": "navigate",
+      "redirectCount": 0,
+      "duration": 1662.6000001430511
+    },
+    "resource_summary_after_click": [
+      "https://static.linear.app/fonts/InterVariable.woff2?v=4.1",
+      "https://static.linear.app/client/assets/html.Bb6KYVpF.js",
+      "https://static.linear.app/client/assets/PerformanceTimingHelper.67I_dhKb.js",
+      "https://static.linear.app/client/assets/rolldown-runtime.zcDlVW45.js",
+      "https://static.linear.app/client/assets/vendor-dnd-kit.C5mi7t-E.js",
+      "https://static.linear.app/client/assets/vendor-marsidev.Cxqph-KF.js",
+      "https://static.linear.app/client/assets/clamp.DnVVN3wd.js",
+      "https://static.linear.app/client/assets/config.BzN9illc.js",
+      "https://static.linear.app/client/assets/vendor-radix-ui.b02ybt5b.js",
+      "https://static.linear.app/client/assets/vendor-sanity-client.h2I0956L.js",
+      "https://static.linear.app/client/assets/vendor-emotion.DIf5ne_r.js",
+      "https://static.linear.app/client/assets/stylis.CxCtsbI5.js",
+      "https://static.linear.app/client/assets/ThemeProvider.gBUrgkQ_.js",
+      "https://static.linear.app/client/assets/UnreachableCaseError.WBl2dShz.js",
+      "https://static.linear.app/client/assets/browser.BjGn5_0J.js",
+      "https://static.linear.app/client/assets/esm-browser.ClyaMrKr.js",
+      "https://static.linear.app/client/assets/vendor-pluralize.DFnxlpbq.js",
+      "https://static.linear.app/client/assets/vendor-date-fns.o_8oEHXm.js",
+      "https://static.linear.app/client/assets/ClientStorage.BW8O1UY4.js",
+      "https://static.linear.app/client/assets/vendor-sentry.DUIRvFmS.js"
+    ]
+  },
+  "classification": {
+    "metadata_path_terminal": "502-bad-gateway",
+    "metadata_path_browser": "still-readable",
+    "authenticated_page_reuse": "still-blocked",
+    "blocker": "Browser-visible 9222 metadata still exposes the Active issues target, but direct terminal probes are again 502 and the deep link still falls through the app handoff interstitial to the Linear login gate instead of reusing the already logged-in page."
+  },
+  "next_smallest_task": "Prefer CDP/page websocket read-only capture against target id 81A3713C33BCA35B2A0B8C7D177F43AD while browser-side metadata remains readable; avoid repeating generic metadata probes unless the split state changes again."
+}

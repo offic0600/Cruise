@@ -182,6 +182,7 @@ export function summarizeFilterTokens(tokens: string[], isZh: boolean) {
       count: 0,
       buttonLabel: isZh ? '过滤器' : 'Filter',
       summaryLabel: isZh ? '当前未应用过滤条件。' : 'No active filters applied.',
+      shortLabel: isZh ? '未设置筛选条件' : 'No filters applied',
     };
   }
 
@@ -190,15 +191,18 @@ export function summarizeFilterTokens(tokens: string[], isZh: boolean) {
       count: 1,
       buttonLabel: isZh ? '过滤器 · 1' : 'Filter · 1',
       summaryLabel: tokens[0],
+      shortLabel: tokens[0],
     };
   }
 
   const [first, ...rest] = tokens;
   const restCount = rest.length;
+  const compactLabel = isZh ? `${first} 等 ${restCount} 项` : `${first} + ${restCount} more`;
   return {
     count: tokens.length,
     buttonLabel: isZh ? `过滤器 · ${tokens.length}` : `Filter · ${tokens.length}`,
-    summaryLabel: isZh ? `${first} 等 ${restCount} 项` : `${first} + ${restCount} more`,
+    summaryLabel: compactLabel,
+    shortLabel: compactLabel,
   };
 }
 

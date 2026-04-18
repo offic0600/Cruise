@@ -23,6 +23,7 @@ import {
   filterButtonLabel,
   filterSummaryLabel,
   groupBelongsToView,
+  summarizeFilterTokens,
   labelForPriority,
   labelForState,
   labelForType,
@@ -69,7 +70,7 @@ function filterStatusText(filters: FilterDraft, isZh: boolean) {
   return filterSummaryLabel(filters, isZh);
 }
 
-function searchStatusText(searchQuery: string, filters: FilterDraft, isZh: boolean) {
+export function searchStatusText(searchQuery: string, filters: FilterDraft, isZh: boolean) {
   const filterText = filterStatusText(filters, isZh);
   if (!searchQuery) {
     return isZh ? `支持 URL q 参数，便于后续继续接高级筛选。${filterText}` : `Backed by the URL q param for future advanced filters. ${filterText}`;
@@ -95,10 +96,10 @@ export function noResultsText(searchQuery: string, filters: FilterDraft, isZh: b
 
 function searchSummaryLabel(filters: FilterDraft, isZh: boolean, context: FilterSummaryContext) {
   const tokens = activeFilterSummary(filters, isZh, context);
-  return tokens.length > 0 ? tokens.join(' · ') : isZh ? '未设置筛选条件' : 'No filters applied';
+  return summarizeFilterTokens(tokens, isZh).shortLabel;
 }
 
-function noteText(filters: FilterDraft, isZh: boolean) {
+export function noteText(filters: FilterDraft, isZh: boolean) {
   const tokens = activeFilterSummary(filters, isZh);
   if (tokens.length === 0) {
     return isZh

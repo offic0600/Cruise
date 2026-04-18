@@ -1,0 +1,42 @@
+{
+  "timestamp": "2026-04-18 19:19:00 local",
+  "target": "Linear Chrome remote debugging on 127.0.0.1:9222",
+  "intended_scope": "Continue CAP-06 Active issues toolbar/tabs/read-only evidence capture via existing logged-in Chrome session",
+  "probe_method": {
+    "type": "terminal_http_probe",
+    "endpoints": [
+      "http://127.0.0.1:9222/json/version",
+      "http://127.0.0.1:9222/json/list"
+    ],
+    "tool": "terminal + urllib.request"
+  },
+  "observed_results": [
+    {
+      "endpoint": "/json/version",
+      "status": 502,
+      "error": "HTTPError 502: Bad Gateway"
+    },
+    {
+      "endpoint": "/json/list",
+      "status": 502,
+      "error": "HTTPError 502: Bad Gateway"
+    }
+  ],
+  "classification": "metadata-endpoint unavailable in this run",
+  "confidence": {
+    "blocked": [
+      "Current-run browser/CDP metadata refresh",
+      "Current-run Active issues toolbar interaction capture requiring page target discovery"
+    ],
+    "still_possible": [
+      "Documentation fallback",
+      "Gap analysis update",
+      "Task-board/logbook/worktime synchronization"
+    ]
+  },
+  "notes": [
+    "This run performed a single minimal read-only probe and did not keep retrying the unstable path.",
+    "Existing docs still contain older successful 200-state observations; this artifact records the new failure fact instead of overwriting those historical observations."
+  ],
+  "recommended_next_smallest_task": "Once /json/version and /json/list recover, resume CAP-06 from Active issues toolbar/tabs controls and capture one control-group evidence pack (before/after URL, visible feedback, DOM delta, screenshot, network summary)."
+}

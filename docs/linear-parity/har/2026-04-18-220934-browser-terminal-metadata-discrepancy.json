@@ -1,0 +1,65 @@
+{
+  "capturedAt": "2026-04-18 22:09:34 CST",
+  "target": {
+    "name": "Linear Active issues",
+    "url": "https://linear.app/cleantrack/team/CLE/active"
+  },
+  "terminalProbe": {
+    "jsonVersion": {
+      "status": 502,
+      "error": "HTTPError 502: Bad Gateway"
+    },
+    "jsonList": {
+      "status": 502,
+      "error": "HTTPError 502: Bad Gateway"
+    }
+  },
+  "browserProbe": {
+    "jsonVersion": {
+      "status": 200,
+      "browser": "Chrome/147.0.7727.56",
+      "protocolVersion": "1.3",
+      "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/browser/1cb02d1f-3fe5-4829-836a-275b4e10b506"
+    },
+    "jsonList": {
+      "status": 200,
+      "targetCount": 8,
+      "linearTarget": {
+        "id": "81A3713C33BCA35B2A0B8C7D177F43AD",
+        "title": "Cleantrack › Active issues",
+        "url": "https://linear.app/cleantrack/team/CLE/active",
+        "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/81A3713C33BCA35B2A0B8C7D177F43AD"
+      }
+    }
+  },
+  "pageFallback": {
+    "initialPage": {
+      "title": "Linear",
+      "href": "https://linear.app/cleantrack/team/CLE/active",
+      "state": "app-handoff",
+      "headline": "Link opened in the Linear app",
+      "actions": ["Open here instead", "Learn more"],
+      "screenshot": "browser_screenshot_7ac26e07b2fe4ceea89dd79d593f35ce.png"
+    },
+    "afterOpenHereInstead": {
+      "title": "Linear",
+      "href": "https://linear.app/cleantrack/team/CLE/active",
+      "state": "login-gate",
+      "headline": "Log in to Linear",
+      "actions": [
+        "Continue with Google",
+        "Continue with email",
+        "Continue with SAML SSO",
+        "Log in with passkey",
+        "Sign up",
+        "learn more"
+      ],
+      "screenshot": "browser_screenshot_38edb7eb2d924df493ca64036adabbed.png"
+    }
+  },
+  "blockingAssessment": {
+    "metadataPath": "recovered in Hermes browser only",
+    "authenticatedPageReuse": "blocked",
+    "summary": "Browser metadata endpoints remain readable while direct terminal HTTP probes still return 502. Deep-link navigation still lands on app-handoff then login gate instead of the authenticated Active issues page, so CAP-06 remains blocked for real toolbar/tab capture."
+  }
+}

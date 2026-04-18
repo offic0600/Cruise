@@ -1,0 +1,42 @@
+{
+  "timestamp": "2026-04-18 19:30:31 CST",
+  "target": "Linear Chrome remote debugging on 127.0.0.1:9222",
+  "intended_scope": "Retry the smallest metadata-only CAP-06 probe before any Active issues toolbar evidence capture",
+  "probe_method": {
+    "type": "terminal_http_probe",
+    "endpoints": [
+      "http://127.0.0.1:9222/json/version",
+      "http://127.0.0.1:9222/json/list"
+    ],
+    "tool": "terminal + urllib.request"
+  },
+  "observed_results": [
+    {
+      "endpoint": "/json/version",
+      "status": 502,
+      "error": "HTTPError 502: Bad Gateway"
+    },
+    {
+      "endpoint": "/json/list",
+      "status": 502,
+      "error": "HTTPError 502: Bad Gateway"
+    }
+  ],
+  "classification": "metadata-endpoint still unavailable in this run",
+  "confidence": {
+    "blocked": [
+      "Current-run browser/CDP metadata refresh",
+      "Current-run Active issues toolbar interaction capture requiring target discovery"
+    ],
+    "still_possible": [
+      "Historical evidence maintenance",
+      "Task-board/page-inventory/log synchronization",
+      "Blocker note append for CAP-06"
+    ]
+  },
+  "notes": [
+    "This probe rechecked only the lightweight metadata endpoints and again did not escalate into repeated retries.",
+    "The repeated 502 result increases confidence that CAP-06 remains blocked by current-run 9222 metadata availability rather than by missing documentation."
+  ],
+  "recommended_next_smallest_task": "Once /json/version and /json/list return 200 again, resume CAP-06 from one control-group only (prefer tabs + search) and record before/after URL, visible feedback, DOM delta, screenshot, and network summary."
+}

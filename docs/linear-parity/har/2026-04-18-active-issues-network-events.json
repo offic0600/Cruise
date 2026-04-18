@@ -1,0 +1,722 @@
+[
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://linear.app/cleantrack/team/CLE/active",
+    "method": "GET",
+    "type": "Document",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.073209
+  },
+  {
+    "event": "Network.responseReceived",
+    "url": "https://linear.app/cleantrack/team/CLE/active",
+    "status": 200,
+    "mimeType": "text/html",
+    "type": "Document",
+    "fromDiskCache": false,
+    "timestamp": 1942422.304046
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/fonts/InterVariable.woff2?v=4.1",
+    "method": "GET",
+    "type": "Font",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.436379
+  },
+  {
+    "event": "Network.responseReceived",
+    "url": "https://static.linear.app/fonts/InterVariable.woff2?v=4.1",
+    "status": 200,
+    "mimeType": "application/octet-stream",
+    "type": "Font",
+    "fromDiskCache": true,
+    "timestamp": 1942422.436436
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/html.Bb6KYVpF.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.43649
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/rolldown-runtime.zcDlVW45.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.436627
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/PerformanceTimingHelper.67I_dhKb.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.436656
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-dnd-kit.C5mi7t-E.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.43668
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-marsidev.Cxqph-KF.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.436719
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-radix-ui.b02ybt5b.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.436754
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-sanity-client.h2I0956L.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.43678
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/config.BzN9illc.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.436802
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/clamp.DnVVN3wd.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.436831
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-emotion.DIf5ne_r.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.43686
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/stylis.CxCtsbI5.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.43688
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/ThemeProvider.gBUrgkQ_.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.436914
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/UnreachableCaseError.WBl2dShz.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.43694
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/browser.BjGn5_0J.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.436974
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/esm-browser.ClyaMrKr.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.436998
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-date-fns.o_8oEHXm.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437018
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-pluralize.DFnxlpbq.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437047
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/ClientStorage.BW8O1UY4.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437068
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-nivo.C-BbUYox.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437086
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-sentry.DUIRvFmS.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437106
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-graphql.DdKUT4az.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.43713
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-graphql-request.cmz6U52W.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437152
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-lodash.Df-5m_WN.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437181
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-mobx.Crhy2qQc.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437228
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-react-router.DQdJU5lN.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437248
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/Logger.C4fuBh51.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437269
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/SearchScoreHelper.7RAcxLxL.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437288
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/Integration.DHmU-CLi.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.43732
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/matchPath.CVh4_2Kq.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437341
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-ai.DtvP7Tjj.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.43737
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/md5.BgImRSB5.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437396
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/Signal.ByR_yC8M.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437418
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/VisibilityHelper.BAMU9KAN.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437453
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/SyncWebSocket.DhQKKaWK.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437477
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/EmojiHelper.CnuKvIEZ.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437499
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/validation.DuvSpy0A.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.43752
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/Locale.oFKs5tuu.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437552
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-comlink.DlHqDJCR.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437597
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/WorkerPool.C6NkJQkb.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437619
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/trimEditorJSON.CoiViiHR.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437642
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-formik.DV4xXhvq.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437664
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-diff.CmEFjYTr.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437692
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-markdown-it.CdH-6S4s.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437714
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-html-entities.Bof9dnQk.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437736
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-idb.B443NpY3.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.43776
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-lib0.CKgXqfhE.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437786
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-object-hash.CUSwNcxg.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437813
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-prosemirror-commands.CCj0XGe8.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437835
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-yup.Czu2Advi.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437855
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-prosemirror-changeset.DI09ynXG.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437881
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-prosemirror-markdown.DDedcTIi.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437904
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-prosemirror-gapcursor.BnmGwGwQ.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437929
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-prosemirror-tables.BMwVXOnG.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437952
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-spacetime.CLrN2QlU.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.437979
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-y-prosemirror.D2rV04-i.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.438
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/LoadingDoneHelper.9MF-jkkD.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.438026
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/DatabaseManager.aNCcAcfH.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.438046
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/store.DKPJR-is.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.438068
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/Text.DWF7kB0p.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.438088
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/vendor-semver.Duz6TS-R.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.438111
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/AvatarSizing.OS9fvfMJ.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.438133
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/KeyboardHelper.BdimCVMN.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.438169
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/assets/mergeRefs.lmkCi17Y.js",
+    "method": "GET",
+    "type": "Script",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.438194
+  },
+  {
+    "event": "Network.responseReceived",
+    "url": "https://static.linear.app/client/assets/PerformanceTimingHelper.67I_dhKb.js",
+    "status": 200,
+    "mimeType": "text/javascript",
+    "type": "Script",
+    "fromDiskCache": true,
+    "timestamp": 1942422.442597
+  },
+  {
+    "event": "Network.responseReceived",
+    "url": "https://static.linear.app/client/assets/rolldown-runtime.zcDlVW45.js",
+    "status": 200,
+    "mimeType": "text/javascript",
+    "type": "Script",
+    "fromDiskCache": true,
+    "timestamp": 1942422.442707
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "url": "https://static.linear.app/client/pwa.webmanifest?v=2bFbP16Trobnnxqe/UA/fqp5khM=",
+    "method": "GET",
+    "type": "Manifest",
+    "documentURL": "https://linear.app/cleantrack/team/CLE/active",
+    "hasPostData": false,
+    "timestamp": 1942422.442784
+  },
+  {
+    "event": "Network.responseReceived",
+    "url": "https://static.linear.app/client/assets/html.Bb6KYVpF.js",
+    "status": 200,
+    "mimeType": "text/javascript",
+    "type": "Script",
+    "fromDiskCache": true,
+    "timestamp": 1942422.443647
+  },
+  {
+    "event": "Network.responseReceived",
+    "url": "https://static.linear.app/client/assets/vendor-marsidev.Cxqph-KF.js",
+    "status": 200,
+    "mimeType": "text/javascript",
+    "type": "Script",
+    "fromDiskCache": true,
+    "timestamp": 1942422.444499
+  },
+  {
+    "event": "Network.responseReceived",
+    "url": "https://static.linear.app/client/assets/vendor-dnd-kit.C5mi7t-E.js",
+    "status": 200,
+    "mimeType": "text/javascript",
+    "type": "Script",
+    "fromDiskCache": true,
+    "timestamp": 1942422.445709
+  },
+  {
+    "event": "Network.responseReceived",
+    "url": "https://static.linear.app/client/assets/config.BzN9illc.js",
+    "status": 200,
+    "mimeType": "text/javascript",
+    "type": "Script",
+    "fromDiskCache": true,
+    "timestamp": 1942422.447255
+  },
+  {
+    "event": "Network.responseReceived",
+    "url": "https://static.linear.app/client/assets/vendor-radix-ui.b02ybt5b.js",
+    "status": 200,
+    "mimeType": "text/javascript",
+    "type": "Script",
+    "fromDiskCache": true,
+    "timestamp": 1942422.447617
+  },
+  {
+    "event": "Network.responseReceived",
+    "url": "https://static.linear.app/client/assets/clamp.DnVVN3wd.js",
+    "status": 200,
+    "mimeType": "text/javascript",
+    "type": "Script",
+    "fromDiskCache": true,
+    "timestamp": 1942422.44813
+  },
+  {
+    "event": "Network.responseReceived",
+    "url": "https://static.linear.app/client/assets/vendor-emotion.DIf5ne_r.js",
+    "status": 200,
+    "mimeType": "text/javascript",
+    "type": "Script",
+    "fromDiskCache": true,
+    "timestamp": 1942422.448588
+  },
+  {
+    "event": "Network.responseReceived",
+    "url": "https://static.linear.app/client/assets/vendor-sanity-client.h2I0956L.js",
+    "status": 200,
+    "mimeType": "text/javascript",
+    "type": "Script",
+    "fromDiskCache": true,
+    "timestamp": 1942422.448937
+  },
+  {
+    "event": "Network.responseReceived",
+    "url": "https://static.linear.app/client/assets/stylis.CxCtsbI5.js",
+    "status": 200,
+    "mimeType": "text/javascript",
+    "type": "Script",
+    "fromDiskCache": true,
+    "timestamp": 1942422.449199
+  },
+  {
+    "event": "Network.responseReceived",
+    "url": "https://static.linear.app/client/assets/UnreachableCaseError.WBl2dShz.js",
+    "status": 200,
+    "mimeType": "text/javascript",
+    "type": "Script",
+    "fromDiskCache": true,
+    "timestamp": 1942422.449816
+  }
+]
