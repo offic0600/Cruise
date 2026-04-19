@@ -1,3 +1,41 @@
+## Session 163 — 2026-04-20：去掉 route 级 workspace slug miss 场景测试标题里的重复 shared wording
+
+**目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-42`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 route 级已使用 `shared empty props contract` 的 workspace slug miss 场景测试标题是否仍存在可安全压缩的重复 wording；若可行，则只改这一处 route 级测试文案并完成验证、review、提交、状态回写与 push 闭环。
+
+### 163.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 读取 | `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` | 确认当前分支 `codex/unify-issue-model`、执行前 HEAD `6877c4ea9c5a9faf577daf2ce13f4273564e1779`，工作树起始干净，可安全继续单一 implementation execution unit |
+| 读取 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/plans/2026-04-16-linear-parity-roadmap.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` / `frontend/src/lib/routes.test.tsx` | 恢复唯一状态源、lane 明细、roadmap 与日志/工时回写要求，确认本轮只允许推进 `IMP-42`，且最小切口是先去掉 route 级测试标题与 route 级共享空 props contract 断言重复表达的 `shared` wording |
+| 配置 | `git config user.name/user.email` | 确认 git author 使用 `offic0600 <offic0600@163.com>` |
+| 修改 | `frontend/src/lib/routes.test.tsx` | 将 route 级 workspace slug miss 场景测试标题从 `falls back to the shared empty props contract when the workspace slug lookup misses` 收口为 `falls back to the empty props contract when the workspace slug lookup misses`，去掉与 route 级共享空 props contract 断言重复表达的 `shared` wording，同时保持 helper 级标题、共享断言、fixture 设置与 helper/route 运行时逻辑不变 |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` / `cd frontend && npx tsc --noEmit` / `git diff --check` | 三项验证均通过：routes seam 定向测试 5 files / 57 tests 全绿，TypeScript 检查通过，diff 无 whitespace 问题 |
+| Review | `git diff -- frontend/src/lib/routes.test.tsx` | 复核本轮只改 route 级测试标题文案，不改 helper/route 运行时逻辑、共享断言结构或第二个 execution unit；review 结论为通过 |
+| 提交 | `git commit -m "[verified] test: trim repeated route wording"` | 完成本轮 feature/work commit，提交后需把真实 SHA 写回状态文件 |
+| 修改 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 将 `IMP-42` 写回 done，记录真实 feature SHA，并新增下一轮最小 pending implementation 任务 |
+
+### 163.2 本轮落地结果
+
+- route 级 workspace slug miss 场景测试标题现已由 `falls back to the shared empty props contract when the workspace slug lookup misses` 收口为 `falls back to the empty props contract when the workspace slug lookup misses`。
+- route 级标题不再重复表达 `shared` wording；helper 级标题、`expectLegacyIssueDetailRouteEmptyProps()` / `expectLegacyIssueRouteEmptyPropsContract()` 共享断言、fixture 设置以及 helper/route 运行时逻辑均保持不变。
+- `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 需写回：`IMP-42` -> `done`，下一轮继续只推进一个新的 implementation 最小增量。
+
+### 163.3 经验沉淀
+
+- 当 route 级共享断言 helper 已在命名/contract 中明确表达 empty props 语义时，可优先去掉测试标题中重复的 `shared` 修饰，减少 route 场景文案噪音并保留真正有区分度的失败模式描述。
+- 对 helper/route 成对场景的测试文案收口，应继续一次只动一处标题，避免同轮同时压缩多处 wording 而扩大 execution unit 边界。
+
+### 163.4 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-42` |
+| 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `6877c4ea9c5a9faf577daf2ce13f4273564e1779` |
+| 定向测试 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` ✅（5 files, 57 tests） |
+| TypeScript 检查 | `cd frontend && npx tsc --noEmit` ✅ |
+| Diff 检查 | `git diff --check` ✅ |
+
 ## Session 162 — 2026-04-20：去掉 helper 级 workspace slug miss 场景测试标题里的重复 shared wording
 
 **目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-41`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 helper/route 两个已统一为 `workspace slug lookup misses` 的 shared empty props contract 场景测试标题是否仍存在可安全压缩的重复 wording；若可行，则只改第一处可安全收口的 helper 级测试文案并完成验证、review、提交、状态回写与 push 闭环。
