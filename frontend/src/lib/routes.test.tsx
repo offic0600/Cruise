@@ -68,6 +68,19 @@ vi.mock('@/lib/query/issues', () => ({
 }));
 
 import IssueDetailWorkspaceRoute from '@/app/[workspaceSlug]/issue/[identifier]/[titleSlug]/page';
+import IssueDetailRoute from '@/app/issues/[id]/page';
+
+const getIssueMock = vi.fn();
+const getOrganizationsMock = vi.fn();
+
+vi.mock('@/lib/api', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api');
+  return {
+    ...actual,
+    getIssue: (...args: Parameters<typeof actual.getIssue>) => getIssueMock(...args),
+    getOrganizations: (...args: Parameters<typeof actual.getOrganizations>) => getOrganizationsMock(...args),
+  };
+});
 
 describe('routes helpers for active issues workspace routing', () => {
   const baseIssue = {
@@ -86,6 +99,8 @@ describe('routes helpers for active issues workspace routing', () => {
     useCurrentWorkspaceMock.mockReset();
     useI18nMock.mockReset();
     useIssueByIdentifierMock.mockReset();
+    getIssueMock.mockReset();
+    getOrganizationsMock.mockReset();
 
     useParamsMock.mockReturnValue({ identifier: 'ENG-42' });
     getQueriesDataMock.mockReturnValue([]);
@@ -103,6 +118,11 @@ describe('routes helpers for active issues workspace routing', () => {
       isError: false,
       data: null,
     });
+    getIssueMock.mockResolvedValue(baseIssue);
+    getOrganizationsMock.mockResolvedValue([
+      { id: 7, slug: 'acme' },
+      { id: 8, slug: 'design' },
+    ]);
   });
 
   it('builds the active issues path under a workspace team route', () => {
@@ -740,5 +760,31 @@ describe('routes helpers for active issues workspace routing', () => {
     expect(screen.getByTestId('issue-detail-page-mock')).toHaveAttribute('data-issue-id', String(cachedIssue.id));
     expect(screen.queryByTestId('issue-detail-route-skeleton')).not.toBeInTheDocument();
     expect(screen.queryByTestId('app-layout-mock')).not.toBeInTheDocument();
+  });
+
+  it('passes the explicit workspace issue detail back-link contract through the legacy /issues/[id] route', async () => {
+    const element = await IssueDetailRoute({ params: Promise.resolve({ id: '42' }) });
+    render(element);
+
+    expect(getIssueMock).toHaveBeenCalledWith(42);
+    expect(getOrganizationsMock).toHaveBeenCalledTimes(1);
+    expect(issueDetailPageSpy).toHaveBeenLastCalledWith({
+      issueId: 42,
+      href: '/acme/issue/ENG-42/issue-detail-shell-polish',
+      label: null,
+    });
+  });
+
+  it('falls back to an empty back-link contract when the legacy /issues/[id] route cannot resolve a workspace slug', async () => {
+    getOrganizationsMock.mockResolvedValue([{ id: 99, slug: 'other-workspace' }]);
+
+    const element = await IssueDetailRoute({ params: Promise.resolve({ id: '42' }) });
+    render(element);
+
+    expect(issueDetailPageSpy).toHaveBeenLastCalledWith({
+      issueId: 42,
+      href: undefined,
+      label: undefined,
+    });
   });
 });
