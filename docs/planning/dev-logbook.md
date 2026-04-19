@@ -1,5 +1,46 @@
 # Cruise — 开发日志（Dev Logbook）
 
+## Session 155 — 2026-04-20：压缩 legacy `/issues/[id]` route 空 props 测试命名中的重复 back-link 词组
+
+**目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-34`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 当前 helper/contract 测试命名与 helper 级无 slug 标题是否仍存在可安全压缩的重复 `empty back-link` 词组；若可行，则只做一刀测试命名收口并完成验证、review、提交、状态回写与 push 闭环。
+
+### 155.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 读取 | `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` | 确认当前分支 `codex/unify-issue-model`、执行前 HEAD `d40380144c03d40db9c332e3c614a7af274fa7a1`，工作树起始干净，可安全继续单一 implementation execution unit |
+| 读取 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/plans/2026-04-16-linear-parity-roadmap.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` / `frontend/src/lib/routes.test.tsx` | 恢复唯一状态源、lane 明细、roadmap 与日志/工时回写要求，确认本轮只允许推进 `IMP-34`，且最小切口是继续压缩 helper/contract 测试命名中的重复 `empty back-link` 词组 |
+| 配置 | `git config user.name/user.email` | 确认 git author 使用 `offic0600 <offic0600@163.com>` |
+| 修改 | `frontend/src/lib/routes.test.tsx` | 将 helper 级与 route 级共享测试 helper 分别重命名为 `expectLegacyIssueDetailRouteEmptyProps()` 与 `expectLegacyIssueRouteEmptyPropsContract()`，并把 helper 级无 slug 场景标题同步压缩为 “empty props contract”，去掉重复的 `back-link` 短语，同时保持 route/helper 分层与断言结构不变 |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` / `cd frontend && npx tsc --noEmit` / `git diff --check` | 三项验证均通过：routes seam 定向测试 5 files / 57 tests 全绿，TypeScript 检查通过，diff 无 whitespace 问题 |
+| Review | `git diff -- frontend/src/lib/routes.test.tsx` | 复核本轮只改测试 helper 命名与 helper 级标题文案，不改 route/helper 运行时逻辑、断言层级或第二个 execution unit |
+| 提交 | `git commit -m "[verified] test: trim legacy empty props naming"` | 完成本轮 feature/work commit，得到真实提交 `a87accc9f41276d00dce579d49fb18424c68f659` |
+| 修改 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 将 `IMP-34` 写回 done，记录真实 feature SHA，并新增下一轮 `IMP-35`：评估 API 失败场景测试标题是否也可继续统一为 shared empty props contract 语义 |
+
+### 155.2 本轮落地结果
+
+- legacy `/issues/[id]` route 的 helper 级与 route 级共享空 props 断言命名已分别收口为 `expectLegacyIssueDetailRouteEmptyProps()` 与 `expectLegacyIssueRouteEmptyPropsContract()`。
+- helper 级 workspace slug miss 场景测试标题已同步压缩为 “empty props contract”，不再重复强调 `back-link`，同时 route 级失败/miss 场景暂保留既有文案边界。
+- 本轮仅收口测试命名语义，未触碰 legacy `/issues/[id]` route 实现代码。
+- `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 已写回：`IMP-34` -> `done`，下一轮转入 `IMP-35`，继续评估 API 失败场景测试标题是否可统一为 shared empty props contract 语义。
+
+### 155.3 经验沉淀
+
+- 当 helper 返回值本质上是“空 props 对象”而不是具名 back-link model 时，命名可直接压缩到 `empty props`，把 `back-link` 保留给更靠近 route/UI contract 的描述层即可。
+- 连续多轮只收口测试语义噪音时，先处理 helper 名称与局部标题，再单独处理剩余 route 失败场景文案，更容易保持 execution unit 单一且可验证。
+
+### 155.4 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-34 → IMP-35` |
+| 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `d40380144c03d40db9c332e3c614a7af274fa7a1` |
+| feature commit | `a87accc9f41276d00dce579d49fb18424c68f659` |
+| 定向测试 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` ✅（5 files, 57 tests） |
+| TypeScript 检查 | `cd frontend && npx tsc --noEmit` ✅ |
+| Diff 检查 | `git diff --check` ✅ |
+
+
 ## Session 154 — 2026-04-20：统一 legacy `/issues/[id]` route 空 back-link 测试文案到 shared lookup seam 语义
 
 **目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-33`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 当前空 back-link 相关测试标题/描述是否仍混用 route、shared legacy lookup seam 与 workspace slug miss 语义；若可行，则只做一刀测试文案收口并完成验证、review、提交、状态回写与 push 闭环。
