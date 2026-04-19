@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import type { Issue } from '@/lib/api';
 import { IssueDetailRouteEmptyState, IssueDetailRouteEmptyStateCard, IssueDetailRouteSkeleton, buildIssueDetailRouteBackLink, buildIssueDetailRouteEmptyCopy, buildIssueDetailRouteEmptyStateBackLinkModel, buildIssueDetailRouteEmptyStateCardModel, buildIssueDetailRouteEmptyStateCardTestIds, buildIssueDetailRouteEmptyStateLinkHref, buildIssueDetailRouteEmptyStateModel, buildIssueDetailRouteShellModel } from '@/app/[workspaceSlug]/issue/[identifier]/[titleSlug]/page';
+import { buildIssueDetailRouteBackLinkProps, loadIssueDetailRouteLookup } from '@/app/issues/[id]/page';
 import { issueDetailPath, issueViewFromTeamRoute, parseTeamRoute, parseWorkspaceSlug, replaceTeamKeyInPath, teamActivePath, teamIssuesPath } from '@/lib/routes';
 
 const issueDetailPageSpy = vi.fn();
@@ -762,17 +763,48 @@ describe('routes helpers for active issues workspace routing', () => {
     expect(screen.queryByTestId('app-layout-mock')).not.toBeInTheDocument();
   });
 
+  it('builds the explicit workspace issue detail back-link contract from the shared legacy lookup seam', async () => {
+    await expect(loadIssueDetailRouteLookup(42)).resolves.toEqual({
+      issue: baseIssue,
+      organizations: [
+        { id: 7, slug: 'acme' },
+        { id: 8, slug: 'design' },
+      ],
+    });
+    expect(getIssueMock).toHaveBeenCalledWith(42);
+    expect(getOrganizationsMock).toHaveBeenCalledTimes(1);
+    expect(
+      buildIssueDetailRouteBackLinkProps({
+        issue: baseIssue,
+        organizations: [
+          { id: 7, slug: 'acme' },
+          { id: 8, slug: 'design' },
+        ],
+      })
+    ).toEqual({
+      href: '/acme/issue/ENG-42/issue-detail-shell-polish',
+      label: null,
+    });
+  });
+
   it('passes the explicit workspace issue detail back-link contract through the legacy /issues/[id] route', async () => {
     const element = await IssueDetailRoute({ params: Promise.resolve({ id: '42' }) });
     render(element);
 
-    expect(getIssueMock).toHaveBeenCalledWith(42);
-    expect(getOrganizationsMock).toHaveBeenCalledTimes(1);
     expect(issueDetailPageSpy).toHaveBeenLastCalledWith({
       issueId: 42,
       href: '/acme/issue/ENG-42/issue-detail-shell-polish',
       label: null,
     });
+  });
+
+  it('falls back to an empty back-link contract when the shared legacy lookup seam cannot resolve a workspace slug', () => {
+    expect(
+      buildIssueDetailRouteBackLinkProps({
+        issue: baseIssue,
+        organizations: [{ id: 99, slug: 'other-workspace' }],
+      })
+    ).toEqual({});
   });
 
   it('falls back to an empty back-link contract when the legacy /issues/[id] route cannot resolve a workspace slug', async () => {
