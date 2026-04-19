@@ -1,5 +1,44 @@
 # Cruise — 开发日志（Dev Logbook）
 
+## Session 154 — 2026-04-20：统一 legacy `/issues/[id]` route 空 back-link 测试文案到 shared lookup seam 语义
+
+**目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-33`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 当前空 back-link 相关测试标题/描述是否仍混用 route、shared legacy lookup seam 与 workspace slug miss 语义；若可行，则只做一刀测试文案收口并完成验证、review、提交、状态回写与 push 闭环。
+
+### 154.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 读取 | `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` | 确认当前分支 `codex/unify-issue-model`、执行前 HEAD `12444f140a0a0df898e7da367b3da3497921da9d`，工作树起始干净，可安全继续单一 implementation execution unit |
+| 读取 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/plans/2026-04-16-linear-parity-roadmap.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` / `frontend/src/lib/routes.test.tsx` | 恢复唯一状态源、lane 明细、roadmap 与日志/工时回写要求，确认本轮只允许推进 `IMP-33`，且最小切口是统一 workspace slug miss 场景 route 测试标题里的 shared lookup seam 语义 |
+| 配置 | `git config user.name/user.email` | 确认 git author 使用 `offic0600 <offic0600@163.com>` |
+| 修改 | `frontend/src/lib/routes.test.tsx` | 将 workspace slug miss 场景的 route 级测试标题改为 `passes the shared legacy lookup seam empty back-link contract through the legacy /issues/[id] route when workspace slug lookup misses`，把 legacy route、shared lookup seam 与 miss path 语义统一到同一句文案中 |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` / `cd frontend && npx tsc --noEmit` / `git diff --check` | 三项验证均通过：routes seam 定向测试 5 files / 57 tests 全绿，TypeScript 检查通过，diff 无 whitespace 问题 |
+| Review | `git diff -- frontend/src/lib/routes.test.tsx` | 复核本轮只改测试标题文案，不改 route/helper 运行时逻辑、断言结构或第二个 execution unit |
+| 提交 | `git commit -m "[verified] test: align legacy lookup seam wording"` | 完成本轮 feature/work commit，得到真实提交 `2f1eeb8f47fb02c4a8db0f211ab42b5524daaf52` |
+| 修改 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 将 `IMP-33` 写回 done，记录真实 feature SHA，并新增下一轮 `IMP-34`：评估 helper/contract 命名与测试标题中是否还存在可继续压缩的重复 empty back-link 短语 |
+
+### 154.2 本轮落地结果
+
+- legacy `/issues/[id]` route 的 workspace slug miss 场景测试标题现已明确表达“route 透传 shared legacy lookup seam 的空 back-link contract”，不再把 route / lookup seam / miss path 语义分散在不同表述里。
+- helper 级与 route 级断言结构保持不变：本轮仅收口测试文案，不触碰实现代码或已有共享 helper。
+- `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 已写回：`IMP-33` -> `done`，下一轮转入 `IMP-34`，继续评估 helper/contract 命名和调用测试标题里的重复 `empty back-link` 短语是否还可安全压缩。
+
+### 154.3 经验沉淀
+
+- 当同一测试同时承载 route 层与 shared seam 层语义时，优先把“谁透传谁的 contract”写进标题主干，比仅强调 fallback 结果更容易保持命名一致性。
+- 对连续多轮只收口测试层语义噪音的 execution unit，应把“文案收口”和“helper 命名收口”继续拆开，避免一轮同时修改测试标题与 helper API 名称。
+
+### 154.4 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-33 → IMP-34` |
+| 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `12444f140a0a0df898e7da367b3da3497921da9d` |
+| feature commit | `2f1eeb8f47fb02c4a8db0f211ab42b5524daaf52` |
+| 定向测试 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` ✅（5 files, 57 tests） |
+| TypeScript 检查 | `cd frontend && npx tsc --noEmit` ✅ |
+| Diff 检查 | `git diff --check` ✅ |
+
 ## Session 153 — 2026-04-20：对齐 legacy `/issues/[id]` route 空 back-link helper 命名语义
 
 **目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-32`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 当前 helper 级与 route 级空 back-link helper 命名是否仍存在 legacy/route 词序不一致的轻微噪音；若可行，则只做一刀测试命名收口并完成验证、review、提交、状态回写与 push 闭环。
