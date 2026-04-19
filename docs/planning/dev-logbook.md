@@ -1,5 +1,46 @@
 # Cruise — 开发日志（Dev Logbook）
 
+## Session 148 — 2026-04-19：为 legacy `/issues/[id]` route 抽出共享 lookup seam
+
+**目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-27`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：评估并收口 legacy `/issues/[id]` route 内重复的 `getIssue + getOrganizations` / workspace slug back-link 组装，若可安全抽离则落一个共享 lookup seam，并完成验证、review、提交、状态回写与 push 闭环。
+
+### 148.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 读取 | `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` | 确认当前分支 `codex/unify-issue-model`、当前 HEAD `ceda81c65943e90b868846173ec6e4ff89818691`，工作树起始干净，可安全继续单一 implementation execution unit |
+| 读取 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/plans/2026-04-16-linear-parity-roadmap.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` / `frontend/src/app/issues/[id]/page.tsx` / `frontend/src/lib/routes.test.tsx` | 恢复唯一状态源、lane 明细、roadmap 与日志/工时回写要求，确认本轮只允许推进 `IMP-27`，且 legacy route 的最小下一刀就是提炼共享 lookup seam |
+| 配置 | `git config user.name/user.email` | 再次确认 git author 使用 `offic0600 <offic0600@163.com>` |
+| 修改 | `frontend/src/app/issues/[id]/page.tsx` | 提炼 `loadIssueDetailRouteLookup(...)` 与 `buildIssueDetailRouteBackLinkProps(...)`，把 legacy route 内部重复的 issue/org lookup 与 workspace slug→back-link 组装收口为共享 seam，route 自身仅负责调用与 try/catch 降级 |
+| 修改 | `frontend/src/lib/routes.test.tsx` | 新增 helper 级与 route 级最小 seam 回归测试，锁定共享 lookup seam 的成功解析、无 slug 空 contract，以及 route 继续透传显式 back-link contract |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` / `cd frontend && npx tsc --noEmit` / `git diff --check` | 三项验证均通过：routes seam 定向测试 5 files / 57 tests 全绿，TypeScript 检查通过，diff 无 whitespace 问题 |
+| Review | `git diff -- frontend/src/app/issues/[id]/page.tsx frontend/src/lib/routes.test.tsx` | 复核本轮只提炼 legacy route lookup seam 与对应测试，不扩大到 workspace route 或页面层重构，也未跨到第二个 execution unit |
+| 提交 | `git commit -m "[verified] refactor: extract legacy issue detail lookup seam"` | 完成本轮 feature/work commit，得到真实提交 `55fb9752f5ee5c27e0fb433543b0c7933e3df11a` |
+| 修改 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 将 `IMP-27` 写回 done，记录真实 feature SHA，并新增下一轮 `IMP-28`：收紧 lookup seam 的 route/helper 最小 contract 断言边界 |
+
+### 148.2 本轮落地结果
+
+- legacy `/issues/[id]` route 现已把 issue/org lookup 与 workspace slug back-link 组装提炼为两个共享 seam：`loadIssueDetailRouteLookup(...)` 与 `buildIssueDetailRouteBackLinkProps(...)`。
+- route 自身仅保留 `params → issueId`、调用共享 seam、try/catch 降级为空 back-link contract 三个职责，删除了内联 `Promise.all(...)` 与 slug 判定重复逻辑。
+- 新增 helper 级回归测试，明确锁定共享 lookup seam 的成功解析结果与“无匹配 workspace slug 时返回空 contract”语义；原 route 级成功/无 slug/API 失败 contract 断言继续保留。
+- `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 已写回：`IMP-27` -> `done`，下一轮转入 `IMP-28`，评估是否可进一步去除 route 与 helper 级断言重复。
+
+### 148.3 经验沉淀
+
+- 对 legacy route 中已被 seam 测试锁定的 `Promise.all(...)` 数据加载逻辑，最小安全重构往往是先提炼“lookup 结果”和“由 lookup 结果生成页面 contract”两段函数，再保留 route 层 try/catch 作为薄壳。
+- 当 route 级成功/失败 contract 已经稳定后，可在 helper 提炼同一轮补少量 helper 级断言，保证后续进一步收紧 route 断言时仍有 seam 级护栏。
+
+### 148.4 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-27 → IMP-28` |
+| 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `ceda81c65943e90b868846173ec6e4ff89818691` |
+| feature commit | `55fb9752f5ee5c27e0fb433543b0c7933e3df11a` |
+| 定向测试 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` ✅（5 files, 57 tests） |
+| TypeScript 检查 | `cd frontend && npx tsc --noEmit` ✅ |
+| Diff 检查 | `git diff --check` ✅ |
+
 ## Session 147 — 2026-04-19：为 legacy `/issues/[id]` route 补 API 失败 seam 回归测试
 
 **目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-26`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：为 legacy `/issues/[id]` 直达 route 补最小 API 失败场景 seam 回归测试，锁定 `getIssue(...)` 或 `getOrganizations()` 抛错时 route 仍以空 back-link props 渲染 `IssueDetailPage` 的 try/catch 降级 contract，并完成验证、review、提交、状态回写与 push 闭环。
