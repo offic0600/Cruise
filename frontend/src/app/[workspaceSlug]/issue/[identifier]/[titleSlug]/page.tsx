@@ -316,7 +316,7 @@ export default function IssueDetailWorkspaceRoute() {
   }
 
   if (issueLookupQuery.isFetching && cachedIssue) {
-    return <IssueDetailPage issueId={cachedIssue.id} backHref={backgroundRefetchRouteShellModel.pageBackLink.href} backLabel={backgroundRefetchRouteShellModel.pageBackLink.label} />;
+    return <IssueDetailPage issueId={cachedIssue.id} {...backgroundRefetchRouteShellModel.pageBackLink} />;
   }
 
   if (issueLookupQuery.isError) {
@@ -327,5 +327,5 @@ export default function IssueDetailWorkspaceRoute() {
     return <IssueDetailRouteEmptyState {...routeShellModel.emptyState} />;
   }
 
-  return <IssueDetailPage issueId={issueId} backHref={routeShellModel.pageBackLink.href} backLabel={routeShellModel.pageBackLink.label} />;
+  return <IssueDetailPage issueId={issueId} {...routeShellModel.pageBackLink} />;
 }

@@ -9,9 +9,14 @@ const issueDetailPageSpy = vi.fn();
 
 vi.mock('@/components/issues/IssueDetailPage', () => ({
   __esModule: true,
-  default: (props: { issueId: number; backHref?: string | null; backLabel?: string }) => {
-    issueDetailPageSpy(props);
-    return <div data-testid="issue-detail-page-mock" data-issue-id={String(props.issueId)} data-back-href={props.backHref ?? ''} data-back-label={props.backLabel ?? ''} />;
+  default: (props: { issueId: number; backHref?: string | null; backLabel?: string; href?: string | null; label?: string | null }) => {
+    const normalizedProps = {
+      issueId: props.issueId,
+      backHref: props.backHref ?? props.href ?? null,
+      backLabel: props.backLabel ?? props.label ?? null,
+    };
+    issueDetailPageSpy(normalizedProps);
+    return <div data-testid="issue-detail-page-mock" data-issue-id={String(props.issueId)} data-back-href={normalizedProps.backHref ?? ''} data-back-label={normalizedProps.backLabel ?? ''} />;
   },
 }));
 
