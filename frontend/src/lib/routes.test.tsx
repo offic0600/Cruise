@@ -810,7 +810,7 @@ describe('routes helpers for active issues workspace routing', () => {
     });
   }
 
-  it('falls back to the shared empty props contract when the shared legacy lookup seam cannot resolve a workspace slug', () => {
+  it('falls back to the shared empty props contract when the legacy lookup seam cannot resolve a workspace slug', () => {
     expectLegacyIssueDetailRouteEmptyProps();
   });
 
