@@ -9,14 +9,9 @@ const issueDetailPageSpy = vi.fn();
 
 vi.mock('@/components/issues/IssueDetailPage', () => ({
   __esModule: true,
-  default: (props: { issueId: number; backHref?: string | null; backLabel?: string; href?: string | null; label?: string | null }) => {
-    const normalizedProps = {
-      issueId: props.issueId,
-      backHref: props.backHref ?? props.href ?? null,
-      backLabel: props.backLabel ?? props.label ?? null,
-    };
-    issueDetailPageSpy(normalizedProps);
-    return <div data-testid="issue-detail-page-mock" data-issue-id={String(props.issueId)} data-back-href={normalizedProps.backHref ?? ''} data-back-label={normalizedProps.backLabel ?? ''} />;
+  default: (props: { issueId: number; href?: string | null; label?: string | null }) => {
+    issueDetailPageSpy(props);
+    return <div data-testid="issue-detail-page-mock" data-issue-id={String(props.issueId)} data-back-href={props.href ?? ''} data-back-label={props.label ?? ''} />;
   },
 }));
 
@@ -630,8 +625,8 @@ describe('routes helpers for active issues workspace routing', () => {
     expect(screen.getByTestId('issue-detail-page-mock')).toHaveAttribute('data-issue-id', '42');
     expect(issueDetailPageSpy).toHaveBeenLastCalledWith({
       issueId: 42,
-      backHref: '/acme/team/eng/active',
-      backLabel: 'issues.detailPage.backToActiveIssues',
+      href: '/acme/team/eng/active',
+      label: 'issues.detailPage.backToActiveIssues',
     });
 
     issueDetailPageSpy.mockClear();
@@ -647,8 +642,8 @@ describe('routes helpers for active issues workspace routing', () => {
 
     expect(issueDetailPageSpy).toHaveBeenLastCalledWith({
       issueId: 42,
-      backHref: '/acme/team/eng/active',
-      backLabel: 'issues.detailPage.backToActiveIssues',
+      href: '/acme/team/eng/active',
+      label: 'issues.detailPage.backToActiveIssues',
     });
   });
 
@@ -739,8 +734,8 @@ describe('routes helpers for active issues workspace routing', () => {
 
     expect(issueDetailPageSpy).toHaveBeenCalledWith({
       issueId: cachedIssue.id,
-      backHref: '/acme/team/eng/active',
-      backLabel: 'issues.detailPage.backToActiveIssues',
+      href: '/acme/team/eng/active',
+      label: 'issues.detailPage.backToActiveIssues',
     });
     expect(screen.getByTestId('issue-detail-page-mock')).toHaveAttribute('data-issue-id', String(cachedIssue.id));
     expect(screen.queryByTestId('issue-detail-route-skeleton')).not.toBeInTheDocument();

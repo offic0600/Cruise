@@ -86,11 +86,14 @@ const ISSUE_PRIORITIES: Exclude<Issue['priority'], null>[] = ['LOW', 'MEDIUM', '
 const ISSUE_RESOLUTIONS: NonNullable<Issue['resolution']>[] = ['COMPLETED', 'CANCELED', 'DUPLICATE', 'OBSOLETE', 'WONT_DO'];
 const RELATION_TYPES = ['BLOCKS', 'BLOCKED_BY', 'RELATES_TO', 'DUPLICATES', 'CAUSED_BY', 'SPLIT_FROM'] as const;
 
-interface IssueDetailPageProps {
+type IssueDetailPageBackLink = {
+  href?: string | null;
+  label?: string | null;
+};
+
+interface IssueDetailPageProps extends IssueDetailPageBackLink {
   issueId: number;
   embedded?: boolean;
-  backHref?: string | null;
-  backLabel?: string | null;
 }
 
 interface DraftIssue {
@@ -131,7 +134,7 @@ type InlinePillOption = {
   avatarClassName?: string;
 };
 
-export default function IssueDetailPage({ issueId, embedded = false, backHref = null, backLabel = null }: IssueDetailPageProps) {
+export default function IssueDetailPage({ issueId, embedded = false, href = null, label = null }: IssueDetailPageProps) {
   const { locale, t } = useI18n();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -200,8 +203,8 @@ export default function IssueDetailPage({ issueId, embedded = false, backHref = 
   }, [currentTeamId, issue?.teamId, membersQuery.data]);
   const customFieldDefinitions = (issue?.customFieldDefinitions ?? customFieldDefinitionsQuery.data ?? []) as CustomFieldDefinition[];
   const parentIssue = parentIssueQuery.data ?? null;
-  const detailBackHref = !embedded ? backHref ?? (currentOrganizationSlug && currentTeamKey ? teamActivePath(currentOrganizationSlug, currentTeamKey) : null) : null;
-  const detailBackLabel = backLabel ?? t('issues.detailPage.backToIssues');
+  const detailBackHref = !embedded ? href ?? (currentOrganizationSlug && currentTeamKey ? teamActivePath(currentOrganizationSlug, currentTeamKey) : null) : null;
+  const detailBackLabel = label ?? t('issues.detailPage.backToIssues');
   const isActivityLoading = commentsQuery.isLoading || activityQuery.isLoading;
   const isAttachmentsLoading = attachmentsQuery.isLoading;
   const isChildIssuesLoading = childIssuesQuery.isLoading;
