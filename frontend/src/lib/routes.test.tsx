@@ -814,7 +814,7 @@ describe('routes helpers for active issues workspace routing', () => {
     expectLegacyIssueDetailRouteEmptyProps();
   });
 
-  it('falls back to the shared empty props contract when the workspace slug lookup misses', async () => {
+  it('falls back to the empty props contract when the workspace slug lookup misses', async () => {
     getOrganizationsMock.mockResolvedValue([{ id: 99, slug: 'other-workspace' }]);
 
     const element = await IssueDetailRoute({ params: Promise.resolve({ id: '42' }) });
