@@ -792,7 +792,7 @@ describe('routes helpers for active issues workspace routing', () => {
     });
   });
 
-  function expectEmptyLegacyIssueDetailRouteBackLinkProps() {
+  function expectLegacyIssueDetailRouteEmptyBackLinkProps() {
     expect(
       buildIssueDetailRouteBackLinkProps({
         issue: baseIssue,
@@ -802,7 +802,7 @@ describe('routes helpers for active issues workspace routing', () => {
   }
 
   function expectLegacyIssueRouteEmptyBackLinkContract() {
-    expectEmptyLegacyIssueDetailRouteBackLinkProps();
+    expectLegacyIssueDetailRouteEmptyBackLinkProps();
     expect(issueDetailPageSpy).toHaveBeenLastCalledWith({
       issueId: 42,
       href: undefined,
@@ -811,7 +811,7 @@ describe('routes helpers for active issues workspace routing', () => {
   }
 
   it('falls back to an empty back-link contract when the shared legacy lookup seam cannot resolve a workspace slug', () => {
-    expectEmptyLegacyIssueDetailRouteBackLinkProps();
+    expectLegacyIssueDetailRouteEmptyBackLinkProps();
   });
 
   it('falls back to an empty back-link contract when the legacy /issues/[id] route cannot resolve a workspace slug', async () => {
