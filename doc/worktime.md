@@ -1,8 +1,9 @@
      1|     1|     1|     1|# Cruise 项目工时记录
      2|     2|     2|     2|
-     3|     3|     3|| 项目 | Session | 日期 | 工作内容 | 预估工时 | 实际工时 |
-     4|     4|     4||---|---|---|---|---|---|
-     5|     5|     5|| Linear 对标 | Session 160 | 2026-04-20 | 按 implementation lane 完成 IMP-39：将 legacy `/issues/[id]` route route 级 workspace slug miss 场景测试标题从包含重复路径 wording 的长句收口为 `falls back to the shared empty props contract when the workspace slug lookup misses`；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
+| 项目 | Session | 日期 | 工作内容 | 预估工时 | 实际工时 |
+|---|---|---|---|---|---|
+| Linear 对标 | Session 161 | 2026-04-20 | 按 implementation lane 完成 IMP-40：将 helper 级 workspace slug miss 场景测试标题从 `falls back to the shared empty props contract when the legacy lookup seam cannot resolve a workspace slug` 收口为 `falls back to the shared empty props contract when the workspace slug lookup misses`，使 helper/route 两处统一为相同 lookup miss wording；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
+| Linear 对标 | Session 160 | 2026-04-20 | 按 implementation lane 完成 IMP-39：将 legacy `/issues/[id]` route route 级 workspace slug miss 场景测试标题从包含重复路径 wording 的长句收口为 `falls back to the shared empty props contract when the workspace slug lookup misses`；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 157 | 2026-04-20 | 按 implementation lane 完成 IMP-36：将 legacy `/issues/[id]` route 的 workspace slug miss 场景 route 级测试标题统一为 shared empty props contract 语义，去掉残留 shared legacy lookup seam / empty back-link wording；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
      6|     6|     6|| Linear 对标 | Session 156 | 2026-04-20 | 按 implementation lane 完成 IMP-35：将 legacy `/issues/[id]` route 中 `getIssue(...)` / `getOrganizations()` 两条 API 失败场景测试标题统一为 shared empty props contract 语义，去掉残留 empty back-link wording；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
      7|     7|     7|| Linear 对标 | Session 155 | 2026-04-20 | 按 implementation lane 完成 IMP-34：将 legacy `/issues/[id]` route 的 helper/contract 共享空断言 helper 收口为 `expectLegacyIssueDetailRouteEmptyProps()` / `expectLegacyIssueRouteEmptyPropsContract()`，并把 helper 级无 slug 场景标题压缩为 empty props contract；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
