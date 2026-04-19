@@ -12,7 +12,7 @@
 | 修改 | `frontend/src/lib/routes.test.tsx` | 将 `getOrganizations()` 失败场景测试标题从 `falls back to the shared empty props contract when getOrganizations rejects in the legacy /issues/[id] route` 收口为 `renders the shared empty props contract when getOrganizations rejects in the legacy /issues/[id] route`，用 `renders` 与上一轮 `getIssue(...)` 失败场景统一 route render 语义，同时保持共享断言、fixture 设置与 helper/route 运行时逻辑不变 |
 | 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` / `cd frontend && npx tsc --noEmit` / `git diff --check` | 三项验证均通过：routes seam 定向测试 5 files / 57 tests 全绿，TypeScript 检查通过，diff 无 whitespace 问题 |
 | Review | `git diff -- frontend/src/lib/routes.test.tsx` | 复核本轮只改一处 route 级 API 失败测试标题文案，不改共享断言结构、fixture 设置或 helper/route 运行时逻辑；review 结论为通过 |
-| 提交 | `git commit -m "[verified] test: align route failure render wording"` | 完成本轮 feature/work commit，得到真实提交 `PLACEHOLDER_FEATURE_SHA` |
+| 提交 | `git commit -m "[verified] test: align route failure render wording"` | 完成本轮 feature/work commit，得到真实提交 `cf30c0acaaececb0d87d768aa23ef5cffe86701f` |
 | 修改 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 将 `IMP-47` 写回 done，记录真实 feature SHA，并新增下一轮 `IMP-48`：评估两条 route 级 API 失败场景标题在均改为 `renders ...` 后是否仍需保留 `shared` wording |
 
 ### 168.2 本轮落地结果
@@ -32,7 +32,7 @@
 |------|-----|
 | 当前 lane / task | `Implementation / IMP-47 → IMP-48` |
 | 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `fd9139334c1470c9016352b0cbdf07bbc699f2fe` |
-| feature commit | `PLACEHOLDER_FEATURE_SHA` |
+| feature commit | `cf30c0acaaececb0d87d768aa23ef5cffe86701f` |
 | 定向测试 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` ✅（5 files, 57 tests） |
 | TypeScript 检查 | `cd frontend && npx tsc --noEmit` ✅ |
 | Diff 检查 | `git diff --check` ✅ |
