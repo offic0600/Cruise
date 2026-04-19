@@ -835,7 +835,7 @@ describe('routes helpers for active issues workspace routing', () => {
     expectLegacyIssueRouteEmptyPropsContract();
   });
 
-  it('renders the empty state props when getOrganizations rejects in the legacy /issues/[id] route', async () => {
+  it('renders the empty props when getOrganizations rejects in the legacy /issues/[id] route', async () => {
     getOrganizationsMock.mockRejectedValue(new Error('organization lookup failed'));
 
     const element = await IssueDetailRoute({ params: Promise.resolve({ id: '42' }) });
