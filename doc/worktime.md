@@ -2,6 +2,7 @@
      2|     2|     2|     2|
 | 项目 | Session | 日期 | 工作内容 | 预估工时 | 实际工时 |
 |---|---|---|---|---|---|
+| Linear 对标 | Session 162 | 2026-04-20 | 按 implementation lane 完成 IMP-41：将 helper 级 workspace slug miss 场景测试标题从 `falls back to the shared empty props contract when the workspace slug lookup misses` 收口为 `falls back to the empty props contract when the workspace slug lookup misses`，去掉与 helper 名称重复表达的 `shared` wording；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 161 | 2026-04-20 | 按 implementation lane 完成 IMP-40：将 helper 级 workspace slug miss 场景测试标题从 `falls back to the shared empty props contract when the legacy lookup seam cannot resolve a workspace slug` 收口为 `falls back to the shared empty props contract when the workspace slug lookup misses`，使 helper/route 两处统一为相同 lookup miss wording；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 160 | 2026-04-20 | 按 implementation lane 完成 IMP-39：将 legacy `/issues/[id]` route route 级 workspace slug miss 场景测试标题从包含重复路径 wording 的长句收口为 `falls back to the shared empty props contract when the workspace slug lookup misses`；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 157 | 2026-04-20 | 按 implementation lane 完成 IMP-36：将 legacy `/issues/[id]` route 的 workspace slug miss 场景 route 级测试标题统一为 shared empty props contract 语义，去掉残留 shared legacy lookup seam / empty back-link wording；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
