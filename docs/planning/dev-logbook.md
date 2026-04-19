@@ -1023,3 +1023,43 @@
 ### 132.3 经验沉淀
 
 - 当 shared empty-state shell 已统一收口到 `backLinkModel` 时，routes seam 测试中残留的任何 raw `{ href, label }` 入口都应该继续被清掉，否则会让测试层保留旧 contract 的错觉。
+## Session 152 — 2026-04-20：继续收口 legacy `/issues/[id]` route 空 back-link helper 命名/调用边界
+
+**目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-31`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 当前 helper 级无 slug 空对象断言与 route 级空 props 断言的命名/调用边界是否仍存在可安全收紧的重复；若可行，则继续只做一刀测试收口并完成验证、review、提交、状态回写与 push 闭环。
+
+### 152.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 读取 | `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` | 确认当前分支 `codex/unify-issue-model`、执行前 HEAD `fc79a77bc45bb9406f8fc40d9601a6a8376c39d2`，工作树起始干净，可安全继续单一 implementation execution unit |
+| 读取 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/plans/2026-04-16-linear-parity-roadmap.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` / `frontend/src/app/issues/[id]/page.tsx` / `frontend/src/lib/routes.test.tsx` | 恢复唯一状态源、lane 明细、roadmap 与日志/工时回写要求，确认本轮只允许推进 `IMP-31`，且最小切口是把 helper 级无 slug 空对象断言提炼为 route/helper 共享的唯一 helper 入口 |
+| 配置 | `git config user.name/user.email` | 再次确认 git author 使用 `offic0600 <offic0600@163.com>` |
+| 修改 | `frontend/src/lib/routes.test.tsx` | 新增 `expectEmptyLegacyIssueDetailRouteBackLinkProps()` 作为 helper 级空对象 contract 唯一断言入口，并让 `expectLegacyIssueRouteEmptyBackLinkContract()` 在 route 级断言前先复用该 helper，减少 helper/route 对同一空 back-link 语义的重复表达 |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` / `cd frontend && npx tsc --noEmit` / `git diff --check` | 三项验证均通过：routes seam 定向测试 5 files / 57 tests 全绿，TypeScript 检查通过，diff 无 whitespace 问题 |
+| Review | `git diff -- frontend/src/lib/routes.test.tsx` | 复核本轮只继续收口 legacy route 空 back-link 测试 helper 的命名/调用边界，不改动 route 运行时逻辑，也未扩大到 helper 行为重构或第二个 execution unit |
+| 提交 | `git commit -m "[verified] test: tighten legacy issue empty back-link helper seam"` | 完成本轮 feature/work commit，得到真实提交 `7863d4dff513306e6b12e0553c64e969d5dbb2bb` |
+| 修改 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 将 `IMP-31` 写回 done，记录真实 feature SHA，并新增下一轮 `IMP-32`：评估空 back-link helper 命名是否还可进一步对齐 legacy/route 语义 |
+
+### 152.2 本轮落地结果
+
+- helper 级 `buildIssueDetailRouteBackLinkProps(...)` 无 slug 空对象断言现已收口为 `expectEmptyLegacyIssueDetailRouteBackLinkProps()` 单一 helper 入口。
+- route 级 `expectLegacyIssueRouteEmptyBackLinkContract()` 现先复用上述 helper，再补 `IssueDetailPage` 空 props 渲染断言，从而明确“helper contract + route contract”是一层套一层的关系，而不是两份并列重复断言。
+- route 运行时代码与 lookup seam 未变，作用面保持在测试层最小收口。
+- `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 已写回：`IMP-31` -> `done`，下一轮转入 `IMP-32`，评估命名是否还可继续轻量对齐。
+
+### 152.3 经验沉淀
+
+- 当 helper 级 contract 与 route 级 contract 共享同一前置语义时，可让 route 级断言显式复用 helper 级断言，再叠加 route 专属期望；这样既保留层级边界，也能减少并列重复。
+- 对纯测试层收口任务，若运行时代码不需变化，应优先把“共享前置 contract”抽成最小 helper，而不是提前重命名整批测试；这样更符合单 execution unit 的闭环要求。
+
+### 152.4 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-31 → IMP-32` |
+| 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `fc79a77bc45bb9406f8fc40d9601a6a8376c39d2` |
+| feature commit | `7863d4dff513306e6b12e0553c64e969d5dbb2bb` |
+| 定向测试 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` ✅（5 files, 57 tests） |
+| TypeScript 检查 | `cd frontend && npx tsc --noEmit` ✅ |
+| Diff 检查 | `git diff --check` ✅ |
+
