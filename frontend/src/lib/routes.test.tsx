@@ -764,7 +764,9 @@ describe('routes helpers for active issues workspace routing', () => {
   });
 
   it('builds the explicit workspace issue detail back-link contract from the shared legacy lookup seam', async () => {
-    await expect(loadIssueDetailRouteLookup(42)).resolves.toEqual({
+    const lookup = await loadIssueDetailRouteLookup(42);
+
+    expect(lookup).toEqual({
       issue: baseIssue,
       organizations: [
         { id: 7, slug: 'acme' },
@@ -773,15 +775,7 @@ describe('routes helpers for active issues workspace routing', () => {
     });
     expect(getIssueMock).toHaveBeenCalledWith(42);
     expect(getOrganizationsMock).toHaveBeenCalledTimes(1);
-    expect(
-      buildIssueDetailRouteBackLinkProps({
-        issue: baseIssue,
-        organizations: [
-          { id: 7, slug: 'acme' },
-          { id: 8, slug: 'design' },
-        ],
-      })
-    ).toEqual({
+    expect(buildIssueDetailRouteBackLinkProps(lookup)).toEqual({
       href: '/acme/issue/ENG-42/issue-detail-shell-polish',
       label: null,
     });
