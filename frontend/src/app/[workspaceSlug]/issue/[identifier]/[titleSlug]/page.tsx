@@ -123,6 +123,7 @@ type IssueDetailRouteShellState = {
 type IssueDetailRouteShellModel = {
   emptyState: IssueDetailRouteEmptyStateModel;
   loadingState: Required<IssueDetailRouteShellState>;
+  pageBackLink: IssueDetailRouteBackLink;
 };
 
 function buildIssueDetailRouteEmptyStateModel(
@@ -148,6 +149,10 @@ function buildIssueDetailRouteShellModel(
     loadingState: {
       subtle: loadingState?.subtle ?? false,
       showActions: loadingState?.showActions ?? true,
+    },
+    pageBackLink: {
+      href: backLinkModel.href,
+      label: backLinkModel.label,
     },
   };
 }
@@ -311,7 +316,7 @@ export default function IssueDetailWorkspaceRoute() {
   }
 
   if (issueLookupQuery.isFetching && cachedIssue) {
-    return <IssueDetailPage issueId={cachedIssue.id} backHref={routeBackLink.href} backLabel={routeBackLink.label} />;
+    return <IssueDetailPage issueId={cachedIssue.id} backHref={backgroundRefetchRouteShellModel.pageBackLink.href} backLabel={backgroundRefetchRouteShellModel.pageBackLink.label} />;
   }
 
   if (issueLookupQuery.isError) {
@@ -322,5 +327,5 @@ export default function IssueDetailWorkspaceRoute() {
     return <IssueDetailRouteEmptyState {...routeShellModel.emptyState} />;
   }
 
-  return <IssueDetailPage issueId={issueId} backHref={routeBackLink.href} backLabel={routeBackLink.label} />;
+  return <IssueDetailPage issueId={issueId} backHref={routeShellModel.pageBackLink.href} backLabel={routeShellModel.pageBackLink.label} />;
 }

@@ -582,6 +582,10 @@ describe('routes helpers for active issues workspace routing', () => {
         subtle: true,
         showActions: false,
       },
+      pageBackLink: {
+        href: '/acme/team/eng/active',
+        label: 'issues.detailPage.backToActiveIssues',
+      },
     });
     expect(
       buildIssueDetailRouteShellModel(
@@ -599,6 +603,47 @@ describe('routes helpers for active issues workspace routing', () => {
         subtle: false,
         showActions: true,
       },
+      pageBackLink: {
+        href: null,
+        label: 'issues.detailPage.backToIssues',
+      },
+    });
+  });
+
+  it('reuses the shared shell pageBackLink when rendering IssueDetailPage during steady and cached-refetch branches', () => {
+    getQueriesDataMock.mockReturnValue([[['issues'], { items: [baseIssue] }]]);
+
+    useIssueByIdentifierMock.mockReturnValue({
+      isLoading: false,
+      isFetching: true,
+      isError: false,
+      data: null,
+    });
+
+    render(<IssueDetailWorkspaceRoute />);
+
+    expect(screen.getByTestId('issue-detail-page-mock')).toHaveAttribute('data-issue-id', '42');
+    expect(issueDetailPageSpy).toHaveBeenLastCalledWith({
+      issueId: 42,
+      backHref: '/acme/team/eng/active',
+      backLabel: 'issues.detailPage.backToActiveIssues',
+    });
+
+    issueDetailPageSpy.mockClear();
+
+    useIssueByIdentifierMock.mockReturnValue({
+      isLoading: false,
+      isFetching: false,
+      isError: false,
+      data: baseIssue,
+    });
+
+    render(<IssueDetailWorkspaceRoute />);
+
+    expect(issueDetailPageSpy).toHaveBeenLastCalledWith({
+      issueId: 42,
+      backHref: '/acme/team/eng/active',
+      backLabel: 'issues.detailPage.backToActiveIssues',
     });
   });
 
