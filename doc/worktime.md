@@ -1,28 +1,33 @@
-# Cruise 工时记录
+     1|# Cruise 项目工时记录
+     2|
+| 项目 | Session | 日期 | 工作内容 | 预估工时 | 实际工时 |
+|---|---|---|---|---|---|
+| Linear 对标 | Session 140 | 2026-04-19 | 按 implementation lane 收口 `IMP-17`：复核 issue detail route shell / shared empty-state / skeleton contract 相关脏变更，运行 `cd frontend && pnpm test -- --run src/lib/routes.test.tsx`、`cd frontend && npx tsc --noEmit`、`git diff --check` 均通过，提交 feature/work commit `850adf1f4bdb40b9f62fc5be4e824c8394d3a571` 后将 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 中 IMP-17 写回 done 并新增 IMP-18，最后同步更新 dev-logbook/worktime | 0.3h | 0.3h |
+| Linear 对标 | Session 139 | 2026-04-19 | 先恢复 capture lane 状态源与 watchdog 状态，确认 `consumer_policy=attached_cdp_only`、issue detail target 仍可附着；因当前仓库存在大量 implementation lane 遗留脏变更，不适合继续在同一工作树落盘 CAP-08 新证据，因此将 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 中 CAP-08 真实写回为 blocked，并同步更新 dev-logbook/worktime | 0.2h | 0.2h |
+| Linear 对标 | Session 138 | 2026-04-19 | 先读取 `~/Desktop/Cruise/.hermes/linear-9222-watchdog/last-status.txt` 并严格继承 attached_cdp_only；在 `frontend/src/lib/routes.test.ts` 收紧 `expectSharedIssueDetailVisibleBackLinkConsistency(...)`，让其同时校验 raw visible branch 与 normalized visible model 经 `buildIssueDetailRouteEmptyStateLinkHref(...)` 后的 href 一致性，随后同步回写 task-board/dev-logbook/worktime；定向验证仍受 `sh: vitest: command not found` 与 `This is not the tsc command you are looking for` 阻塞 | 0.2h | 0.2h |
+| Linear 对标 | Session 137 | 2026-04-19 | 先读取 `~/Desktop/Cruise/.hermes/linear-9222-watchdog/last-status.txt` 并严格继承 attached_cdp_only；将 `frontend/src/lib/routes.test.ts` 中 `buildSharedIssueDetailVisibleBackLinkHref(...)` 改为只接收 overrides 并统一回流到 `buildSharedIssueDetailActiveBackLink(...)`，同时让 visible back-link 断言显式传入 `{ ...backLink, shouldRender: true }`，同步回写 task-board/dev-logbook/worktime；定向验证仍受 `sh: vitest: command not found` 与 `This is not the tsc command you are looking for` 阻塞 | 0.2h | 0.2h |
+| Linear 对标 | Session 136 | 2026-04-19 | 先读取 `~/Desktop/Cruise/.hermes/linear-9222-watchdog/last-status.txt` 并严格继承 attached_cdp_only；将 `frontend/src/lib/routes.test.ts` 中 `buildSharedIssueDetailVisibleBackLinkHref(...)` 改为复用 `buildIssueDetailRouteEmptyStateLinkHref(...)` 与共享 active back-link model，同时同步 task-board/dev-logbook/worktime，定向验证仍受 `vitest: command not found` 与 `This is not the tsc command you are looking for` 阻塞 | 0.2h | 0.2h |
 
-## Session 工时
-
-| Phase | Session | 日期 | 内容 | 预估工时 | 实际工时 |
-|------|---------|------|------|---------|---------|
-| Phase 4+ | Session 8 | 2026-03-18 | 标签系统彻底重构：Workspace / Team Labels、Issue 结构化标签、快速创建重做 | 6h | 5h |
-| Phase 4+ | Session 9 | 2026-03-18 | Workspace / Project 概念统一，清理组织/工作区/项目混用 | 1.5h | 1h |
-| Linear 对标 | Session 11 | 2026-04-18 | 9222 网络采集失败记录 + Cruise issues 基线补强 | 0.2h | 0.2h |
-| Linear 对标 | Session 12 | 2026-04-18 | Active issues 顶部工具栏差距文档补齐 | 0.1h | 0.1h |
-| Linear 对标 | Session 15 | 2026-04-18 | Active issues 页面分析文档同步 9222 最新波动结论 | 0.1h | 0.1h |
-| Linear 对标 | Session 28 | 2026-04-18 | 完成 `/issues` 顶部工具栏最小对标改动，并回写任务板/日志/阻塞状态 | 0.6h | 0.6h |
-| Linear 对标 | Session 29 | 2026-04-18 | 补 team/workspace 语义列表路由壳层，并让 team-active tabs 切到语义化 team 路径 | 0.4h | 0.4h |
-| Linear 对标 | Session 31 | 2026-04-18 | 为 issue-workbench 视图归类补齐 helper 回归测试，并同步任务板/日志/工时 | 0.2h | 0.2h |
-| Linear 对标 | Session 32 | 2026-04-18 | 优化 team-active 搜索/筛选空态反馈，并补齐回归测试与任务板/日志/工时更新 | 0.2h | 0.2h |
-| Linear 对标 | Session 33 | 2026-04-18 | 基于既有 target metadata / fallback 记录补 Active issues DOM/结构证据摘要，并同步任务板/日志/工时 | 0.2h | 0.2h |
-| Linear 对标 | Session 34 | 2026-04-18 | 为 team 语义列表路由补 helper 回归测试，并同步任务板/日志/工时 | 0.2h | 0.2h |
-| Linear 对标 | Session 35 | 2026-04-18 | 为 team-active Display 折叠状态补可见反馈，并同步任务板/日志/工时 | 0.2h | 0.2h |
-| Linear 对标 | Session 36 | 2026-04-18 | 为 team-active 工具栏补最小可见排序状态，并同步任务板/日志/工时 | 0.2h | 0.2h |
-| Linear 对标 | Session 39 | 2026-04-18 | 为 team-active 工具栏补 filter summary 聚合反馈，并同步任务板/日志/工时 | 0.2h | 0.2h |
-| Linear 对标 | Session 40 | 2026-04-18 | 为 team-active 高级筛选补 labels URL/摘要闭环，并同步任务板/日志/工时 | 0.2h | 0.2h |
-| Linear 对标 | Session 41 | 2026-04-18 | 确认 Active issues 采集阻塞已转为已登录会话不可复用，并同步任务板/日志/工时 | 0.2h | 0.2h |
-| Linear 对标 | Session 42 | 2026-04-18 | 补强 Active issues 中转页→登录页阻塞证据，并同步任务板/日志/工时 | 0.2h | 0.2h |
-| Linear 对标 | Session 54 | 2026-04-18 | 22:30 复测确认 9222 metadata 双侧仍可读且 Active issues 深链继续落登录页，并同步任务板/日志/工时 | 0.2h | 0.2h |
-| Linear 对标 | Session 55 | 2026-04-18 | 22:40 复测确认 9222 再回 split state 且 Active issues 深链继续落登录页，并同步任务板/日志/工时 | 0.2h | 0.2h |
-| Linear 对标 | Session 57 | 2026-04-18 | 23:05 复测确认 9222 metadata 已恢复双侧可读但 Active issues 深链仍落登录页，并同步任务板/日志/工时 | 0.2h | 0.2h |
-| Linear 对标 | Session 58 | 2026-04-18 | 收紧 team-active 多条件筛选摘要为首项 + 余量聚合文案，并让页内 search summary 复用短摘要逻辑 | 0.2h | 0.2h |
-| Linear 对标 | Session 59 | 2026-04-18 | 为 team-active 工具栏状态说明补 helper 级回归测试，并同步任务板/日志/工时 | 0.2h | 0.2h |
+     7|| Linear 对标 | Session 134 | 2026-04-19 | 先读取 `~/Desktop/Cruise/.hermes/linear-9222-watchdog/last-status.txt` 并严格继承 attached_cdp_only；删除 `frontend/src/lib/routes.test.ts` 中仅做转发的 `expectSharedIssueDetailBackLink(...)`，把 route empty-state back-link 断言收口到 `expectSharedRouteEmptyStateBackLink(...)` 唯一入口，同时同步 task-board/dev-logbook/worktime，定向验证仍受 `vitest: command not found` 与 `This is not the tsc command you are looking for` 阻塞 | 0.2h | 0.2h |
+     8|| Linear 对标 | Session 133 | 2026-04-19 | 先读取 `~/Desktop/Cruise/.hermes/linear-9222-watchdog/last-status.txt` 并严格继承 attached_cdp_only；删除 `frontend/src/lib/routes.test.ts` 中残留的 `buildSharedIssueDetailBackLink(...)` 包装层，让 active/hidden back-link helper 与 no-id route matrix 直接复用标准化 back-link model，同时同步 task-board/dev-logbook/worktime，定向验证仍受 `vitest: command not found` 与 `This is not the tsc command you are looking for` 阻塞 | 0.2h | 0.2h |
+     9|| Linear 对标 | Session 132 | 2026-04-19 | 先读取 `~/Desktop/Cruise/.hermes/linear-9222-watchdog/last-status.txt` 并严格继承 attached_cdp_only；将 route empty-state matrix contract 测试里最后一处直接渲染 `IssueDetailRouteEmptyState` 的旧 `backLink={...}` 原始入口改为 `backLinkModel={buildSharedIssueDetailActiveBackLink()}`，同时同步 task-board/dev-logbook/worktime，定向验证仍受 `vitest: command not found` 与 `This is not the tsc command you are looking for` 阻塞 | 0.2h | 0.2h |
+    10|| Linear 对标 | Session 130 | 2026-04-19 | 先读取 watchdog 最近状态产物并严格继承 attached_cdp_only；将 `buildSharedIssueDetailHiddenBackLink(...)` 扩展为可接收显式 `{ href, label }` contract，并让 no-id route 分支也复用该 hidden CTA helper 入口，同时同步 task-board/dev-logbook/worktime，定向验证仍受 vitest/typescript 缺失阻塞 | 0.2h | 0.2h |
+    11|| Linear 对标 | Session 129 | 2026-04-19 | 先读取 watchdog 最近状态产物并严格继承 attached_cdp_only；让 hidden fallback CTA 回归断言显式复用 `buildIssueDetailRouteEmptyStateBackLinkModel(...)` 再交给 `buildSharedIssueDetailActiveBackLink(...)` 组合，同时同步 task-board/dev-logbook/worktime，定向验证仍受 vitest/typescript 缺失阻塞 | 0.2h | 0.2h |
+    12|| Linear 对标 | Session 127 | 2026-04-19 | 先读取 watchdog 最近状态产物并严格继承 attached_cdp_only；让 `expectSharedRouteEmptyStateMatrix(...)` 去掉重复 back-link 断言，只把共享 back-link model 交给 layout helper 统一消费，同时同步 task-board/dev-logbook/worktime，定向验证仍受 vitest/typescript 缺失阻塞 | 0.2h | 0.2h |
+    13|| Linear 对标 | Session 126 | 2026-04-19 | 先读取 watchdog 最近状态产物并严格继承 attached_cdp_only；让 `expectSharedRouteEmptyStateMatrix(...)` 先统一生成并复用共享 back-link model，再把同一个 model 同时传给 route back-link 断言与 layout empty-state 断言，同时同步 task-board/dev-logbook/worktime，定向验证仍受 vitest/typescript 缺失阻塞 | 0.2h | 0.2h |
+    14|| Linear 对标 | Session 125 | 2026-04-19 | 先读取 watchdog 最近状态产物并严格继承 attached_cdp_only；让 route 级 shared back-link assertion helper 与 empty-state matrix 直接消费 `buildIssueDetailRouteEmptyStateBackLinkModel(...)` 返回值，减少测试侧手写 `href/label/shouldRender` 三元组，同时同步 task-board/dev-logbook/worktime，定向验证仍受 vitest/typescript 缺失阻塞 | 0.2h | 0.2h |
+    15|| Linear 对标 | Session 124 | 2026-04-19 | 先读取 watchdog 最近状态产物并严格继承 attached_cdp_only；为 `buildIssueDetailRouteEmptyStateBackLinkModel(...)` 增加 `shouldRender` 字段，并让 issue detail empty-state CTA 渲染与 route back-link 断言 helper 显式消费该渲染语义，同时同步 task-board/dev-logbook/worktime，定向验证仍受 vitest/typescript 缺失阻塞 | 0.2h | 0.2h |
+    16|| Linear 对标 | Session 123 | 2026-04-19 | 先读取 watchdog 最近状态产物并严格继承 attached_cdp_only；新增 `buildIssueDetailRouteEmptyStateBackLinkModel(...)`，把 issue detail route empty-state CTA 渲染前消费的 `href/label` 结构收敛为共享 helper/model，并补 helper 回归测试，同时同步 task-board/dev-logbook/worktime，定向验证仍受 vitest/typescript 缺失阻塞 | 0.2h | 0.2h |
+    17|| Linear 对标 | Session 122 | 2026-04-19 | 先读取 watchdog 最近状态产物并严格继承 attached_cdp_only；新增 `expectSharedRouteEmptyStateCopyKeys()`，把 issue detail route matrix 共用的 empty-state copy 期望值收敛为单一 helper 并补 contract 回归测试，同时同步 task-board/dev-logbook/worktime，定向验证仍受 vitest/typescript 缺失阻塞 | 0.2h | 0.2h |
+    18|| Linear 对标 | Session 121 | 2026-04-19 | 先读取 watchdog 最近状态产物并严格继承 attached_cdp_only；让 issue detail route 的 empty-state layout 断言 helper 也改为消费 `buildIssueDetailRouteEmptyStateCardTestIds()`，继续收敛 route/card seam 的共享 contract 入口，并同步 task-board/dev-logbook/worktime，定向验证仍受 vitest/typescript 缺失阻塞 | 0.2h | 0.2h |
+    19|| Linear 对标 | Session 120 | 2026-04-19 | 先读取 watchdog 最近状态产物并严格继承 attached_cdp_only；继续收敛 issue detail empty-state card contract seam，新增 `buildIssueDetailRouteEmptyStateCardTestIds()` 并让组件与 routes seam 测试共享消费，同时同步 task-board/dev-logbook/worktime，定向验证仍受 vitest/typescript 缺失阻塞 | 0.2h | 0.2h |
+    20|| Linear 对标 | Session 119 | 2026-04-19 | 先读取 watchdog 最近状态产物并严格继承 attached_cdp_only；提炼 issue detail empty-state card model contract seam，新增 `buildIssueDetailRouteEmptyStateCardModel(...)` 与对应 routes seam 回归测试，并同步 task-board/dev-logbook/worktime，定向验证仍受 vitest/typescript 缺失阻塞 | 0.2h | 0.2h |
+    21|| Linear 对标 | Session 118 | 2026-04-19 | 先读取 watchdog 最近状态产物并严格继承 attached_cdp_only；把 issue detail route 的 shared empty-state 分支断言进一步收敛为单一 `expectSharedRouteEmptyStateMatrix(...)` helper，并同步 task-board/dev-logbook/worktime；定向验证仍受 vitest/typescript 缺失阻塞 | 0.2h | 0.2h |
+    22|| Linear 对标 | Session 113 | 2026-04-19 | 先读取 watchdog 最近状态产物并严格继承 attached_cdp_only；将 issue detail empty-copy translator seam 收紧为显式 key 调用顺序断言，并同步 task-board/dev-logbook/worktime，定向验证仍受 vitest/typescript 缺失阻塞 | 0.2h | 0.2h |
+    23|| Linear 对标 | Session 114 | 2026-04-19 | 先读取 watchdog 最近状态产物并严格继承 attached_cdp_only；新增 issue detail empty-state model helper，把 route 的 not-found/error 分支共享 props 收敛为单个结构化对象，并同步 task-board/dev-logbook/worktime，定向验证仍受 vitest/typescript 缺失阻塞 | 0.2h | 0.2h |
+    24|| Linear 对标 | Session 115 | 2026-04-19 | 先读取 watchdog 最近状态产物并严格继承 attached_cdp_only；提炼 issue detail empty-state card render seam，新增 card test ids 与双分支 seam 回归测试，并同步 task-board/dev-logbook/worktime，定向验证仍受 vitest/typescript 缺失阻塞 | 0.2h | 0.2h |
+    25|| Linear 对标 | Session 116 | 2026-04-19 | 先读取 watchdog 最近状态产物并严格继承 attached_cdp_only；把 issue detail route 空态断言收敛为共享 helper，并新增 no-id + 无 team context 时回退 shared empty-copy badge / 隐藏返回 CTA 的 route 级回归测试，同时同步 task-board/dev-logbook/worktime；定向验证仍受 vitest/typescript 缺失阻塞 | 0.2h | 0.2h |
+    26|| Linear 对标 | Session 117 | 2026-04-19 | 先读取 watchdog 最近状态产物并严格继承 attached_cdp_only；扩展 issue detail route 空态断言 helper，显式锁定 error/no-id 分支共用 empty-state copy keys 与 back-link href 契约，并同步 task-board/dev-logbook/worktime；定向验证仍受 vitest/typescript 缺失阻塞 | 0.2h | 0.2h |
+    27|| 2026-04-19 18:16 | Hermes | IMP-17 implementation 增量：在 `frontend/src/lib/routes.test.ts` 新增 `buildSharedIssueDetailActiveBackLink()`，把 route empty-state active-team back CTA model 构造提炼为共享 helper，供共享 back-link contract 断言与 not-found/error matrix 复用；同步回写 task-board / dev-logbook；定向验证仍受 `vitest: command not found` 与 `npx tsc --noEmit` 误落占位 `tsc` 阻塞 | 0.5h |
+    28|
+- 2026-04-19 20:47 CST — Capture cron：CAP-08 `Add label` opened-state 只读采集（attached CDP only）；新增 flow + raw JSON 证据，并更新 task-board / dev-logbook。

@@ -1,83 +1,77 @@
 version: 1
 roadmap:
   path: docs/plans/2026-04-16-linear-parity-roadmap.md
-  total_tasks: 20
+  total_tasks: 2
 project:
-  repo_path: /opt/data/projects/Cruise
+  repo_path: /Users/liuzheng/Desktop/Cruise
   branch: codex/unify-issue-model
-  head: a5004dbbf5eafd4ae21192841670c319b4451d14
-  baseline_commit: 21b6774
+  head: 850adf1f4bdb40b9f62fc5be4e824c8394d3a571
+  baseline_commit: 850adf1f4bdb40b9f62fc5be4e824c8394d3a571
 last_completed_task:
-  id: task01b1
-  title: Harden workspace project saved-view queryState fallback
+  id: IMP-17
+  title: 评估 issue 详情页 route shell 与页面骨架落地切口
   status: done
   summary: >-
-    Finalized the saved-view fail-closed contract by rejecting malformed project-scoped
-    TEAM views whose backing project no longer resolves to a team, rejecting unknown
-    visibility values across both project workspace and generic view read paths, and
-    adding regression coverage for the malformed legacy cases.
+    已完成 issue detail route 与详情页骨架/空态 contract 的最小收口：route shell 复用共享返回 CTA model 与 empty-state model，详情页加载态改为稳定双栏骨架，并修正 DONE/CANCELED + resolution 徽标文案连接符；同时 routes seam 测试继续收紧 visible CTA raw/normalized href 一致性。
   tests:
+    - cd frontend && pnpm test -- --run src/lib/routes.test.tsx: passed (5 files, 49 tests)
+    - cd frontend && npx tsc --noEmit: passed
     - git diff --check: passed
-    - backend bash ./gradlew :backend:test --tests com.cruise.OrganizationAccessIntegrationTest: blocked (cron env missing Java/JAVA_HOME)
-    - lightweight added-line security scan: passed
   review:
     code: approved
-  commit: a5004dbbf5eafd4ae21192841670c319b4451d14
-  next_task: task01b2
+  commit: 850adf1f4bdb40b9f62fc5be4e824c8394d3a571
+  next_task: IMP-18
 current_task:
-  id: task01b2
-  parent_task: task01b
-  title: Remove ViewService.findAll purge side effect from read path
+  id: IMP-18
+  parent_task: linear-parity-push
+  title: 为 issue detail route shell 补共享 skeleton/empty-state contract 的下一刀验证收口
+  lane: Implementation
   status: pending
+  done_when: >-
+    至少再落一个 issue detail route shell 的最小实现/测试增量，优先补齐 route 与 IssueDetailPage 之间剩余可提炼的共享 skeleton/empty-state seam，且完成最小充分验证、review、提交、状态写回与推送闭环。
+  blocker: >-
+    当前工作树仍混有 capture lane 文档、watchdog 脚本与其它未收口 implementation 改动，若不先完成现有脏变更闭环，继续追加新的实现会扩大边界并增加 docs/state 收口风险。
 history:
-  - id: task01b1
+  - id: CAP-08
+    lane: Capture
+    status: blocked
+    summary: >-
+      因当前工作树混有大量 implementation 遗留脏变更，capture lane 本轮未继续落盘新证据，而是将 CAP-08 真实写回为 blocked，并建议在独立干净工作树或先完成 implementation 收口后继续同一 Add label 入口的反馈态只读采集。
+    tests:
+      - last-status consumer_policy check: passed
+      - scope judgement on mixed dirty tree: passed
+    review:
+      evidence: approved
+    commit: none
+    next_task: CAP-08
+
     status: done
     summary: >-
-      Finalized malformed saved-view fail-closed handling by returning 403 for project
-      TEAM views whose project/team linkage is broken, rejecting unknown visibility values,
-      and locking those legacy cases with a workspace project integration regression test.
+      已完成 issue 详情页默认态截图、可见模块与 network-idle 摘要采集，形成 CAP-07 基线证据包。
     tests:
-      - git diff --check: passed
-      - backend bash ./gradlew :backend:test --tests com.cruise.OrganizationAccessIntegrationTest: blocked (cron env missing Java/JAVA_HOME)
-      - lightweight added-line security scan: passed
+      - last-status consumer_policy check: passed
+      - issue detail page read-only capture: passed
     review:
-      code: approved
-    commit: a5004dbbf5eafd4ae21192841670c319b4451d14
-    next_task: task01b2
-  - id: task01a
+      evidence: approved
+    commit: none
+    next_task: CAP-08
+  - id: IMP-16
+    lane: Implementation
     status: done
     summary: >-
-      Shared queryState defaults were unified across backend and frontend, with
-      resource-specific visibleColumns and an explicit subGrouping key locked into
-      the contract.
+      已为 team-active 工具栏状态说明补 helper 级回归测试，并定向验证通过。
     tests:
-      - git diff --check: passed
-      - frontend npm test -- --run src/lib/views/queryState.test.ts: passed
-      - frontend NODE_OPTIONS=--max-old-space-size=4096 npm run build: passed
-      - backend bash ./gradlew :backend:test --tests com.cruise.OrganizationAccessIntegrationTest: blocked (cron env missing Java/JAVA_HOME)
+      - frontend vitest targeted helper tests: passed
     review:
       code: approved
-    commit: c5da9e1bdfb2dee4e67e3f712c4ab4d0369c95b8
-    next_task: task01b
-  - id: bootstrap
-    status: done
-    summary: >-
-      Planning and autopilot bootstrap completed on Cruise codex/unify-issue-model.
-    tests:
-      - git status --short: passed
-      - git branch --show-current: passed
-    review:
-      code: approved
-    commit: 7ec678643c6a1b408a6f9966b9fd234ec1056710
-    next_task: task01a
+    commit: historical
+    next_task: IMP-17
 notes:
   execution_rules:
-    - docs/status/roadmap-state.yaml is the single source of truth for roadmap progress.
-    - Execute exactly one smallest deliverable task per execution unit.
-    - Every task must close with implementation, tests, docs update, one post-completion review, commit, and state write-back.
-    - If blocked, record the blocker and a suggested next action, then move to another unblocked task.
+    - docs/status/roadmap-state.yaml 是 linear parity cron 的唯一恢复状态源；task-board 是 lane 明细与后继任务定义源。
+    - 每轮先检查 git status/branch/head/log，再读取本状态文件、task-board 与 roadmap。
+    - 每次只执行一个 execution unit；完成或阻塞后必须写回状态，并立即停止。
+    - Implementation 完成闭环顺序：feature/work commit → 记录 hash → 更新状态/task-board/logbook/worktime → docs/state commit → 检查工作区干净 → push。
+    - Capture 完成闭环顺序：证据产物落盘 → 更新状态/task-board/logbook/worktime → 如需状态提交则单独提交 → stop。
   next_run_prompt_summary: >-
-    Restore from this state file, perform only task01b2, remove the destructive
-    `ViewService.findAll()` purge side effect from the read path, verify with the
-    smallest available checks, update tests/docs/review/commit fields, set the next
-    task, then stop.
+    恢复本状态文件，优先只处理当前 lane 对应的 current_task；若是 capture 则继续 CAP-08 的同一入口校验/反馈态只读采集，若是 implementation 则根据 task-board 只推进 IMP-17 的一个最小可交付增量；完成或阻塞后必须写回状态并停止。
