@@ -324,6 +324,10 @@ const zhCNMessages = {
     detailPage: {
       ...enMessages.issues.detailPage,
       backToIssues: '返回事项列表',
+      backToActiveIssues: '返回进行中的事项',
+      issueNotFoundBadge: '事项缺失',
+      issueNotFoundTitle: '未找到该事项',
+      issueNotFoundDescription: '当前工作区路由已解析，但该事项标识不存在，或它已不属于当前工作区。请返回进行中的事项列表后重新选择。',
       description: '描述',
       properties: '属性',
       summary: '摘要',

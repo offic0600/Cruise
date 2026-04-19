@@ -582,6 +582,10 @@ const enMessages = {
     },
     detailPage: {
       backToIssues: "Back to issues",
+      backToActiveIssues: "Back to active issues",
+      issueNotFoundBadge: "Missing issue",
+      issueNotFoundTitle: "This issue could not be found",
+      issueNotFoundDescription: "The workspace route resolved, but the issue identifier is unavailable or no longer belongs to the current workspace. Return to the active issues list to pick another issue.",
       description: "Description",
       properties: "Properties",
       summary: "Summary",
