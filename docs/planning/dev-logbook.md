@@ -1,3 +1,42 @@
+## Session 174 — 2026-04-20：收口第二条 legacy route API 失败标题中的 empty state props wording
+
+**目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-53`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route `getOrganizations()` API 失败场景当前 `renders the empty props when getOrganizations rejects in the legacy /issues/[id] route` 标题是否应与已收口的 `getIssue(...)` 场景一致改为 `renders the empty state props ...`；若可行，则只改这一处安全标题并完成验证、review、提交、状态回写与 push 闭环。
+
+### 174.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 读取 | `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` | 确认当前分支 `codex/unify-issue-model`、执行前 HEAD 为 `3cb107885f876c5bb3dfa3f7d63cfaa6e8af9a12`，工作树为空，可直接按 `IMP-53` 进入新的最小 execution unit |
+| 读取 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/plans/2026-04-16-linear-parity-roadmap.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` / `frontend/src/lib/routes.test.tsx` | 恢复唯一状态源、lane 明细、roadmap 与日志/工时回写要求，并确认 `IMP-53` 仅允许评估 `getOrganizations()` 失败场景这一处标题是否应从 `empty props` 收口为 `empty state props` |
+| 配置 | `git config user.name/user.email` | 复核 git author 使用 `offic0600 <offic0600@163.com>` |
+| 修改 | `frontend/src/lib/routes.test.tsx` | 将 `getOrganizations()` 失败场景测试标题从 `renders the empty props when getOrganizations rejects in the legacy /issues/[id] route` 收口为 `renders the empty state props when getOrganizations rejects in the legacy /issues/[id] route`，以与 `getIssue(...)` 场景保持一致，同时保持共享断言、fixture 设置与 helper/route 运行时逻辑不变 |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` / `cd frontend && npx tsc --noEmit` / `git diff --check` | 三项验证均通过：routes seam 定向测试 5 files / 57 tests 全绿，TypeScript 检查通过，diff 无 whitespace 问题 |
+| Review | `git diff -- frontend/src/lib/routes.test.tsx` | 复核本轮只改一处 route 级 API 失败测试标题文案，不改共享断言结构、fixture 设置或 helper/route 运行时逻辑；review 结论为通过 |
+| 提交 | `git commit -m "[verified] test: trim second route empty state wording"` | 完成本轮 feature/work commit，得到真实提交 `87a911a14298563cba960b8b16de0ac7cc24b3ee` |
+| 修改 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 将 `IMP-53` 写回 done，记录真实 feature SHA，并新增下一轮 `IMP-54`：评估两条 API 失败场景标题在均改为 `empty state props` 后是否仍需保留 `state` 全称 |
+
+### 174.2 本轮落地结果
+
+- 已复核 legacy `/issues/[id]` route 中 `getOrganizations()` API 失败场景与上一轮 `getIssue(...)` 失败场景一样，都是 route 级渲染后断言 `IssueDetailPage` 收到空态 props 的观察面；在共享断言 helper `expectLegacyIssueRouteEmptyPropsContract()` 继续承载 contract 语义的前提下，该标题可继续安全收口。
+- 因此本轮仅将 `getOrganizations()` 失败场景测试标题收口为 `renders the empty state props when getOrganizations rejects in the legacy /issues/[id] route`，同时保持共享断言、fixture 设置以及 helper/route 运行时逻辑不变。
+- `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 已写回：`IMP-53` -> `done`，下一轮转入 `IMP-54`，继续评估两条 API 失败标题在均改为 `empty state props` 后是否仍需保留 `state` 全称。
+
+### 174.3 经验沉淀
+
+- 当 route 级失败场景与上一轮对称，且共享断言 helper 继续保留 `...Contract()` 语义时，可以按 execution unit 一次只收口另一条对称测试标题中的 `empty state props` wording，而无需同步调整 helper 名称或运行时逻辑。
+- 即使两条 route 级 API 失败场景在语义上完全对称，也仍应保持“一次只动一处标题”的节奏；先让第二条标题完成对齐，再单独判断 `state` 词是否还需继续收紧。
+
+### 174.4 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-53 → IMP-54` |
+| 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `3cb107885f876c5bb3dfa3f7d63cfaa6e8af9a12` |
+| feature commit | `87a911a14298563cba960b8b16de0ac7cc24b3ee` |
+| 定向测试 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` ✅（5 files, 57 tests） |
+| TypeScript 检查 | `cd frontend && npx tsc --noEmit` ✅ |
+| Diff 检查 | `git diff --check` ✅ |
+
 ## Session 173 — 2026-04-20：收口第一条 legacy route API 失败标题中的 empty props wording
 
 **目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-52`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 两条 API 失败场景在均去掉 `contract` wording 后，第一条安全标题中的 `empty props` 全称是否仍可继续安全收口；若可行，则只改 `getIssue(...)` 失败场景这一处文案并完成验证、review、提交、状态回写与 push 闭环。
