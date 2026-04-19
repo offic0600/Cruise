@@ -2,6 +2,7 @@
      2|
 | 项目 | Session | 日期 | 工作内容 | 预估工时 | 实际工时 |
 |---|---|---|---|---|---|
+| Linear 对标 | Session 156 | 2026-04-20 | 按 implementation lane 完成 IMP-35：将 legacy `/issues/[id]` route 中 `getIssue(...)` / `getOrganizations()` 两条 API 失败场景测试标题统一为 shared empty props contract 语义，去掉残留 empty back-link wording；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 155 | 2026-04-20 | 按 implementation lane 完成 IMP-34：将 legacy `/issues/[id]` route 的 helper/contract 共享空断言 helper 收口为 `expectLegacyIssueDetailRouteEmptyProps()` / `expectLegacyIssueRouteEmptyPropsContract()`，并把 helper 级无 slug 场景标题压缩为 empty props contract；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 154 | 2026-04-20 | 按 implementation lane 完成 IMP-33：将 workspace slug miss 场景 route 测试标题收口为“legacy route 透传 shared legacy lookup seam 空 back-link contract”的统一文案；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 153 | 2026-04-20 | 按 implementation lane 完成 IMP-32：将 helper 级空 back-link 断言重命名为 `expectLegacyIssueDetailRouteEmptyBackLinkProps()`，与 route 级 helper 对齐 legacy/route 语义词序；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
