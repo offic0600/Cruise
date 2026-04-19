@@ -792,7 +792,7 @@ describe('routes helpers for active issues workspace routing', () => {
     });
   });
 
-  function expectLegacyIssueDetailRouteEmptyBackLinkProps() {
+  function expectLegacyIssueDetailRouteEmptyProps() {
     expect(
       buildIssueDetailRouteBackLinkProps({
         issue: baseIssue,
@@ -801,8 +801,8 @@ describe('routes helpers for active issues workspace routing', () => {
     ).toEqual({});
   }
 
-  function expectLegacyIssueRouteEmptyBackLinkContract() {
-    expectLegacyIssueDetailRouteEmptyBackLinkProps();
+  function expectLegacyIssueRouteEmptyPropsContract() {
+    expectLegacyIssueDetailRouteEmptyProps();
     expect(issueDetailPageSpy).toHaveBeenLastCalledWith({
       issueId: 42,
       href: undefined,
@@ -810,8 +810,8 @@ describe('routes helpers for active issues workspace routing', () => {
     });
   }
 
-  it('falls back to an empty back-link contract when the shared legacy lookup seam cannot resolve a workspace slug', () => {
-    expectLegacyIssueDetailRouteEmptyBackLinkProps();
+  it('falls back to an empty props contract when the shared legacy lookup seam cannot resolve a workspace slug', () => {
+    expectLegacyIssueDetailRouteEmptyProps();
   });
 
   it('passes the shared legacy lookup seam empty back-link contract through the legacy /issues/[id] route when workspace slug lookup misses', async () => {
@@ -820,7 +820,7 @@ describe('routes helpers for active issues workspace routing', () => {
     const element = await IssueDetailRoute({ params: Promise.resolve({ id: '42' }) });
     render(element);
 
-    expectLegacyIssueRouteEmptyBackLinkContract();
+    expectLegacyIssueRouteEmptyPropsContract();
   });
 
 
@@ -832,7 +832,7 @@ describe('routes helpers for active issues workspace routing', () => {
 
     expect(getIssueMock).toHaveBeenCalledWith(42);
     expect(getOrganizationsMock).toHaveBeenCalledTimes(1);
-    expectLegacyIssueRouteEmptyBackLinkContract();
+    expectLegacyIssueRouteEmptyPropsContract();
   });
 
   it('falls back to an empty back-link contract when getOrganizations rejects in the legacy /issues/[id] route', async () => {
@@ -843,6 +843,6 @@ describe('routes helpers for active issues workspace routing', () => {
 
     expect(getIssueMock).toHaveBeenCalledWith(42);
     expect(getOrganizationsMock).toHaveBeenCalledTimes(1);
-    expectLegacyIssueRouteEmptyBackLinkContract();
+    expectLegacyIssueRouteEmptyPropsContract();
   });
 });
