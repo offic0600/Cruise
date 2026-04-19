@@ -5,39 +5,38 @@ roadmap:
 project:
   repo_path: /Users/liuzheng/Desktop/Cruise
   branch: codex/unify-issue-model
-  head: 8b594cb09f1bec44666b5a1370831c2db3adb3b9
+  head: 8be0f790557d810a11111175d037f193050f4365
   baseline_commit: 5f9bbf40737ed971c5a7c4d446c68345454a161f
 last_completed_task:
-  id: IMP-64
+  id: IMP-65
   parent_task: linear-parity-push
-  title: 评估 legacy `/issues/[id]` route 两条 API 失败场景测试标题在均去掉 route 全称后是否仍需保留 when wording
+  title: 评估 legacy `/issues/[id]` route `getOrganizations()` API 失败场景测试标题是否也应去掉 when wording
   lane: Implementation
   status: done
   summary: >-
-    已复核 legacy `/issues/[id]` route 两条 API 失败场景当前都属于 route 级渲染后断言
-    `IssueDetailPage` 收到空 props 的观察面；在同一 describe 已限定 legacy `/issues/[id]` route
-    上下文、且对称第二条标题 `renders when getOrganizations rejects` 仍保留 `when` wording 作为对照的前提下，
-    本轮仅将第一条 `getIssue(...)` 失败场景标题从 `renders when getIssue rejects` 收口为
-    `renders getIssue rejects`，以验证去掉第一处 `when` 连接词后标题仍保持可辨识，同时保持共享断言、fixture 设置与
-    helper/route 运行时逻辑不变。
+    已复核 legacy `/issues/[id]` route `getOrganizations()` API 失败场景当前属于 route 级渲染后断言
+    `IssueDetailPage` 收到空 props 的观察面；在同一 describe 已限定 legacy `/issues/[id]` route 上下文、且上一轮
+    第一条对称标题 `renders getIssue rejects` 已证明去掉 `when` 连接词后标题仍保持可辨识的前提下，本轮仅将
+    第二条 `getOrganizations()` 失败场景标题从 `renders when getOrganizations rejects` 收口为
+    `renders getOrganizations rejects`，同时保持共享断言、fixture 设置与 helper/route 运行时逻辑不变。
   tests:
     - cd frontend && pnpm test -- --run src/lib/routes.test.tsx: passed (5 files, 57 tests)
     - cd frontend && npx tsc --noEmit: passed
     - git diff --check: passed
   review:
     code: approved
-  commit: 8b594cb09f1bec44666b5a1370831c2db3adb3b9
-  next_task: IMP-65
+  commit: 8be0f790557d810a11111175d037f193050f4365
+  next_task: IMP-66
 current_task:
-  id: IMP-65
+  id: IMP-66
   parent_task: linear-parity-push
-  title: 评估 legacy `/issues/[id]` route `getOrganizations()` API 失败场景测试标题是否也应去掉 when wording
+  title: 评估 legacy `/issues/[id]` route 两条 API 失败场景测试标题在均去掉 when wording 后是否仍需保留 renders 动词
   lane: Implementation
   status: pending
   done_when: >-
-    在不扩大实现面的前提下，复核 `getOrganizations()` API 失败场景当前 `renders when getOrganizations rejects`
-    标题中的 `when` wording 是否也可像上一轮 `getIssue(...)` 场景一样安全去掉；若可行，则只改这一处安全标题并保持
-    定向验证通过。
+    在不扩大实现面的前提下，复核 legacy `/issues/[id]` route 两条 API 失败场景当前均为 `renders getIssue rejects` /
+    `renders getOrganizations rejects` 后，标题中的 `renders` 动词是否仍存在可安全收口的一处；若可行，则只改第一处
+    安全标题并保持定向验证通过。
   blocker: '-'
 notes:
   execution_rules:
