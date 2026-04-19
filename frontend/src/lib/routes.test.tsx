@@ -792,13 +792,26 @@ describe('routes helpers for active issues workspace routing', () => {
     });
   });
 
-  it('falls back to an empty back-link contract when the shared legacy lookup seam cannot resolve a workspace slug', () => {
+  function expectEmptyLegacyIssueDetailRouteBackLinkProps() {
     expect(
       buildIssueDetailRouteBackLinkProps({
         issue: baseIssue,
         organizations: [{ id: 99, slug: 'other-workspace' }],
       })
     ).toEqual({});
+  }
+
+  function expectLegacyIssueRouteEmptyBackLinkContract() {
+    expectEmptyLegacyIssueDetailRouteBackLinkProps();
+    expect(issueDetailPageSpy).toHaveBeenLastCalledWith({
+      issueId: 42,
+      href: undefined,
+      label: undefined,
+    });
+  }
+
+  it('falls back to an empty back-link contract when the shared legacy lookup seam cannot resolve a workspace slug', () => {
+    expectEmptyLegacyIssueDetailRouteBackLinkProps();
   });
 
   it('falls back to an empty back-link contract when the legacy /issues/[id] route cannot resolve a workspace slug', async () => {
@@ -810,13 +823,6 @@ describe('routes helpers for active issues workspace routing', () => {
     expectLegacyIssueRouteEmptyBackLinkContract();
   });
 
-  function expectLegacyIssueRouteEmptyBackLinkContract() {
-    expect(issueDetailPageSpy).toHaveBeenLastCalledWith({
-      issueId: 42,
-      href: undefined,
-      label: undefined,
-    });
-  }
 
   it('falls back to an empty back-link contract when getIssue rejects in the legacy /issues/[id] route', async () => {
     getIssueMock.mockRejectedValue(new Error('issue lookup failed'));
