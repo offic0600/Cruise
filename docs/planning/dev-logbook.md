@@ -1,5 +1,45 @@
 # Cruise — 开发日志（Dev Logbook）
 
+## Session 149 — 2026-04-20：收紧 legacy `/issues/[id]` lookup seam 成功断言边界
+
+**目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-28`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 与 `loadIssueDetailRouteLookup(...)` / `buildIssueDetailRouteBackLinkProps(...)` 的现有测试边界，若存在 route/helper 重复成功断言，则收紧为一组更稳定的最小 contract 断言并完成验证、review、提交、状态回写与 push 闭环。
+
+### 149.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 读取 | `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` | 确认当前分支 `codex/unify-issue-model`、执行前 HEAD `65c3fc16c144c422e5b9734fe58828e65349eddb`，工作树起始干净，可安全继续单一 implementation execution unit |
+| 读取 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/plans/2026-04-16-linear-parity-roadmap.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` / `frontend/src/app/issues/[id]/page.tsx` / `frontend/src/lib/routes.test.tsx` | 恢复唯一状态源、lane 明细、roadmap 与日志/工时回写要求，确认本轮只允许推进 `IMP-28`，且最小切口是去掉 lookup seam 成功断言里重复手写的 helper fixture |
+| 配置 | `git config user.name/user.email` | 再次确认 git author 使用 `offic0600 <offic0600@163.com>` |
+| 修改 | `frontend/src/lib/routes.test.tsx` | 将 lookup seam 成功场景测试改为先获取 `loadIssueDetailRouteLookup(42)` 返回值，再复用同一 `lookup` 对象断言 `buildIssueDetailRouteBackLinkProps(lookup)`；删除 helper 级重复手写的 organizations fixture，保留 route 级成功/无 slug/API 失败 contract 断言不变 |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` / `cd frontend && npx tsc --noEmit` / `git diff --check` | 三项验证均通过：routes seam 定向测试 5 files / 57 tests 全绿，TypeScript 检查通过，diff 无 whitespace 问题 |
+| Review | `git diff -- frontend/src/lib/routes.test.tsx frontend/src/app/issues/[id]/page.tsx` | 复核本轮只收紧 lookup seam 成功断言边界，不改动 route 运行时逻辑，也未扩大到失败断言或第二个 execution unit |
+| 提交 | `git commit -m "[verified] test: tighten legacy issue lookup seam contract coverage"` | 完成本轮 feature/work commit，得到真实提交 `5acc3d094d2320fa3c518288528e4787915d0be1` |
+| 修改 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 将 `IMP-28` 写回 done，记录真实 feature SHA，并新增下一轮 `IMP-29`：评估是否可将 legacy route API 失败断言进一步收口为共享空 back-link contract helper |
+
+### 149.2 本轮落地结果
+
+- lookup seam 成功场景测试现已只保留一份共享 `lookup` 结果：先断言 `loadIssueDetailRouteLookup(...)` 返回 issue + organizations，再直接把同一结果传给 `buildIssueDetailRouteBackLinkProps(...)`。
+- helper 级成功断言不再重复手写 organizations fixture，因此 route/helper 的成功 contract 边界比上一轮更紧，后续若继续收口失败断言也更容易保持单一事实源。
+- legacy `/issues/[id]` route 的成功、无 slug、`getIssue(...)` 失败、`getOrganizations()` 失败 contract 断言均保持不变，作用面未扩大。
+- `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 已写回：`IMP-28` -> `done`，下一轮转入 `IMP-29`，评估是否可把空 back-link 失败断言继续抽成共享测试 helper。
+
+### 149.3 经验沉淀
+
+- 对“lookup helper + route”双层 seam 的成功 contract，若 helper 级测试与 route 级测试共用同一 fixture 含义，优先把 helper 级断言改为直接消费 lookup 返回值，可避免未来 schema 变更时出现两处 fixture 漂移。
+- 当本轮目标是去重测试而非改运行时代码时，最稳妥的 execution unit 是只消除一类重复 fixture/断言，保留其他失败场景 contract 作为下一轮独立切口。
+
+### 149.4 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-28 → IMP-29` |
+| 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `65c3fc16c144c422e5b9734fe58828e65349eddb` |
+| feature commit | `5acc3d094d2320fa3c518288528e4787915d0be1` |
+| 定向测试 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` ✅（5 files, 57 tests） |
+| TypeScript 检查 | `cd frontend && npx tsc --noEmit` ✅ |
+| Diff 检查 | `git diff --check` ✅ |
+
 ## Session 148 — 2026-04-19：为 legacy `/issues/[id]` route 抽出共享 lookup seam
 
 **目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-27`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：评估并收口 legacy `/issues/[id]` route 内重复的 `getIssue + getOrganizations` / workspace slug back-link 组装，若可安全抽离则落一个共享 lookup seam，并完成验证、review、提交、状态回写与 push 闭环。

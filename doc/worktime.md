@@ -2,6 +2,7 @@
      2|
 | 项目 | Session | 日期 | 工作内容 | 预估工时 | 实际工时 |
 |---|---|---|---|---|---|
+| Linear 对标 | Session 149 | 2026-04-20 | 按 implementation lane 完成 IMP-28：收紧 legacy `/issues/[id]` lookup seam 成功场景测试，改为复用 `loadIssueDetailRouteLookup(...)` 返回值断言 `buildIssueDetailRouteBackLinkProps(...)` contract，去掉 helper 级重复 fixture；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 148 | 2026-04-19 | 按 implementation lane 完成 IMP-27：为 legacy `/issues/[id]` route 提炼 `loadIssueDetailRouteLookup(...)` / `buildIssueDetailRouteBackLinkProps(...)` 共享 lookup seam，并补 helper + route 最小回归测试；完成定向验证、feature commit 与状态回写 | 0.3h | 0.3h |
 | Linear 对标 | Session 147 | 2026-04-19 | 按 implementation lane 完成 IMP-26：为 legacy `/issues/[id]` route 补 `getIssue(...)` / `getOrganizations()` 失败场景 seam 回归测试，锁定 try/catch 降级 contract；完成定向验证、feature commit 与状态回写 | 0.3h | 0.3h |
 | Linear 对标 | Session 146 | 2026-04-19 | 按 implementation lane 完成 IMP-24：让 legacy `/issues/[id]` route 通过 `getIssue + getOrganizations` 解析 workspace slug，并显式向 `IssueDetailPage` 透传 `href/label` back-link contract；完成定向验证与状态回写 | 0.3h | 0.3h |

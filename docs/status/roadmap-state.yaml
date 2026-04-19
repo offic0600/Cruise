@@ -5,30 +5,30 @@ roadmap:
 project:
   repo_path: /Users/liuzheng/Desktop/Cruise
   branch: codex/unify-issue-model
-  head: 55fb9752f5ee5c27e0fb433543b0c7933e3df11a
+  head: 5acc3d094d2320fa3c518288528e4787915d0be1
   baseline_commit: 5f9bbf40737ed971c5a7c4d446c68345454a161f
 last_completed_task:
-  id: IMP-27
-  title: 评估 legacy `/issues/[id]` route 是否可抽出共享 issue/org lookup seam 以消除重复 Promise 组装
+  id: IMP-28
+  title: 为 legacy `/issues/[id]` lookup seam 补最小 route 级失败/成功 contract 断言去除 route 与 helper 断言重复
   status: done
   summary: >-
-    已将 legacy `/issues/[id]` route 内部重复的 `Promise.all(getIssue, getOrganizations)` 与 workspace slug→back-link 组装收口为 `loadIssueDetailRouteLookup(...)` 和 `buildIssueDetailRouteBackLinkProps(...)` 两个共享 seam，并补 routes seam 回归测试锁定成功解析与无 slug 时的空 contract。
+    已将 lookup seam 成功场景测试改为先断言 `loadIssueDetailRouteLookup(...)` 返回值，再复用同一 lookup 结果断言 `buildIssueDetailRouteBackLinkProps(...)` contract，去掉 helper 级重复手写 organizations fixture，保留 route 级成功/无 slug/API 失败 contract 断言不变。
   tests:
     - cd frontend && pnpm test -- --run src/lib/routes.test.tsx: passed (5 files, 57 tests)
     - cd frontend && npx tsc --noEmit: passed
     - git diff --check: passed
   review:
     code: approved
-  commit: 55fb9752f5ee5c27e0fb433543b0c7933e3df11a
-  next_task: IMP-28
+  commit: 5acc3d094d2320fa3c518288528e4787915d0be1
+  next_task: IMP-29
 current_task:
-  id: IMP-28
+  id: IMP-29
   parent_task: linear-parity-push
-  title: 为 legacy `/issues/[id]` lookup seam 补最小 route 级失败/成功 contract 断言去除 route 与 helper 断言重复
+  title: 评估 legacy `/issues/[id]` route 是否可将失败断言收口为共享空 back-link contract helper
   lane: Implementation
   status: pending
   done_when: >-
-    在不扩大实现面的前提下，复核 `loadIssueDetailRouteLookup(...)` / `buildIssueDetailRouteBackLinkProps(...)` 与 legacy route 现有测试边界，若存在 route 级与 helper 级重复断言，则收紧为一组更稳定的最小 contract 断言并保持定向验证通过。
+    在不扩大实现面的前提下，复核 legacy `/issues/[id]` route 当前两条 API 失败断言是否仍重复表达同一空 back-link 降级 contract；若可安全收口，则提炼一层仅供测试复用的共享期望/断言 helper，并保持定向验证通过。
   blocker: '-'
 notes:
   execution_rules:
