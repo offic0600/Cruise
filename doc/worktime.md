@@ -2,6 +2,8 @@
      2|     2|     2|     2|     2|
      3|| 项目 | Session | 日期 | 工作内容 | 预估工时 | 实际工时 |
 |---|---|---|---|---|---|
+| Linear 对标 | Session 181 | 2026-04-20 | 按 implementation lane 完成 IMP-62：将 route 级 `getIssue(...)` API 失败场景测试标题从 `renders when getIssue rejects in the legacy /issues/[id] route` 收口为 `renders when getIssue rejects`，去掉第一条对称安全标题中的 route 全称，并保持共享断言/fixture 不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
+| Linear 对标 | Session 180 | 2026-04-20 | 按 Capture lane 恢复 CAP-08 状态并核对既有 capture 产物闭环：确认 watchdog 仍为 attached_cdp_only、`tmp/linear-capture/summary.json` 时间早于 task-board/state/logbook/worktime 最近写回，说明 CAP-08 相关证据已完成 docs 同步；本轮不重复采集，保持 CAP-08 blocked 结论不变 | 0.1h | 0.1h |
 | Linear 对标 | Session 179 | 2026-04-20 | 按 implementation lane 完成 IMP-61：将 route 级 `getOrganizations()` API 失败场景测试标题从 `renders props ...` 收口为 `renders when getOrganizations rejects in the legacy /issues/[id] route`，去掉第二条对称安全标题中的 `props` wording，并保持共享断言/fixture 不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 178 | 2026-04-20 | 按 implementation lane 完成 IMP-60：将 route 级 `getIssue(...)` API 失败场景测试标题从 `renders props ...` 收口为 `renders when getIssue rejects in the legacy /issues/[id] route`，去掉第一条安全标题中的 `props` wording，并保持 `getOrganizations()` 失败标题/共享断言/fixture 不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 177 | 2026-04-20 | 按 implementation lane 完成 IMP-59：将 route 级 `getOrganizations()` API 失败场景测试标题从 `renders empty props ...` 收口为 `renders props when getOrganizations rejects in the legacy /issues/[id] route`，去掉第二条对称安全标题中的 `empty` wording，并保持共享断言/fixture 不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |

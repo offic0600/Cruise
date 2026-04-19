@@ -1,3 +1,75 @@
+
+## Session 181 — 2026-04-20：去掉第一条 legacy route API 失败标题中的 route 全称
+
+**目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-62`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 两条 API 失败场景当前均为 `renders when ... in the legacy /issues/[id] route` 后，标题中的 `legacy /issues/[id] route` 全称是否仍存在可安全收口的一处；若可行，则只改第一处安全标题并完成验证、review、提交、状态回写与 push 闭环。
+
+### 181.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 读取 | `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` | 确认当前分支 `codex/unify-issue-model`、执行前 HEAD 为 `b1813ef432350a40c0a7859f1e6bc6a5391bc096`，工作树存在 `doc/worktime.md`、`docs/linear-parity/task-board.md`、`docs/planning/dev-logbook.md`、`docs/status/roadmap-state.yaml` 的 docs 闭环残留，符合上轮同 lane 收口边界，可继续完成本轮 implementation execution unit |
+| 读取 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/plans/2026-04-16-linear-parity-roadmap.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` / `frontend/src/lib/routes.test.tsx` | 恢复唯一状态源、lane 明细、roadmap 与日志/工时回写要求，并确认 `IMP-62` 只允许评估两条 route 级 API 失败标题在均去掉 `props` wording 后是否还需保留 `legacy /issues/[id] route` 全称 |
+| 配置 | `git config user.name/user.email` | 复核 git author 使用 `offic0600 <offic0600@163.com>` |
+| 修改 | `frontend/src/lib/routes.test.tsx` | 将第一条 `getIssue(...)` 失败场景测试标题从 `renders when getIssue rejects in the legacy /issues/[id] route` 收口为 `renders when getIssue rejects`，利用文件作用域 describe 已限定 legacy route 上下文，先只去掉第一处完整路径 wording，并保持共享断言、fixture 设置与 helper/route 运行时逻辑不变 |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` / `cd frontend && npx tsc --noEmit` / `git diff --check` | 三项验证均通过：routes seam 定向测试 5 files / 57 tests 全绿，TypeScript 检查通过，diff 无 whitespace 问题 |
+| Review | `git diff -- frontend/src/lib/routes.test.tsx` | 复核本轮只改一处 route 级 API 失败测试标题文案，不改共享断言结构、fixture 设置或 helper/route 运行时逻辑；review 结论为通过 |
+| 提交 | `git commit -m "[verified] test: trim first route title suffix"` | 完成本轮 feature/work commit，得到真实提交 `913e91d22272b538d5d91d7a88d7e9d790386163` |
+| 修改 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 将 `IMP-62` 写回 done，记录真实 feature SHA，并新增下一轮 `IMP-63`：评估 `getOrganizations()` 失败场景标题是否也应去掉 route 全称 |
+
+### 181.2 本轮落地结果
+
+- 已复核 legacy `/issues/[id]` route 两条 API 失败场景标题当前都属于 route 级渲染后断言 `IssueDetailPage` 收到空 props 的观察面；在文件作用域 describe 已限定 legacy `/issues/[id]` route 上下文、且第二条对称标题仍保留完整路径 wording 作为对照的前提下，第一条标题可继续安全收口。
+- 因此本轮仅将 `getIssue(...)` 失败场景测试标题收口为 `renders when getIssue rejects`，同时保持共享断言、fixture 设置以及 helper/route 运行时逻辑不变。
+- `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 已写回：`IMP-62` -> `done`，下一轮转入 `IMP-63`，继续评估 `getOrganizations()` 失败场景标题中的 route 全称是否也可安全去掉。
+
+### 181.3 经验沉淀
+
+- 当同一 describe 块已明确限定 legacy route 上下文时，可以按 execution unit 一次只移除一处测试标题中的完整路径后缀，用同组对称标题保留的完整 wording 作为语义对照，继续最小幅度压缩测试文案而不改变断言边界。
+- 即使两条 route 级 API 失败场景在语义上完全对称，也仍应保持“一次只动一处标题”的节奏；先让第一条 route 全称后缀完成收口，再单独判断第二条对称标题是否同样可安全缩短。
+
+### 181.4 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-62 → IMP-63` |
+| 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `b1813ef432350a40c0a7859f1e6bc6a5391bc096` |
+| feature commit | `913e91d22272b538d5d91d7a88d7e9d790386163` |
+| 定向测试 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` ✅（5 files, 57 tests） |
+| TypeScript 检查 | `cd frontend && npx tsc --noEmit` ✅ |
+| Diff 检查 | `git diff --check` ✅ |
+
+## Session 180 — 2026-04-20：收口 CAP-08 既有 capture 产物到 docs
+
+**目标**：按 Capture lane 恢复 `docs/status/roadmap-state.yaml`、`docs/linear-parity/task-board.md` 与 `~/Desktop/Cruise/.hermes/linear-9222-watchdog/last-status.txt`；在严格继承 `consumer_policy=attached_cdp_only` 且不使用 Hermes 内置 browser 的前提下，只处理一个最小 execution unit：确认 `tmp/linear-capture/summary.json` 所代表的既有 capture 产物早于当前 task-board/state/logbook/worktime，docs 已覆盖这批证据，因此本轮仅做 capture lane 状态核对与闭环说明，不重复采集、不改任务状态。
+
+### 180.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 读取 | `AGENTS.md` / `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `~/Desktop/Cruise/.hermes/linear-9222-watchdog/last-status.txt` | 按 cron 规则恢复真实状态，确认 watchdog 仍为 `consumer_policy=attached_cdp_only`、`websocket_attach=ok`，而状态文件当前停在 Implementation lane，需要回退 task-board 的 Capture lane 选择当前 capture 任务 |
+| 读取 | `tmp/linear-capture/summary.json` / `docs/planning/dev-logbook.md` / `doc/worktime.md` / `git diff -- docs/linear-parity/task-board.md docs/planning/dev-logbook.md doc/worktime.md docs/status/roadmap-state.yaml` | 核对 capture 证据产物与 docs 更新时间，确认 `summary.json` 时间为 2026-04-19 23:20:06 CST，早于 task-board/state/logbook/worktime 的 2026-04-20 05:41–05:43 CST，且上述 docs 当前无未提交差异 |
+
+### 180.2 本轮落地结果
+
+- 已确认 watchdog 最新状态仍为 `attached_cdp_only + websocket_attach=ok`，本轮因此严格继承只读 CDP 约束，未使用 Hermes 内置 `browser_*`。
+- 已比对 `tmp/linear-capture/summary.json` 与 docs 时间戳：capture 产物早于 `docs/linear-parity/task-board.md`、`docs/status/roadmap-state.yaml`、`docs/planning/dev-logbook.md`、`doc/worktime.md` 的最近写回时间，说明这批 CAP-08 相关证据已在后续文档中完成闭环，而不是“有新产物未写回 docs”。
+- 因此本轮不重复采集、不改 CAP-08 当前 `blocked` 状态；Capture lane 维持“需先解决同工作树 implementation 遗留脏变更的闭环风险，或改用独立干净工作树再继续 Add label 搜索输入的空结果/建议反馈态只读采集”的既有结论。
+
+### 180.3 经验沉淀
+
+- 对 capture cron，先做“证据产物时间是否晚于 docs”的判断可以避免在 docs 已同步的情况下重复采集；若产物早于最新 docs，应优先判定为已闭环，而不是重复执行只读 capture。
+- 当状态文件停在其他 lane 时，capture cron 仍应按 task-board 回退到 Capture lane 当前项恢复，但若没有新的 capture 产物且 docs 已同步，最小 execution unit 可以是一次状态核对并明确保持 blocker 不变。
+
+### 180.4 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Capture / CAP-08（保持 blocked）` |
+| watchdog 约束 | `consumer_policy=attached_cdp_only`；`websocket_attach=ok` |
+| 最新 capture 产物 | `tmp/linear-capture/summary.json` → `2026-04-19 23:20:06 CST` |
+| 最新 docs 写回 | `docs/planning/dev-logbook.md` / `doc/worktime.md` → `2026-04-20 05:41:39 CST`；`docs/status/roadmap-state.yaml` → `2026-04-20 05:43:00 CST`；`docs/linear-parity/task-board.md` → `2026-04-20 05:43:44 CST` |
+| docs 差异检查 | `git diff -- docs/linear-parity/task-board.md docs/planning/dev-logbook.md doc/worktime.md docs/status/roadmap-state.yaml` ✅（无差异） |
+
 ## Session 179 — 2026-04-20：去掉第二条 legacy route API 失败标题中的 props wording
 
 **目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-61`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route `getOrganizations()` API 失败场景当前 `renders props when getOrganizations rejects in the legacy /issues/[id] route` 标题中的 `props` wording 是否也可像 `getIssue(...)` 场景一样安全去掉；若可行，则只改这一处安全标题并完成验证、review、提交、状态回写与 push 闭环。
