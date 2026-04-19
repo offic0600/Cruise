@@ -1,5 +1,87 @@
 # Cruise — 开发日志（Dev Logbook）
 
+## Session 144 — 2026-04-19：让 IssueDetailPage 直接消费共享 back-link contract props
+
+**目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-22`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：把 `IssueDetailPage` 的返回链接 props 命名收口为与 route shell `pageBackLink` 完全一致的 `href/label` contract，并完成验证、review、feature commit、状态写回与 push 闭环。
+
+### 144.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 读取 | `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` | 确认当前分支 `codex/unify-issue-model`、起始 HEAD `062928ccafb40b4679a35a5e6dcd8d4c4c38e1c3`，工作树内仅有本 lane 已准备收口的 state/docs 遗留改动，可继续同一 execution unit 闭环 |
+| 读取 | `AGENTS.md` / `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/plans/2026-04-16-linear-parity-roadmap.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 恢复唯一状态源、lane 明细、roadmap 约束、日志/工时回写要求与 git author 规则，确认本轮只允许推进 `IMP-22` |
+| 配置 | `git config user.name/user.email` | 再次确认 git author 使用 `offic0600 <offic0600@163.com>` |
+| 复核 | `frontend/src/components/issues/IssueDetailPage.tsx` / `frontend/src/app/[workspaceSlug]/issue/[identifier]/[titleSlug]/page.tsx` / `frontend/src/lib/routes.test.tsx` | 识别 route 已统一透传 shared `pageBackLink`，但 `IssueDetailPage` 仍保留 `backHref/backLabel` 旧命名 props，适合作为 `IMP-22` 的最小切口 |
+| 修改 | `frontend/src/components/issues/IssueDetailPage.tsx` | 将组件 props 收口为共享 `href/label` contract，并让内部 fallback 继续只在未显式传值时回退到 workspace/team active issues 链接 |
+| 修改 | `frontend/src/lib/routes.test.tsx` | 删除 mock 层对旧 `backHref/backLabel` 的兼容标准化，改为直接断言 route steady/cached-refetch 分支传给 `IssueDetailPage` 的 shared `href/label` props |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` / `cd frontend && npx tsc --noEmit` / `git diff --check` | 三项验证均通过：routes seam 定向测试 5 files / 51 tests 全绿，TypeScript 检查通过，diff 无 whitespace 问题 |
+| Review | `git diff -- frontend/src/components/issues/IssueDetailPage.tsx frontend/src/lib/routes.test.tsx` | 复核本轮只收口 page component 对 shared back-link contract 的 props 命名，没有扩大到 route shell 之外的导航行为或 capture lane |
+| 提交 | `git commit -m "[verified] feat: align issue detail page with shared back-link contract"` | 完成本轮 feature/work commit，得到真实提交 `035fafae7748d3f16e601619ed57fca616f0bf16` |
+
+### 144.2 本轮落地结果
+
+- `IssueDetailPage` 现在直接消费与 route shell `pageBackLink` 一致的 `href/label` props，删除了组件 API 中仅为历史命名保留的 `backHref/backLabel` 专用入口。
+- route seam 测试已改为直接断言 shared `href/label` contract，确保 steady 与 cached-refetch 两个渲染分支都不再依赖 mock 层兼容旧 props 命名。
+- 组件内部对 `teamActivePath(...)` 的 fallback 暂时保留，继续作为未显式传入 back-link 时的唯一兜底，不在本轮扩大为页面级导航策略重构。
+- `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 已写回：`IMP-22` -> `done`，下一轮转入 `IMP-23`，评估组件内部 fallback 是否还可进一步收紧。
+
+### 144.3 经验沉淀
+
+- 当 route helper 与 page component 之间的共享 contract 已稳定时，可把组件 props 命名收口单独作为一轮 execution unit，避免 route 与 component 长期依赖测试 mock 的“双语兼容层”。
+- 渐进式 seam 重构中，先让测试 mock 去掉兼容层、直接断言目标 contract，能更快暴露是否仍有调用点停留在旧接口上。
+
+### 144.4 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-22 → IMP-23` |
+| 当前分支 / HEAD（改动前） | `codex/unify-issue-model` / `062928ccafb40b4679a35a5e6dcd8d4c4c38e1c3` |
+| feature commit | `035fafae7748d3f16e601619ed57fca616f0bf16` |
+| 定向测试 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` ✅（5 files, 51 tests） |
+| TypeScript 检查 | `cd frontend && npx tsc --noEmit` ✅ |
+| Diff 检查 | `git diff --check` ✅ |
+
+## Session 143 — 2026-04-19：收口 IMP-21 默认 page back-link props 重复组装
+
+**目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-21`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：让 issue detail route 的默认 `IssueDetailPage` 渲染分支也直接消费共享 `pageBackLink` contract，完成最小充分验证、独立 review、feature commit、状态写回与 push 闭环。
+
+### 143.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 读取 | `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` | 确认当前分支 `codex/unify-issue-model`、HEAD `7cede7b20790301deef88fa8bf84faa5b5ddb779`，工作树起始为干净，可安全继续单一 implementation execution unit |
+| 读取 | `AGENTS.md` / `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/plans/2026-04-16-linear-parity-roadmap.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 恢复唯一状态源、lane 明细、roadmap 约束、日志/工时回写要求与 git author 规则，确认本轮只允许推进 `IMP-21` |
+| 配置 | `git config user.name/user.email` | 再次确认 git author 使用 `offic0600 <offic0600@163.com>` |
+| 复核 | `frontend/src/app/[workspaceSlug]/issue/[identifier]/[titleSlug]/page.tsx` / `frontend/src/components/issues/IssueDetailPage.tsx` / `frontend/src/lib/routes.test.tsx` | 识别 route 的 cached-refetch 分支已消费 shared `pageBackLink`，但默认 page 分支仍手写 `backHref/backLabel`，适合作为 `IMP-21` 的唯一最小切口 |
+| 修改 | `frontend/src/app/[workspaceSlug]/issue/[identifier]/[titleSlug]/page.tsx` | 将 cached-refetch 与默认 page 两个 `IssueDetailPage` 渲染分支统一改为直接展开 `backgroundRefetchRouteShellModel.pageBackLink` / `routeShellModel.pageBackLink`，删除 route 内对 `backHref/backLabel` 的重复组装 |
+| 修改 | `frontend/src/lib/routes.test.tsx` | 调整 `IssueDetailPage` mock，使其在测试中同时兼容旧 `backHref/backLabel` 与本轮 shared `href/label` 透传写法，并继续把断言标准化为 `backHref/backLabel` contract |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` / `cd frontend && npx tsc --noEmit` / `git diff --check` | 三项验证均通过：routes seam 定向测试 5 files / 51 tests 全绿，TypeScript 检查通过，diff 无 whitespace 问题 |
+| Review | `git diff -- frontend/src/app/[workspaceSlug]/issue/[identifier]/[titleSlug]/page.tsx frontend/src/lib/routes.test.tsx` | 复核本轮只收口 route 默认 page 分支 back-link props seam 与对应测试适配，没有扩大到 `IssueDetailPage` 内部 fallback 逻辑或 capture lane |
+| 提交 | `git commit -m "[verified] feat: reuse shared issue detail page back-link props"` | 完成本轮 feature/work commit，得到真实提交 `062928ccafb40b4679a35a5e6dcd8d4c4c38e1c3` |
+
+### 143.2 本轮落地结果
+
+- issue detail route 的默认 page 分支现已与 cached-refetch 分支一致，直接展开 `buildIssueDetailRouteShellModel(...)` 产出的共享 `pageBackLink` props，不再在 route JSX 内重复拆出 `backHref/backLabel`。
+- `routes.test.tsx` 中的 `IssueDetailPage` mock 已兼容 shared props 透传写法，并继续把断言归一到 `backHref/backLabel` 语义，确保 route/page contract 变更不会掩盖调用语义回归。
+- 本轮 execution unit 保持最小：只处理 route 默认 page 分支残留的 back-link props 重复组装，不触碰 `IssueDetailPage` 内部 `detailBackHref/detailBackLabel` fallback 行为。
+- `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 已写回：`IMP-21` -> `done`，下一轮转入 `IMP-22`，评估 `IssueDetailPage` 内部默认 back-link fallback 是否仍需保留。
+
+### 143.3 经验沉淀
+
+- 当 route shell helper 已经稳定输出结构化 props 时，route JSX 剩余的 `propA={model.a} propB={model.b}` 重复组装也值得作为单独一轮 execution unit 收口；这样可以在不碰下游组件内部实现的前提下继续收紧 route/page seam。
+- 对 mock 组件回归测试，可先把新旧 props 入口在 mock 层做兼容标准化，再保持既有断言 contract 不变，能更平滑地验证渐进式 props 重构。
+
+### 143.4 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-21 → IMP-22` |
+| 当前分支 / HEAD（改动前） | `codex/unify-issue-model` / `7cede7b20790301deef88fa8bf84faa5b5ddb779` |
+| feature commit | `062928ccafb40b4679a35a5e6dcd8d4c4c38e1c3` |
+| 定向测试 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` ✅（5 files, 51 tests） |
+| TypeScript 检查 | `cd frontend && npx tsc --noEmit` ✅ |
+| Diff 检查 | `git diff --check` ✅ |
+
 ## Session 141 — 2026-04-19：为 IMP-18 补 route shell shared model 验证收口
 
 **目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-18`，在完成 git/roadmap/task-board 恢复后，只做一个最小 execution unit：为 issue detail route shell 提炼共享 `shell model` helper，把 empty-state + loading-state contract 聚合到单一 seam，并完成最小验证、review、提交、状态写回与 push 闭环。
