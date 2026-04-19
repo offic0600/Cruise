@@ -1,3 +1,44 @@
+## Session 172 — 2026-04-20：去掉第二条 legacy route API 失败标题中的 contract wording
+
+**目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-51`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route `getOrganizations()` 失败场景当前 `renders the empty props contract ...` 标题中的 `contract` wording 是否也可像 `getIssue(...)` 场景一样安全去掉；若可行，则只改这一处安全的测试文案并完成验证、review、提交、状态回写与 push 闭环。
+
+### 172.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 读取 | `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` | 确认当前分支 `codex/unify-issue-model`、执行前 HEAD 已是本轮 feature commit `3700122bb8321f70083fd9f729a6a0a2e4df8260`，工作树仅剩 docs/state 闭环改动，属于同一 execution unit 的 closure-only 残留，可继续收口 |
+| 读取 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/plans/2026-04-16-linear-parity-roadmap.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 恢复唯一状态源、lane 明细、roadmap 与日志/工时回写要求，确认本轮只允许收口已完成的 `IMP-51`，并需把 task-board / logbook / worktime 与状态文件中已写入的 feature SHA、next task 保持一致 |
+| 配置 | `git config user.name/user.email` | 确认 git author 使用 `offic0600 <offic0600@163.com>` |
+| 修改 | `docs/linear-parity/task-board.md` | 将 `IMP-51` 写回 `done` 并补入完成摘要，同时新增与状态文件一致的后继任务 `IMP-52`，避免 task-board 与唯一状态源对下一轮 implementation lane 的定义漂移 |
+| 修改 | `docs/status/roadmap-state.yaml` | 保持 `project.head` / `last_completed_task.commit` 指向真实 feature SHA `3700122bb8321f70083fd9f729a6a0a2e4df8260`，并修正 `next_run_prompt_summary` 中仍误指向 `IMP-51` 的旧摘要，使其与当前 `current_task: IMP-52` 一致 |
+| 修改 | `docs/planning/dev-logbook.md` / `doc/worktime.md` | 新增 Session 172 闭环记录，说明本轮属于 implementation lane 的 docs/state closure-only 收口，补齐 task-board / 状态摘要 / 工时追踪 |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` / `cd frontend && npx tsc --noEmit` / `git diff --check` | 继承并核对本轮 feature execution 的最小充分验证结果均通过：routes seam 定向测试 5 files / 57 tests 全绿，TypeScript 检查通过，diff 无 whitespace 问题 |
+| Review | 重新读取 `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` | 二次核对 `project.head`、`last_completed_task.commit`、`current_task`/`next_task` 与 task-board 行状态一致，确认未把 future task 写成 done，也未把 feature SHA 误写为 docs commit SHA；review 结论为通过 |
+| 提交 | `git commit -m "[verified] docs: close IMP-51 state loop"` | 完成本轮 docs/state commit，单独收口 implementation lane 的状态、task-board、logbook 与 worktime |
+
+### 172.2 本轮落地结果
+
+- 本轮判断为 implementation lane 的 **closure-only** 收口：代码层唯一 execution unit `IMP-51` 已在 feature commit `3700122bb8321f70083fd9f729a6a0a2e4df8260` 中完成，当前工作树残留仅为同 lane 的 docs/state 闭环改动，因此继续完成状态同步而不新增实现。
+- `docs/linear-parity/task-board.md` 已将 `IMP-51` 写回 `done`，并补入与唯一状态源一致的后继任务 `IMP-52`：评估两条 API 失败场景测试标题在均去掉 `contract` wording 后，是否仍需保留 `empty props` 全称。
+- `docs/status/roadmap-state.yaml` 已保持 `project.head` / `last_completed_task.commit` 指向真实 feature SHA `3700122bb8321f70083fd9f729a6a0a2e4df8260`，并修正 `next_run_prompt_summary` 中对旧 task id 的引用，使其与当前 `IMP-52` 一致。
+- `docs/planning/dev-logbook.md` 与 `doc/worktime.md` 已补齐本轮 closure-only 收口记录，确保 execution、状态、工时三处文档一致。
+
+### 172.3 经验沉淀
+
+- 对 cron state machine 而言，若 feature/work commit 已落地且剩余改动只包含状态文件、task-board、logbook、worktime 等同 lane 闭环文档，应优先将该轮识别为 closure-only，而不是误判为跨 lane 污染 blocked。
+- 在推进 `current_task` 后若先写了状态文件，也必须二次核对 `next_run_prompt_summary`、task-board 后继行与 `current_task.id` 是否同步；自由文本摘要若滞留旧 task id，会在下一轮 fresh session 中造成恢复歧义。
+
+### 172.4 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-51 → IMP-52` |
+| 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `3700122bb8321f70083fd9f729a6a0a2e4df8260` |
+| feature commit | `3700122bb8321f70083fd9f729a6a0a2e4df8260` |
+| 定向测试 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` ✅（5 files, 57 tests） |
+| TypeScript 检查 | `cd frontend && npx tsc --noEmit` ✅ |
+| Diff 检查 | `git diff --check` ✅ |
+
 ## Session 171 — 2026-04-20：收口第一条 legacy route API 失败标题中的 contract wording
 
 **目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-50`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 两条 API 失败场景标题在均去掉 `shared` wording 后，第一条安全标题中的 `empty props contract` 全称是否仍可继续安全收口；若可行，则只改 `getIssue(...)` 失败场景这一处文案并完成验证、review、提交、状态回写与 push 闭环。
