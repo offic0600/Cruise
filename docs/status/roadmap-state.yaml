@@ -5,32 +5,31 @@ roadmap:
 project:
   repo_path: /Users/liuzheng/Desktop/Cruise
   branch: codex/unify-issue-model
-  head: 28893be2fe2143b01ed57f8f94f19c89e3a1090b
+  head: 9dd1828bf6c5d3c3fe1c5ce7f67d9233291a73fa
   baseline_commit: 5f9bbf40737ed971c5a7c4d446c68345454a161f
 last_completed_task:
-  id: IMP-24
-  title: 为 `/issues/[id]` 直达 issue 详情页补最小显式 back-link contract
+  id: IMP-25
+  title: 为 `/issues/[id]` 直达页补最小 route seam 回归测试以锁定显式 back-link contract
   status: done
   summary: >-
-    `/issues/[id]` 直达页现已在服务端先获取 issue 与 organizations，按 `organizationId` 解析 workspace slug 后显式构造并传入 `IssueDetailPage` 的 `href/label` back-link contract，从而消除顶部返回链接对组件内部默认 fallback 的依赖；`IssueDetailPage` 仍仅保留删除后跳转所需的内部 `teamActivePath(...)` 导航兜底，不再承担页面顶部 CTA 的缺省生成职责。
+    已为 legacy `/issues/[id]` 直达 issue 详情页补最小 route seam 回归测试：直接调用 route 并渲染返回元素，锁定其在可解析 workspace slug 时向 `IssueDetailPage` 显式透传 `/[workspace]/issue/[identifier]/[slug]` 的 `href` 与 `label: null` contract；同时覆盖 organizations 无匹配 slug 时回退为空 back-link props 的安全降级行为。
   tests:
-    - cd frontend && pnpm test -- --run src/lib/routes.test.tsx: passed (5 files, 51 tests)
+    - cd frontend && pnpm test -- --run src/lib/routes.test.tsx: passed (5 files, 53 tests)
     - cd frontend && npx tsc --noEmit: passed
     - git diff --check: passed
   review:
     code: approved
-  commit: 28893be2fe2143b01ed57f8f94f19c89e3a1090b
-  next_task: IMP-25
+  commit: 2cb5c35dd4be33c88ec15f4ca46c87a2a7f61fe9
+  next_task: IMP-26
 current_task:
-  id: IMP-25
+  id: IMP-26
   parent_task: linear-parity-push
-  title: 为 `/issues/[id]` 直达页补最小 route seam 回归测试以锁定显式 back-link contract
+  title: 为 legacy `/issues/[id]` route 补 API 失败场景 seam 测试以锁定 try/catch 降级 contract
   lane: Implementation
   status: pending
   done_when: >-
-    为 `/issues/[id]` 直达 issue 详情页新增最小 route seam 回归测试，锁定其向 `IssueDetailPage` 显式透传 `href/label` back-link contract，并覆盖无可解析 workspace slug 时的安全降级行为。
-  blocker: >-
-    暂无外部 blocker；当前代码路径已显式传入 back-link contract，但仍缺少针对 legacy `/issues/[id]` 直达页的独立 seam 测试，下一轮应优先补齐该验证而不是继续扩大导航重构范围。
+    为 legacy `/issues/[id]` 直达 route 新增最小 seam 回归测试，覆盖 `getIssue(...)` 或 `getOrganizations()` 抛错时 route 仍以空 back-link props 渲染 `IssueDetailPage` 的 try/catch 降级 contract。
+  blocker: '-'
 notes:
   execution_rules:
     - docs/status/roadmap-state.yaml 是 linear parity cron 的唯一恢复状态源；task-board 是 lane 明细与后继任务定义源。
