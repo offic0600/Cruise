@@ -824,7 +824,7 @@ describe('routes helpers for active issues workspace routing', () => {
   });
 
 
-  it('falls back to the shared empty props contract when getIssue rejects in the legacy /issues/[id] route', async () => {
+  it('renders the shared empty props contract when getIssue rejects in the legacy /issues/[id] route', async () => {
     getIssueMock.mockRejectedValue(new Error('issue lookup failed'));
 
     const element = await IssueDetailRoute({ params: Promise.resolve({ id: '42' }) });
