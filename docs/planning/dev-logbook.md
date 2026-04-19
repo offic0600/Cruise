@@ -1,5 +1,44 @@
 # Cruise — 开发日志（Dev Logbook）
 
+## Session 157 — 2026-04-20：统一 legacy `/issues/[id]` route workspace slug miss 场景测试标题到 shared empty props contract 语义
+
+**目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-36`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 当前 workspace slug miss 场景 route 级测试标题是否仍保留 `shared legacy lookup seam` / `empty back-link` wording；若可行，则只做一刀测试文案收口并完成验证、review、提交、状态回写与 push 闭环。
+
+### 157.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 读取 | `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` | 确认当前分支 `codex/unify-issue-model`、执行前 HEAD `7bc79c97db66bf00e9dd40be733af5216be3b105`，工作树起始干净，可安全继续单一 implementation execution unit |
+| 读取 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/plans/2026-04-16-linear-parity-roadmap.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` / `frontend/src/lib/routes.test.tsx` | 恢复唯一状态源、lane 明细、roadmap 与日志/工时回写要求，确认本轮只允许推进 `IMP-36`，且最小切口是统一 workspace slug miss 场景 route 级测试标题中的 shared empty props contract 语义 |
+| 配置 | `git config user.name/user.email` | 确认 git author 使用 `offic0600 <offic0600@163.com>` |
+| 修改 | `frontend/src/lib/routes.test.tsx` | 将 workspace slug miss 场景 route 级测试标题改为 `falls back to the shared empty props contract when the legacy /issues/[id] route workspace slug lookup misses`，去掉残留的 `shared legacy lookup seam` / `empty back-link` wording，同时保持共享 helper、断言与运行时逻辑不变 |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` / `cd frontend && npx tsc --noEmit` / `git diff --check` | 三项验证均通过：routes seam 定向测试 5 files / 57 tests 全绿，TypeScript 检查通过，diff 无 whitespace 问题 |
+| Review | `git diff -- frontend/src/lib/routes.test.tsx` | 复核本轮只改 workspace slug miss 场景 route 级测试标题文案，不改 route/helper 运行时逻辑、共享断言结构或第二个 execution unit |
+| 提交 | `git commit -m "[verified] test: align legacy workspace slug miss empty props wording"` | 完成本轮 feature/work commit，得到真实提交 `539f09de17c9b46739e718f42ebe72d1e8967e26` |
+| 修改 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 将 `IMP-36` 写回 done，记录真实 feature SHA，并新增下一轮 `IMP-37`：评估 helper 级 workspace slug miss 场景测试标题是否也可继续统一为 shared empty props contract 语义 |
+
+### 157.2 本轮落地结果
+
+- legacy `/issues/[id]` route 的 workspace slug miss 场景 route 级测试标题现已统一改为 shared empty props contract 语义，不再残留 `shared legacy lookup seam` 或 `empty back-link` wording。
+- `expectLegacyIssueRouteEmptyPropsContract()` 共享断言 helper、workspace slug miss 场景的 fixture 设置以及 route 运行时逻辑均保持不变；本轮作用面仅限测试文案收口。
+- `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 已写回：`IMP-36` -> `done`，下一轮转入 `IMP-37`，继续评估 helper 级 workspace slug miss 场景标题是否可同步收口。
+
+### 157.3 经验沉淀
+
+- 当 route 级多个分支已经统一落到同一个 `expectLegacyIssueRouteEmptyPropsContract()` 断言 helper 时，测试标题应优先直接对齐该 contract 语义，而不是继续强调历史上的 seam 命名来源。
+- 连续多轮只处理测试命名噪音时，可先收口 route 级标题，再拆一轮单独处理 helper 级标题，能保持每轮 execution unit 单一且验证成本稳定。
+
+### 157.4 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-36 → IMP-37` |
+| 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `7bc79c97db66bf00e9dd40be733af5216be3b105` |
+| feature commit | `539f09de17c9b46739e718f42ebe72d1e8967e26` |
+| 定向测试 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` ✅（5 files, 57 tests） |
+| TypeScript 检查 | `cd frontend && npx tsc --noEmit` ✅ |
+| Diff 检查 | `git diff --check` ✅ |
+
 ## Session 156 — 2026-04-20：统一 legacy `/issues/[id]` route API 失败场景测试标题到 shared empty props contract 语义
 
 **目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-35`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 的 `getIssue(...)` / `getOrganizations()` API 失败场景测试标题是否仍混用 `empty back-link` 与 `shared empty props contract` 语义；若可行，则只做一刀测试文案收口并完成验证、review、提交、状态回写与 push 闭环。
