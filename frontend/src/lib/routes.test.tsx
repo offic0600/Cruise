@@ -814,7 +814,7 @@ describe('routes helpers for active issues workspace routing', () => {
     expectLegacyIssueDetailRouteEmptyBackLinkProps();
   });
 
-  it('falls back to an empty back-link contract when the legacy /issues/[id] route cannot resolve a workspace slug', async () => {
+  it('passes the shared legacy lookup seam empty back-link contract through the legacy /issues/[id] route when workspace slug lookup misses', async () => {
     getOrganizationsMock.mockResolvedValue([{ id: 99, slug: 'other-workspace' }]);
 
     const element = await IssueDetailRoute({ params: Promise.resolve({ id: '42' }) });
