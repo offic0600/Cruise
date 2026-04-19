@@ -1,5 +1,45 @@
 # Cruise — 开发日志（Dev Logbook）
 
+## Session 151 — 2026-04-20：继续收口 legacy `/issues/[id]` route 无 slug 空 back-link 断言
+
+**目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-30`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 当前“无 workspace slug”空 back-link route/helper 断言是否仍存在可安全合并的重复；若可行，则继续提炼共享测试期望并完成验证、review、提交、状态回写与 push 闭环。
+
+### 151.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 读取 | `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` | 确认当前分支 `codex/unify-issue-model`、执行前 HEAD `acd97db577a79b3f4d0c51e479bbad666f52c755`，工作树起始干净，可安全继续单一 implementation execution unit |
+| 读取 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/plans/2026-04-16-linear-parity-roadmap.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` / `frontend/src/app/issues/[id]/page.tsx` / `frontend/src/lib/routes.test.tsx` | 恢复唯一状态源、lane 明细、roadmap 与日志/工时回写要求，确认本轮只允许推进 `IMP-30`，且最小切口是把 route 级“无 workspace slug”空 back-link 断言并入上一轮失败分支共享 helper |
+| 配置 | `git config user.name/user.email` | 再次确认 git author 使用 `offic0600 <offic0600@163.com>` |
+| 修改 | `frontend/src/lib/routes.test.tsx` | 让 legacy `/issues/[id]` route 的“无 workspace slug”场景改为复用 `expectLegacyIssueRouteEmptyBackLinkContract()`，去掉 route 级重复手写空 `href/label` 断言，同时保留 helper 级 `buildIssueDetailRouteBackLinkProps(...)` 无 slug 空对象 contract 断言不变 |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` / `cd frontend && npx tsc --noEmit` / `git diff --check` | 三项验证均通过：routes seam 定向测试 5 files / 57 tests 全绿，TypeScript 检查通过，diff 无 whitespace 问题 |
+| Review | `git diff -- frontend/src/lib/routes.test.tsx` | 复核本轮只继续收口 legacy route 空 back-link 测试重复期望，不改动 route 运行时逻辑，也未扩大到 helper 行为重构或第二个 execution unit |
+| 提交 | `git commit -m "[verified] test: share legacy issue route no-slug empty assertion"` | 完成本轮 feature/work commit，得到真实提交 `a17114b58ff361355848fba72165989333699328` |
+| 修改 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 将 `IMP-30` 写回 done，记录真实 feature SHA，并新增下一轮 `IMP-31`：评估 legacy route 空 back-link helper 是否可继续收口 route/helper 命名与调用边界 |
+
+### 151.2 本轮落地结果
+
+- legacy `/issues/[id]` route 的“无 workspace slug”场景测试现已与 `getIssue(...)` / `getOrganizations()` 两条失败场景共用 `expectLegacyIssueRouteEmptyBackLinkContract()`，统一锁定 route 级空 `href/label` 降级 contract。
+- helper 级 `buildIssueDetailRouteBackLinkProps(...)` 的无 slug 返回空对象断言保持独立，因其验证的是 lookup helper contract，而不是 route 渲染 contract。
+- route 运行时代码与 lookup seam 未变，作用面保持在测试层最小收口。
+- `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 已写回：`IMP-30` -> `done`，下一轮转入 `IMP-31`，评估 route/helper 空 back-link helper 的命名与调用边界是否还可进一步收紧。
+
+### 151.3 经验沉淀
+
+- 当 route 级多个场景最终都渲染到同一空 props contract 时，应优先统一 route 级共享断言 helper；helper 层若验证的是不同层级 contract（例如返回空对象而不是渲染 props），则应保留独立断言边界。
+- 连续小步收口测试重复时，每轮只消除一种重复表达形式，能避免误把 route contract 与 helper contract 混成同一语义层。
+
+### 151.4 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-30 → IMP-31` |
+| 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `acd97db577a79b3f4d0c51e479bbad666f52c755` |
+| feature commit | `a17114b58ff361355848fba72165989333699328` |
+| 定向测试 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` ✅（5 files, 57 tests） |
+| TypeScript 检查 | `cd frontend && npx tsc --noEmit` ✅ |
+| Diff 检查 | `git diff --check` ✅ |
+
 ## Session 150 — 2026-04-20：收口 legacy `/issues/[id]` route 失败分支空 back-link 断言
 
 **目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-29`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 当前两条 API 失败断言是否仍重复表达同一空 back-link 降级 contract；若可安全收口，则提炼仅供测试复用的共享断言 helper，并完成验证、review、提交、状态回写与 push 闭环。
