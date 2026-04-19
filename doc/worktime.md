@@ -2,6 +2,7 @@
      2|     2|     2|     2|     2|
      3|| 项目 | Session | 日期 | 工作内容 | 预估工时 | 实际工时 |
 |---|---|---|---|---|---|
+| Linear 对标 | Session 185 | 2026-04-20 | 按 implementation lane 完成 IMP-66：将 route 级 `getIssue(...)` API 失败场景测试标题从 `renders getIssue rejects` 收口为 `getIssue rejects`，去掉第一条安全标题中的 `renders` 动词，并保持共享断言/fixture 不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 184 | 2026-04-20 | 按 implementation lane 完成 IMP-65：将 route 级 `getOrganizations()` API 失败场景测试标题从 `renders when getOrganizations rejects` 收口为 `renders getOrganizations rejects`，去掉第二条对称安全标题中的 `when` wording，并保持共享断言/fixture 不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 183 | 2026-04-20 | 按 implementation lane 完成 IMP-64：将 route 级 `getIssue(...)` API 失败场景测试标题从 `renders when getIssue rejects` 收口为 `renders getIssue rejects`，去掉第一条安全标题中的 `when` wording，并保持共享断言/fixture 不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 182 | 2026-04-20 | 按 implementation lane 完成 IMP-63：将 route 级 `getOrganizations()` API 失败场景测试标题从 `renders when getOrganizations rejects in the legacy /issues/[id] route` 收口为 `renders when getOrganizations rejects`，去掉第二条对称安全标题中的 route 全称，并保持共享断言/fixture 不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |

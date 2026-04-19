@@ -1,4 +1,42 @@
 
+## Session 185 — 2026-04-20：评估并去掉第一条 legacy route API 失败标题中的 renders 动词
+
+**目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-66`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 两条 API 失败场景当前均为 `renders getIssue rejects` / `renders getOrganizations rejects` 后，标题中的 `renders` 动词是否仍存在可安全收口的一处；若可行，则只改第一处安全标题并完成验证、review、提交、状态回写与 push 闭环。
+
+### 185.1 执行步骤
+
+| 步骤 | 操作 | 结果 |
+|------|------|------|
+| 恢复状态 | `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` / 读取 `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / roadmap | 确认仓库位于 `codex/unify-issue-model`，实现 lane 当前项为 `IMP-66`，roadmap 仍要求单任务闭环推进 |
+| 实现 | 编辑 `frontend/src/lib/routes.test.tsx` | 仅将 `it('renders getIssue rejects', async () => {` 收口为 `it('getIssue rejects', async () => {`，不改共享断言、fixture 设置或 helper/route 运行时逻辑 |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` | 通过：5 files / 57 tests |
+| 验证 | `cd frontend && npx tsc --noEmit` | 通过 |
+| 验证 | `git diff --check` | 通过 |
+| Review | `git diff -- frontend/src/lib/routes.test.tsx` | 复核本轮只改一处 route 级 API 失败测试标题文案，不改共享断言结构、fixture 设置或 helper/route 运行时逻辑；review 结论为通过 |
+| 提交 | `git commit -m "[verified] test: trim renders wording"` | 完成本轮 feature/work commit，得到真实提交 `f5a8328bfb838d2dbdf9c6b3d932858e694ba0e0` |
+| 修改 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 将 `IMP-66` 写回 done，记录真实 feature SHA，并新增下一轮 `IMP-67`：评估 `getOrganizations()` API 失败场景测试标题是否也应去掉 `renders` 动词 |
+
+### 185.2 本轮落地结果
+
+- 已复核 legacy `/issues/[id]` route 两条 API 失败场景当前都属于 route 级渲染后断言 `IssueDetailPage` 收到空 props 的观察面；在同一 describe 已限定 legacy `/issues/[id]` route 上下文、且第二条对称标题 `renders getOrganizations rejects` 仍保留 `renders` 动词作为对照的前提下，可先安全验证去掉第一条标题中的 `renders` 动词。
+- 因此本轮仅将 `getIssue(...)` 失败场景测试标题收口为 `getIssue rejects`，同时保持共享断言、fixture 设置以及 helper/route 运行时逻辑不变。
+- `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 已写回：`IMP-66` -> `done`，下一轮转入 `IMP-67`，继续评估 `getOrganizations()` API 失败场景测试标题是否也应去掉 `renders` 动词。
+
+### 185.3 经验沉淀
+
+- 即便是 route 级渲染测试标题收口，也要保留同组对称测试中的至少一个对照标题，避免一次同时收口两条后失去可比较语义。
+- 对纯标题微调仍执行定向 Vitest + TypeScript + diff cleanliness，可防止误触周边断言或引入格式噪音。
+
+### 185.4 当前状态快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-66 → IMP-67` |
+| 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `8be0f790557d810a11111175d037f193050f4365` |
+| feature commit | `f5a8328bfb838d2dbdf9c6b3d932858e694ba0e0` |
+| 验证 | `pnpm test -- --run src/lib/routes.test.tsx`、`npx tsc --noEmit`、`git diff --check` |
+| docs/state commit | `694b5147915f09ff8d86158f4faea14ce055ada9` |
+
 ## Session 184 — 2026-04-20：去掉第二条 legacy route API 失败标题中的 when wording
 
 **目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-65`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route `getOrganizations()` API 失败场景当前 `renders when getOrganizations rejects` 标题中的 `when` wording 是否也可像上一轮 `getIssue(...)` 场景一样安全去掉；若可行，则只改这一处安全标题并完成验证、review、提交、状态回写与 push 闭环。
