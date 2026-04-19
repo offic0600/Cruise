@@ -81,6 +81,45 @@
 | Diff 检查 | `git diff --check` ✅ |
 | 当前闭环状态 | 代码与 docs/state 已更新，待 feature commit + docs/state commit + push |
 
+## Session 142 — 2026-04-19：为 IMP-20 收口 pageBackLink 共享 contract
+
+**目标**：按 Implementation lane 推进 `IMP-20`，在不扩大到 `IssueDetailPage` 内部重构的前提下，只做一个最小 execution unit：为 route shell 补齐 `pageBackLink` 共享 contract，并让 steady / cached-refetch 两个 `IssueDetailPage` 渲染分支统一消费该共享 seam；完成最小验证、review，并准备 feature/docs commit 闭环。
+
+### 142.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 读取 | `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` | 确认当前分支 `codex/unify-issue-model`、HEAD `5f9bbf40737ed971c5a7c4d446c68345454a161f`，工作树起始为干净，可安全推进单一 implementation execution unit |
+| 读取 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/plans/2026-04-16-linear-parity-roadmap.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 恢复唯一状态源、lane 明细、roadmap 约束与文档回写要求，确认本轮只允许推进 `IMP-20` |
+| 复核 | `frontend/src/app/[workspaceSlug]/issue/[identifier]/[titleSlug]/page.tsx` / `frontend/src/components/issues/IssueDetailPage.tsx` / `frontend/src/lib/routes.test.tsx` | 识别 route shell 与 `IssueDetailPage` 之间仍残留 page back-link props 重复组装，适合作为 `IMP-20` 的单点 seam 收口 |
+| 修改 | `frontend/src/app/[workspaceSlug]/issue/[identifier]/[titleSlug]/page.tsx` | 为 `IssueDetailRouteShellModel` 新增 `pageBackLink` 字段，并让 steady / cached-refetch 两个 `IssueDetailPage` 分支统一消费 `routeShellModel` / `backgroundRefetchRouteShellModel` 的共享 page back-link contract |
+| 修改 | `frontend/src/lib/routes.test.tsx` | 扩展 `buildIssueDetailRouteShellModel(...)` helper 断言，新增 route 在 steady / cached-refetch 分支复用 shared `pageBackLink` 的回归测试 |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` / `cd frontend && npx tsc --noEmit` / `git diff --check` | 三项验证均通过：routes seam 定向测试 5 files / 51 tests 全绿，TypeScript 检查通过，diff 无 whitespace 问题 |
+| Review | `git diff -- frontend/src/app/[workspaceSlug]/issue/[identifier]/[titleSlug]/page.tsx frontend/src/lib/routes.test.tsx docs/status/roadmap-state.yaml docs/linear-parity/task-board.md` | 复核本轮只收口 pageBackLink seam 与状态文档，不跨到 capture lane 或 `IssueDetailPage` 内部 skeleton 实现 |
+
+### 142.2 本轮落地结果
+
+- `buildIssueDetailRouteShellModel(...)` 现在同时产出 route 级 `emptyState`、`loadingState` 与 `pageBackLink` 三类共享 contract；page back-link 不再只在 route 组件底部以局部 props 直传。
+- issue detail route 的 cached-refetch 与 steady page 渲染分支现已统一消费 shared `pageBackLink`，与前一轮已完成的 loading/empty-state 分支一起，进一步收紧 route shell 与 `IssueDetailPage` 之间的 seam。
+- routes seam 新增回归测试：既锁定 `buildIssueDetailRouteShellModel(...)` 的 `pageBackLink` 结构，也验证 route 在 cached-refetch/steady 两个 page 分支都会向 `IssueDetailPage` 传递共享 contract。
+- `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 已写回：`IMP-20` -> `done`，下一轮转入 `IMP-21`，继续处理默认 page 分支残留的 back-link 重复组装。
+
+### 142.3 经验沉淀
+
+- 当 route shell helper 已开始承载 loading/empty-state contract 时，page-level 导航 props 也应尽快并入同一 shared model，否则 route JSX 仍会长期保留一小块“看似无害但重复”的直传 seam。
+- 对于 UI route/page 边界的渐进式重构，可优先选择“先让更多 page 分支消费同一 shared model，再下一轮继续清理最后的默认分支”，这样更容易保持每轮 execution unit 足够小且可验证。
+
+### 142.4 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-20 → IMP-21` |
+| 当前分支 / HEAD（改动前） | `codex/unify-issue-model` / `5f9bbf40737ed971c5a7c4d446c68345454a161f` |
+| 定向测试 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` ✅（5 files, 51 tests） |
+| TypeScript 检查 | `cd frontend && npx tsc --noEmit` ✅ |
+| Diff 检查 | `git diff --check` ✅ |
+| 当前闭环状态 | 代码与 docs/state 已更新，待 feature commit + docs/state commit + push |
+
 ## Session 140 — 2026-04-19：收口 IMP-17 并恢复 issue detail route shell 验证闭环
 
 **目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-17`，先核对 git 真实状态、roadmap、task-board 与现有实现脏变更；仅收口 issue detail route shell / empty-state / skeleton contract 的一个最小 execution unit，完成最小验证、review、feature commit、状态写回与 push 闭环。

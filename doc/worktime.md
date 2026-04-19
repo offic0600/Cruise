@@ -2,6 +2,7 @@
      2|
 | 项目 | Session | 日期 | 工作内容 | 预估工时 | 实际工时 |
 |---|---|---|---|---|---|
+| Linear 对标 | Session 142 | 2026-04-19 | 按 implementation lane 推进 `IMP-20`：为 `buildIssueDetailRouteShellModel(...)` 补齐 `pageBackLink` 共享 contract，让 issue detail route 的 steady / cached-refetch `IssueDetailPage` 分支统一消费 shared page back-link seam；完成 `cd frontend && pnpm test -- --run src/lib/routes.test.tsx`、`cd frontend && npx tsc --noEmit`、`git diff --check` 验证，并同步更新 dev-logbook / roadmap-state / task-board | 0.3h | 0.3h |
 | Linear 对标 | Session 141 | 2026-04-19 | 按 implementation lane 推进 `IMP-19`：让 issue detail route 的 loading/background-refetch/error/no-id 分支消费共享 `buildIssueDetailRouteShellModel(...)` seam，补 routes helper 回归测试并完成 `cd frontend && pnpm test -- --run src/lib/routes.test.tsx`、`cd frontend && npx tsc --noEmit`、`git diff --check` 验证；同步准备 dev-logbook / roadmap-state / task-board 闭环 | 0.3h | 0.3h |
 | Linear 对标 | Session 140 | 2026-04-19 | 按 implementation lane 收口 `IMP-17`：复核 issue detail route shell / shared empty-state / skeleton contract 相关脏变更，运行 `cd frontend && pnpm test -- --run src/lib/routes.test.tsx`、`cd frontend && npx tsc --noEmit`、`git diff --check` 均通过，提交 feature/work commit `850adf1f4bdb40b9f62fc5be4e824c8394d3a571` 后将 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 中 IMP-17 写回 done 并新增 IMP-18，最后同步更新 dev-logbook/worktime | 0.3h | 0.3h |
 
