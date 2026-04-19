@@ -1,5 +1,45 @@
 # Cruise — 开发日志（Dev Logbook）
 
+## Session 153 — 2026-04-20：对齐 legacy `/issues/[id]` route 空 back-link helper 命名语义
+
+**目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-32`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 当前 helper 级与 route 级空 back-link helper 命名是否仍存在 legacy/route 词序不一致的轻微噪音；若可行，则只做一刀测试命名收口并完成验证、review、提交、状态回写与 push 闭环。
+
+### 153.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 读取 | `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` | 确认当前分支 `codex/unify-issue-model`，且上一轮 docs/state commit `a20a57677921cc42e5fa51a7fe0987c2da1e66a1` 已落盘；工作树随后只包含本轮 implementation lane 变更，可安全继续单一 execution unit |
+| 读取 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/plans/2026-04-16-linear-parity-roadmap.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` / `frontend/src/lib/routes.test.tsx` | 恢复唯一状态源、lane 明细、roadmap 与日志/工时回写要求，确认本轮只允许推进 `IMP-32`，且最小切口是对齐 helper 名称中的 legacy/route 词序 |
+| 配置 | `git config user.name/user.email` | 确认 git author 使用 `offic0600 <offic0600@163.com>` |
+| 修改 | `frontend/src/lib/routes.test.tsx` | 将 helper 级空 back-link 断言从 `expectEmptyLegacyIssueDetailRouteBackLinkProps()` 重命名为 `expectLegacyIssueDetailRouteEmptyBackLinkProps()`，并同步更新 route 级 helper 调用与无 slug helper 测试调用，使 helper 与 route contract helper 共享同一 legacy/route 词序，仅保留 helper vs contract 的层级差异 |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` / `cd frontend && npx tsc --noEmit` / `git diff --check` | 三项验证均通过：routes seam 定向测试 5 files / 57 tests 全绿，TypeScript 检查通过，diff 无 whitespace 问题 |
+| Review | `git diff -- frontend/src/lib/routes.test.tsx` | 复核本轮只改测试 helper 命名，不改 route 运行时逻辑，也未扩大到测试文案、实现层或第二个 execution unit |
+| 提交 | `git commit -m "[verified] test: align legacy empty back-link helper naming"` | 完成本轮 feature/work commit，得到真实提交 `c9449a8f9c7753bb5efcd7e0ecb727fb2a9bc572` |
+| 修改 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 将 `IMP-32` 写回 done，记录真实 feature SHA，并新增下一轮 `IMP-33`：评估空 back-link 测试标题/描述是否还可进一步统一为 shared legacy lookup seam 语义 |
+
+### 153.2 本轮落地结果
+
+- helper 级空 back-link 断言现已命名为 `expectLegacyIssueDetailRouteEmptyBackLinkProps()`，与 route 级 `expectLegacyIssueRouteEmptyBackLinkContract()` 在 `legacy` / `route` 词序上保持一致。
+- helper 与 route 两层断言仍维持清晰分层：helper 级继续锁定 `buildIssueDetailRouteBackLinkProps(...) === {}`，route 级继续锁定渲染后的 `{ issueId, href: undefined, label: undefined }` contract。
+- 本轮仅收口测试命名语义，未触碰 legacy `/issues/[id]` route 实现代码。
+- `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 已写回：`IMP-32` -> `done`，下一轮转入 `IMP-33`，评估是否值得继续统一相关测试文案描述。
+
+### 153.3 经验沉淀
+
+- 当 helper 级与 route 级测试明确属于同一路由语义时，优先统一名称中的 shared domain 词序，再用后缀表达层级差异，可降低“是否仍是同一 contract 家族”的阅读噪音。
+- 对连续微调测试结构的 cron execution unit，命名收口与文案收口应拆成相邻两轮，能避免一次改动同时影响 helper 引用和断言意图描述。
+
+### 153.4 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-32 → IMP-33` |
+| 当前分支 / HEAD（docs commit 前） | `codex/unify-issue-model` / `a20a57677921cc42e5fa51a7fe0987c2da1e66a1` |
+| feature commit | `c9449a8f9c7753bb5efcd7e0ecb727fb2a9bc572` |
+| 定向测试 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` ✅（5 files, 57 tests） |
+| TypeScript 检查 | `cd frontend && npx tsc --noEmit` ✅ |
+| Diff 检查 | `git diff --check` ✅ |
+
 ## Session 151 — 2026-04-20：继续收口 legacy `/issues/[id]` route 无 slug 空 back-link 断言
 
 **目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-30`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 当前“无 workspace slug”空 back-link route/helper 断言是否仍存在可安全合并的重复；若可行，则继续提炼共享测试期望并完成验证、review、提交、状态回写与 push 闭环。

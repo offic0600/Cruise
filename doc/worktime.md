@@ -2,6 +2,7 @@
      2|
 | 项目 | Session | 日期 | 工作内容 | 预估工时 | 实际工时 |
 |---|---|---|---|---|---|
+| Linear 对标 | Session 153 | 2026-04-20 | 按 implementation lane 完成 IMP-32：将 helper 级空 back-link 断言重命名为 `expectLegacyIssueDetailRouteEmptyBackLinkProps()`，与 route 级 helper 对齐 legacy/route 语义词序；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 152 | 2026-04-20 | 按 implementation lane 完成 IMP-31：确认 legacy `/issues/[id]` route helper 级无 slug 空对象断言与 route 级空 props 断言仍共享同一空 back-link 语义，并提炼 `expectEmptyLegacyIssueDetailRouteBackLinkProps()` 作为 helper 级唯一断言入口；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 151 | 2026-04-20 | 按 implementation lane 完成 IMP-30：确认 legacy `/issues/[id]` route “无 workspace slug”场景与两条 API 失败场景共享同一空 back-link route contract，并让 route 级断言统一复用 `expectLegacyIssueRouteEmptyBackLinkContract()`；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 150 | 2026-04-20 | 按 implementation lane 完成 IMP-29：确认 legacy `/issues/[id]` route 两条 API 失败断言共享同一空 back-link 降级 contract，并提炼 `expectLegacyIssueRouteEmptyBackLinkContract()` 测试 helper 收口重复期望；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
