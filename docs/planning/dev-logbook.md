@@ -1,3 +1,42 @@
+## Session 173 — 2026-04-20：收口第一条 legacy route API 失败标题中的 empty props wording
+
+**目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-52`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 两条 API 失败场景在均去掉 `contract` wording 后，第一条安全标题中的 `empty props` 全称是否仍可继续安全收口；若可行，则只改 `getIssue(...)` 失败场景这一处文案并完成验证、review、提交、状态回写与 push 闭环。
+
+### 173.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 读取 | `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` | 确认当前分支 `codex/unify-issue-model`、执行前 HEAD 为 `45be5c8d8f4b306f3d7024c57ff2358f628f66f6`，工作树为空，可直接按 `IMP-52` 进入新的最小 execution unit |
+| 读取 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/plans/2026-04-16-linear-parity-roadmap.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` / `frontend/src/lib/routes.test.tsx` | 恢复唯一状态源、lane 明细、roadmap 与日志/工时回写要求，并确认 `IMP-52` 仅允许评估两条 API 失败场景中第一条安全标题是否可把 `empty props` 收口为更精炼 wording |
+| 配置 | `git config user.name/user.email` | 复核 git author 使用 `offic0600 <offic0600@163.com>` |
+| 修改 | `frontend/src/lib/routes.test.tsx` | 将 `getIssue(...)` 失败场景测试标题从 `renders the empty props when getIssue rejects in the legacy /issues/[id] route` 收口为 `renders the empty state props when getIssue rejects in the legacy /issues/[id] route`，以更直接表达 route 级空态 props 语义，同时保持 `getOrganizations()` 失败标题、共享断言、fixture 设置与 helper/route 运行时逻辑不变 |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` / `cd frontend && npx tsc --noEmit` / `git diff --check` | 三项验证均通过：routes seam 定向测试 5 files / 57 tests 全绿，TypeScript 检查通过，diff 无 whitespace 问题 |
+| Review | `git diff -- frontend/src/lib/routes.test.tsx` | 复核本轮只改一处 route 级 API 失败测试标题文案，不改共享断言结构、fixture 设置或 helper/route 运行时逻辑；review 结论为通过 |
+| 提交 | `git commit -m "[verified] test: trim route empty props wording"` | 完成本轮 feature/work commit，得到真实提交 `8c3c5c514e9b766cf2337199c13f44e2704a9f1f` |
+| 修改 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 将 `IMP-52` 写回 done，记录真实 feature SHA，并新增下一轮 `IMP-53`：评估 `getOrganizations()` 失败场景标题是否也应从 `empty props` 收口为 `empty state props` |
+
+### 173.2 本轮落地结果
+
+- 已复核 legacy `/issues/[id]` route 中两条 API 失败场景标题都属于 route 级渲染后断言 `IssueDetailPage` 收到空 props 的观察面；在共享断言 helper `expectLegacyIssueRouteEmptyPropsContract()` 仍承载 contract 语义的前提下，第一条安全标题可继续从 `empty props` 收口。
+- 因此本轮仅将 `getIssue(...)` 失败场景测试标题收口为 `renders the empty state props when getIssue rejects in the legacy /issues/[id] route`，同时保持 `getOrganizations()` 失败标题、共享断言、fixture 设置以及 helper/route 运行时逻辑不变。
+- `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 已写回：`IMP-52` -> `done`，下一轮转入 `IMP-53`，继续评估第二条 API 失败标题是否也应同步改为 `empty state props`。
+
+### 173.3 经验沉淀
+
+- 当 route 级失败场景的共享断言 helper 继续保留 `...EmptyPropsContract()` 语义时，可以按 execution unit 一次只收口一条测试标题中的 `empty props` wording，而无需同步修改 helper 名称或运行时逻辑。
+- 即使两条 route 级 API 失败场景在语义上完全对称，也仍应保持“一次只动一处标题”的节奏；先让第一条标题稳定收口，再单独判断第二条是否跟进，以维持 cron 状态机的最小边界。
+
+### 173.4 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-52 → IMP-53` |
+| 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `45be5c8d8f4b306f3d7024c57ff2358f628f66f6` |
+| feature commit | `8c3c5c514e9b766cf2337199c13f44e2704a9f1f` |
+| 定向测试 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` ✅（5 files, 57 tests） |
+| TypeScript 检查 | `cd frontend && npx tsc --noEmit` ✅ |
+| Diff 检查 | `git diff --check` ✅ |
+
 ## Session 172 — 2026-04-20：去掉第二条 legacy route API 失败标题中的 contract wording
 
 **目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-51`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route `getOrganizations()` 失败场景当前 `renders the empty props contract ...` 标题中的 `contract` wording 是否也可像 `getIssue(...)` 场景一样安全去掉；若可行，则只改这一处安全的测试文案并完成验证、review、提交、状态回写与 push 闭环。
