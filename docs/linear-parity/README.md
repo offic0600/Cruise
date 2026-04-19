@@ -12,9 +12,9 @@
 - `gap-analysis.md`：Cruise 与 Linear 的差距分析
 - `implementation-roadmap.md`：复刻实施路线图
 - `screenshots/`：截图资料
-- `har/`：HAR 或网络请求摘要
+- `har/`：HAR、网络请求摘要，以及 9222 metadata / auth blocker 探测记录
 - `dom/`：DOM、页面文本、结构快照
-- `flows/`：关键交互流程记录
+- `flows/`：关键交互流程记录（含中转页 / 登录门页阻塞复测）
 
 ## 约束
 

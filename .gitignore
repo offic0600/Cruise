@@ -1,3 +1,13 @@
 frontend/tsconfig.tsbuildinfo
-.hermes/linear-9222-watchdog/
-.hermes/plans/
+.hermes/
+backend/.gradle/
+backend/build/
+frontend/.next/
+frontend/node_modules/
+node_modules/
+
+docs/linear-parity/flows/
+docs/linear-parity/har/
+docs/linear-parity/screenshots/
+docs/linear-parity/tmp-capture/
+tmp/

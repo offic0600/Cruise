@@ -1,16 +1,32 @@
 # Cruise vs Linear 差距分析
 
-## 本轮结论（2026-04-18）
-本轮再次验证本机 Chrome DevTools 9222 后，确认 **HTTP 元信息层已恢复可用**：`/json/version` 可稳定返回 Chrome/Protocol 与 browser websocket 信息，且既有文档已记录 `/json/list` 可定位到 `Cleantrack › Active issues` 页面。因此当前不再把问题定义为“9222 完全不可用”，而是“真实业务 Network 事件流尚未完成持续监听整理”。
+## 本轮结论（2026-04-19 10:01 CST）
+本轮最新最小复测表明：**9222 metadata 继续处于 browser-readable / terminal-502 discrepancy，而非稳定双侧恢复**。Hermes browser 侧再次可直接读取 `http://127.0.0.1:9222/json/list`，并继续枚举到 6 个 live page targets + 1 个 worker target，其中目标页仍为 `Cleantrack › Active issues`；但 terminal 直连 `http://127.0.0.1:9222/json/version` 与 `/json/list` 本轮继续都返回 `502 Bad Gateway`。与此同时，真实打开 `https://linear.app/cleantrack/team/CLE/active` 后仍先落到 `Link opened in the Linear app` 中转页，显式点击 `Open here instead` 仍稳定进入 `Log in to Linear` 登录页，且未见 CAPTCHA 或 iframe。因此当前主 blocker 继续精确归类为 **authenticated page/session reuse failure**，而不是“9222 已恢复可随时深采”或“9222 完全不可用”。
 
 ## 取证状态
-- 本轮实测：`http://127.0.0.1:9222/json/version` 返回 200，并确认：
-  - Browser=`Chrome/147.0.7727.56`
-  - Protocol-Version=`1.3`
-  - browser websocket=`ws://127.0.0.1:9222/devtools/browser/1cb02d1f-3fe5-4829-836a-275b4e10b506`
-- 既有 `api-catalog.md` 与 `chrome-devtools-access.md` 已记录：`/json/list` 可解析到 Active issues 目标页 `https://linear.app/cleantrack/team/CLE/active`
-- 当前仍未完成：page target 上对 `Network.requestWillBeSent` / `Network.responseReceived` 的持续监听与摘要落盘
-- 影响：`api-catalog.md` 仍缺真实 Linear GraphQL/REST 请求清单，但 9222 已不构成完全阻塞
+- 2026-04-19 10:01 CST 最新最小复测：browser 侧 `http://127.0.0.1:9222/json/list` 仍可读，并枚举到 6 个 live page targets + 1 个 worker target；其中 Linear target 仍为 `Cleantrack › Active issues`（id=`81A3713C33BCA35B2A0B8C7D177F43AD`，page websocket=`ws://127.0.0.1:9222/devtools/page/81A3713C33BCA35B2A0B8C7D177F43AD`）
+- terminal 直连 `http://127.0.0.1:9222/json/version` 与 `/json/list` 本轮继续都返回 `502 Bad Gateway`
+- 真实 deep link 页面仍先落到 `Link opened in the Linear app` 中转页；显式点击 `Open here instead` 后仍稳定进入 `Log in to Linear` 登录页，继续没有 CAPTCHA / iframe
+- 当前仍未完成：authenticated Active issues DOM / tabs / toolbar / filter / display / sort / new 等真实控件级证据，以及 page target 上持续 `Network.requestWillBeSent` / `Network.responseReceived` 摘要落盘
+- 影响：`api-catalog.md` 仍缺真实 Linear GraphQL/REST 请求清单；同时 implementation lane 在 CAP-07 authenticated detail evidence 恢复前，不应提前展开 detail 实际控件行为对标
+- 最新证据落盘：`docs/linear-parity/flows/active-issues-auth-session-blocker-2026-04-19-1001.md`、`docs/linear-parity/har/2026-04-19-1001-browser-terminal-metadata-discrepancy-and-auth-blocked.json`
+
+## 对 implementation lane 的最新边界约束
+- 在 CAP-07 issue detail authenticated evidence 恢复前，安全最小 UI parity 只应继续推进 **issue detail route shell / 双栏骨架 / 版式占位层级**
+- 可继续细化的范围：顶部 hero、主内容/评论区、右侧属性栏、activity/doc/relations 占位、未命中空态与返回 Active issues CTA 的 spacing / card chrome / badge 文案统一
+- 继续挂起的范围：relations / sub-issues / activity feed / property rail 的真实控件行为、字段顺序和交互细节对标
+- 结论：当前对标工作不该停摆，但必须从“真实控件 parity”收紧为“布局壳层 parity”
+
+## 建议下一步最小任务
+1. Capture lane：优先尝试直接针对 target `81A3713C33BCA35B2A0B8C7D177F43AD` 做 **page websocket / CDP read-only capture**，避免继续重复 metadata-only 或 interstitial-only repro
+2. 若 capture 仍未解锁 authenticated detail evidence，implementation lane 继续只做 issue detail route shell / 双栏骨架 / 版式占位的最小 UI parity
+3. 待 CAP-07 恢复后，再回到 detail hero / property rail / activity stream 的真实结构与交互对标
+
+## 原有建议下一步最小任务（归档）
+优先级建议：
+1. 若 9222 恢复，立刻采集 Active issues 网络请求清单
+2. 若 9222 仍不可用，下一步改为补 `implementation-roadmap.md`，把 issues 对标改造拆成更细的可执行任务
+3. 再下一步可落到一个最小代码任务：梳理 `/issues` 列表页与 Linear Active Issues 在顶部工具栏/视图切换上的首个 UI gap
 
 ## Cruise 当前 issues 能力盘点
 

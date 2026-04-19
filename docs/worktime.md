@@ -98,7 +98,35 @@
 | S57 | 2026-04-18 | 23:05 复测确认 9222 metadata 已恢复双侧可读但 Active issues 深链仍落登录页 | 0.5h | 0.5h | terminal 与 browser 现都可读 `/json/version` 与 `/json/list`，并继续枚举到 Active issues target；但深链仍为中转页→登录页，已新增 23:05 HAR/flow/page-inventory/task-board/api-catalog |
 | S58 | 2026-04-18 | 收紧 team-active 多条件筛选摘要为首项 + 余量聚合文案 | 0.5h | 0.5h | 新增 `summarizeFilterTokens(...)` helper，并让页内 search summary 复用短摘要；定向 Vitest 6/6 通过 |
 | S59 | 2026-04-18 | 为 team-active 工具栏状态说明补 helper 级回归测试 | 0.5h | 0.5h | 导出 `searchStatusText(...)` / `noteText(...)` 形成可测试 seam，并补齐排序/搜索/说明文案回归；定向 Vitest 9/9 通过 |
-| **合计** | — | 进行中 | **23.0h** | **23.0h** | |
+| S60 | 2026-04-18 | 23:52 复测确认 9222 再回 split state 且 Active issues 深链仍落登录页 | 0.5h | 0.5h | terminal 直连 `/json/version` 与 `/json/list` 再次都为 502，但 browser 仍可读 metadata 并继续枚举到 Active issues target 与多个其它实时目标；深链仍为中转页→登录页，已新增 23:52 HAR/flow/page-inventory/task-board/api-catalog |
+| S61 | 2026-04-19 | 00:07 复测确认 9222 仍为 split state 且 Active issues 深链继续落登录页 | 0.5h | 0.5h | 已把 00:07 新 flow/har 同步回 page-inventory/task-board/api-catalog，并继续确认深链仍为中转页→登录页 |
+| S62 | 2026-04-19 | 00:26 复测确认 9222 仍为 split state 且 Active issues 深链继续落登录页 | 0.5h | 0.5h | 已把 00:26 新 flow/har 同步回 page-inventory/task-board/api-catalog，并继续确认深链仍为中转页→登录页 |
+| S63 | 2026-04-19 | 00:42 复测确认 9222 仍为 split state 且 Active issues 深链继续落登录页 | 0.5h | 0.5h | 已把 00:42 新 flow/har 同步回 page-inventory/task-board/api-catalog，并补记 browser 侧仍能枚举多个其它实时 target |
+| S64 | 2026-04-19 | 00:59 复测确认 9222 metadata 已恢复双侧可读但 Active issues 深链仍落登录页 | 0.5h | 0.5h | 已把 00:59 新 flow/har 同步回 page-inventory/task-board/api-catalog，并将 blocker 文案纠偏为 authenticated page/session reuse failure |
+| S65 | 2026-04-19 | 01:11 复测确认 metadata 双侧仍可读但 Active issues 深链继续落登录页 | 0.5h | 0.5h | 新增 01:11 flow/har，并补齐 interstitial/login 页 body 文本与截图引用，继续确认 blocker 仍是 authenticated page/session reuse failure |
+| S66 | 2026-04-19 | 01:28 复测确认 9222 再回 split state 且 Active issues 深链继续落登录页 | 0.5h | 0.5h | terminal 直连 `/json/version` 与 `/json/list` 再次回到 502，但 browser 仍可读 metadata 并继续枚举到 Active issues target；深链仍为中转页→登录页，已新增 01:28 HAR/flow/page-inventory/task-board/api-catalog |
+| S67 | 2026-04-19 | 01:41 复测确认 9222 继续 split state 且 Active issues 深链仍落登录页 | 0.5h | 0.5h | 新增 01:41 HAR/flow，并把 task-board/page-inventory/api-catalog 的 blocker 时间戳与证据引用同步到最新；继续确认 deep link 仍为中转页→登录页，未见 CAPTCHA |
+| S68 | 2026-04-19 | 01:57 复测确认 9222 metadata 已恢复双侧可读但 Active issues 深链仍落登录页 | 0.5h | 0.5h | 新增 01:57 HAR/flow，并把 page-inventory/task-board/api-catalog 的 blocker 口径纠偏为 metadata recovered + authenticated page/session reuse failure |
+| S69 | 2026-04-19 | 02:11 复测确认 metadata 双侧仍可读但 Active issues 深链继续落登录页 | 0.5h | 0.5h | 新增 02:11 HAR/flow，并同步 page-inventory/task-board/api-catalog；继续确认 blocker 为 authenticated page/session reuse failure |
+| S70 | 2026-04-19 | 02:29 复测确认 9222 再回 split state 且 Active issues 深链仍落登录页 | 0.5h | 0.5h | 新增 02:29 HAR/flow，并同步 page-inventory/task-board；额外把 `/json/list` 中多个 live targets 写入证据，继续确认 blocker 为 authenticated page/session reuse failure |
+| S71 | 2026-04-19 | 02:35 复测确认 9222 继续 split state 且 Active issues 深链仍落登录页 | 0.5h | 0.5h | 新增 02:35 HAR/flow，并同步 page-inventory/task-board；补记 Codex Proxy Developer Dashboard target 与 interstitial/login 页 body 文本、无 CAPTCHA 事实 |
+| S72 | 2026-04-19 | 02:54 复测确认 9222 继续 split state 且 Active issues 深链仍落登录页 | 0.5h | 0.5h | 新增 02:54 HAR/flow，并同步 page-inventory/task-board；补记 browser websocket、terminal `/json/list` 超时与 `/json/list` 6 个 live targets 事实 |
+| S73 | 2026-04-19 | 03:28 复测确认 9222 仍为 browser-readable / terminal-502 split state 且 Active issues 深链继续落登录页 | 0.5h | 0.5h | 新增 03:28 HAR/flow，并同步 page-inventory/task-board/api-catalog；补录登录页 `document.body.innerText`、browser Protocol `1.3` 与 terminal `/json/list` 502 事实 |
+| S74 | 2026-04-19 | 03:45 复测确认 9222 仍为 browser-readable / terminal-502 split state 且 Active issues 深链继续落登录页 | 0.5h | 0.5h | 新增 03:45 HAR/flow，并同步 page-inventory/task-board/api-catalog；补录中转页 `document.body.innerText`，继续确认 blocker 为 authenticated page/session reuse failure |
+| S75 | 2026-04-19 | 04:36 复测确认 9222 仍为 browser-readable / terminal-502 split state 且 Active issues 深链继续落登录页 | 0.5h | 0.5h | 新增 04:36 HAR/flow，并同步 page-inventory/task-board；补录中转页与登录页 `document.body.innerText`、可见登录入口、无 CAPTCHA 事实，继续确认 blocker 为 authenticated page/session reuse failure |
+| S76 | 2026-04-19 | 04:50 复测确认 9222 仍为 browser-readable / terminal-502 split state 且 Active issues 深链继续落登录页 | 0.5h | 0.5h | 新增 04:50 HAR/flow，并同步 page-inventory/task-board/api-catalog；继续确认 blocker 为 authenticated page/session reuse failure |
+| S77 | 2026-04-19 | 05:09 复测确认 9222 metadata 已恢复双侧可读但 Active issues 深链仍落登录页 | 0.5h | 0.5h | 新增 05:09 HAR/flow，并同步 page-inventory/task-board/api-catalog；将 blocker 口径纠偏为 metadata recovered + authenticated page/session reuse failure |
+| S78 | 2026-04-19 | 05:27 复测确认 9222 再回 split state 且 Active issues 深链仍落登录页 | 0.5h | 0.5h | 新增 05:27 HAR/flow，并同步 page-inventory/task-board/api-catalog；将 blocker 口径纠偏为 browser-readable / terminal-502 split state + authenticated page/session reuse failure |
+| S79 | 2026-04-19 | 05:51 复测确认 metadata browser 侧可读但 Active issues 深链仍落登录页 | 0.5h | 0.5h | 新增 05:51 HAR/flow，并同步 page-inventory/task-board/README；继续确认 blocker 为 authenticated page/session reuse failure |
+| S80 | 2026-04-19 | 06:12 复测确认 9222 metadata 双侧恢复可读但 Active issues 深链仍落登录页 | 0.5h | 0.5h | 新增 06:12 HAR/flow，并同步 page-inventory/task-board/api-catalog；将 blocker 口径纠偏为 metadata recovered + authenticated page/session reuse failure |
+| S81 | 2026-04-19 | 06:34 复测确认 Active issues 深链仍是中转页→登录页 | 0.5h | 0.5h | 新增 06:34 HAR/flow，并同步 page-inventory/task-board/api-catalog；补齐中转页/登录页正文、CTA、登录入口与无 CAPTCHA 事实 |
+| S82 | 2026-04-19 | 06:59 复测确认 9222 再回 browser/terminal 分裂态且 Active issues 深链仍落登录页 | 0.5h | 0.5h | 新增 06:59 HAR/flow，并同步 page-inventory/task-board/api-catalog；将 metadata 状态降级为 browser-readable / terminal-502 discrepancy |
+| S83 | 2026-04-19 | 07:14 复测确认 9222 仍为 browser-readable / terminal-502 discrepancy 且 Active issues 深链继续落登录页 | 0.5h | 0.5h | 新增 07:14 HAR/flow，并同步 page-inventory/task-board/api-catalog/dev-logbook；继续确认 blocker 为 authenticated page/session reuse failure，且未见 CAPTCHA |
+| S84 | 2026-04-19 | 07:26 复测确认 browser 侧 `/json/version` 仍可读但 Active issues 深链继续落登录页 | 0.5h | 0.5h | 新增 07:26 HAR/flow，并同步 page-inventory/task-board/api-catalog/dev-logbook；补齐 browser `/json/version` 可读样本，继续确认 blocker 为 authenticated page/session reuse failure |
+| S85 | 2026-04-19 | 08:03 复测补齐 Active issues 中转页 CTA href 与登录页无 CAPTCHA/iframe 事实 | 0.5h | 0.5h | 新增 08:03 HAR/flow，并同步 page-inventory/task-board/api-catalog/dev-logbook；补齐 `Learn more` href、点击后 URL 保持与 iframe 为空证据 |
+| S86 | 2026-04-19 | 08:17 复测确认 Active issues 中转页新增命中文档页分支 | 0.5h | 0.5h | 新增 08:17 HAR/flow，并同步 page-inventory/task-board/dev-logbook；补记中转页除历史登录页外还可命中 `Download Linear – Linear Docs` 文档页分支 |
+| S87 | 2026-04-19 | 为 issue detail route shell 补未命中空态与返回 CTA | 0.5h | 0.5h | 已为 workspace issue detail route shell 落专用空态卡片与返回 active issues CTA；验证受 frontend 缺少 `node_modules` 阻塞 |
+| **合计** | — | 进行中 | **37.0h** | **37.0h** | |
 
 ---
 
@@ -106,10 +134,10 @@
 
 | 指标 | 值 |
 |------|-----|
-| 评估总工时 | 35.5h |
-| 实际总工时 | 32.5h |
-| 节省工时 | 3h (8.5%) |
-| 验收通过率 | 95%+ (56/59) |
+| 评估总工时 | 37.0h |
+| 实际总工时 | 34.0h |
+| 节省工时 | 3h (8.2%) |
+| 验收通过率 | 95%+ (57/60) |
 
 ---
 
@@ -124,4 +152,6 @@
 ---
 
 *创建：2026-03-10*
-*更新：2026-04-18*
+*更新：2026-04-19*
+| 2026-04-19 09:00 | 0.3h | Linear parity implementation cron：为 issue detail 页面加载态补骨架屏（标题区/操作区/正文卡片/侧栏占位），同步更新 task-board / dev-logbook，并记录 frontend 缺少 node_modules 导致 vitest/typescript 无法校验 |
+| 2026-04-19 10:01 | 0.2h | Linear parity capture cron：复测确认 browser `/json/list` 仍可读、terminal `/json/version`/`/json/list` 继续 502，且 Active issues deep link 仍为中转页→显式点击后登录页；同步更新 CAP-06 相关 task-board / page-inventory / api-catalog / dev-logbook |

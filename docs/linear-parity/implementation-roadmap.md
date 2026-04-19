@@ -66,8 +66,9 @@
 ## 最近两轮最小任务建议
 
 ### 下一轮（优先）
-- 基于当前已恢复可用的 9222 元信息层，补一个只读的 Active issues 网络监听脚本/文档步骤，开始沉淀 `Network.requestWillBeSent` 摘要
-- 如果监听仍不稳定，再退回 `docs/linear-parity/active-issues-toolbar-gap.md` 指向的 `/issues` 顶部工具栏最小 UI 改动
+- 基于 2026-04-19 10:01 最新证据，implementation lane 先不要扩展到 issue detail 的真实控件/行为对标；优先把 `IssueDetailPage` 加载态继续细化为更接近 Linear 的双栏骨架：明确顶部 hero、主内容/评论区、右侧属性栏、activity/doc/relations 分区占位
+- 同步统一 issue detail route shell 未命中空态、返回 Active issues CTA 与加载骨架的 spacing / card chrome / badge 文案，确保未命中态与加载态属于同一视觉语言
+- 继续把任何真实控件级 parity（relations、sub-issues、activity 交互细节）显式挂起到 CAP-07 authenticated detail evidence 恢复之后
 
 ### 下下轮
-- 做一个最小代码改动：调整 `/issues` 页顶部工具栏中的一个区块，使其更接近 Linear Active Issues
+- 若 CAP-07 仍未恢复，则继续做不依赖 authenticated evidence 的详情页版式/骨架微调；若证据恢复，再转入 detail hero / property rail / activity stream 的真实结构对标
