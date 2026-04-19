@@ -807,11 +807,7 @@ describe('routes helpers for active issues workspace routing', () => {
     const element = await IssueDetailRoute({ params: Promise.resolve({ id: '42' }) });
     render(element);
 
-    expect(issueDetailPageSpy).toHaveBeenLastCalledWith({
-      issueId: 42,
-      href: undefined,
-      label: undefined,
-    });
+    expectLegacyIssueRouteEmptyBackLinkContract();
   });
 
   function expectLegacyIssueRouteEmptyBackLinkContract() {
