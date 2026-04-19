@@ -5,7 +5,7 @@ roadmap:
 project:
   repo_path: /Users/liuzheng/Desktop/Cruise
   branch: codex/unify-issue-model
-  head: __FEATURE_SHA__
+  head: 28893be2fe2143b01ed57f8f94f19c89e3a1090b
   baseline_commit: 5f9bbf40737ed971c5a7c4d446c68345454a161f
 last_completed_task:
   id: IMP-24
@@ -19,7 +19,7 @@ last_completed_task:
     - git diff --check: passed
   review:
     code: approved
-  commit: __FEATURE_SHA__
+  commit: 28893be2fe2143b01ed57f8f94f19c89e3a1090b
   next_task: IMP-25
 current_task:
   id: IMP-25
