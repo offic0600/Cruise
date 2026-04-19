@@ -1,5 +1,80 @@
 # Cruise — 开发日志（Dev Logbook）
 
+## Session 146 — 2026-04-19：为 `/issues/[id]` 直达页补显式 back-link contract
+
+**目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-24`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：为 legacy `/issues/[id]` 直达 issue 详情页补最小显式 `href/label` back-link contract，消除 `IssueDetailPage` 顶部返回链接对组件内部默认 fallback 的依赖，并完成验证与状态回写。
+
+### 146.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 读取 | `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` | 确认当前分支 `codex/unify-issue-model`、当前 HEAD `62dfe2fa43d821adc8231758b26bb0aa4433c0ab`，工作树脏变更仍属于同一 implementation lane 收口范围，可继续当前 execution unit |
+| 读取 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/plans/2026-04-16-linear-parity-roadmap.md` / `frontend/src/app/issues/[id]/page.tsx` / `frontend/src/components/issues/IssueDetailPage.tsx` / `frontend/src/lib/api/issues.ts` / `frontend/src/lib/api/planning.ts` / `frontend/src/lib/api/types.ts` / `frontend/src/lib/routes.ts` | 恢复唯一状态源与 lane 明细，确认本轮只允许推进 `IMP-24`，并核对 legacy 直达页可通过 `getIssue + getOrganizations` 解析 workspace slug 后构造显式 back-link |
+| 配置 | `git config user.name/user.email` | 再次确认 git author 使用 `offic0600 <offic0600@163.com>` |
+| 修改 | `frontend/src/app/issues/[id]/page.tsx` | 让 legacy `/issues/[id]` route 在服务端先读取 issue 与 organizations，按 `organizationId` 找到 workspace slug 后显式传入 `IssueDetailPage` 的 `href/label` back-link contract |
+| 修改 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` | 将 `IMP-24` 写回 done，并新增下一轮 `IMP-25`：为 legacy 直达页补 route seam 回归测试 |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` / `cd frontend && npx tsc --noEmit` / `git diff --check` | 三项验证均通过：routes seam 定向测试 5 files / 51 tests 全绿，TypeScript 检查通过，diff 无 whitespace 问题 |
+| Review | `git diff -- frontend/src/app/issues/[id]/page.tsx frontend/src/components/issues/IssueDetailPage.tsx` | 复核本轮只给 legacy 直达页补显式 back-link contract；`IssueDetailPage` 顶部 CTA 仍只消费显式 props，内部 `teamActivePath(...)` fallback 仅保留给删除后跳转 |
+
+### 146.2 本轮落地结果
+
+- legacy `/issues/[id]` 直达页现已在服务端获取 issue 与 organizations，并依据 `issue.organizationId` 解析 workspace slug。
+- route 现已显式向 `IssueDetailPage` 透传 `href/label` back-link contract，顶部返回链接不再依赖组件内部默认 fallback。
+- `IssueDetailPage` 内部 `teamActivePath(...)` fallback 的职责进一步收紧：当前仅保留给删除后跳转，不再承担页面顶部返回 CTA 的缺省生成。
+- `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 已写回：`IMP-24` -> `done`，下一轮转入 `IMP-25`，补 legacy `/issues/[id]` route seam 回归测试。
+
+### 146.3 经验沉淀
+
+- 对 legacy 直达页补显式 route/page contract 时，可先在 route 层用已有 API 拼出最小上下文（本轮是 `issue + organizations → workspace slug`），避免把导航语义重新塞回 page component 内部 fallback。
+- 当组件 fallback 已被收紧为“仅内部动作兜底”后，后续最稳妥的下一刀通常是补 seam 测试锁定 route 显式传参，而不是继续扩大到更多导航重构。
+
+### 146.4 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-24 → IMP-25` |
+| 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `62dfe2fa43d821adc8231758b26bb0aa4433c0ab` |
+| 定向测试 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` ✅（5 files, 51 tests） |
+| TypeScript 检查 | `cd frontend && npx tsc --noEmit` ✅ |
+| Diff 检查 | `git diff --check` ✅ |
+
+## Session 145 — 2026-04-19：收紧 IssueDetailPage 顶部返回链接仅消费显式 contract
+
+**目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-23`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：确认 `IssueDetailPage` 内部 `teamActivePath(...)` fallback 的真实保留边界，并在不扩展到整页导航重构的前提下，把顶部返回链接渲染收紧为仅消费显式传入的 `href/label` contract，完成验证与状态回写。
+
+### 145.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 读取 | `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` | 确认当前分支 `codex/unify-issue-model`、当前 HEAD `62dfe2fa43d821adc8231758b26bb0aa4433c0ab`，工作树可继续推进单一 implementation execution unit |
+| 读取 | `AGENTS.md` / `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `frontend/src/components/issues/IssueDetailPage.tsx` / `frontend/src/app/issues/[id]/page.tsx` / `frontend/src/components/inbox/InboxPage.tsx` / `frontend/src/lib/routes.test.tsx` | 恢复 lane 状态源并核对 `IssueDetailPage` 真实直接调用面，确认只有 workspace issue detail route、`/issues/[id]` 直达页与 Inbox embedded 详情三处使用 |
+| 修改 | `frontend/src/components/issues/IssueDetailPage.tsx` | 将顶部返回链接 `detailBackHref` 收紧为仅消费显式传入的 `href`；不再在 workspace/team 上下文存在时自动兜底渲染 Active issues 返回链接 |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` / `cd frontend && npx tsc --noEmit` / `git diff --check` | 三项验证均通过：routes seam 定向测试 5 files / 51 tests 全绿，TypeScript 检查通过，diff 无 whitespace 问题 |
+| Review | `git diff -- frontend/src/components/issues/IssueDetailPage.tsx` | 复核本轮只收紧顶部返回链接渲染边界，没有删除删除后跳转仍需的 `teamActivePath(...)` fallback，也未扩大到 `/issues/[id]` 调用点重构 |
+
+### 145.2 本轮落地结果
+
+- 已确认 `IssueDetailPage` 的直接调用面只剩三类：workspace issue detail route、`/issues/[id]` 直达页、Inbox embedded 详情。
+- Inbox 因 `embedded` 模式本就不显示顶部返回链接，因此不构成 back-link fallback 依赖来源。
+- `IssueDetailPage` 顶部返回链接现已只在显式传入 `href` 时渲染，不再因为当前 workspace/team 上下文存在就自动回退到 `teamActivePath(...)`。
+- 组件内部 `teamActivePath(...)` 仍需暂时保留给删除后跳转与 `/issues/[id]` 直达页未显式传参场景，因此本轮将“为何仍不能完全移除 fallback”的原因写回 state/task-board，并新增下一轮 `IMP-24`。
+
+### 145.3 经验沉淀
+
+- 当共享 route/page contract 已统一时，继续收紧 fallback 边界的第一步应先核对真实调用面，而不是直接删除组件内部兜底；这样能避免误伤直达页或 embedded 场景。
+- 对详情页返回链接这类 UI seam，可先把“是否渲染 CTA”收紧为仅受显式 contract 驱动，再下一轮逐个调用点补齐显式传参，比一次性删光内部 fallback 更稳妥。
+
+### 145.4 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-23 → IMP-24` |
+| 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `62dfe2fa43d821adc8231758b26bb0aa4433c0ab` |
+| 定向测试 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` ✅（5 files, 51 tests） |
+| TypeScript 检查 | `cd frontend && npx tsc --noEmit` ✅ |
+| Diff 检查 | `git diff --check` ✅ |
+
+
 ## Session 144 — 2026-04-19：让 IssueDetailPage 直接消费共享 back-link contract props
 
 **目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-22`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：把 `IssueDetailPage` 的返回链接 props 命名收口为与 route shell `pageBackLink` 完全一致的 `href/label` contract，并完成验证、review、feature commit、状态写回与 push 闭环。

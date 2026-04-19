@@ -5,32 +5,32 @@ roadmap:
 project:
   repo_path: /Users/liuzheng/Desktop/Cruise
   branch: codex/unify-issue-model
-  head: 035fafae7748d3f16e601619ed57fca616f0bf16
+  head: __FEATURE_SHA__
   baseline_commit: 5f9bbf40737ed971c5a7c4d446c68345454a161f
 last_completed_task:
-  id: IMP-22
-  title: 让 IssueDetailPage 直接消费共享 back-link contract props
+  id: IMP-24
+  title: 为 `/issues/[id]` 直达 issue 详情页补最小显式 back-link contract
   status: done
   summary: >-
-    `IssueDetailPage` 现已把返回链接 props 收口为与 route shell `pageBackLink` 一致的 `href/label` contract，删除组件层对 `backHref/backLabel` 旧命名的专用接口，只保留组件内部对缺省 workspace/team 返回链接的 fallback 行为。
+    `/issues/[id]` 直达页现已在服务端先获取 issue 与 organizations，按 `organizationId` 解析 workspace slug 后显式构造并传入 `IssueDetailPage` 的 `href/label` back-link contract，从而消除顶部返回链接对组件内部默认 fallback 的依赖；`IssueDetailPage` 仍仅保留删除后跳转所需的内部 `teamActivePath(...)` 导航兜底，不再承担页面顶部 CTA 的缺省生成职责。
   tests:
     - cd frontend && pnpm test -- --run src/lib/routes.test.tsx: passed (5 files, 51 tests)
     - cd frontend && npx tsc --noEmit: passed
     - git diff --check: passed
   review:
     code: approved
-  commit: 035fafae7748d3f16e601619ed57fca616f0bf16
-  next_task: IMP-23
+  commit: __FEATURE_SHA__
+  next_task: IMP-25
 current_task:
-  id: IMP-23
+  id: IMP-25
   parent_task: linear-parity-push
-  title: 评估并收紧 IssueDetailPage 内部 workspace/team 默认 back-link fallback 的保留边界
+  title: 为 `/issues/[id]` 直达页补最小 route seam 回归测试以锁定显式 back-link contract
   lane: Implementation
   status: pending
   done_when: >-
-    在不扩大到 capture lane 或整页导航重构的前提下，核对 `IssueDetailPage` 内部 `teamActivePath(...)` fallback 是否仍为唯一必要兜底；若可进一步收紧则完成最小实现与验证，否则把必须保留 fallback 的原因写回状态与 task-board。
+    为 `/issues/[id]` 直达 issue 详情页新增最小 route seam 回归测试，锁定其向 `IssueDetailPage` 显式透传 `href/label` back-link contract，并覆盖无可解析 workspace slug 时的安全降级行为。
   blocker: >-
-    暂无新增外部 blocker；下一轮应先确认除 route 外是否还有直接渲染 `IssueDetailPage` 且依赖内部 fallback 的调用点，再决定能否安全移除或收紧该 fallback。
+    暂无外部 blocker；当前代码路径已显式传入 back-link contract，但仍缺少针对 legacy `/issues/[id]` 直达页的独立 seam 测试，下一轮应优先补齐该验证而不是继续扩大导航重构范围。
 notes:
   execution_rules:
     - docs/status/roadmap-state.yaml 是 linear parity cron 的唯一恢复状态源；task-board 是 lane 明细与后继任务定义源。

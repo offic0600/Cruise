@@ -203,7 +203,7 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
   }, [currentTeamId, issue?.teamId, membersQuery.data]);
   const customFieldDefinitions = (issue?.customFieldDefinitions ?? customFieldDefinitionsQuery.data ?? []) as CustomFieldDefinition[];
   const parentIssue = parentIssueQuery.data ?? null;
-  const detailBackHref = !embedded ? href ?? (currentOrganizationSlug && currentTeamKey ? teamActivePath(currentOrganizationSlug, currentTeamKey) : null) : null;
+  const detailBackHref = !embedded ? href ?? null : null;
   const detailBackLabel = label ?? t('issues.detailPage.backToIssues');
   const isActivityLoading = commentsQuery.isLoading || activityQuery.isLoading;
   const isAttachmentsLoading = attachmentsQuery.isLoading;
