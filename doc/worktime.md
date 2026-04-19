@@ -2,6 +2,7 @@
      2|
 | 项目 | Session | 日期 | 工作内容 | 预估工时 | 实际工时 |
 |---|---|---|---|---|---|
+| Linear 对标 | Session 147 | 2026-04-19 | 按 implementation lane 完成 IMP-26：为 legacy `/issues/[id]` route 补 `getIssue(...)` / `getOrganizations()` 失败场景 seam 回归测试，锁定 try/catch 降级 contract；完成定向验证、feature commit 与状态回写 | 0.3h | 0.3h |
 | Linear 对标 | Session 146 | 2026-04-19 | 按 implementation lane 完成 IMP-24：让 legacy `/issues/[id]` route 通过 `getIssue + getOrganizations` 解析 workspace slug，并显式向 `IssueDetailPage` 透传 `href/label` back-link contract；完成定向验证与状态回写 | 0.3h | 0.3h |
 | Linear 对标 | Session 145 | 2026-04-19 | 按 implementation lane 完成 IMP-23：核对 `IssueDetailPage` 真实直接调用面，确认 `/issues/[id]` 直达页仍依赖内部 fallback；将顶部返回链接收紧为仅消费显式 `href/label` contract，并完成定向验证与状态回写 | 0.3h | 0.3h |
 | Linear 对标 | Session 144 | 2026-04-19 | 按 implementation lane 完成 IMP-22：让 `IssueDetailPage` 直接消费与 route shell `pageBackLink` 一致的共享 `href/label` contract，删除组件层 `backHref/backLabel` 旧命名接口，更新 routes seam mock/断言，并完成定向验证、状态写回与 push 收口 | 0.5h | 0.6h |

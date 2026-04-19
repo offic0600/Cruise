@@ -1,5 +1,45 @@
 # Cruise — 开发日志（Dev Logbook）
 
+## Session 147 — 2026-04-19：为 legacy `/issues/[id]` route 补 API 失败 seam 回归测试
+
+**目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-26`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：为 legacy `/issues/[id]` 直达 route 补最小 API 失败场景 seam 回归测试，锁定 `getIssue(...)` 或 `getOrganizations()` 抛错时 route 仍以空 back-link props 渲染 `IssueDetailPage` 的 try/catch 降级 contract，并完成验证、review、提交、状态回写与 push 闭环。
+
+### 147.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 读取 | `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` | 确认当前分支 `codex/unify-issue-model`、当前 HEAD `28acbdcd9645ca1b20a459feac130299f1cfe57c`，工作树起始干净，可安全继续单一 implementation execution unit |
+| 读取 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/plans/2026-04-16-linear-parity-roadmap.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` / `frontend/src/app/issues/[id]/page.tsx` / `frontend/src/lib/routes.test.tsx` | 恢复唯一状态源、lane 明细、roadmap 与日志/工时回写要求，确认本轮只允许推进 `IMP-26`，且现有 legacy route 已具备 try/catch 降级实现，当前缺口仅剩 seam 测试 |
+| 配置 | `git config user.name/user.email` | 再次确认 git author 使用 `offic0600 <offic0600@163.com>` |
+| 修改 | `frontend/src/lib/routes.test.tsx` | 为 legacy `/issues/[id]` route 新增两条最小 seam 回归测试，分别覆盖 `getIssue(...)` reject 与 `getOrganizations()` reject 时 route 仍向 `IssueDetailPage` 透传空 back-link props 的 try/catch 降级 contract |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` / `cd frontend && npx tsc --noEmit` / `git diff --check` | 三项验证均通过：routes seam 定向测试 5 files / 55 tests 全绿，TypeScript 检查通过，diff 无 whitespace 问题 |
+| Review | `git diff -- frontend/src/lib/routes.test.tsx` | 复核本轮仅新增 legacy route API 失败场景断言，不修改 route 运行时逻辑、不跨到其他 lane 或第二个 execution unit |
+| 提交 | `git commit -m "[verified] test: cover legacy issue route API fallback seam"` | 完成本轮 feature/work commit，得到真实提交 `159949a8ad41624b247133735597194c37762a28` |
+| 修改 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 将 `IMP-26` 写回 done，记录真实 feature SHA，并新增下一轮 `IMP-27`：评估 legacy route 是否可抽出共享 issue/org lookup seam |
+
+### 147.2 本轮落地结果
+
+- legacy `/issues/[id]` route 的 seam 回归测试现已覆盖两类 API 失败路径：`getIssue(...)` reject 与 `getOrganizations()` reject。
+- 两条测试都锁定同一降级 contract：route 吞掉异常后仍正常渲染 `IssueDetailPage`，并透传空 `href/label` back-link props，而不是把异常泄漏到页面层。
+- 本轮未扩大到 route/helper 重构，只补齐 `IMP-26` 所要求的最小 try/catch seam 验证。
+- `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 已写回：`IMP-26` -> `done`，下一轮转入 `IMP-27`，评估是否值得提炼共享 issue/org lookup seam。
+
+### 147.3 经验沉淀
+
+- 对已有 try/catch 降级实现，最稳妥的单轮 execution unit 通常是先补 seam 测试锁定失败 contract，而不是立刻抽 helper；这样能先确保后续重构有稳定护栏。
+- 对 `Promise.all(...)` 形式的 route 依赖，最好分别覆盖每个上游 API reject 分支，避免只测“任一失败”却遗漏具体失败源的调用/降级语义。
+
+### 147.4 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-26 → IMP-27` |
+| 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `28acbdcd9645ca1b20a459feac130299f1cfe57c` |
+| feature commit | `159949a8ad41624b247133735597194c37762a28` |
+| 定向测试 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` ✅（5 files, 55 tests） |
+| TypeScript 检查 | `cd frontend && npx tsc --noEmit` ✅ |
+| Diff 检查 | `git diff --check` ✅ |
+
 ## Session 146 — 2026-04-19：为 `/issues/[id]` 直达页补显式 back-link contract
 
 **目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-24`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：为 legacy `/issues/[id]` 直达 issue 详情页补最小显式 `href/label` back-link contract，消除 `IssueDetailPage` 顶部返回链接对组件内部默认 fallback 的依赖，并完成验证与状态回写。
