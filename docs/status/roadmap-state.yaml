@@ -8,29 +8,29 @@ project:
   head: 850adf1f4bdb40b9f62fc5be4e824c8394d3a571
   baseline_commit: 850adf1f4bdb40b9f62fc5be4e824c8394d3a571
 last_completed_task:
-  id: IMP-17
-  title: 评估 issue 详情页 route shell 与页面骨架落地切口
+  id: IMP-18
+  title: 为 issue detail route shell 补共享 skeleton/empty-state contract 的下一刀验证收口
   status: done
   summary: >-
-    已完成 issue detail route 与详情页骨架/空态 contract 的最小收口：route shell 复用共享返回 CTA model 与 empty-state model，详情页加载态改为稳定双栏骨架，并修正 DONE/CANCELED + resolution 徽标文案连接符；同时 routes seam 测试继续收紧 visible CTA raw/normalized href 一致性。
+    已为 issue detail route shell 新增 `buildIssueDetailRouteShellModel(...)` 共享 helper，把 empty-state model 与 loading-state defaults/overrides 收口到单一 seam，并补 routes helper 回归测试锁定默认 loading contract 与显式 subtle/showActions 覆盖值。
   tests:
-    - cd frontend && pnpm test -- --run src/lib/routes.test.tsx: passed (5 files, 49 tests)
+    - cd frontend && pnpm test -- --run src/lib/routes.test.tsx: passed (5 files, 50 tests)
     - cd frontend && npx tsc --noEmit: passed
     - git diff --check: passed
   review:
     code: approved
-  commit: 850adf1f4bdb40b9f62fc5be4e824c8394d3a571
-  next_task: IMP-18
+  commit: 4fd73c8bd985eaf4340f6c9fa14cf62e2c4af8ae
+  next_task: IMP-19
 current_task:
-  id: IMP-18
+  id: IMP-19
   parent_task: linear-parity-push
-  title: 为 issue detail route shell 补共享 skeleton/empty-state contract 的下一刀验证收口
+  title: 让 issue detail route 真正消费共享 shell model 渲染 loading/empty-state 分支
   lane: Implementation
   status: pending
   done_when: >-
-    至少再落一个 issue detail route shell 的最小实现/测试增量，优先补齐 route 与 IssueDetailPage 之间剩余可提炼的共享 skeleton/empty-state seam，且完成最小充分验证、review、提交、状态写回与推送闭环。
+    让 issue detail route 的 loading/not-found/error/no-id 分支改为消费单一共享 shell model，而不是分别手写 skeleton/empty-state 组装；完成最小充分验证、review、提交、状态写回与推送闭环。
   blocker: >-
-    当前工作树仍混有 capture lane 文档、watchdog 脚本与其它未收口 implementation 改动，若不先完成现有脏变更闭环，继续追加新的实现会扩大边界并增加 docs/state 收口风险。
+    暂无新增外部 blocker；下一轮只需在不扩大到 `IssueDetailPage` 内部重构的前提下，把 route 分支切换到本轮新增的 shell model seam。
 history:
   - id: CAP-08
     lane: Capture
