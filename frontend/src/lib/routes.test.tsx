@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import type { Issue } from '@/lib/api';
-import { IssueDetailRouteEmptyState, IssueDetailRouteEmptyStateCard, IssueDetailRouteSkeleton, buildIssueDetailRouteBackLink, buildIssueDetailRouteEmptyCopy, buildIssueDetailRouteEmptyStateBackLinkModel, buildIssueDetailRouteEmptyStateCardModel, buildIssueDetailRouteEmptyStateCardTestIds, buildIssueDetailRouteEmptyStateLinkHref, buildIssueDetailRouteEmptyStateModel } from '@/app/[workspaceSlug]/issue/[identifier]/[titleSlug]/page';
+import { IssueDetailRouteEmptyState, IssueDetailRouteEmptyStateCard, IssueDetailRouteSkeleton, buildIssueDetailRouteBackLink, buildIssueDetailRouteEmptyCopy, buildIssueDetailRouteEmptyStateBackLinkModel, buildIssueDetailRouteEmptyStateCardModel, buildIssueDetailRouteEmptyStateCardTestIds, buildIssueDetailRouteEmptyStateLinkHref, buildIssueDetailRouteEmptyStateModel, buildIssueDetailRouteShellModel } from '@/app/[workspaceSlug]/issue/[identifier]/[titleSlug]/page';
 import { issueDetailPath, issueViewFromTeamRoute, parseTeamRoute, parseWorkspaceSlug, replaceTeamKeyInPath, teamActivePath, teamIssuesPath } from '@/lib/routes';
 
 const issueDetailPageSpy = vi.fn();
@@ -561,6 +561,44 @@ describe('routes helpers for active issues workspace routing', () => {
       badgeLabel: 'issues.detailPage.issueNotFoundBadge',
       title: 'issues.detailPage.issueNotFoundTitle',
       description: 'issues.detailPage.issueNotFoundDescription',
+    });
+  });
+
+  it('builds a shared route shell model from identifier, back-link model, copy, and optional loading state overrides', () => {
+    expect(
+      buildIssueDetailRouteShellModel(
+        'ENG-42',
+        buildSharedIssueDetailActiveBackLink(),
+        expectSharedRouteEmptyStateCopyKeys(),
+        { subtle: true, showActions: false }
+      )
+    ).toEqual({
+      emptyState: buildIssueDetailRouteEmptyStateModel(
+        'ENG-42',
+        buildSharedIssueDetailActiveBackLink(),
+        expectSharedRouteEmptyStateCopyKeys()
+      ),
+      loadingState: {
+        subtle: true,
+        showActions: false,
+      },
+    });
+    expect(
+      buildIssueDetailRouteShellModel(
+        undefined,
+        buildSharedIssueDetailHiddenBackLink(),
+        expectSharedRouteEmptyStateCopyKeys()
+      )
+    ).toEqual({
+      emptyState: buildIssueDetailRouteEmptyStateModel(
+        undefined,
+        buildSharedIssueDetailHiddenBackLink(),
+        expectSharedRouteEmptyStateCopyKeys()
+      ),
+      loadingState: {
+        subtle: false,
+        showActions: true,
+      },
     });
   });
 

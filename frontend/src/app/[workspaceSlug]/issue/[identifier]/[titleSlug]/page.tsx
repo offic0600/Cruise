@@ -115,6 +115,16 @@ type IssueDetailRouteEmptyStateModel = {
   copy: IssueDetailRouteEmptyCopy;
 };
 
+type IssueDetailRouteShellState = {
+  subtle?: boolean;
+  showActions?: boolean;
+};
+
+type IssueDetailRouteShellModel = {
+  emptyState: IssueDetailRouteEmptyStateModel;
+  loadingState: Required<IssueDetailRouteShellState>;
+};
+
 function buildIssueDetailRouteEmptyStateModel(
   identifier: string | undefined,
   backLinkModel: IssueDetailRouteEmptyStateBackLinkModel,
@@ -124,6 +134,21 @@ function buildIssueDetailRouteEmptyStateModel(
     identifier,
     backLinkModel,
     copy,
+  };
+}
+
+function buildIssueDetailRouteShellModel(
+  identifier: string | undefined,
+  backLinkModel: IssueDetailRouteEmptyStateBackLinkModel,
+  copy: IssueDetailRouteEmptyCopy,
+  loadingState?: IssueDetailRouteShellState
+): IssueDetailRouteShellModel {
+  return {
+    emptyState: buildIssueDetailRouteEmptyStateModel(identifier, backLinkModel, copy),
+    loadingState: {
+      subtle: loadingState?.subtle ?? false,
+      showActions: loadingState?.showActions ?? true,
+    },
   };
 }
 
@@ -213,7 +238,19 @@ function IssueDetailRouteEmptyState({ identifier, backLinkModel, copy }: IssueDe
   );
 }
 
-export { IssueDetailRouteEmptyState, IssueDetailRouteEmptyStateCard, IssueDetailRouteSkeleton, buildIssueDetailRouteBackLink, buildIssueDetailRouteEmptyCopy, buildIssueDetailRouteEmptyStateBackLinkModel, buildIssueDetailRouteEmptyStateCardModel, buildIssueDetailRouteEmptyStateCardTestIds, buildIssueDetailRouteEmptyStateLinkHref, buildIssueDetailRouteEmptyStateModel };
+export {
+  IssueDetailRouteEmptyState,
+  IssueDetailRouteEmptyStateCard,
+  IssueDetailRouteSkeleton,
+  buildIssueDetailRouteBackLink,
+  buildIssueDetailRouteEmptyCopy,
+  buildIssueDetailRouteEmptyStateBackLinkModel,
+  buildIssueDetailRouteEmptyStateCardModel,
+  buildIssueDetailRouteEmptyStateCardTestIds,
+  buildIssueDetailRouteEmptyStateLinkHref,
+  buildIssueDetailRouteEmptyStateModel,
+  buildIssueDetailRouteShellModel,
+};
 
 export default function IssueDetailWorkspaceRoute() {
   const params = useParams<{ identifier: string }>();
@@ -238,6 +275,17 @@ export default function IssueDetailWorkspaceRoute() {
     t('issues.detailPage.backToActiveIssues'),
     t('issues.detailPage.backToIssues')
   );
+  const routeShellModel = buildIssueDetailRouteShellModel(
+    identifier,
+    buildIssueDetailRouteEmptyStateBackLinkModel(routeBackLink),
+    buildIssueDetailRouteEmptyCopy(t)
+  );
+  const backgroundRefetchRouteShellModel = buildIssueDetailRouteShellModel(
+    identifier,
+    routeShellModel.emptyState.backLinkModel,
+    routeShellModel.emptyState.copy,
+    { subtle: true, showActions: false }
+  );
 
   useEffect(() => {
     if (!issueLookupQuery.data) return;
@@ -249,7 +297,7 @@ export default function IssueDetailWorkspaceRoute() {
   if (issueLookupQuery.isLoading) {
     return (
       <AppLayout>
-        <IssueDetailRouteSkeleton />
+        <IssueDetailRouteSkeleton {...routeShellModel.loadingState} />
       </AppLayout>
     );
   }
@@ -257,7 +305,7 @@ export default function IssueDetailWorkspaceRoute() {
   if (issueLookupQuery.isFetching && !cachedIssue && !issueLookupQuery.data) {
     return (
       <AppLayout>
-        <IssueDetailRouteSkeleton subtle showActions={false} />
+        <IssueDetailRouteSkeleton {...backgroundRefetchRouteShellModel.loadingState} />
       </AppLayout>
     );
   }
@@ -266,18 +314,12 @@ export default function IssueDetailWorkspaceRoute() {
     return <IssueDetailPage issueId={cachedIssue.id} backHref={routeBackLink.href} backLabel={routeBackLink.label} />;
   }
 
-  const issueNotFoundState = buildIssueDetailRouteEmptyStateModel(
-    identifier,
-    buildIssueDetailRouteEmptyStateBackLinkModel(routeBackLink),
-    buildIssueDetailRouteEmptyCopy(t)
-  );
-
   if (issueLookupQuery.isError) {
-    return <IssueDetailRouteEmptyState {...issueNotFoundState} />;
+    return <IssueDetailRouteEmptyState {...routeShellModel.emptyState} />;
   }
 
   if (!issueId) {
-    return <IssueDetailRouteEmptyState {...issueNotFoundState} />;
+    return <IssueDetailRouteEmptyState {...routeShellModel.emptyState} />;
   }
 
   return <IssueDetailPage issueId={issueId} backHref={routeBackLink.href} backLabel={routeBackLink.label} />;
