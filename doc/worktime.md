@@ -2,6 +2,8 @@
      2|     2|     2|     2|
 | 项目 | Session | 日期 | 工作内容 | 预估工时 | 实际工时 |
 |---|---|---|---|---|---|
+| Linear 对标 | Session 167 | 2026-04-20 | 按 implementation lane 完成 IMP-46：将 route 级 `getIssue(...)` API 失败场景测试标题从 `falls back ...` 收口为 `renders the shared empty props contract when getIssue rejects in the legacy /issues/[id] route`，用 renders 稳定 route render 语义并保持 `getOrganizations()` 失败标题/共享断言不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
+| Linear 对标 | Session 166 | 2026-04-20 | 按 implementation lane 完成 IMP-45：将 helper 级 workspace slug miss 场景测试标题从 `falls back ...` 收口为 `returns the empty props contract when the helper workspace slug lookup misses`，用 returns 稳定 helper 返回值语义并与 route 级 `renders ...` 分层；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 165 | 2026-04-20 | 按 implementation lane 完成 IMP-44：将 helper 级 workspace slug miss 场景测试标题收口为 `falls back to the empty props contract when the helper workspace slug lookup misses`，补上 helper lookup seam 语义以与 route 级 `renders ...` wording 区分；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 164 | 2026-04-20 | 按 implementation lane 完成 IMP-43：确认 helper/route 两个 workspace slug miss empty props contract 场景仍需保留层级区分，并将 route 级测试标题收口为 `renders the empty props contract when the workspace slug lookup misses`，用 render wording 与 helper lookup 场景拉开语义；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 163 | 2026-04-20 | 按 implementation lane 完成 IMP-42：将 route 级 workspace slug miss 场景测试标题从 `falls back to the shared empty props contract when the workspace slug lookup misses` 收口为 `falls back to the empty props contract when the workspace slug lookup misses`，去掉与 route 级共享空 props contract 断言重复表达的 `shared` wording；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
