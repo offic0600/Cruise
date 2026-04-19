@@ -1,3 +1,80 @@
+## Session 165 — 2026-04-20：为 helper 级 workspace slug miss 场景测试标题补上 helper lookup 语义
+
+**目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-44`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 helper 级 workspace slug miss 场景测试标题是否需要补上 helper lookup seam 语义，以避免与 route 级 `renders ...` wording 混淆；若可行，则只改 helper 级这一处标题并完成验证、review、提交、状态回写与 push 闭环。
+
+### 165.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 读取 | `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` | 确认当前分支 `codex/unify-issue-model`、执行前 HEAD `ac3c4b66e26c26f6c8bd1052c79734fb276eb098`，工作树起始仅含上轮 docs/state 闭环残留，可按同 lane docs 收口继续本轮 implementation execution unit |
+| 读取 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/plans/2026-04-16-linear-parity-roadmap.md` / `frontend/src/lib/routes.test.tsx` | 恢复唯一状态源、lane 明细与 roadmap，确认本轮只允许推进 `IMP-44`，且最小切口是先补 helper 级标题中的 helper lookup seam 语义 |
+| 修改 | `frontend/src/lib/routes.test.tsx` | 将 helper 级 workspace slug miss 场景测试标题从 `falls back to the empty props contract when the workspace slug lookup misses` 收口为 `falls back to the empty props contract when the helper workspace slug lookup misses`，用 `helper workspace slug lookup` 明确 helper seam 语义，同时保持 route 级 `renders ...` 标题、共享断言、fixture 设置与 helper/route 运行时逻辑不变 |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` / `cd frontend && npx tsc --noEmit` / `git diff --check` | 三项验证均通过：routes seam 定向测试 5 files / 57 tests 全绿，TypeScript 检查通过，diff 无 whitespace 问题 |
+| Review | `git diff -- frontend/src/lib/routes.test.tsx` | 复核本轮只改 helper 级测试标题文案，不改 helper/route 运行时逻辑、共享断言结构或第二个 execution unit；review 结论为通过 |
+| 提交 | `git commit -m "[verified] test: clarify helper lookup wording"` | 完成本轮 feature/work commit，得到真实提交 `16d553aeba2912567b39999bbc523135c8b215c4` |
+| 修改 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 将 `IMP-44` 写回 done，记录真实 feature SHA，并新增下一轮 `IMP-45`：评估 helper/route 两个 workspace slug miss 场景当前 `falls back` / `renders` 动词风格是否仍需进一步统一或稳定 |
+
+### 165.2 本轮落地结果
+
+- 已确认 helper 级 workspace slug miss 场景是在直接断言 `buildIssueDetailRouteBackLinkProps(...)` helper lookup 返回空对象，而非 route render 层。
+- helper 级 workspace slug miss 场景测试标题现已由 `falls back to the empty props contract when the workspace slug lookup misses` 收口为 `falls back to the empty props contract when the helper workspace slug lookup misses`，以 `helper workspace slug lookup` 明确 helper seam 语义。
+- route 级 `renders the empty props contract when the workspace slug lookup misses` 标题、`expectLegacyIssueDetailRouteEmptyProps()` / `expectLegacyIssueRouteEmptyPropsContract()` 共享断言、fixture 设置以及 helper/route 运行时逻辑均保持不变；`docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 已写回：`IMP-44` -> `done`，下一轮转入 `IMP-45`，继续评估 helper/route 场景动词风格是否还需进一步统一。
+
+### 165.3 经验沉淀
+
+- 当 helper 级与 route 级测试标题已通过 `renders` 拉开 route render 层语义后，可继续让 helper 级标题显式写出 `helper ... lookup` seam，避免未来阅读时把 helper lookup fallback 与 route render contract 混读。
+- 对成对 helper/route 场景的测试文案收口，仍应一次只动一处标题；先稳定层级边界，再决定下一轮是否还需统一动词风格。
+
+### 165.4 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-44 → IMP-45` |
+| 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `ac3c4b66e26c26f6c8bd1052c79734fb276eb098` |
+| feature commit | `16d553aeba2912567b39999bbc523135c8b215c4` |
+| 定向测试 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` ✅（5 files, 57 tests） |
+| TypeScript 检查 | `cd frontend && npx tsc --noEmit` ✅ |
+| Diff 检查 | `git diff --check` ✅ |
+
+## Session 164 — 2026-04-20：为 route 级 workspace slug miss 场景测试标题补上 render 层语义区分
+
+**目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-43`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 helper/route 两个已统一为 `empty props contract when the workspace slug lookup misses` 的场景测试标题是否仍需保留层级区分；若可行，则只改第一处可安全收口的 route 级测试文案并完成验证、review、提交、状态回写与 push 闭环。
+
+### 164.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 读取 | `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` | 确认当前分支 `codex/unify-issue-model`、执行前 HEAD `892b778305445e4c021282091bd68e9f90558e04`，工作树起始干净，可安全继续单一 implementation execution unit |
+| 读取 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/plans/2026-04-16-linear-parity-roadmap.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` / `frontend/src/lib/routes.test.tsx` | 恢复唯一状态源、lane 明细、roadmap 与日志/工时回写要求，确认本轮只允许推进 `IMP-43`，且最小切口是先验证 helper/route 标题是否需要保留层级区分 |
+| 配置 | `git config user.name/user.email` | 确认 git author 使用 `offic0600 <offic0600@163.com>` |
+| 修改 | `frontend/src/lib/routes.test.tsx` | 将 route 级 workspace slug miss 场景测试标题从 `falls back to the empty props contract when the workspace slug lookup misses` 收口为 `renders the empty props contract when the workspace slug lookup misses`，以 `renders` 明确 route 渲染层语义，同时保持 helper 级标题、共享断言、fixture 设置与 helper/route 运行时逻辑不变 |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` / `cd frontend && npx tsc --noEmit` / `git diff --check` | 三项验证均通过：routes seam 定向测试 5 files / 57 tests 全绿，TypeScript 检查通过，diff 无 whitespace 问题 |
+| Review | `git diff -- frontend/src/lib/routes.test.tsx` | 复核本轮只改 route 级测试标题文案，不改 helper/route 运行时逻辑、共享断言结构或第二个 execution unit；review 结论为通过 |
+| 提交 | `git commit -m "[verified] test: split empty props wording"` | 完成本轮 feature/work commit，得到真实提交 `ac3c4b66e26c26f6c8bd1052c79734fb276eb098` |
+| 修改 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 将 `IMP-43` 写回 done，记录真实 feature SHA，并新增下一轮 `IMP-44`：评估 helper 级 workspace slug miss 场景标题是否需要补上 helper lookup 语义以继续拉开与 route 级 render wording 的区分 |
+
+### 164.2 本轮落地结果
+
+- 已确认 helper/route 两个 workspace slug miss 场景虽然都围绕 empty props contract，但 helper 级是在直接断言 lookup helper 返回空对象，route 级是在渲染 legacy `/issues/[id]` route 后断言 `IssueDetailPage` 收到空 props contract。
+- route 级 workspace slug miss 场景测试标题现已由 `falls back to the empty props contract when the workspace slug lookup misses` 收口为 `renders the empty props contract when the workspace slug lookup misses`，以 `renders` 明确 route 渲染层语义。
+- helper 级标题、`expectLegacyIssueDetailRouteEmptyProps()` / `expectLegacyIssueRouteEmptyPropsContract()` 共享断言、fixture 设置以及 helper/route 运行时逻辑均保持不变；`docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 已写回：`IMP-43` -> `done`，下一轮转入 `IMP-44`，继续评估 helper 级标题是否应补上 lookup seam 语义。
+
+### 164.3 经验沉淀
+
+- 当 helper 级与 route 级测试标题已收口到相同 empty props wording 时，可优先让 route 级标题显式表达 render 层语义，避免未来继续阅读时把 helper lookup seam 与 route render seam 混为同一层。
+- 对成对 helper/route 场景的测试文案收口，仍应一次只动一处标题；先拉开层级区分，再决定下一轮是否需要回补 helper lookup 语义。
+
+### 164.4 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-43 → IMP-44` |
+| 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `892b778305445e4c021282091bd68e9f90558e04` |
+| feature commit | `ac3c4b66e26c26f6c8bd1052c79734fb276eb098` |
+| 定向测试 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` ✅（5 files, 57 tests） |
+| TypeScript 检查 | `cd frontend && npx tsc --noEmit` ✅ |
+| Diff 检查 | `git diff --check` ✅ |
+
 ## Session 163 — 2026-04-20：去掉 route 级 workspace slug miss 场景测试标题里的重复 shared wording
 
 **目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-42`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 route 级已使用 `shared empty props contract` 的 workspace slug miss 场景测试标题是否仍存在可安全压缩的重复 wording；若可行，则只改这一处 route 级测试文案并完成验证、review、提交、状态回写与 push 闭环。
