@@ -787,4 +787,34 @@ describe('routes helpers for active issues workspace routing', () => {
       label: undefined,
     });
   });
+
+  it('falls back to an empty back-link contract when getIssue rejects in the legacy /issues/[id] route', async () => {
+    getIssueMock.mockRejectedValue(new Error('issue lookup failed'));
+
+    const element = await IssueDetailRoute({ params: Promise.resolve({ id: '42' }) });
+    render(element);
+
+    expect(getIssueMock).toHaveBeenCalledWith(42);
+    expect(getOrganizationsMock).toHaveBeenCalledTimes(1);
+    expect(issueDetailPageSpy).toHaveBeenLastCalledWith({
+      issueId: 42,
+      href: undefined,
+      label: undefined,
+    });
+  });
+
+  it('falls back to an empty back-link contract when getOrganizations rejects in the legacy /issues/[id] route', async () => {
+    getOrganizationsMock.mockRejectedValue(new Error('organization lookup failed'));
+
+    const element = await IssueDetailRoute({ params: Promise.resolve({ id: '42' }) });
+    render(element);
+
+    expect(getIssueMock).toHaveBeenCalledWith(42);
+    expect(getOrganizationsMock).toHaveBeenCalledTimes(1);
+    expect(issueDetailPageSpy).toHaveBeenLastCalledWith({
+      issueId: 42,
+      href: undefined,
+      label: undefined,
+    });
+  });
 });
