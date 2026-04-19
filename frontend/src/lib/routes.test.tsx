@@ -810,7 +810,7 @@ describe('routes helpers for active issues workspace routing', () => {
     });
   }
 
-  it('falls back to the empty props contract when the workspace slug lookup misses', () => {
+  it('falls back to the empty props contract when the helper workspace slug lookup misses', () => {
     expectLegacyIssueDetailRouteEmptyProps();
   });
 
