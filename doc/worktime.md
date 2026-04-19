@@ -2,6 +2,7 @@
      2|     2|     2|     2|
 | 项目 | Session | 日期 | 工作内容 | 预估工时 | 实际工时 |
 |---|---|---|---|---|---|
+| Linear 对标 | Session 170 | 2026-04-20 | 按 implementation lane 完成 IMP-49：将 route 级 `getOrganizations()` API 失败场景测试标题从 `renders the shared empty props contract ...` 收口为 `renders the empty props contract when getOrganizations rejects in the legacy /issues/[id] route`，去掉与共享断言 helper 命名重复的 `shared` wording，并保持共享断言/fixture 不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 169 | 2026-04-20 | 按 implementation lane 完成 IMP-48：将 route 级 `getIssue(...)` API 失败场景测试标题从 `renders the shared empty props contract ...` 收口为 `renders the empty props contract when getIssue rejects in the legacy /issues/[id] route`，去掉与共享断言 helper 命名重复的 `shared` wording，并保持 `getOrganizations()` 失败标题/共享断言/fixture 不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 168 | 2026-04-20 | 按 implementation lane 完成 IMP-47：将 route 级 `getOrganizations()` API 失败场景测试标题从 `falls back ...` 收口为 `renders the shared empty props contract when getOrganizations rejects in the legacy /issues/[id] route`，用 renders 与同组 route 级 API 失败场景统一 render 语义并保持共享断言/fixture 不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 167 | 2026-04-20 | 按 implementation lane 完成 IMP-46：将 route 级 `getIssue(...)` API 失败场景测试标题从 `falls back ...` 收口为 `renders the shared empty props contract when getIssue rejects in the legacy /issues/[id] route`，用 renders 稳定 route render 语义并保持 `getOrganizations()` 失败标题/共享断言不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
