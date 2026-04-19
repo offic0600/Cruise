@@ -89,6 +89,8 @@ const RELATION_TYPES = ['BLOCKS', 'BLOCKED_BY', 'RELATES_TO', 'DUPLICATES', 'CAU
 interface IssueDetailPageProps {
   issueId: number;
   embedded?: boolean;
+  backHref?: string | null;
+  backLabel?: string | null;
 }
 
 interface DraftIssue {
@@ -129,7 +131,7 @@ type InlinePillOption = {
   avatarClassName?: string;
 };
 
-export default function IssueDetailPage({ issueId, embedded = false }: IssueDetailPageProps) {
+export default function IssueDetailPage({ issueId, embedded = false, backHref = null, backLabel = null }: IssueDetailPageProps) {
   const { locale, t } = useI18n();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -198,6 +200,8 @@ export default function IssueDetailPage({ issueId, embedded = false }: IssueDeta
   }, [currentTeamId, issue?.teamId, membersQuery.data]);
   const customFieldDefinitions = (issue?.customFieldDefinitions ?? customFieldDefinitionsQuery.data ?? []) as CustomFieldDefinition[];
   const parentIssue = parentIssueQuery.data ?? null;
+  const detailBackHref = !embedded ? backHref ?? (currentOrganizationSlug && currentTeamKey ? teamActivePath(currentOrganizationSlug, currentTeamKey) : null) : null;
+  const detailBackLabel = backLabel ?? t('issues.detailPage.backToIssues');
   const isActivityLoading = commentsQuery.isLoading || activityQuery.isLoading;
   const isAttachmentsLoading = attachmentsQuery.isLoading;
   const isChildIssuesLoading = childIssuesQuery.isLoading;
@@ -734,7 +738,65 @@ export default function IssueDetailPage({ issueId, embedded = false }: IssueDeta
     embedded ? <div className="h-full overflow-y-auto bg-transparent">{content}</div> : <AppLayout>{content}</AppLayout>;
 
   if (issueQuery.isLoading || !draftIssue) {
-    return wrapShell(<div className="py-16 text-center text-ink-400">{t('common.loading')}</div>);
+    return wrapShell(
+      <div className={cn(embedded ? 'px-6 py-5' : 'mx-auto max-w-[1280px] px-6 py-10')}>
+        <div className="flex flex-col gap-8 pb-10">
+          <header className="flex flex-col gap-6 border-b border-border-soft/80 pb-7">
+            <div className="flex items-start justify-between gap-6">
+              <div className="min-w-0 flex-1 space-y-4">
+                {!embedded ? (
+                  <div className="h-5 w-40 animate-pulse rounded-full bg-slate-200/80" />
+                ) : null}
+                <div className="space-y-3">
+                  <div className="h-12 w-full max-w-[520px] animate-pulse rounded-2xl bg-slate-200/80" />
+                  <div className="h-5 w-32 animate-pulse rounded-full bg-slate-200/70" />
+                </div>
+              </div>
+              <div className="hidden shrink-0 items-center gap-2 xl:flex">
+                <div className="h-9 w-9 animate-pulse rounded-full bg-slate-200/80" />
+                <div className="h-9 w-9 animate-pulse rounded-full bg-slate-200/80" />
+                <div className="h-9 w-9 animate-pulse rounded-full bg-slate-200/80" />
+                <div className="h-9 w-24 animate-pulse rounded-full bg-slate-200/80" />
+              </div>
+            </div>
+          </header>
+
+          <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_292px]">
+            <main className="min-w-0 space-y-8">
+              <section className="rounded-[28px] border border-border-subtle bg-surface-raised px-6 py-6 shadow-[0_18px_48px_rgba(15,23,42,0.05)]">
+                <div className="space-y-4">
+                  <div className="h-5 w-28 animate-pulse rounded-full bg-slate-200/70" />
+                  <div className="h-24 w-full animate-pulse rounded-[24px] bg-slate-100" />
+                  <div className="h-24 w-full animate-pulse rounded-[24px] bg-slate-100/90" />
+                </div>
+              </section>
+              <section className="space-y-3">
+                <div className="h-5 w-24 animate-pulse rounded-full bg-slate-200/70" />
+                <div className="h-14 w-full animate-pulse rounded-[22px] bg-slate-100" />
+              </section>
+            </main>
+
+            <aside className="space-y-3 xl:sticky xl:top-24 xl:self-start">
+              <div className="rounded-[24px] border border-border-subtle bg-surface-raised px-4 py-4 shadow-[0_18px_44px_rgba(15,23,42,0.05)]">
+                <div className="space-y-3">
+                  <div className="h-4 w-24 animate-pulse rounded-full bg-slate-200/70" />
+                  <div className="h-9 w-32 animate-pulse rounded-full bg-slate-100" />
+                  <div className="h-9 w-36 animate-pulse rounded-full bg-slate-100" />
+                  <div className="h-9 w-28 animate-pulse rounded-full bg-slate-100" />
+                </div>
+              </div>
+              <div className="rounded-[24px] border border-border-subtle bg-surface-raised px-4 py-4 shadow-[0_18px_44px_rgba(15,23,42,0.05)]">
+                <div className="space-y-3">
+                  <div className="h-4 w-20 animate-pulse rounded-full bg-slate-200/70" />
+                  <div className="h-9 w-full animate-pulse rounded-full bg-slate-100" />
+                  <div className="h-9 w-5/6 animate-pulse rounded-full bg-slate-100" />
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!issue) {
@@ -749,13 +811,17 @@ export default function IssueDetailPage({ issueId, embedded = false }: IssueDeta
               <div className="min-w-0 space-y-4">
                 {!embedded ? (
                   <div className="flex items-center gap-2 text-sm text-ink-500">
-                    <Link
-                      href={currentOrganizationSlug && currentTeamKey ? teamActivePath(currentOrganizationSlug, currentTeamKey) : '#'}
-                      className="inline-flex items-center gap-1.5 transition hover:text-ink-900"
-                    >
-                      <ArrowLeft className="h-4 w-4" />
-                      {t('issues.detailPage.backToIssues')}
-                    </Link>
+                    {detailBackHref ? (
+                      <Link href={detailBackHref} className="inline-flex items-center gap-1.5 transition hover:text-ink-900">
+                        <ArrowLeft className="h-4 w-4" />
+                        {detailBackLabel}
+                      </Link>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-ink-400">
+                        <ArrowLeft className="h-4 w-4" />
+                        {detailBackLabel}
+                      </span>
+                    )}
                     <ChevronRight className="h-4 w-4 text-ink-300" />
                     {parentIssue && currentOrganizationSlug ? (
                       <>
@@ -1918,11 +1984,23 @@ function IssueStateBadge({
   t: (key: string, vars?: Record<string, string | number>) => string;
 }) {
   if (state === 'DONE') {
-    return <Badge variant="success">{resolution && resolution !== 'COMPLETED' ? `${t(`common.status.${state}`)} 路 ${t(`common.resolution.${resolution}`)}` : t(`common.status.${state}`)}</Badge>;
+    return (
+      <Badge variant="success">
+        {resolution && resolution !== 'COMPLETED'
+          ? `${t(`common.status.${state}`)} / ${t(`common.resolution.${resolution}`)}`
+          : t(`common.status.${state}`)}
+      </Badge>
+    );
   }
   if (state === 'IN_PROGRESS' || state === 'IN_REVIEW') return <Badge variant="brand">{t(`common.status.${state}`)}</Badge>;
   if (state === 'CANCELED') {
-    return <Badge variant="danger">{resolution && resolution !== 'CANCELED' ? `${t(`common.status.${state}`)} 路 ${t(`common.resolution.${resolution}`)}` : t(`common.status.${state}`)}</Badge>;
+    return (
+      <Badge variant="danger">
+        {resolution && resolution !== 'CANCELED'
+          ? `${t(`common.status.${state}`)} / ${t(`common.resolution.${resolution}`)}`
+          : t(`common.status.${state}`)}
+      </Badge>
+    );
   }
   return <Badge variant="neutral">{t(`common.status.${state}`)}</Badge>;
 }
@@ -2019,6 +2097,66 @@ function EditableTitle({
       className="min-h-[1.2em] cursor-text text-[40px] font-semibold leading-[1.08] tracking-[-0.03em] text-ink-900 outline-none lg:text-[46px]"
     >
       {value}
+    </div>
+  );
+}
+
+function DetailHeaderSkeleton({ embedded = false }: { embedded?: boolean }) {
+  return (
+    <header className="flex flex-col gap-6 border-b border-border-soft/80 pb-7">
+      <div className="flex items-start justify-between gap-6">
+        <div className="min-w-0 flex-1 space-y-4">
+          {!embedded ? <div className="h-5 w-40 animate-pulse rounded-full bg-slate-200/80" /> : null}
+          <div className="space-y-3">
+            <div className="h-12 w-full max-w-[520px] animate-pulse rounded-2xl bg-slate-200/80" />
+            <div className="h-5 w-32 animate-pulse rounded-full bg-slate-200/70" />
+          </div>
+        </div>
+        <div className="hidden shrink-0 items-center gap-2 xl:flex">
+          <div className="h-9 w-9 animate-pulse rounded-full bg-slate-200/80" />
+          <div className="h-9 w-9 animate-pulse rounded-full bg-slate-200/80" />
+          <div className="h-9 w-9 animate-pulse rounded-full bg-slate-200/80" />
+          <div className="h-9 w-24 animate-pulse rounded-full bg-slate-200/80" />
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function DetailBodySkeleton() {
+  return (
+    <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_292px]">
+      <main className="min-w-0 space-y-8">
+        <section className="rounded-[28px] border border-border-subtle bg-surface-raised px-6 py-6 shadow-[0_18px_48px_rgba(15,23,42,0.05)]">
+          <div className="space-y-4">
+            <div className="h-5 w-28 animate-pulse rounded-full bg-slate-200/70" />
+            <div className="h-24 w-full animate-pulse rounded-[24px] bg-slate-100" />
+            <div className="h-24 w-full animate-pulse rounded-[24px] bg-slate-100/90" />
+          </div>
+        </section>
+        <section className="space-y-3">
+          <div className="h-5 w-24 animate-pulse rounded-full bg-slate-200/70" />
+          <div className="h-14 w-full animate-pulse rounded-[22px] bg-slate-100" />
+        </section>
+      </main>
+
+      <aside className="space-y-3 xl:sticky xl:top-24 xl:self-start">
+        <div className="rounded-[24px] border border-border-subtle bg-surface-raised px-4 py-4 shadow-[0_18px_44px_rgba(15,23,42,0.05)]">
+          <div className="space-y-3">
+            <div className="h-4 w-24 animate-pulse rounded-full bg-slate-200/70" />
+            <div className="h-9 w-32 animate-pulse rounded-full bg-slate-100" />
+            <div className="h-9 w-36 animate-pulse rounded-full bg-slate-100" />
+            <div className="h-9 w-28 animate-pulse rounded-full bg-slate-100" />
+          </div>
+        </div>
+        <div className="rounded-[24px] border border-border-subtle bg-surface-raised px-4 py-4 shadow-[0_18px_44px_rgba(15,23,42,0.05)]">
+          <div className="space-y-3">
+            <div className="h-4 w-20 animate-pulse rounded-full bg-slate-200/70" />
+            <div className="h-9 w-full animate-pulse rounded-full bg-slate-100" />
+            <div className="h-9 w-5/6 animate-pulse rounded-full bg-slate-100" />
+          </div>
+        </div>
+      </aside>
     </div>
   );
 }
