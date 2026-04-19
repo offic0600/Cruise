@@ -2,6 +2,7 @@
      2|     2|     2|     2|     2|
      3|| 项目 | Session | 日期 | 工作内容 | 预估工时 | 实际工时 |
 |---|---|---|---|---|---|
+| Linear 对标 | Session 175 | 2026-04-20 | 按 implementation lane 完成 IMP-55：将 route 级 `getOrganizations()` API 失败场景测试标题从 `renders the empty state props ...` 收口为 `renders the empty props when getOrganizations rejects in the legacy /issues/[id] route`，以与 `getIssue(...)` 场景保持一致并保持共享断言/fixture 不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 174 | 2026-04-20 | 按 implementation lane 完成 IMP-53：将 route 级 `getOrganizations()` API 失败场景测试标题从 `renders the empty props ...` 收口为 `renders the empty state props when getOrganizations rejects in the legacy /issues/[id] route`，以与 `getIssue(...)` 场景保持一致并保持共享断言/fixture 不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 173 | 2026-04-20 | 按 implementation lane 完成 IMP-52：将 route 级 `getIssue(...)` API 失败场景测试标题从 `renders the empty props ...` 收口为 `renders the empty state props when getIssue rejects in the legacy /issues/[id] route`，以更直接表达空态 props 语义并保持 `getOrganizations()` 失败标题/共享断言不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 172 | 2026-04-20 | 按 implementation lane 做 IMP-51 的 closure-only 收口：对齐 `docs/status/roadmap-state.yaml`、`docs/linear-parity/task-board.md`、`docs/planning/dev-logbook.md` 与 `doc/worktime.md`，将 feature commit `3700122bb8321f70083fd9f729a6a0a2e4df8260` 写回为已完成的 `IMP-51`，并新增后继 `IMP-52`；二次核对定向测试/tsc/diff 结果与状态摘要一致后完成 docs/state 闭环 | 0.2h | 0.2h |
