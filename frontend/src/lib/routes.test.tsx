@@ -814,6 +814,14 @@ describe('routes helpers for active issues workspace routing', () => {
     });
   });
 
+  function expectLegacyIssueRouteEmptyBackLinkContract() {
+    expect(issueDetailPageSpy).toHaveBeenLastCalledWith({
+      issueId: 42,
+      href: undefined,
+      label: undefined,
+    });
+  }
+
   it('falls back to an empty back-link contract when getIssue rejects in the legacy /issues/[id] route', async () => {
     getIssueMock.mockRejectedValue(new Error('issue lookup failed'));
 
@@ -822,11 +830,7 @@ describe('routes helpers for active issues workspace routing', () => {
 
     expect(getIssueMock).toHaveBeenCalledWith(42);
     expect(getOrganizationsMock).toHaveBeenCalledTimes(1);
-    expect(issueDetailPageSpy).toHaveBeenLastCalledWith({
-      issueId: 42,
-      href: undefined,
-      label: undefined,
-    });
+    expectLegacyIssueRouteEmptyBackLinkContract();
   });
 
   it('falls back to an empty back-link contract when getOrganizations rejects in the legacy /issues/[id] route', async () => {
@@ -837,10 +841,6 @@ describe('routes helpers for active issues workspace routing', () => {
 
     expect(getIssueMock).toHaveBeenCalledWith(42);
     expect(getOrganizationsMock).toHaveBeenCalledTimes(1);
-    expect(issueDetailPageSpy).toHaveBeenLastCalledWith({
-      issueId: 42,
-      href: undefined,
-      label: undefined,
-    });
+    expectLegacyIssueRouteEmptyBackLinkContract();
   });
 });
