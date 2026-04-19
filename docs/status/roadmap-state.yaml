@@ -5,33 +5,33 @@ roadmap:
 project:
   repo_path: /Users/liuzheng/Desktop/Cruise
   branch: codex/unify-issue-model
-  head: 850adf1f4bdb40b9f62fc5be4e824c8394d3a571
-  baseline_commit: 850adf1f4bdb40b9f62fc5be4e824c8394d3a571
+  head: 5f9bbf40737ed971c5a7c4d446c68345454a161f
+  baseline_commit: 5f9bbf40737ed971c5a7c4d446c68345454a161f
 last_completed_task:
-  id: IMP-18
-  title: 为 issue detail route shell 补共享 skeleton/empty-state contract 的下一刀验证收口
+  id: IMP-19
+  title: 让 issue detail route 真正消费共享 shell model 渲染 loading/empty-state 分支
   status: done
   summary: >-
-    已为 issue detail route shell 新增 `buildIssueDetailRouteShellModel(...)` 共享 helper，把 empty-state model 与 loading-state defaults/overrides 收口到单一 seam，并补 routes helper 回归测试锁定默认 loading contract 与显式 subtle/showActions 覆盖值。
+    issue detail route 的 loading/background-refetch/error/no-id 分支现已真正消费 `buildIssueDetailRouteShellModel(...)` 产出的共享 shell model，删除 route 内部重复 empty-state 组装，并保持 scope 仅限 route 分支 seam。
   tests:
     - cd frontend && pnpm test -- --run src/lib/routes.test.tsx: passed (5 files, 50 tests)
     - cd frontend && npx tsc --noEmit: passed
     - git diff --check: passed
   review:
     code: approved
-  commit: 4fd73c8bd985eaf4340f6c9fa14cf62e2c4af8ae
-  next_task: IMP-19
+  commit: PENDING_FEATURE_COMMIT
+  next_task: IMP-20
 current_task:
-  id: IMP-19
+  id: IMP-20
   parent_task: linear-parity-push
-  title: 让 issue detail route 真正消费共享 shell model 渲染 loading/empty-state 分支
+  title: 继续收口 issue detail route 与 IssueDetailPage 之间剩余 skeleton/empty-state seam
   lane: Implementation
   status: pending
   done_when: >-
-    让 issue detail route 的 loading/not-found/error/no-id 分支改为消费单一共享 shell model，而不是分别手写 skeleton/empty-state 组装；完成最小充分验证、review、提交、状态写回与推送闭环。
+    在不触碰 capture lane 的前提下，继续寻找 issue detail route 与 `IssueDetailPage` 之间仍重复的 skeleton/empty-state 或 back-link seam，并完成一个最小可验证收口增量的实现、验证、提交、状态写回与推送闭环。
   blocker: >-
-    暂无新增外部 blocker；下一轮只需在不扩大到 `IssueDetailPage` 内部重构的前提下，把 route 分支切换到本轮新增的 shell model seam。
-history:
+    暂无新增外部 blocker；下一轮应先基于当前 route shell 已消费的前提，选择一处仍然重复的 page/route seam 做单点收口，避免扩大到整页重构。
+
   - id: CAP-08
     lane: Capture
     status: blocked

@@ -42,6 +42,45 @@
 | TypeScript 检查 | `cd frontend && npx tsc --noEmit` ✅ |
 | Diff 检查 | `git diff --check` ✅ |
 
+## Session 141 — 2026-04-19：让 issue detail route 消费共享 shell model 收口 IMP-19
+
+**目标**：按 Implementation lane 推进 `IMP-19`，在不扩大到 `IssueDetailPage` 内部重构的前提下，让 issue detail route 的 loading/not-found/error/no-id 分支真正消费上一轮新增的共享 shell model；完成最小充分验证、review，并为后续 feature/docs commit 闭环准备状态文档。
+
+### 141.1 实施内容
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 读取 | `AGENTS.md` / `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/plans/2026-04-16-linear-parity-roadmap.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 恢复当前 lane、唯一状态源、日志/工时回写要求与 implementation 单 execution unit 约束 |
+| 复核 | `frontend/src/app/[workspaceSlug]/issue/[identifier]/[titleSlug]/page.tsx` / `frontend/src/lib/routes.test.tsx` / `frontend/src/components/issues/IssueDetailPage.tsx` | 确认当前 `IMP-19` 只应把 route loading/empty-state 分支切换到共享 shell seam，不扩大到 page 内部骨架重构 |
+| 修改 | `frontend/src/app/[workspaceSlug]/issue/[identifier]/[titleSlug]/page.tsx` | 新增 `backgroundRefetchRouteShellModel`，让默认 loading 与 background refetch loading 通过共享 `loadingState` 渲染；同时让 error/no-id 分支直接消费 `routeShellModel.emptyState`，删除重复 empty-state 组装 |
+| 修改 | `frontend/src/lib/routes.test.tsx` | 继续补强 `buildIssueDetailRouteShellModel(...)` helper 回归测试，显式锁定默认 loading state 与 override loading state contract |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` / `cd frontend && npx tsc --noEmit` / `git diff --check` | 当前环境下 routes seam 定向测试、TypeScript 检查与 diff whitespace 检查均通过 |
+| Review | `git diff -- frontend/src/app/[workspaceSlug]/issue/[identifier]/[titleSlug]/page.tsx frontend/src/lib/routes.test.tsx docs/status/roadmap-state.yaml docs/linear-parity/task-board.md` | 复核本轮改动只落在 issue detail route shell seam 与状态文档，不跨到 capture lane 或 `IssueDetailPage` 内部 |
+
+### 141.2 本轮落地结果
+
+- issue detail route 现在已用 `buildIssueDetailRouteShellModel(...)` 统一承载 route 级 empty-state 与 loading-state contract：默认 loading 分支消费 `routeShellModel.loadingState`，background refetch loading 分支消费 `backgroundRefetchRouteShellModel.loadingState`。
+- `issueLookupQuery.isError` 与 `!issueId` 分支已改为直接复用 `routeShellModel.emptyState`，删除了 route 内部重复拼装 `issueNotFoundState` 的局部逻辑，完成 `IMP-19` 所要求的最小 route 分支 seam 收口。
+- `routes.test.tsx` 已补 helper 回归：显式锁定 `buildIssueDetailRouteShellModel(...)` 的默认 loading contract 与 override loading contract，验证通过后与页面改动形成闭环。
+- 当前尚未执行 feature commit / docs-state commit；但代码与状态文档已准备好进入同一轮 commit/push 闭环。
+
+### 141.3 经验沉淀
+
+- 当上一轮已经把 route shell 提炼为共享 model helper，下一轮最小切口应优先把真正的消费点切过去，而不是继续只在 helper 层增加抽象，否则 `pending` 任务会长期停留在“helper 已存在但调用点仍手写”的假完成状态。
+- 对 route 级 loading/empty-state 收口，可先限制在 page route 本身的 query 分支，避免同时触碰 `IssueDetailPage` 内部骨架，这样更符合单 execution unit 原则。
+- 状态文档中的 blocker 一旦与真实工作树不符，必须在 feature commit 前同步修正，否则 cron 恢复会反复把已解除问题误当 blocker。
+
+### 141.4 关键数据快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-19` |
+| 当前分支 / HEAD（改动前） | `codex/unify-issue-model` / `5f9bbf40737ed971c5a7c4d446c68345454a161f` |
+| 定向测试 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` ✅（5 files, 50 tests） |
+| TypeScript 检查 | `cd frontend && npx tsc --noEmit` ✅ |
+| Diff 检查 | `git diff --check` ✅ |
+| 当前闭环状态 | 代码与 docs/state 已更新，待 feature commit + docs/state commit + push |
+
 ## Session 140 — 2026-04-19：收口 IMP-17 并恢复 issue detail route shell 验证闭环
 
 **目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-17`，先核对 git 真实状态、roadmap、task-board 与现有实现脏变更；仅收口 issue detail route shell / empty-state / skeleton contract 的一个最小 execution unit，完成最小验证、review、feature commit、状态写回与 push 闭环。
