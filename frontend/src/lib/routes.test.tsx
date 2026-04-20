@@ -824,7 +824,7 @@ describe('routes helpers for active issues workspace routing', () => {
   });
 
 
-  it('route getIssue rejects', async () => {
+  it('getIssue rejects', async () => {
     getIssueMock.mockRejectedValue(new Error('issue lookup failed'));
 
     const element = await IssueDetailRoute({ params: Promise.resolve({ id: '42' }) });
