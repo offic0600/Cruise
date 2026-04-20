@@ -94,7 +94,7 @@
 | 当前 lane / task | `Implementation / IMP-96 → IMP-97` |
 | 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `adf4d676c062fbf62fd9c015463c6c4800018a15` |
 | feature commit | `efde12dc53915e47c4a81bb5e81c57f7ea7ca738` |
-| docs/state closeout | `project.head` / `last_completed_task.commit` / task-board IMP-96 commit 已统一改正为真实 40 位 SHA，等待 docs commit 与 push |
+| docs/state closeout | `project.head` / `last_completed_task.commit` / task-board IMP-96 commit 已统一改正为真实 40 位 SHA，并已随 docs commit `cdc8064c9f63fdb270315ae9a5335ad57596a55d` 推送到 `origin/codex/unify-issue-model` |
 | 验证 | `pnpm test -- --run src/lib/routes.test.tsx`、`npx tsc --noEmit`、`git diff --check` |
 
 ## Session 214 — 2026-04-20：评估并去掉第二条 legacy route API 失败标题中的 route 前缀（再次收口）
