@@ -2,6 +2,7 @@
      2|     2|     2|     2|     2|
      3|| 项目 | Session | 日期 | 工作内容 | 预估工时 | 实际工时 |
 |---|---|---|---|---|---|
+| Linear 对标 | Session 192 | 2026-04-20 | 按 implementation lane 完成 IMP-73：将 route 级 `getOrganizations()` API 失败场景测试标题从 `getOrganizations rejects` 补回为 `route getOrganizations rejects`，以与 `route getIssue rejects` 保持最小 route 级语义词对称，并保持共享断言/fixture 不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 191 | 2026-04-20 | 按 implementation lane 完成 IMP-72：复核 helper 级 `returns the empty props contract when the helper workspace slug lookup misses` 仍保留 helper seam 语义，确认 route 级两条 API 失败场景若都维持 `getIssue rejects` / `getOrganizations rejects` 会与 helper 层级过近，因此仅将第一条 route 级失败标题补回为 `route getIssue rejects`，保持第二条标题、共享断言/fixture 与运行时逻辑不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 190 | 2026-04-20 | 按 implementation lane 完成 IMP-71：将 route 级 `getOrganizations()` API 失败场景测试标题从 `route getOrganizations rejects` 收口为 `getOrganizations rejects`，确认在 describe 已限定 legacy route 上下文且 helper 级 lookup 标题仍保留层级语义时可安全去掉第二条标题中的 `route` 前缀，并保持共享断言/fixture 不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 189 | 2026-04-20 | 按 implementation lane 完成 IMP-70：将 route 级 `getIssue(...)` API 失败场景测试标题从 `route getIssue rejects` 收口为 `getIssue rejects`，确认在 describe 已限定 legacy route 上下文且 helper 级 lookup 标题仍保留层级语义时可安全去掉第一条标题中的 `route` 前缀，并保持共享断言/fixture 不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
@@ -81,3 +82,7 @@
     61|    50|    50|    50|    28|
     62|    51|    51|    51|- 2026-04-19 20:47 CST — Capture cron：CAP-08 `Add label` opened-state 只读采集（attached CDP only）；新增 flow + raw JSON 证据，并更新 task-board / dev-logbook。
     63|    52|    52|    52|
+
+## 2026-04-20
+
+- 2026-04-20 08:31-08:33 CST | Implementation | IMP-73 | Renamed the second legacy `/issues/[id]` route API-failure test title to `route getOrganizations rejects`; re-ran targeted vitest, `npx tsc --noEmit`, and `git diff --check`.
