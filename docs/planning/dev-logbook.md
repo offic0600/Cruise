@@ -1,3 +1,77 @@
+
+## Session 208 — 2026-04-20：Capture lane 复核 CAP-08 docs 闭环与工作树风险阻塞
+
+**目标**：按 capture lane 规则恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md`，在强制读取 `AGENTS.md`、watchdog、roadmap、logbook、worktime 后，只做一个最小 execution unit：核对 `tmp/linear-capture/summary.json` 是否比 docs 更新；若无新 capture 产物且 docs 已同步，则补一次 capture lane 状态复核，明确 CAP-08 仍因工作树闭环风险 blocked，而不是附着失败。
+
+### 208.1 执行步骤
+
+| 步骤 | 操作 | 结果 |
+|------|------|------|
+| 恢复状态 | 读取 `AGENTS.md`、`docs/status/roadmap-state.yaml`、`docs/linear-parity/task-board.md`、`docs/plans/2026-04-16-linear-parity-roadmap.md`、`docs/planning/dev-logbook.md`、`doc/worktime.md`，并执行 `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` / `git status --short` | 确认仓库位于 `codex/unify-issue-model`，状态文件当前仍停在 Implementation lane `IMP-89`；按任务板 Capture lane 需回退到 `CAP-08`，且工作树无新增脏文件但当前 lane 边界仍要求避免在 implementation 收口过程中继续向同树写入新 capture 产物 |
+| 约束复核 | 读取 `~/Desktop/Cruise/.hermes/linear-9222-watchdog/last-status.txt` | 明确 `consumer_policy=attached_cdp_only`、`metadata_layer=ok`、`websocket_attach=ok`，且附着 target 继续指向 `CLE-28 Views 页面补齐创建/编辑/删除与状态反馈`；因此本轮禁止使用 Hermes 内置 `browser_*`，也不能把 blocker 误写成“附着失败” |
+| 证据新鲜度核对 | 比较 `tmp/linear-capture/summary.json` 与 `docs/linear-parity/task-board.md` / `docs/status/roadmap-state.yaml` / `docs/planning/dev-logbook.md` / `doc/worktime.md` 的最近修改时间 | 确认 `summary.json` 最近时间仍为 2026-04-19 23:20:06 CST，早于四个 docs 文件本轮前的最近写回，说明 CAP-08 现有 capture 证据已完成 docs 闭环，本轮不应重复采集 |
+| 状态写回 | 更新 `docs/linear-parity/task-board.md` 与 `docs/status/roadmap-state.yaml` | 将 CAP-08 blocker 文案补成 12:18 CST 的新复核结论，明确 blocker 仍是“工作树闭环风险，非附着失败”，并同步更新状态文件 handoff 摘要，提醒 capture cron 遇到 docs 已同步且无新产物时直接停止 |
+| 验证 | `git diff -- docs/linear-parity/task-board.md docs/status/roadmap-state.yaml` + 重读变更片段 | 复核仅有 capture lane docs 文案更新，无实现代码改动，也无误把 blocker 写成附着失败 |
+
+### 208.2 本轮落地结果
+
+- 已再次确认 watchdog 仍处于 `attached_cdp_only + websocket_attach=ok` 健康状态，CAP-08 当前并非浏览器附着失败。
+- 已再次确认 `tmp/linear-capture/summary.json` 没有比 task-board / roadmap-state / dev-logbook / worktime 更新，因此现有 capture 产物已完成 docs 闭环，本轮不做重复采集。
+- 已将 CAP-08 与状态文件 handoff 更新为新的 capture lane 复核结论：当前 blocker 继续是工作树闭环风险，下一轮应在独立干净工作树执行只读采集，或待 implementation 收口后再继续 `Add label` search input 的空结果/建议反馈态证据。
+
+### 208.3 经验沉淀
+
+- Capture cron 在状态文件仍停在 Implementation lane 时，不能直接放弃；应回退到 task-board 的 Capture lane 当前项继续做 docs 闭环或 blocker 复核。
+- 当 watchdog 明确给出 `attached_cdp_only` 与 `websocket_attach=ok` 时，即使本轮最终没有新采集动作，也要把“无新产物 + docs 已同步”与“非附着失败”这两个事实写回，避免后续 run 误重复采集或误报 blocker 类型。
+
+### 208.4 当前状态快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Capture / CAP-08（blocked）` |
+| 当前分支 / HEAD | `codex/unify-issue-model` / `1afed62f2616cb6b455c5193134253ac12192193` |
+| watchdog | `consumer_policy=attached_cdp_only`、`websocket_attach=ok` |
+| capture 证据新鲜度 | `tmp/linear-capture/summary.json`（2026-04-19 23:20:06 CST）早于 docs 最新写回 |
+| Git commit hash | `未提交（docs-only capture closure review）` |
+
+## Session 209 — 2026-04-20：评估并补回第二条 legacy route API 失败标题中的 route 级语义词（再次收口）
+
+**目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-89`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route `getOrganizations()` API 失败场景当前 `getOrganizations rejects` 标题是否应与上一轮已补回 route 级语义词的 `route getIssue rejects` 保持对称、也补成一条最小 route 级语义词标题；若可行，则只改这一处安全标题并完成验证、review、提交、状态回写与 push 闭环。
+
+### 209.1 执行步骤
+
+| 步骤 | 操作 | 结果 |
+|------|------|------|
+| 恢复状态 | `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` / 读取 `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / roadmap / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 确认仓库位于 `codex/unify-issue-model`，Implementation lane 当前项为 `IMP-89`；工作树虽带有 capture lane 上轮 docs 闭环残留，但仅落在 `roadmap-state` / `task-board` / `dev-logbook` / `worktime`，属于同仓 docs/state closure 残留，可继续本轮 implementation execution unit 并在 docs/state commit 中一并收口 |
+| 实现 | 编辑 `frontend/src/lib/routes.test.tsx` | 仅将 `it('getOrganizations rejects', async () => {` 补回为 `it('route getOrganizations rejects', async () => {`；不改第一条 route 级标题，也不改共享断言、fixture 设置或 helper/route 运行时逻辑 |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` | 通过：5 files / 57 tests |
+| 验证 | `cd frontend && npx tsc --noEmit` | 通过 |
+| 验证 | `git diff --check` | 通过 |
+| Review | `git diff -- frontend/src/lib/routes.test.tsx` | 复核本轮只改一处 route 级 API 失败测试标题文案，不改共享断言结构、fixture 设置或 helper/route 运行时逻辑；review 结论为通过 |
+| 提交 | `git commit -m "[verified] test: restore second route wording for legacy issue lookup again"` | 完成本轮 feature/work commit，得到真实提交 `b017e526e464c766ef4a7e29ff7dd5ca34578028` |
+| 修改 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 将 `IMP-89` 写回 done，记录真实 feature SHA，并新增下一轮 `IMP-90`：评估两条 API 失败场景测试标题在均补回 route 级语义词后是否仍需保留对称前缀 |
+
+### 209.2 本轮落地结果
+
+- 已确认 `getOrganizations()` API 失败场景与上一轮已补回 route 级语义词的 `route getIssue rejects` 一样，仍属于 legacy `/issues/[id]` route 渲染层测试标题。
+- 若继续保持 `getOrganizations rejects`，会破坏两条 route 级 API 失败场景对 helper 级标题的最小对称层级区分。
+- 因此本轮仅将第二条 route 级 API 失败场景测试标题从 `getOrganizations rejects` 补回为 `route getOrganizations rejects`，同时保持第一条 `route getIssue rejects`、共享断言、fixture 设置以及 helper/route 运行时逻辑不变。
+- `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 已写回：`IMP-89` -> `done`，下一轮转入 `IMP-90`，继续评估两条 API 失败场景在均补回 route 级语义词后是否仍需保留对称前缀。
+
+### 209.3 经验沉淀
+
+- 当 helper 级标题仍通过显式 helper seam wording 保留层级区分时，对 route 级对称标题的回调应一次只恢复一条，再验证是否需要推进另一条，避免在同轮里同时改动两处后失去最小比较基线。
+- route 级标题是否保留前缀，仍要结合 describe 作用域与 helper 级标题词汇共同判断；即使是纯测试文案收口，也应走完整验证、review、状态写回闭环。
+
+### 209.4 当前状态快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-89 → IMP-90` |
+| 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `1afed62f2616cb6b455c5193134253ac12192193` |
+| feature commit | `b017e526e464c766ef4a7e29ff7dd5ca34578028` |
+| 验证 | `pnpm test -- --run src/lib/routes.test.tsx`、`npx tsc --noEmit`、`git diff --check` |
+
 ## Session 207 — 2026-04-20：评估并补回第一条 legacy route API 失败标题中的 route 级语义词（再次收口）
 
 **目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-88`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 两条 API 失败场景当前均已收口为 `getIssue rejects` / `getOrganizations rejects` 后，是否仍需要重新补回某个 route 级语义词来维持与 helper 级 lookup 标题的层级区分；若可行，则只改第一处安全标题并完成验证、review、提交、状态回写与 push 闭环。
