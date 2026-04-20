@@ -2,6 +2,7 @@
 
 | 项目 | Session | 日期 | 工作内容 | 预估工时 | 实际工时 |
 |---|---|---|---|---|---|
+| Linear 对标 | Session 210 | 2026-04-20 | 按 implementation lane 完成 IMP-90：复核 legacy `/issues/[id]` route 两条 API 失败场景在均补回 route 级语义词后是否仍需保留第一条对称前缀；确认在 describe 已限定 route 上下文且 helper seam wording 仍清晰时，无需继续保留 `route getIssue rejects` 的前缀，因此仅将其收口为 `getIssue rejects`，保持第二条标题、共享断言/fixture 与 helper/route 运行时逻辑不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 209 | 2026-04-20 | 按 implementation lane 完成 IMP-89：复核 `getOrganizations()` API 失败场景是否应与 `route getIssue rejects` 保持 route 级语义对称；确认若继续保留 `getOrganizations rejects` 会削弱与 helper 级标题的层级区分，因此仅将其补回为 `route getOrganizations rejects`，保持第一条标题、共享断言/fixture 与 helper/route 运行时逻辑不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 208 | 2026-04-20 | 按 capture lane 复核 CAP-08：确认 watchdog 继续为 `consumer_policy=attached_cdp_only`、`websocket_attach=ok`，且 `tmp/linear-capture/summary.json` 仍早于 task-board / roadmap-state / dev-logbook / worktime 的最近写回，因此本轮不重复采集，只补写 CAP-08 的 docs 闭环与 blocker 说明，明确当前阻塞是工作树闭环风险而非附着失败 | 0.2h | 0.2h |
 | Linear 对标 | Session 207 | 2026-04-20 | 按 implementation lane 完成 IMP-88：复核 helper 级 `returns the empty props contract when the helper workspace slug lookup misses` 仍保留 helper seam 语义，确认 route 级两条 API 失败场景若都维持 `getIssue rejects` / `getOrganizations rejects` 会与 helper 层级过近，因此仅将第一条 route 级失败标题补回为 `route getIssue rejects`，保持第二条标题、共享断言/fixture 与运行时逻辑不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
