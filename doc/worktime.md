@@ -2,6 +2,7 @@
 
 | 项目 | Session | 日期 | 工作内容 | 预估工时 | 实际工时 |
 |---|---|---|---|---|---|
+| Linear 对标 | Session 213 | 2026-04-20 | 按 implementation lane 完成 IMP-94：复核 legacy `/issues/[id]` route 两条 API 失败场景在均补回 route 级语义词后是否仍需保留对称前缀；确认在 describe 已限定 route 上下文且 helper seam wording 仍清晰时，无需继续保留第一条 `route getIssue rejects` 的前缀，因此仅将其收口为 `getIssue rejects`，保持第二条标题、共享断言/fixture 与 helper/route 运行时逻辑不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 212 | 2026-04-20 | 按 implementation lane 完成 IMP-93：复核 legacy `/issues/[id]` route `getOrganizations()` API 失败场景是否应与 `route getIssue rejects` 保持 route 级语义对称；确认若继续保留 `getOrganizations rejects` 会破坏与 helper 级标题的最小对称层级区分，因此仅将其补回为 `route getOrganizations rejects`，保持第一条标题、共享断言/fixture 与 helper/route 运行时逻辑不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 211 | 2026-04-20 | 按 implementation lane 完成 IMP-92：复核 legacy `/issues/[id]` route 两条 API 失败场景在再次同时收口为 `getIssue rejects` / `getOrganizations rejects` 后是否仍需补回 route 级语义词；确认 helper seam wording 仍要求恢复最小 route 层级辨识，因此仅将第一条标题补回为 `route getIssue rejects`，保持第二条标题、共享断言/fixture 与 helper/route 运行时逻辑不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 210 | 2026-04-20 | 按 implementation lane 完成 IMP-90：复核 legacy `/issues/[id]` route 两条 API 失败场景在均补回 route 级语义词后是否仍需保留第一条对称前缀；确认在 describe 已限定 route 上下文且 helper seam wording 仍清晰时，无需继续保留 `route getIssue rejects` 的前缀，因此仅将其收口为 `getIssue rejects`，保持第二条标题、共享断言/fixture 与 helper/route 运行时逻辑不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
