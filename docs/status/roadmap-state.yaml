@@ -5,39 +5,38 @@ roadmap:
 project:
   repo_path: /Users/liuzheng/Desktop/Cruise
   branch: codex/unify-issue-model
-  head: f3c6310f14197cf9f62e31ec823b1e7f57088215
+  head: 7e8146e21b7a41ddddce4956c5b13882b945b16e
   baseline_commit: 5f9bbf40737ed971c5a7c4d446c68345454a161f
 last_completed_task:
-  id: IMP-91
+  id: IMP-92
   parent_task: linear-parity-push
-  title: 评估 legacy `/issues/[id]` route 第二条 API 失败场景测试标题在首条已去掉 `route` 前缀后是否也应对称收口
+  title: 评估 legacy `/issues/[id]` route 两条 API 失败场景测试标题在均去掉 `route` 前缀后是否仍需补回 route 级语义词
   lane: Implementation
   status: done
   summary: >-
     已复核 helper 级标题仍通过 `returns the empty props contract when the helper workspace slug lookup misses`
-    明确保留 helper seam 语义；在 describe 已限定 legacy `/issues/[id]` route 上下文下，
-    第二条 route 级 API 失败场景 `route getOrganizations rejects` 应与已收口为
-    `getIssue rejects` 的第一条 route 级失败标题保持对称，也去掉 `route` 前缀。
-    因此本轮仅将该标题收口为 `getOrganizations rejects`，同时保持第一条
-    `getIssue rejects`、共享断言、fixture 设置与 helper/route 运行时逻辑不变。
+    明确保留 helper seam 语义；在 legacy `/issues/[id]` route 两条 API 失败场景再次同时收口为
+    `getIssue rejects` / `getOrganizations rejects` 后，route 层级会与 helper 级 lookup 标题重新过于接近。
+    因此本轮仅将第一条 route 级 API 失败场景测试标题从 `getIssue rejects` 补回为
+    `route getIssue rejects`，以最小 route 级语义词恢复层级辨识度，同时保持第二条
+    `getOrganizations rejects`、共享断言、fixture 设置与 helper/route 运行时逻辑不变。
   tests:
     - cd frontend && pnpm test -- --run src/lib/routes.test.tsx: passed (5 files, 57 tests)
     - cd frontend && npx tsc --noEmit: passed
     - git diff --check: passed
   review:
     code: approved
-  commit: f3c6310f14197cf9f62e31ec823b1e7f57088215
-  next_task: IMP-92
+  commit: 7e8146e21b7a41ddddce4956c5b13882b945b16e
+  next_task: IMP-93
 current_task:
-  id: IMP-92
+  id: IMP-93
   parent_task: linear-parity-push
-  title: 评估 legacy `/issues/[id]` route 两条 API 失败场景测试标题在均去掉 `route` 前缀后是否仍需补回 route 级语义词
+  title: 评估 legacy `/issues/[id]` route `getOrganizations()` API 失败场景测试标题是否也应补回 route 级语义词
   lane: Implementation
   status: pending
   done_when: >-
-    在不扩大实现面的前提下，复核 legacy `/issues/[id]` route 两条 API 失败场景当前均已收口为
-    `getIssue rejects` / `getOrganizations rejects` 后，是否仍需要补回或替换某个更稳妥的 route
-    级语义词来维持与 helper 级 lookup 标题的层级区分；若可行，则只改第一处安全标题并保持
+    在不扩大实现面的前提下，复核 `getOrganizations rejects` 标题是否应与本轮已补回 route 级语义词的
+    `route getIssue rejects` 保持对称，也补成一条最小 route 级语义词标题；若可行，则只改这一处安全标题并保持
     定向验证通过。
   blocker: '-'
 notes:
@@ -48,5 +47,5 @@ notes:
     - Implementation 完成闭环顺序：feature/work commit → 记录 hash → 更新状态/task-board/logbook/worktime → docs/state commit → 检查工作区干净 → push。
     - Capture 完成闭环顺序：证据产物落盘 → 更新状态/task-board/logbook/worktime → 如需状态提交则单独提交 → stop。
   next_run_prompt_summary: >-
-    恢复本状态文件；若当前运行的是 capture cron 且状态文件 lane 仍停在 implementation，则按 task-board 回退到 Capture lane 当前项 CAP-08。先核对 watchdog attached_cdp_only 约束与 tmp/linear-capture 是否存在比 docs 更新的新证据；若没有新产物且 docs 已同步，则保持 CAP-08 blocked（工作树闭环风险，非附着失败）结论并停止；若存在新产物，再只做一刀 capture docs 收口。implementation cron 仍只推进 IMP-92 的一个最小可交付增量；完成或阻塞后必须写回状态并停止。
+    恢复本状态文件；若当前运行的是 capture cron 且状态文件 lane 仍停在 implementation，则按 task-board 回退到 Capture lane 当前项 CAP-08。先核对 watchdog attached_cdp_only 约束与 tmp/linear-capture 是否存在比 docs 更新的新证据；若没有新产物且 docs 已同步，则保持 CAP-08 blocked（工作树闭环风险，非附着失败）结论并停止；若存在新产物，再只做一刀 capture docs 收口。implementation cron 仍只推进 IMP-93 的一个最小可交付增量；完成或阻塞后必须写回状态并停止。
 
