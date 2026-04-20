@@ -58,6 +58,43 @@
 - 因此本轮仅将第一条 route 级 API 失败场景测试标题从 `getIssue rejects` 补回为 `route getIssue rejects`，同时保持第二条 `getOrganizations rejects`、共享断言、fixture 设置以及 helper/route 运行时逻辑不变。
 - `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 已写回：`IMP-92` -> `done`，下一轮转入 `IMP-93`，继续评估第二条 route 级 API 失败场景标题是否也应补回 route 级语义词。
 
+## Session 216 — 2026-04-20：评估并补回第二条 legacy route API 失败标题中的 route 级语义词
+
+**目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-97`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 第二条 API 失败场景当前 `getOrganizations rejects` 标题在第一条已补回为 `route getIssue rejects` 后，是否也应补回最小 route 级语义词以维持 route 层级对称；若可行，则只改这一处安全标题并完成验证、review、提交、状态回写与 push 闭环。
+
+### 216.1 执行步骤
+
+| 步骤 | 操作 | 结果 |
+|------|------|------|
+| 恢复状态 | `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` / 读取 `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / roadmap / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 确认仓库位于 `codex/unify-issue-model`，Implementation lane 当前项为 `IMP-97`，且工作树干净，可支持新的单文件最小 execution unit |
+| 实现 | 编辑 `frontend/src/lib/routes.test.tsx` | 仅将 `it('getOrganizations rejects', async () => {` 调整为 `it('route getOrganizations rejects', async () => {`，恢复第二条 route 级 API 失败场景的最小 route 语义词；不改第一条 API 失败标题，也不改共享断言、fixture 设置或 helper/route 运行时逻辑 |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` | 通过：5 files / 57 tests |
+| 验证 | `cd frontend && npx tsc --noEmit` | 通过 |
+| 验证 | `git diff --check` | 通过 |
+| Review | `git diff -- frontend/src/lib/routes.test.tsx` + 独立 reviewer | 复核本轮只改一处 route 级 API 失败测试标题文案，不改共享断言结构、fixture 设置或 helper/route 运行时逻辑；独立 review 结论为通过 |
+| 提交 | `git commit -m "[verified] test: restore route wording to second legacy issue reject title"` | 完成本轮 feature/work commit，得到真实提交 `374f735011d73eefe374e1ca6ece86e93c2f26da` |
+| 修改 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 将 `IMP-97` 写回 done，记录真实 feature SHA，并新增下一轮 `IMP-98`：评估两条 route 级 API 失败场景在再次均带 route 级语义词后，第二条是否仍需保留对称前缀 |
+
+### 216.2 本轮落地结果
+
+- 已复核在第一条 route 级 API 失败场景已恢复为 `route getIssue rejects` 后，第二条若继续保留 `getOrganizations rejects` 会破坏两条 route 级 API 失败标题的最小对称层级区分。
+- 因此本轮仅将第二条 route 级 API 失败场景测试标题从 `getOrganizations rejects` 补回为 `route getOrganizations rejects`，同时保持第一条 `route getIssue rejects`、共享断言、fixture 设置以及 helper/route 运行时逻辑不变。
+- `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 已写回：`IMP-97` -> `done`，下一轮转入 `IMP-98`，继续评估第二条 route 级 API 失败场景标题在再次恢复 route 对称前缀后是否仍需保留该前缀。
+
+### 216.3 经验沉淀
+
+- 当第一条 route 级 API 失败标题已恢复为 `route getIssue rejects` 时，应复核第二条是否也需要补回 route 级语义，以避免 route 级标题层级重新失衡。
+- 纯测试标题回摆同样应坚持一次只改一条、安全验证、独立 review、状态写回的最小 execution unit 节奏。
+
+### 216.4 当前状态快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-97 → IMP-98` |
+| 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `cddbf11246d13e2bc2ac5403c2281c7c0b7fa5fb` |
+| feature commit | `374f735011d73eefe374e1ca6ece86e93c2f26da` |
+| 验证 | `pnpm test -- --run src/lib/routes.test.tsx`、`npx tsc --noEmit`、`git diff --check` |
+
 ## Session 215 — 2026-04-20：评估并补回第一条 legacy route API 失败标题中的 route 级语义词
 
 **目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-96`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 两条 API 失败场景当前均已收口为 `getIssue rejects` / `getOrganizations rejects` 后，是否需要重新补回某个 route 级语义词来维持与 helper 级 lookup 标题的层级区分；若可行，则只改第一处安全标题并完成验证、review、提交、状态回写与 push 闭环。
