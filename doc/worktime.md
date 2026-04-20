@@ -86,6 +86,7 @@
 
 ## 2026-04-20
 
+- 2026-04-20 09:18-09:20 CST | Implementation | IMP-77 | Restored the second legacy `/issues/[id]` route API-failure test title from `getOrganizations rejects` to `route getOrganizations rejects`; re-ran targeted vitest, `npx tsc --noEmit`, and `git diff --check`.
 - 2026-04-20 09:04-09:07 CST | Implementation | IMP-76 | Restored the first legacy `/issues/[id]` route API-failure test title from `getIssue rejects` to `route getIssue rejects`; re-ran targeted vitest, `npx tsc --noEmit`, and `git diff --check`.
 - 2026-04-20 08:52-08:54 CST | Implementation | IMP-75 | Renamed the second legacy `/issues/[id]` route API-failure test title from `route getOrganizations rejects` to `getOrganizations rejects`; re-ran targeted vitest, `npx tsc --noEmit`, and `git diff --check`.
 - 2026-04-20 08:31-08:33 CST | Implementation | IMP-73 | Renamed the second legacy `/issues/[id]` route API-failure test title to `route getOrganizations rejects`; re-ran targeted vitest, `npx tsc --noEmit`, and `git diff --check`.
