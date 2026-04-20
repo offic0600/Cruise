@@ -1,3 +1,21 @@
+## Session 230 — 2026-04-20：评估并收口第一条 legacy route API 失败标题中的 route 级语义词（再次收口）
+
+**目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-111`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 两条 API 失败场景当前为 `route getIssue rejects` / `getOrganizations rejects` 后，第一条是否仍需保留最小 route 级语义词；若可行，则只改这一处安全标题并完成验证、review、提交、状态写回与 push 闭环。
+
+**完成情况**
+- 将 `frontend/src/lib/routes.test.tsx` 中第一条 legacy `/issues/[id]` route API 失败场景测试标题从 `route getIssue rejects` 收口为 `getIssue rejects`，保持第二条 `getOrganizations rejects`、共享断言 helper、fixture 与 helper/route 运行时逻辑不变。
+- 完成定向验证：`cd frontend && pnpm test -- --run src/lib/routes.test.tsx`、`cd frontend && npx tsc --noEmit`、`git diff --check` 均通过。
+- 完成独立 review，确认改动仅收口测试标题 wording，不扩大实现面，也未引入新的 helper/route 语义漂移。
+- 已提交 feature commit `d6bcef1d5f0464e8a0d33aa920638b49407eec17`（`[verified] test: drop first legacy route reject title again`）；docs/state 已推进为 `last_completed_task=IMP-111`、`current_task=IMP-112`，待本轮 docs/state commit 与 push 收口。
+
+**证据 / 验证**
+- `frontend/src/lib/routes.test.tsx`
+- `docs/status/roadmap-state.yaml`
+- `docs/linear-parity/task-board.md`
+- `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` ✅
+- `cd frontend && npx tsc --noEmit` ✅
+- `git diff --check` ✅
+
 ## Session 229 — 2026-04-20：评估并收口第二条 legacy route API 失败标题中的 route 级语义词（再次收口）
 
 **目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-110`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 两条 API 失败场景当前为 `route getIssue rejects` / `route getOrganizations rejects` 后，第二条是否仍需保留最小 route 级语义词；若可行，则只改这一处安全标题并完成验证、review、提交、状态写回与 push 闭环。
