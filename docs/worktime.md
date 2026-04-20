@@ -151,6 +151,7 @@
 
 ---
 
+| 2026-04-21 07:49 | 0.3h | Session 279 / Linear parity implementation cron：完成 IMP-164，复核 legacy `/issues/[id]` route 在 `getIssue rejects` / `getOrganizations rejects` 组合下第二条需恢复 route 级语义词，仅将测试标题改为 `route getOrganizations rejects`；验证 `pnpm test -- --run src/lib/routes.test.tsx`、`./node_modules/.bin/tsc --noEmit`、`git diff --check` 通过，并同步更新 roadmap-state / task-board / dev-logbook |
 *创建：2026-03-10*
 *更新：2026-04-19*
 | 2026-04-19 09:00 | 0.3h | Linear parity implementation cron：为 issue detail 页面加载态补骨架屏（标题区/操作区/正文卡片/侧栏占位），同步更新 task-board / dev-logbook，并记录 frontend 缺少 node_modules 导致 vitest/typescript 无法校验 |

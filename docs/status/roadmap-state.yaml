@@ -5,36 +5,35 @@ roadmap:
 project:
   repo_path: /Users/liuzheng/Desktop/Cruise
   branch: codex/unify-issue-model
-  head: 7a87390764e338572809eba65653da1ed669f710
+  head: e9067b1ec55617bc6deab8e00a221873f05ee0a5
   baseline_commit: 5f9bbf40737ed971c5a7c4d446c68345454a161f
 last_completed_task:
-  id: IMP-163
-  parent_task: linear-parity-push
-  title: 评估 legacy `/issues/[id]` route 两条 API 失败场景在再次变为非对称 route wording 后第一条是否仍可收口为无 route wording
-  lane: Implementation
-  status: done
-  summary: >-
-    已复核 helper 级标题仍通过 `returns the empty props contract when the helper workspace slug lookup misses`
-    明确保留 helper seam 语义；在 describe 已限定 legacy `/issues/[id]` route 上下文且第二条已维持
-    `getOrganizations rejects` 后，第一条 `route getIssue rejects` 同样可安全收口为 `getIssue rejects`，同时继续维持与
-    helper 级 lookup 标题的层级区分。因此本轮仅将第一条标题收口为 `getIssue rejects`，并保持第二条
-    `getOrganizations rejects`、共享断言、fixture 设置与 helper/route 运行时逻辑不变。
-  tests:
-    - cd frontend && pnpm test -- --run src/lib/routes.test.tsx: passed (5 files, 57 tests)
-    - cd frontend && npx tsc --noEmit: passed
-    - git diff --check: passed
-  review:
-    code: approved
-  commit: 7a87390764e338572809eba65653da1ed669f710
-  next_task: IMP-164
-current_task:
   id: IMP-164
   parent_task: linear-parity-push
   title: 评估 legacy `/issues/[id]` route 两条 API 失败场景在再次同时收口为无 route wording 后第二条是否仍需恢复 route 级语义词
   lane: Implementation
+  status: done
+  summary: >-
+    已复核 helper 级标题仍通过 `returns the empty props contract when the helper workspace slug lookup misses`
+    明确保留 helper seam 语义；在 describe 已限定 legacy `/issues/[id]` route 上下文且第一条已维持
+    `getIssue rejects` 后，第二条 `getOrganizations rejects` 若继续不带 route 级语义词，会与 helper 级 lookup
+    标题层级过于接近。因此本轮仅将第二条标题补回为 `route getOrganizations rejects`，并保持第一条
+    `getIssue rejects`、共享断言、fixture 设置与 helper/route 运行时逻辑不变。
+  tests:
+    - cd frontend && pnpm test -- --run src/lib/routes.test.tsx: passed (5 files, 57 tests)
+    - cd frontend && ./node_modules/.bin/tsc --noEmit: passed
+    - git diff --check: passed
+  review:
+    code: approved
+  commit: e9067b1ec55617bc6deab8e00a221873f05ee0a5
+  next_task: 待从 docs/linear-parity/task-board.md 续选新的 Implementation lane 任务
+current_task:
+  id: TBD
+  parent_task: linear-parity-push
+  title: 待从 docs/linear-parity/task-board.md 续选新的 Implementation lane 最小执行单元
+  lane: Implementation
   status: pending
   done_when: >-
-    在不扩大实现面的前提下，基于当前 `getIssue rejects` / `getOrganizations rejects` 组合，复核第二条是否仍需恢复最小
-    route 级语义词以维持与 helper 级 lookup 标题的层级区分；若需要，则仅将第二条标题补回为 `route getOrganizations rejects`
-    并保持定向验证通过。
+    从 docs/linear-parity/task-board.md 选择下一个最早可恢复的 Implementation lane pending/blocked 任务，完成一个最小
+    execution unit 并按 feature → docs/state → push 闭环收口。
   blocker: '- '
