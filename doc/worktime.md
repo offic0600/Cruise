@@ -2,6 +2,7 @@
      2|     2|     2|     2|     2|
      3|| 项目 | Session | 日期 | 工作内容 | 预估工时 | 实际工时 |
 |---|---|---|---|---|---|
+| Linear 对标 | Session 190 | 2026-04-20 | 按 implementation lane 完成 IMP-71：将 route 级 `getOrganizations()` API 失败场景测试标题从 `route getOrganizations rejects` 收口为 `getOrganizations rejects`，确认在 describe 已限定 legacy route 上下文且 helper 级 lookup 标题仍保留层级语义时可安全去掉第二条标题中的 `route` 前缀，并保持共享断言/fixture 不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 189 | 2026-04-20 | 按 implementation lane 完成 IMP-70：将 route 级 `getIssue(...)` API 失败场景测试标题从 `route getIssue rejects` 收口为 `getIssue rejects`，确认在 describe 已限定 legacy route 上下文且 helper 级 lookup 标题仍保留层级语义时可安全去掉第一条标题中的 `route` 前缀，并保持共享断言/fixture 不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 188 | 2026-04-20 | 按 implementation lane 完成 IMP-69：将 route 级 `getOrganizations()` API 失败场景测试标题从 `getOrganizations rejects` 补为 `route getOrganizations rejects`，以与 `route getIssue rejects` 保持最小 route 级语义词对称，并保持共享断言/fixture 不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |
 | Linear 对标 | Session 187 | 2026-04-20 | 按 implementation lane 完成 IMP-68：将 route 级 `getIssue(...)` API 失败场景测试标题从 `getIssue rejects` 补为 `route getIssue rejects`，恢复最小 route 级语义词以与 helper 级 lookup 标题层级区分，并保持共享断言/fixture 不变；完成定向验证、feature commit 与状态回写 | 0.2h | 0.2h |

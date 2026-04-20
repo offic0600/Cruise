@@ -1,4 +1,41 @@
 
+## Session 190 — 2026-04-20：评估并去掉第二条 legacy route API 失败标题中的 route 前缀
+
+**目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-71`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 第二条 API 失败场景当前 `route getOrganizations rejects` 标题中的 `route` 前缀是否也可像上一轮 `getIssue rejects` 一样安全去掉；若可行，则只改这一处安全标题并完成验证、review、提交、状态回写与 push 闭环。
+
+### 190.1 执行步骤
+
+| 步骤 | 操作 | 结果 |
+|------|------|------|
+| 恢复状态 | `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` / 读取 `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / roadmap / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 确认仓库位于 `codex/unify-issue-model`，Implementation lane 当前项为 `IMP-71`，且工作树可支持新的单文件最小 execution unit |
+| 实现 | 编辑 `frontend/src/lib/routes.test.tsx` | 仅将 `it('route getOrganizations rejects', async () => {` 收口为 `it('getOrganizations rejects', async () => {`；不改第一条 route 级标题，也不改共享断言、fixture 设置或 helper/route 运行时逻辑 |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` | 通过：5 files / 57 tests |
+| 验证 | `cd frontend && npx tsc --noEmit` | 通过 |
+| 验证 | `git diff --check` | 通过 |
+| Review | `git diff -- frontend/src/lib/routes.test.tsx` | 复核本轮只改一处 route 级 API 失败测试标题文案，不改共享断言结构、fixture 设置或 helper/route 运行时逻辑；review 结论为通过 |
+| 提交 | `git commit -m "[verified] test: trim second route prefix from legacy issue lookup"` | 完成本轮 feature/work commit，得到真实提交 `45386be7b00e7f3361f3645e0ef5dc4f15c1f117` |
+| 修改 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 将 `IMP-71` 写回 done，记录真实 feature SHA，并新增下一轮 `IMP-72`：评估两条 API 失败场景标题在均去掉 `route` 前缀后是否仍需保留 route 级语义词区分 helper 层级 |
+
+### 190.2 本轮落地结果
+
+- 已确认第二条 route 级 API 失败场景与上一轮 `getIssue rejects` 一样处于 describe 已限定的 legacy `/issues/[id]` route 上下文内，因此无需继续保留 `route` 前缀维持辨识度。
+- 因此本轮仅将 `getOrganizations()` API 失败场景测试标题从 `route getOrganizations rejects` 收口为 `getOrganizations rejects`，同时保持共享断言、fixture 设置以及 helper/route 运行时逻辑不变。
+- `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 已写回：`IMP-71` -> `done`，下一轮转入 `IMP-72`，继续评估两条 API 失败场景标题在都去掉 `route` 前缀后是否仍需保留更稳妥的 route 级语义词。
+
+### 190.3 经验沉淀
+
+- 当 describe 块已限定 legacy route 上下文、且 helper 级 lookup 标题仍保留显式 helper/lookup wording 时，可按 execution unit 一次只去掉一条 route 级标题中的最小 `route` 前缀，而不必扩大到共享 helper 或断言层改动。
+- 即使只是删掉单个前缀词，也要保持一次只改一条标题并完整跑定向 Vitest + TypeScript + diff cleanliness + review，确保共享断言与 seam 没被误触。
+
+### 190.4 当前状态快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-71 → IMP-72` |
+| 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `fffb7270300045e828502d82feb3c563d3ef80f6` |
+| feature commit | `45386be7b00e7f3361f3645e0ef5dc4f15c1f117` |
+| 验证 | `pnpm test -- --run src/lib/routes.test.tsx`、`npx tsc --noEmit`、`git diff --check` |
+
 ## Session 189 — 2026-04-20：评估并去掉第一条 legacy route API 失败标题中的 route 前缀
 
 **目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-70`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 两条 API 失败场景当前均为 `route getIssue rejects` / `route getOrganizations rejects` 后，第一条标题中的 `route` 前缀是否仍需保留；若可行，则只改第一处安全标题并完成验证、review、提交、状态回写与 push 闭环。
