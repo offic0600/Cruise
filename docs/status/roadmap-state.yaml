@@ -5,37 +5,38 @@ roadmap:
 project:
   repo_path: /Users/liuzheng/Desktop/Cruise
   branch: codex/unify-issue-model
-  head: 45386be7b00e7f3361f3645e0ef5dc4f15c1f117
+  head: 428647c0cf562ef0773cd3dd895e100fca3228f6
   baseline_commit: 5f9bbf40737ed971c5a7c4d446c68345454a161f
 last_completed_task:
-  id: IMP-71
+  id: IMP-72
   parent_task: linear-parity-push
-  title: 评估 legacy `/issues/[id]` route `getOrganizations()` API 失败场景测试标题是否也应去掉 `route` 前缀
+  title: 评估 legacy `/issues/[id]` route 两条 API 失败场景测试标题在均去掉 `route` 前缀后是否仍需保留 route 级语义词区分 helper 层级
   lane: Implementation
   status: done
   summary: >-
-    已确认第二条 route 级 API 失败场景与上一轮 `getIssue rejects` 一样处于 describe 已限定的 legacy
-    `/issues/[id]` route 上下文内，因此无需继续保留 `route` 前缀维持辨识度；本轮仅将标题从
-    `route getOrganizations rejects` 收口为 `getOrganizations rejects`，同时保持共享断言、fixture 设置与
-    helper/route 运行时逻辑不变。
+    已复核 helper 级标题仍通过 `returns the empty props contract when the helper workspace slug lookup misses`
+    明确保留 helper seam 语义，而 route 级 API 失败场景若继续保持 `getIssue rejects` / `getOrganizations rejects`
+    会与 helper 层级过于接近；因此本轮仅将第一条 route 级 API 失败场景测试标题从 `getIssue rejects`
+    补回为 `route getIssue rejects`，以最小 route 级语义词恢复层级辨识度，同时保持第二条
+    `getOrganizations rejects`、共享断言、fixture 设置与 helper/route 运行时逻辑不变。
   tests:
     - cd frontend && pnpm test -- --run src/lib/routes.test.tsx: passed (5 files, 57 tests)
     - cd frontend && npx tsc --noEmit: passed
     - git diff --check: passed
   review:
     code: approved
-  commit: 45386be7b00e7f3361f3645e0ef5dc4f15c1f117
-  next_task: IMP-72
+  commit: 428647c0cf562ef0773cd3dd895e100fca3228f6
+  next_task: IMP-73
 current_task:
-  id: IMP-72
+  id: IMP-73
   parent_task: linear-parity-push
-  title: 评估 legacy `/issues/[id]` route 两条 API 失败场景测试标题在均去掉 `route` 前缀后是否仍需保留 route 级语义词区分 helper 层级
+  title: 评估 legacy `/issues/[id]` route `getOrganizations()` API 失败场景测试标题是否也应补回 route 级语义词
   lane: Implementation
   status: pending
   done_when: >-
-    在不扩大实现面的前提下，复核 legacy `/issues/[id]` route 两条 API 失败场景当前均已收口为
-    `getIssue rejects` / `getOrganizations rejects` 后，是否仍需要补回或替换某个更稳妥的 route 级语义词来
-    维持与 helper 级 lookup 标题的层级区分；若可行，则只改第一处安全标题并保持定向验证通过。
+    在不扩大实现面的前提下，复核 `getOrganizations rejects` 标题是否应与本轮已补回 route 级语义词的
+    `route getIssue rejects` 保持对称，也补成一条最小 route 级语义词标题；若可行，则只改这一处安全标题并
+    保持定向验证通过。
   blocker: '-'
 notes:
   execution_rules:
