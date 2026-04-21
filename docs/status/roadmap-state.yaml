@@ -7,6 +7,7 @@ project:
   branch: codex/unify-issue-model
   head: e9067b1ec55617bc6deab8e00a221873f05ee0a5
   baseline_commit: 5f9bbf40737ed971c5a7c4d446c68345454a161f
+  docs_head: e5fc204f96bb5d5cbdfa03e6b099e2974553337a
 last_completed_task:
   id: IMP-164
   parent_task: linear-parity-push
@@ -28,12 +29,15 @@ last_completed_task:
   commit: e9067b1ec55617bc6deab8e00a221873f05ee0a5
   next_task: 待从 docs/linear-parity/task-board.md 续选新的 Implementation lane 任务
 current_task:
-  id: TBD
+  id: CAP-08
   parent_task: linear-parity-push
-  title: 待从 docs/linear-parity/task-board.md 续选新的 Implementation lane 最小执行单元
-  lane: Implementation
-  status: pending
+  title: 采集 issue 创建/编辑入口的打开态与校验态证据
+  lane: Capture
+  status: blocked
   done_when: >-
-    从 docs/linear-parity/task-board.md 选择下一个最早可恢复的 Implementation lane pending/blocked 任务，完成一个最小
-    execution unit 并按 feature → docs/state → push 闭环收口。
-  blocker: '- '
+    只读优先，允许打开弹窗/抽屉并记录字段、默认值、校验反馈，不做持久提交；完成后立即把 task-board、roadmap-state、dev-logbook、worktime 写回。
+  blocker: >-
+    watchdog 仍显示 consumer_policy=attached_cdp_only 且 websocket_attach=ok，本轮不存在附着失败；但 tmp/linear-capture/summary.json
+    仍早于 task-board/roadmap-state/dev-logbook/worktime 的最近写回，说明现有 capture 产物已完成 docs 闭环。当前阻塞点是工作树闭环风险：状态文件与分支近期提交仍在持续收口
+    implementation lane，若此时继续新增 capture 落盘，无法保证后续按 capture 单 lane 边界安全收口。应优先在独立干净工作树执行 CAP-08 的只读采集，或待 implementation
+    收口完成后再继续 Add label search input 的空结果/建议反馈态证据。

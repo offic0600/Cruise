@@ -1,3 +1,42 @@
+## Session 280 — 2026-04-21：Capture lane 复核 CAP-08 闭环状态并对齐恢复源
+
+**目标**：严格按 capture lane 规则恢复 `AGENTS.md`、`docs/status/roadmap-state.yaml`、`docs/linear-parity/task-board.md`、`~/Desktop/Cruise/.hermes/linear-9222-watchdog/last-status.txt` 与 capture 证据目录，只做一个最小 execution unit：若 `tmp/linear-capture/summary.json` 没有比 docs 更新，则把 CAP-08 的最新复核结论写回 task-board / roadmap-state / dev-logbook / worktime，并把状态文件当前任务重新对齐到 Capture lane，而不是重复采集。
+
+### 280.1 执行步骤
+
+| 步骤 | 操作 | 结果 |
+|------|------|------|
+| 恢复状态 | 读取 `AGENTS.md`、`docs/status/roadmap-state.yaml`、`docs/linear-parity/task-board.md`、`~/Desktop/Cruise/.hermes/linear-9222-watchdog/last-status.txt`，并执行 `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` | 确认仓库位于 `codex/unify-issue-model`；工作树初始无脏文件，但状态文件当前仍停在 Implementation lane，而 capture lane 按 task-board 应回退到 `CAP-08`。 |
+| 约束复核 | 读取 watchdog 最新状态 | 明确 `consumer_policy=attached_cdp_only`、`metadata_layer=ok`、`websocket_attach=ok`，且附着 target 继续指向 issue detail 页面 `CLE-28 Views 页面补齐创建/编辑/删除与状态反馈`；因此本轮禁止使用 Hermes 内置 `browser_*`，也不能把 blocker 误写成“附着失败”。 |
+| 证据新鲜度核对 | 比较 `tmp/linear-capture/summary.json` 与 `docs/linear-parity/task-board.md` / `docs/status/roadmap-state.yaml` / `docs/planning/dev-logbook.md` / `doc/worktime.md` 最近修改时间 | 确认 `summary.json` 最近时间仍为 2026-04-19 23:20:06 CST，早于上述 docs 当前最近写回，说明 CAP-08 现有 capture 产物仍已完成 docs 闭环，本轮不应重复采集。 |
+| 状态写回 | 更新 `docs/linear-parity/task-board.md` 与 `docs/status/roadmap-state.yaml` | 将 CAP-08 blocker 文案补成 2026-04-21 08:22 CST 的新复核结论，明确 blocker 继续是工作树闭环风险而非附着失败；并把状态文件 `current_task` 从 implementation 占位项对齐回 `Capture / CAP-08`。 |
+| 日志写回 | 追加 `docs/planning/dev-logbook.md` 与 `doc/worktime.md` | 记录本轮 capture lane closure-only 复核：已有证据无新产物，仅完成状态源与日志对齐，不做重复采集，也不提交。 |
+| 验证 | `git diff -- docs/linear-parity/task-board.md docs/status/roadmap-state.yaml docs/planning/dev-logbook.md doc/worktime.md` + 重读变更片段 | 复核仅有 capture lane docs/state/logbook/worktime 更新，无实现代码改动，也无误把 blocker 写成附着失败。 |
+
+### 280.2 本轮落地结果
+
+- 已再次确认 watchdog 仍处于 `attached_cdp_only + websocket_attach=ok` 健康状态，CAP-08 当前并非浏览器附着失败。
+- 已再次确认 `tmp/linear-capture/summary.json` 没有比 task-board / roadmap-state / dev-logbook / worktime 更新，因此现有 capture 产物已完成 docs 闭环，本轮不做重复采集。
+- 已将 `docs/status/roadmap-state.yaml` 的 `current_task` 从 implementation 占位项对齐回 `Capture / CAP-08`，避免后续 fresh cron session 因状态文件跨 lane 漂移而空转。
+- 已把 CAP-08 blocker 更新为最新 capture lane 复核结论：当前阻塞点仍是工作树闭环风险，下一轮应在独立干净工作树执行只读采集，或待 implementation 收口完成后再继续 `Add label` search input 的空结果/建议反馈态证据。
+
+### 280.3 经验沉淀
+
+- 当状态文件 `current_task.lane` 漂到 Implementation，但 capture lane 证据产物与 task-board 已能明确恢复点时，必须先把状态文件重新对齐到 capture 当前任务，否则后续 cron 会持续从错误 lane 起跑。
+- 对 capture cron 而言，只要 watchdog 明确给出 `attached_cdp_only` 与 `websocket_attach=ok`，且 `summary.json` 不晚于 docs 最近写回，就应优先做 docs/state/logbook/worktime 闭环复核，而不是为了“有动作”去重复采集。
+
+### 280.4 当前状态快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Capture / CAP-08（blocked）` |
+| 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `ace0a4ce4f2f0c839bfb1badbb0ab41a004b3575` |
+| docs/state commit | `e5fc204f96bb5d5cbdfa03e6b099e2974553337a` |
+| watchdog | `consumer_policy=attached_cdp_only`、`websocket_attach=ok` |
+| capture 证据新鲜度 | `tmp/linear-capture/summary.json`（2026-04-19 23:20:06 CST）早于 docs 最新写回 |
+| Git commit hash | `未提交（capture closure-only 复核）`；docs/state commit：`e5fc204f96bb5d5cbdfa03e6b099e2974553337a` |
+
+
 ## Session 279 — 2026-04-21：评估并补回第二条 legacy route API 失败标题中的 route 级语义词
 
 **目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-164`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 两条 API 失败场景当前为 `getIssue rejects` / `getOrganizations rejects` 后，第二条是否仍需恢复最小 route 级语义词；若需要，则只改这一处安全标题并完成验证、review、提交、状态写回与 push 闭环。
