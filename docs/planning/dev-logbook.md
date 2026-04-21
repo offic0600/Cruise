@@ -1,3 +1,49 @@
+## Session 328 — 2026-04-21：Capture lane 补齐 CAP-08 最新证据的 docs 闭环
+
+### 1. 本次目标
+- 严格按 capture lane 恢复 `AGENTS.md`、`docs/status/roadmap-state.yaml`、`docs/linear-parity/task-board.md`、`~/Desktop/Cruise/.hermes/linear-9222-watchdog/last-status.txt` 与 `tmp/linear-capture/summary.json`，判断是否存在“证据已更新但 docs 尚未闭环”的缺口。
+- 若存在闭环缺失，则只做一个最小 execution unit：不重复采集、不进入 Implementation lane，仅将 CAP-08 最新 capture 事实写回 task-board / roadmap-state / dev-logbook / worktime。
+
+### 2. 实施内容
+| 操作 | 文件 | 说明 |
+| --- | --- | --- |
+| 读取 | `AGENTS.md` | 复核仓库工作纪律、日志要求与工时记录约束。 |
+| 读取 | `docs/status/roadmap-state.yaml` | 确认唯一恢复状态源当前已对齐 `Capture / CAP-08`，但 blocker 文案仍停留在 19:24 CST。 |
+| 读取 | `docs/linear-parity/task-board.md` | 确认 Capture lane 当前任务仍是最早可恢复的 `CAP-08`，且行内 blocker 尚未反映 `summary.json` 19:45 CST 的更新。 |
+| 读取 | `~/Desktop/Cruise/.hermes/linear-9222-watchdog/last-status.txt` | 再次确认 `consumer_policy=attached_cdp_only`、`metadata_layer=ok`、`websocket_attach=ok`，因此本轮继续禁止 Hermes 内置 `browser_*`。 |
+| 读取 | `tmp/linear-capture/summary.json` 与文件时间戳 | 核对 `summary.json` 已在 19:45 CST 晚于 task-board / roadmap-state / dev-logbook / worktime 的最近写回，说明当前缺口是 docs 闭环而非 capture 未生效。 |
+| 更新 | `docs/linear-parity/task-board.md` | 将 CAP-08 blocker 改写为 20:18 CST closeout：明确本轮未重复采集，而是补齐 capture lane docs 闭环，并继续把 blocker 记为工作树闭环风险而非附着失败。 |
+| 更新 | `docs/status/roadmap-state.yaml` | 将 `current_task` 继续维持为 `Capture / CAP-08`，并把 blocker 文案改写为“最新证据已刷新、当前优先修复 docs 闭环缺失”的真实状态。 |
+| 更新 | `docs/planning/dev-logbook.md` | 记录本次 Session 328 的恢复、证据核对与 docs closeout。 |
+| 更新 | `doc/worktime.md` | 追加 Session 328 的 capture lane docs 闭环工时记录，明确未提交。 |
+
+### 3. 验证结果
+| 命令 / 检查 | 结果 |
+| --- | --- |
+| `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` | 已执行；确认仓库位于 `codex/unify-issue-model`，HEAD=`84a2073818b080bf5b3362d3a6575a176288b244`，近期最新提交为 `84a2073 [verified] docs: capture CAP-08 state refresh`。 |
+| `stat` 比较 `tmp/linear-capture/summary.json` 与 docs 文件时间 | 已确认 `summary.json` 19:45:09 晚于 `docs/linear-parity/task-board.md` 19:33:38、`docs/planning/dev-logbook.md` 19:34:25、`doc/worktime.md` 19:34:25、`docs/status/roadmap-state.yaml` 19:33:38。 |
+| 重读 `docs/linear-parity/task-board.md` / `docs/status/roadmap-state.yaml` / `docs/planning/dev-logbook.md` / `doc/worktime.md` 相关片段 | 已确认 CAP-08 仍为 Capture lane 当前任务，且 blocker / handoff 文案已对齐到“证据已刷新、当前补齐 docs 闭环”的事实。 |
+| `git diff -- docs/linear-parity/task-board.md docs/status/roadmap-state.yaml docs/planning/dev-logbook.md doc/worktime.md` | 已执行；确认本轮仅落下 capture lane 文档闭环改动，无 Implementation 代码改动。 |
+
+### 4. Review 结论
+- watchdog 仍然健康：`attached_cdp_only + websocket_attach=ok` 成立，因此这轮不能把 blocker 误写成附着失败。
+- 当前最真实的 execution unit 是“修复 CAP-08 证据已刷新但 docs 未同步”的闭环缺口，而不是重复做一次 capture。
+- 本轮边界仅限 Capture lane 文档闭环；未进入 Implementation lane，也未新增产品实现或持久提交到 Linear。
+
+### 5. 状态快照
+- 当前分支：`codex/unify-issue-model`
+- 当前 HEAD：`84a2073818b080bf5b3362d3a6575a176288b244`
+- 当前 lane / task：`Capture / CAP-08（blocked）`
+- watchdog：`consumer_policy=attached_cdp_only`、`websocket_attach=ok`
+- 最新证据：`tmp/linear-capture/summary.json` 及同批 `.png/.json` 已刷新到 2026-04-21 19:45 CST，包含 `baselineAfterTabs`、`issueDetail`、`issueDirect` 与 `interactions` 结构
+- Git commit hash：`未提交（本轮仅补齐 docs 闭环）`
+
+### 6. 经验沉淀
+- 对 capture cron 来说，只要 watchdog 仍声明 `attached_cdp_only` 且 `websocket_attach=ok`，就应优先判断“最新证据产物是否晚于 docs”，若是，则先修 docs 闭环，避免无意义重复采集。
+- 当 `summary.json` 与同批 `.png/.json` 已经更新，而 task-board / roadmap-state / logbook / worktime 仍停在旧时间点时，应把问题分类为“状态闭环缺失”，而不是误报为 capture 失败或附着失败。
+
+---
+
 ## Session 327 — 2026-04-21：重新评估并再次收口第二条 legacy route API 失败标题中的 route wording
 
 ### 1. 本次目标

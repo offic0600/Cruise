@@ -36,7 +36,10 @@ current_task:
   done_when: >-
     在 attached_cdp_only + websocket_attach=ok 的前提下，只读采集 issue 创建/编辑入口的打开态、字段默认值与校验反馈，并把证据与 docs/logbook/worktime 按 capture lane 单独收口。
   blocker: >-
-    2026-04-21 19:24 CST 已再次复用本地 Chrome 9222 target 执行只读 capture，刷新 `tmp/linear-capture/summary.json` 与同批
-    `.png/.json` 证据，确认 issue 详情页与 team issues 顶部入口仍可稳定读取；但当前仓库状态源与近期日志仍混有
-    implementation lane 持续收口痕迹，为避免跨 lane 污染，本轮仅完成 capture 证据基线刷新与 docs 写回，不继续扩展为
-    更多打开态/校验态采集。下一轮宜在独立干净工作树继续 `Create new issue` / `Issue options` / `Add label` 的只读打开态采集。
+    2026-04-21 20:18 CST 已再次复核 watchdog，确认 `consumer_policy=attached_cdp_only`、`metadata_layer=ok`、
+    `websocket_attach=ok` 仍成立，且 `tmp/linear-capture/summary.json` 已在 19:45 CST 晚于 task-board / dev-logbook /
+    worktime / roadmap-state 的最近写回，因此本轮优先补齐 capture docs 闭环而不重复采集。现已把 CAP-08 的 task-board、
+    roadmap-state、dev-logbook 与 worktime 对齐回 capture lane 最新事实：issue 详情页与 team issues 顶部入口的只读证据
+    已刷新完毕，但当前仍不宜在混有 implementation 收口痕迹的工作树中继续扩展更多打开态/校验态采集。下一轮宜在独立
+    干净工作树继续 `Create new issue` / `Issue options` / `Add label` 的只读打开态采集；当前 blocker 仍是工作树闭环风险，
+    不是附着失败。
