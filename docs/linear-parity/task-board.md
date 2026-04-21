@@ -59,6 +59,9 @@ planning_rules:
   if_selected_item_has_no_concrete_next_increment:
     - split_it_into_smaller_follow_up_items_before_next_run
     - do_not_leave_lane_in_plan_only_loop
+  stop_conditions:
+    - if_the_only_candidate_next_task_is_rechecking_wording_naming_symmetry_or_title_phrasing_without_runtime_or_contract_change_then_stop_instead_of_creating_a_new_task
+    - do_not_spawn_another_microtask_that_only_flips_existing_assertion_titles_between_restore_and_drop_variants
 execution_model:
   one_execution_unit_per_run: true
   closure_after_single_task: true
@@ -362,12 +365,14 @@ report_format:
 | IMP-212 | 重新评估在当前恢复第一条 route wording 后第二条 API 失败标题是否需要同步恢复 route 级语义词 | done | IMP-211 | 基于当前 `route getIssue rejects` / `getOrganizations rejects` 组合，复核第二条 API 失败场景标题是否需要恢复为 `route getOrganizations rejects` 以继续维持与 helper 级 lookup 标题的层级区分；若需要，则仅改这一处标题并保持第一条 `route getIssue rejects`、共享断言、fixture 设置与 helper/route 运行时逻辑不变，随后通过 `cd frontend && pnpm test -- --run src/lib/routes.test.tsx`、`cd frontend && ./node_modules/.bin/tsc --noEmit` 与 `git diff --check` 验证。 | 已复核 helper 级标题仍通过 `returns the empty props contract when the helper workspace slug lookup misses` 明确保留 helper seam 语义；在当前 `route getIssue rejects` / `getOrganizations rejects` 非对称组合下，第二条 API 失败标题若继续维持无 route 级语义词，会使两条 route 级 API 失败场景与 helper 级 lookup 标题之间的层级区分再次失衡。因此本轮仅将该标题恢复为 `route getOrganizations rejects`，同时保持第一条 `route getIssue rejects`、共享断言、fixture 设置与 helper/route 运行时逻辑不变；commit: 0f41949b044a50c3e55f63da8435e5819faefe0f. |
 | IMP-213 | 重新评估在当前再次双 route wording 组合下第一条 API 失败标题是否仍可收口为无 route wording | done | IMP-212 | 基于当前 `route getIssue rejects` / `route getOrganizations rejects` 组合，复核第一条 API 失败场景标题是否仍可再次收口为 `getIssue rejects` 且继续维持与 helper 级 lookup 标题的层级区分；若可行，则仅改这一处标题并保持第二条 `route getOrganizations rejects`、共享断言、fixture 设置与 helper/route 运行时逻辑不变，随后通过 `cd frontend && pnpm test -- --run src/lib/routes.test.tsx`、`cd frontend && ./node_modules/.bin/tsc --noEmit` 与 `git diff --check` 验证。 | 已复核 helper 级标题仍通过 `returns the empty props contract when the helper workspace slug lookup misses` 明确保留 helper seam 语义；在当前 `route getIssue rejects` / `route getOrganizations rejects` 双 route wording 组合下，第一条 API 失败标题仍可再次收口为 `getIssue rejects`，同时继续维持 route 级 API 失败场景与 helper 级 lookup 标题之间的层级区分。因此本轮仅将第一条标题再次收口为 `getIssue rejects`，同时保持第二条 `route getOrganizations rejects`、共享断言、fixture 设置与 helper/route 运行时逻辑不变；commit: b23e70d8b58064379bb72f65f50dfcb0d2f7d0b3. |
 | IMP-214 | 重新评估在当前再次非对称 wording 组合下第二条 API 失败标题是否仍可收口为无 route wording | done | IMP-213 | 基于当前 `getIssue rejects` / `route getOrganizations rejects` 组合，复核第二条 API 失败场景标题是否仍可再次收口为 `getOrganizations rejects` 且继续维持与 helper 级 lookup 标题的层级区分；若可行，则仅改这一处标题并保持第一条 `getIssue rejects`、共享断言、fixture 设置与 helper/route 运行时逻辑不变，随后通过 `cd frontend && pnpm test -- --run src/lib/routes.test.tsx`、`cd frontend && ./node_modules/.bin/tsc --noEmit` 与 `git diff --check` 验证。 | 已复核 helper 级标题仍通过 `returns the empty props contract when the helper workspace slug lookup misses` 明确保留 helper seam 语义；在当前 `getIssue rejects` / `route getOrganizations rejects` 非对称 wording 组合下，第二条 API 失败标题仍可再次收口为 `getOrganizations rejects`，因此本轮仅将该标题再次收口，同时保持第一条 `getIssue rejects`、共享断言、fixture 设置与 helper/route 运行时逻辑不变。commit: 8e37c7f359848c7f9e63844d4af67b4a778e866a. |
+| IMP-215 | 人工收口 legacy `/issues/[id]` route API 失败标题 wording 振荡链，禁止继续派生同类微任务 | done | IMP-214 | 对 IMP-205 至 IMP-214 的 `route getIssue rejects` / `getIssue rejects` / `route getOrganizations rejects` / `getOrganizations rejects` 标题往返振荡做人工结案：确认该链仅在 wording、命名、对称性与标题措辞之间反复切换，不再引入新的运行时行为、API/data contract、assertion 语义、fixture 意义或用户可见行为变化；将该链整体视为已收口，并明确禁止继续派生同类 Implementation 微任务。 | 2026-04-21 人工判定该链已经达到局部最优，后续除非出现新的运行时证据、contract 变化或断言语义变化，否则不再允许围绕同一组 legacy `/issues/[id]` route API 失败标题继续生成“restore wording / drop wording / 再次评估对称性”类任务；Implementation lane 在此处直接收口为 `done`，下一步维持 `roadmap-state` 中“暂无新的 Implementation 任务”的结论。 |
 
 ## 最近一次人工调整
 
 - 2026-04-18：新增任务板，改为“任务状态驱动”而不是“Task 1/Task 2”静态提示词驱动。
 - 2026-04-18：进一步收紧为 capture / implementation 双 lane；采集 cron 与实现 cron 禁止跨 lane 抢任务。
 - 2026-04-19：引入 `docs/status/roadmap-state.yaml` 作为 cron 恢复状态源，任务板退化为 lane 明细与后继任务定义源。
+- 2026-04-21：人工收口 IMP-205 至 IMP-214 的 wording 振荡链，并新增硬规则：若候选下一步只剩 wording/命名/对称性复评且不改变运行时行为或 contract，则必须停止，不再派生同类微任务。
 
 ## Cron 执行提示（给未来运行）
 
@@ -378,4 +383,3 @@ report_format:
 - 若某个 `in_progress` 任务的 done_when 已过宽、导致连续两轮无法判断下一刀做什么，必须先拆小或补“下一最小增量”说明，不能继续空转复核。
 - 每轮只做一个 execution unit；完成或阻塞后都必须写回状态并停止。
 - 报告格式固定为：本轮完成的唯一 task / 关键改动文件 / 测试或验证结果 / review 结论 / commit SHA / push 结果 / 更新后的 task-board 摘要 / 下一轮应执行的 task。
-
