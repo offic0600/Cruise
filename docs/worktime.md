@@ -4,6 +4,7 @@
 
 ---
 
+| 2026-04-21 17:59 | 0.2h | Session 322 / Linear parity implementation cron：完成 IMP-208，复核 legacy `/issues/[id]` route 在 `route getIssue rejects` / `getOrganizations rejects` 组合下第二条需恢复 route 级语义词，仅将测试标题改为 `route getOrganizations rejects`；验证 `pnpm test -- --run src/lib/routes.test.tsx`、`./node_modules/.bin/tsc --noEmit`、`git diff --check` 通过，并同步更新 roadmap-state / task-board / dev-logbook |
 ## Phase 0：技术选型 + 项目骨架
 
 | Session | 日期 | 目标 | 评估工时 | 实际工时 | 备注 |
