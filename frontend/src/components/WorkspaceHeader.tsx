@@ -35,6 +35,8 @@ type WorkspaceHeaderProps = {
   createWorkspaceLabel: string;
   logoutLabel: string;
   noWorkspacesLabel: string;
+  searchLabel: string;
+  newIssueLabel: string;
   shortcuts: {
     settings: string;
     switchWorkspace: string;
@@ -63,6 +65,8 @@ export default function WorkspaceHeader({
   createWorkspaceLabel,
   logoutLabel,
   noWorkspacesLabel,
+  searchLabel,
+  newIssueLabel,
   shortcuts,
   focusSwitchWorkspace,
   onSwitchWorkspaceFocused,
@@ -162,10 +166,10 @@ export default function WorkspaceHeader({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button variant="secondary" size="icon" className="h-11 w-11 rounded-full" onClick={onSearch} aria-label="Search">
+        <Button variant="secondary" size="icon" className="h-11 w-11 rounded-full" onClick={onSearch} aria-label={searchLabel}>
           <Search className="h-4 w-4" />
         </Button>
-        <Button variant="secondary" size="icon" className="h-11 w-11 rounded-full" onClick={onNewIssue} aria-label="New issue">
+        <Button variant="secondary" size="icon" className="h-11 w-11 rounded-full" onClick={onNewIssue} aria-label={newIssueLabel}>
           <Plus className="h-4 w-4" />
         </Button>
       </div>

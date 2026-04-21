@@ -271,6 +271,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             createWorkspaceLabel={t('workspaceMenu.createWorkspace')}
             logoutLabel={t('workspaceMenu.logout')}
             noWorkspacesLabel={t('workspaceMenu.noWorkspaces')}
+            searchLabel={t('nav.search')}
+            newIssueLabel={t('workspaceMenu.newIssue')}
             shortcuts={{
               settings: t('workspaceMenu.shortcuts.settings'),
               switchWorkspace: t('workspaceMenu.shortcuts.switchWorkspace'),
