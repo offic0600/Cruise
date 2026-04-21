@@ -31,10 +31,10 @@
 |------|-----|
 | 当前 lane / task | `Capture / CAP-08（blocked）` |
 | 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `ace0a4ce4f2f0c839bfb1badbb0ab41a004b3575` |
-| docs/state commit | `e5fc204f96bb5d5cbdfa03e6b099e2974553337a` |
+| docs/state commit | `6adf25084135f001b77350e7b93f424e3af796f8` |
 | watchdog | `consumer_policy=attached_cdp_only`、`websocket_attach=ok` |
 | capture 证据新鲜度 | `tmp/linear-capture/summary.json`（2026-04-19 23:20:06 CST）早于 docs 最新写回 |
-| Git commit hash | `未提交（capture closure-only 复核）`；docs/state commit：`e5fc204f96bb5d5cbdfa03e6b099e2974553337a` |
+| Git commit hash | `未提交（capture closure-only 复核）`；docs/state commit：`6adf25084135f001b77350e7b93f424e3af796f8` |
 
 
 ## Session 279 — 2026-04-21：评估并补回第二条 legacy route API 失败标题中的 route 级语义词

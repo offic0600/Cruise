@@ -7,7 +7,7 @@ project:
   branch: codex/unify-issue-model
   head: e9067b1ec55617bc6deab8e00a221873f05ee0a5
   baseline_commit: 5f9bbf40737ed971c5a7c4d446c68345454a161f
-  docs_head: e5fc204f96bb5d5cbdfa03e6b099e2974553337a
+  docs_head: 6adf25084135f001b77350e7b93f424e3af796f8
 last_completed_task:
   id: IMP-164
   parent_task: linear-parity-push
