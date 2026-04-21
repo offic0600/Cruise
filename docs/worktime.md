@@ -4,11 +4,13 @@
 
 ---
 
+| 2026-04-21 18:23 | 0.2h | Session 323 / Linear parity implementation cron：完成 IMP-210，复核 legacy `/issues/[id]` route 在 `getIssue rejects` / `route getOrganizations rejects` 组合下第二条仍可再次收口为无 route wording，仅将测试标题改为 `getOrganizations rejects`；验证 `pnpm test -- --run src/lib/routes.test.tsx`、`./node_modules/.bin/tsc --noEmit`、`git diff --check` 通过，并同步更新 roadmap-state / task-board / dev-logbook |
 | 2026-04-21 17:59 | 0.2h | Session 322 / Linear parity implementation cron：完成 IMP-208，复核 legacy `/issues/[id]` route 在 `route getIssue rejects` / `getOrganizations rejects` 组合下第二条需恢复 route 级语义词，仅将测试标题改为 `route getOrganizations rejects`；验证 `pnpm test -- --run src/lib/routes.test.tsx`、`./node_modules/.bin/tsc --noEmit`、`git diff --check` 通过，并同步更新 roadmap-state / task-board / dev-logbook |
 ## Phase 0：技术选型 + 项目骨架
 
 | Session | 日期 | 目标 | 评估工时 | 实际工时 | 备注 |
 |---------|------|------|---------|---------|------|
+| S323 | 2026-04-21 | 重新评估并再次收口第二条 legacy route API 失败标题中的 route wording | 0.5h | 0.5h | IMP-210：将 `route getOrganizations rejects` 再次收口为 `getOrganizations rejects`，定向测试/tsc/diff 均通过 |
 | S321 | 2026-04-21 | 重新评估并再次收口第二条 legacy route API 失败标题中的 route wording | 0.5h | 0.5h | IMP-206：将 `route getOrganizations rejects` 再次收口为 `getOrganizations rejects`，定向测试/tsc/diff 均通过 |
 | S320 | 2026-04-21 | 重新评估并再次收口第一条 legacy route API 失败标题中的 route wording | 0.5h | 0.5h | IMP-205：将 `route getIssue rejects` 再次收口为 `getIssue rejects`，定向测试/tsc/diff 均通过 |
 | S318 | 2026-04-21 | 重新评估并恢复第一条 legacy route API 失败标题中的 route wording | 0.5h | 0.5h | IMP-203：将 `getIssue rejects` 恢复为 `route getIssue rejects`，定向测试/tsc/diff 均通过 |
