@@ -1869,6 +1869,44 @@
 | Git commit hash | `未提交（capture closure-only 复核）`；docs/state commit：`0bd0f6fdcbf649ecc65f17bf7945c250fbf9795f` |
 
 
+## Session 320 — 2026-04-21：Capture lane 复用 9222 target 刷新 CAP-08 只读证据基线并回写 docs
+
+**目标**：严格按 capture lane 规则恢复 `AGENTS.md`、`docs/status/roadmap-state.yaml`、`docs/linear-parity/task-board.md`、`~/Desktop/Cruise/.hermes/linear-9222-watchdog/last-status.txt` 与 `tmp/linear-capture/summary.json`，在 `consumer_policy=attached_cdp_only` 且 `websocket_attach=ok` 的前提下，只做一个最小 execution unit：若 docs 已落后于本轮只读 capture 产物，则复用现有本地 Chrome 9222 target 执行一次最小只读采集，并把 CAP-08 最新状态写回 task-board / roadmap-state / dev-logbook / worktime；不得进入 Implementation lane，也不得做持久提交。
+
+### 320.1 执行步骤
+
+| 步骤 | 操作 | 结果 |
+|------|------|------|
+| 恢复状态 | 读取 `AGENTS.md`、`docs/status/roadmap-state.yaml`、`docs/linear-parity/task-board.md`、`~/Desktop/Cruise/.hermes/linear-9222-watchdog/last-status.txt`，并执行 `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` | 确认仓库仍在 `codex/unify-issue-model`，状态文件 `current_task` 漂在 Implementation lane，而 capture lane 依据 task-board 仍应回到 `CAP-08`。 |
+| 约束复核 | 读取 watchdog 最新状态 | 再次确认 `consumer_policy=attached_cdp_only`、`metadata_layer=ok`、`websocket_attach=ok`，且附着 target 继续指向 issue detail 页面 `CLE-28 Views 页面补齐创建/编辑/删除与状态反馈`；因此本轮继续禁止使用 Hermes 内置 `browser_*`，也不能把 blocker 误写成“附着失败”。 |
+| 证据刷新 | 运行 `python3 scripts/linear_capture_toolbar_issue_detail.py 81A3713C33BCA35B2A0B8C7D177F43AD ~/Desktop/Cruise/tmp/linear-capture` | 成功复用现有 9222 target 执行只读 capture，并把 `tmp/linear-capture/summary.json` 与同批 `toolbar-*.png/.json`、`tab-*.png/.json`、`issue-detail-open.*`、`navigate-last-state.*` 刷新到 2026-04-21 19:24 CST。新的 `summary.json` 含 `baselineAfterTabs`、`issueDetail`、`issueDirect` 与 `interactions` 结构，确认 issue 详情页顶部仍可见 `Create new issue`、`Issue options`、`Add label`、`Add sub-issues`、`Unsubscribe` 等入口，team issues 顶部仍可见 `Add filter`、`Display options`、`Create new issue` 及 `All issues` / `Active` / `Backlog` tabs。 |
+| 状态写回 | 更新 `docs/linear-parity/task-board.md` 与 `docs/status/roadmap-state.yaml` | 把 CAP-08 blocker 文案刷新到 2026-04-21 19:24 CST，明确本轮已完成一刀最小只读 capture 并落下新的证据基线；同时把状态文件 `current_task` 明确对齐回 `Capture / CAP-08`，并继续把 blocker 记为工作树闭环风险而非附着失败。 |
+| 日志写回 | 追加 `docs/planning/dev-logbook.md` 与 `doc/worktime.md` | 记录本轮 capture lane 最小只读采集 + docs 闭环：已刷新 CAP-08 证据基线，但为避免跨 lane 污染，不继续扩展为更多打开态/校验态采集，也不提交。 |
+| 验证 | 重读 task-board / roadmap-state / dev-logbook / worktime 变更片段并执行 `git diff -- docs/linear-parity/task-board.md docs/status/roadmap-state.yaml docs/planning/dev-logbook.md doc/worktime.md` | 复核本轮仅有 capture lane docs/state/logbook/worktime 更新，无 Implementation 代码改动，也未把 blocker 错写成附着失败。 |
+
+### 320.2 本轮落地结果
+
+- 已再次确认 watchdog 继续处于 `attached_cdp_only + websocket_attach=ok` 健康状态，本轮所有动作都基于现有本地 Chrome 9222 target 完成。
+- 已新增一轮 CAP-08 只读 capture 基线：`tmp/linear-capture/summary.json` 与同批 `.png/.json` 产物刷新到 2026-04-21 19:24 CST，可直接支撑后续对 `Create new issue` / `Issue options` / `Add label` 打开态与校验反馈的继续采集。
+- 已把 `docs/status/roadmap-state.yaml` 的 `current_task` 对齐回 `Capture / CAP-08`，避免后续 fresh cron session 再从 implementation 占位项起跑。
+- 已把 CAP-08 blocker 更新为最新 capture lane 结论：当前阻塞点仍是工作树闭环风险，下一轮应在独立干净工作树继续只读采集，而不是把问题误记为附着失败。
+
+### 320.3 经验沉淀
+
+- 当 watchdog 已明确给出 `attached_cdp_only` 与 `websocket_attach=ok` 时，capture cron 应优先复用同一 9222 target 做最小只读采集或 docs 闭环，而不是回退到 Hermes 内置浏览器。
+- 当状态文件被 implementation lane 占位项覆盖时，即使本轮新增了 capture 证据，也必须把 `current_task` 重新对齐到 capture lane 当前任务，否则 fresh cron 仍会继续跨 lane 空转。
+
+### 320.4 当前状态快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Capture / CAP-08（blocked）` |
+| 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `8e37c7f359848c7f9e63844d4af67b4a778e866a` |
+| watchdog | `consumer_policy=attached_cdp_only`、`websocket_attach=ok` |
+| 最新 capture 证据 | `tmp/linear-capture/summary.json` 与同批 `.png/.json` 已刷新到 2026-04-21 19:24 CST |
+| Git commit hash | `未提交（capture 只读采集 + docs 闭环）` |
+
+
 ## Session 279 — 2026-04-21：评估并补回第二条 legacy route API 失败标题中的 route 级语义词
 
 **目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-164`，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 两条 API 失败场景当前为 `getIssue rejects` / `getOrganizations rejects` 后，第二条是否仍需恢复最小 route 级语义词；若需要，则只改这一处安全标题并完成验证、review、提交、状态写回与 push 闭环。

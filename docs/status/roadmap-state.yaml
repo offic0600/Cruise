@@ -28,13 +28,15 @@ last_completed_task:
   commit: 8e37c7f359848c7f9e63844d4af67b4a778e866a
   next_task: 暂无新的 Implementation 任务；等待补充下一条线性 parity 微任务
 current_task:
-  id: IMP-214-followup
+  id: CAP-08
   parent_task: linear-parity-push
-  title: 补充下一条 Implementation lane 微任务定义
-  lane: Implementation
+  title: 采集 issue 创建/编辑入口的打开态与校验态证据
+  lane: Capture
   status: blocked
   done_when: >-
-    task-board 尚未定义 IMP-214 之后的下一条 Implementation 微任务；待补充新的 parity 微任务后，再恢复单任务执行闭环。
+    在 attached_cdp_only + websocket_attach=ok 的前提下，只读采集 issue 创建/编辑入口的打开态、字段默认值与校验反馈，并把证据与 docs/logbook/worktime 按 capture lane 单独收口。
   blocker: >-
-    IMP-214 已完成且 task-board 当前没有后续 Implementation 条目；本轮已完成 state/task-board closeout，下一轮需先补充新的
-    Implementation 任务定义或由人工调整 roadmap/task-board 后再继续。
+    2026-04-21 19:24 CST 已再次复用本地 Chrome 9222 target 执行只读 capture，刷新 `tmp/linear-capture/summary.json` 与同批
+    `.png/.json` 证据，确认 issue 详情页与 team issues 顶部入口仍可稳定读取；但当前仓库状态源与近期日志仍混有
+    implementation lane 持续收口痕迹，为避免跨 lane 污染，本轮仅完成 capture 证据基线刷新与 docs 写回，不继续扩展为
+    更多打开态/校验态采集。下一轮宜在独立干净工作树继续 `Create new issue` / `Issue options` / `Add label` 的只读打开态采集。
