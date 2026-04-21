@@ -8,6 +8,7 @@
 
 | Session | 日期 | 目标 | 评估工时 | 实际工时 | 备注 |
 |---------|------|------|---------|---------|------|
+| S311 | 2026-04-21 | 重新评估并恢复第二条 legacy route API 失败标题中的 route wording | 0.5h | 0.5h | IMP-196：将 `getOrganizations rejects` 恢复为 `route getOrganizations rejects`，定向测试/tsc/diff 均通过 |
 | S310 | 2026-04-21 | 重新评估并恢复第一条 legacy route API 失败标题中的 route wording | 0.5h | 0.5h | IMP-195：将 `getIssue rejects` 恢复为 `route getIssue rejects`，定向测试/tsc/diff 均通过 |
 | S309 | 2026-04-21 | 重新评估并再次收口第二条 legacy route API 失败标题中的 route wording | 0.5h | 0.5h | IMP-194：将 `route getOrganizations rejects` 再次收口为 `getOrganizations rejects`，定向测试/tsc/diff 均通过 |
 | S308 | 2026-04-21 | 重新评估并再次收口第一条 legacy route API 失败标题中的 route wording | 0.5h | 0.5h | IMP-193：将 `route getIssue rejects` 再次收口为 `getIssue rejects`，定向测试/tsc/diff 均通过 |
