@@ -42,44 +42,90 @@
 - 对 capture cron 来说，只要 watchdog 仍声明 `attached_cdp_only` 且 `websocket_attach=ok`，就应优先判断“最新证据产物是否晚于 docs”，若是，则先修 docs 闭环，避免无意义重复采集。
 - 当 `summary.json` 与同批 `.png/.json` 已经更新，而 task-board / roadmap-state / logbook / worktime 仍停在旧时间点时，应把问题分类为“状态闭环缺失”，而不是误报为 capture 失败或附着失败。
 
----
-
-## Session 327 — 2026-04-21：重新评估并再次收口第二条 legacy route API 失败标题中的 route wording
+## Session 329 — 2026-04-21：人工收口 legacy `/issues/[id]` route API 失败标题 wording 振荡链
 
 ### 1. 本次目标
-- 完成 IMP-214，复核 legacy `/issues/[id]` route 在当前再次非对称 wording 组合下第二条 API 失败标题是否仍可收口为无 route wording。
+- 基于已落地的 feature commit `3ef816dbf57cac010f09ca12733f86cc18684c86`，完成 IMP-215 的人工结案：复核 IMP-195 至 IMP-214 期间 legacy `/issues/[id]` route 两条 API 失败标题的往返振荡是否仍值得继续派生新的 Implementation 微任务。
 
 ### 2. 实施内容
 | 操作 | 文件 | 说明 |
 | --- | --- | --- |
-| 修改 | `frontend/src/lib/routes.test.tsx` | 将第二条 legacy route API 失败用例标题从 `route getOrganizations rejects` 再次收口为 `getOrganizations rejects`，保持其余断言与逻辑不变。 |
-| 更新 | `docs/status/roadmap-state.yaml` | 回写 IMP-214 完成状态、真实 feature SHA，并将当前 Implementation lane 标记为等待补充下一条微任务。 |
-| 更新 | `docs/linear-parity/task-board.md` | 将 IMP-214 标记为 done，并在 blocker 单元记录完成摘要与真实 feature SHA。 |
-| 更新 | `docs/planning/dev-logbook.md` | 记录本次 Session 327 的执行、验证与状态快照。 |
-| 更新 | `docs/worktime.md` | 追加 Session 327 的最近记录与 Phase 0 工时行。 |
+| 复核 | `frontend/src/lib/routes.test.tsx` | 确认本轮 feature diff 仅为第一条标题恢复为 `route getIssue rejects`，第二条保持 `getOrganizations rejects`，helper seam 标题、共享断言、fixture 设置与 helper/route 运行时逻辑均未新增语义变化。 |
+| 更新 | `docs/status/roadmap-state.yaml` | 将 `last_completed_task` 收口为 IMP-215 人工结案，并把唯一恢复源切回 Capture / CAP-08，明确当前不再继续派生 wording 微任务。 |
+| 更新 | `docs/linear-parity/task-board.md` | 保留并沿用既有 IMP-215 结案行：确认 IMP-195 至 IMP-214 wording 振荡链已经人工收口，不再新增 IMP-216。 |
+| 更新 | `docs/planning/dev-logbook.md` | 记录 Session 329 的人工结案、验证结果与状态回切。 |
+| 更新 | `docs/worktime.md` | 追加 Session 329 最近工时摘要与 S329 工时记录。 |
 
 ### 3. 验证结果
-| 命令 | 结果 |
+| 命令 / 检查 | 结果 |
 | --- | --- |
-| `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` | 通过（5 files, 57 tests） |
-| `cd frontend && ./node_modules/.bin/tsc --noEmit` | 通过 |
-| `git diff --check` | 通过 |
+| `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` | ✅ 通过（5 files, 57 tests） |
+| `cd frontend && ./node_modules/.bin/tsc --noEmit` | ✅ 通过 |
+| `git diff --check` | ✅ 通过 |
+| 重读 `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/planning/dev-logbook.md` / `docs/worktime.md` | ✅ 已确认 IMP-215 为人工结案，且唯一恢复源已回切到 `Capture / CAP-08`，不存在新增 IMP-216。 |
 
 ### 4. Review 结论
-- 已独立检查 `frontend/src/lib/routes.test.tsx` diff：仅第二条 legacy route API 失败用例标题从 `route getOrganizations rejects` 改为 `getOrganizations rejects`。
-- helper 级标题 `returns the empty props contract when the helper workspace slug lookup misses`、第一条 `getIssue rejects`、共享断言、fixture 设置与 helper/route 运行时逻辑保持不变。
+- 代码层面仅有 `frontend/src/lib/routes.test.tsx` 一处 feature diff，验证通过；本轮 docs closeout 的核心结论是：该链没有继续拆分出新 Implementation 微任务的价值。
+- task-board 已存在“人工收口 wording 振荡链”的 IMP-215 结案定义，因此状态文件、logbook 与 worktime 应与该结论对齐，而不是再生出 IMP-216。
 
 ### 5. 状态快照
 - 当前分支：`codex/unify-issue-model`
-- 执行前 HEAD：`60b0e4177ebc39365731f779f82f242d584f6880`
-- Feature commit：`8e37c7f359848c7f9e63844d4af67b4a778e866a`（`[verified] test: drop second legacy route reject title again`）
-- Docs/state：待本次 closeout commit 写回
-- 当前 Implementation lane：IMP-214 已完成，task-board 暂无后续 Implementation 微任务定义，需下一轮先补充任务后再继续。
+- 执行前 HEAD：`c5155697620d2fb3ce2aa31619d817be5d36dd04`
+- Feature commit：`3ef816dbf57cac010f09ca12733f86cc18684c86`（`[verified] test: restore first legacy route reject title`）
+- Implementation lane：IMP-215 已人工结案；除非出现新的运行时行为、contract 变化或断言语义变化，否则不得继续围绕同一组 legacy `/issues/[id]` route API 失败标题派生 wording 微任务。
+- 当前恢复源：`Capture / CAP-08（blocked）`
 
 ### 6. 经验沉淀
-- 在当前 `getIssue rejects` / `route getOrganizations rejects` 非对称组合下，第二条 API 失败标题仍可再次收口为无 route wording，且不影响 helper-vs-route seam 区分；此类 legacy wording 微任务应继续坚持“一次只改一条标题”的最小收口策略。
+- 当 task-board 已明确把某条振荡链人工结案时，后续 closeout 必须回写到该既有结论，不能因为最新 feature commit 仍是该链上的一次标题调整，就在状态文件里继续外推新的“下一条 wording 微任务”。
 
-## Session 326 — 2026-04-21：重新评估并再次收口第一条 legacy route API 失败标题中的 route wording
+---
+
+## Session 328 — 2026-04-21：Capture lane 补齐 CAP-08 最新证据的 docs 闭环
+
+### 1. 本次目标
+- 严格按 capture lane 恢复 `AGENTS.md`、`docs/status/roadmap-state.yaml`、`docs/linear-parity/task-board.md`、`~/Desktop/Cruise/.hermes/linear-9222-watchdog/last-status.txt` 与 `tmp/linear-capture/summary.json`，判断是否存在“证据已更新但 docs 尚未闭环”的缺口。
+- 若存在闭环缺失，则只做一个最小 execution unit：不重复采集、不进入 Implementation lane，仅将 CAP-08 最新 capture 事实写回 task-board / roadmap-state / dev-logbook / worktime。
+
+### 2. 实施内容
+| 操作 | 文件 | 说明 |
+| --- | --- | --- |
+| 读取 | `AGENTS.md` | 复核仓库工作纪律、日志要求与工时记录约束。 |
+| 读取 | `docs/status/roadmap-state.yaml` | 确认唯一恢复状态源当前已对齐 `Capture / CAP-08`，但 blocker 文案仍停留在 19:24 CST。 |
+| 读取 | `docs/linear-parity/task-board.md` | 确认 Capture lane 当前任务仍是最早可恢复的 `CAP-08`，且行内 blocker 尚未反映 `summary.json` 19:45 CST 的更新。 |
+| 读取 | `~/Desktop/Cruise/.hermes/linear-9222-watchdog/last-status.txt` | 再次确认 `consumer_policy=attached_cdp_only`、`metadata_layer=ok`、`websocket_attach=ok`，因此本轮继续禁止 Hermes 内置 `browser_*`。 |
+| 读取 | `tmp/linear-capture/summary.json` 与文件时间戳 | 核对 `summary.json` 已在 19:45 CST 晚于 task-board / roadmap-state / dev-logbook / worktime 的最近写回，说明当前缺口是 docs 闭环而非 capture 未生效。 |
+| 更新 | `docs/linear-parity/task-board.md` | 将 CAP-08 blocker 改写为 20:18 CST closeout：明确本轮未重复采集，而是补齐 capture lane docs 闭环，并继续把 blocker 记为工作树闭环风险而非附着失败。 |
+| 更新 | `docs/status/roadmap-state.yaml` | 将 `current_task` 继续维持为 `Capture / CAP-08`，并把 blocker 文案改写为“最新证据已刷新、当前优先修复 docs 闭环缺失”的真实状态。 |
+| 更新 | `docs/planning/dev-logbook.md` | 记录本次 Session 328 的恢复、证据核对与 docs closeout。 |
+| 更新 | `doc/worktime.md` | 追加 Session 328 的 capture lane docs 闭环工时记录，明确未提交。 |
+
+### 3. 验证结果
+| 命令 / 检查 | 结果 |
+| --- | --- |
+| `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` | 已执行；确认仓库位于 `codex/unify-issue-model`，HEAD=`84a2073818b080bf5b3362d3a6575a176288b244`，近期最新提交为 `84a2073 [verified] docs: capture CAP-08 state refresh`。 |
+| `stat` 比较 `tmp/linear-capture/summary.json` 与 docs 文件时间 | 已确认 `summary.json` 19:45:09 晚于 `docs/linear-parity/task-board.md` 19:33:38、`docs/planning/dev-logbook.md` 19:34:25、`doc/worktime.md` 19:34:25、`docs/status/roadmap-state.yaml` 19:33:38。 |
+| 重读 `docs/linear-parity/task-board.md` / `docs/status/roadmap-state.yaml` / `docs/planning/dev-logbook.md` / `doc/worktime.md` 相关片段 | 已确认 CAP-08 仍为 Capture lane 当前任务，且 blocker / handoff 文案已对齐到“证据已刷新、当前补齐 docs 闭环”的事实。 |
+| `git diff -- docs/linear-parity/task-board.md docs/status/roadmap-state.yaml docs/planning/dev-logbook.md doc/worktime.md` | 已执行；确认本轮仅落下 capture lane 文档闭环改动，无 Implementation 代码改动。 |
+
+### 4. Review 结论
+- watchdog 仍然健康：`attached_cdp_only + websocket_attach=ok` 成立，因此这轮不能把 blocker 误写成附着失败。
+- 当前最真实的 execution unit 是“修复 CAP-08 证据已刷新但 docs 未同步”的闭环缺口，而不是重复做一次 capture。
+- 本轮边界仅限 Capture lane 文档闭环；未进入 Implementation lane，也未新增产品实现或持久提交到 Linear。
+
+### 5. 状态快照
+- 当前分支：`codex/unify-issue-model`
+- 当前 HEAD：`84a2073818b080bf5b3362d3a6575a176288b244`
+- 当前 lane / task：`Capture / CAP-08（blocked）`
+- watchdog：`consumer_policy=attached_cdp_only`、`websocket_attach=ok`
+- 最新证据：`tmp/linear-capture/summary.json` 及同批 `.png/.json` 已刷新到 2026-04-21 19:45 CST，包含 `baselineAfterTabs`、`issueDetail`、`issueDirect` 与 `interactions` 结构
+- Git commit hash：`未提交（本轮仅补齐 docs 闭环）`
+
+### 6. 经验沉淀
+- 对 capture cron 来说，只要 watchdog 仍声明 `attached_cdp_only` 且 `websocket_attach=ok`，就应优先判断“最新证据产物是否晚于 docs”，若是，则先修 docs 闭环，避免无意义重复采集。
+- 当 `summary.json` 与同批 `.png/.json` 已经更新，而 task-board / roadmap-state / logbook / worktime 仍停在旧时间点时，应把问题分类为“状态闭环缺失”，而不是误报为 capture 失败或附着失败。
+
+---
+
 
 **目标**：按 Implementation lane 推进 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-213` 最小增量，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：基于当前 `route getIssue rejects` / `route getOrganizations rejects` 组合，复核第一条 API 失败场景标题是否仍可再次收口为 `getIssue rejects` 以继续维持与 helper 级 lookup 标题的层级区分；若可行，则仅改这一处标题并完成验证、review、提交、状态写回与 push 闭环。
 
