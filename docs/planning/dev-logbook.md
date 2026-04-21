@@ -1,3 +1,42 @@
+## Session 282 — 2026-04-21：评估并收口第二条 legacy route API 失败标题中的 route 级语义词
+
+**目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-165` 最小增量，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 两条 API 失败场景当前为 `route getIssue rejects` / `route getOrganizations rejects` 后，第二条是否仍可安全收口为无 route wording；若可行，则只改这一处安全标题并完成验证、review、提交、状态写回与 push 闭环。
+
+### 282.1 执行步骤
+
+| 步骤 | 操作 | 结果 |
+|------|------|------|
+| 恢复状态 | `git status --short` / `git branch --show-current` / `git rev-parse HEAD` / `git log --oneline -5` / 读取 `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / roadmap / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 确认仓库位于 `codex/unify-issue-model`；状态文件最近一次 feature/work commit 已落在 `IMP-165` 前序实现，任务板显示 `IMP-165` 为当前 Implementation lane 待执行项，工作树可按唯一 execution unit 推进。 |
+| 实现 | `frontend/src/lib/routes.test.tsx` | 仅将 legacy `/issues/[id]` route 第二条 API 失败场景标题从 `route getOrganizations rejects` 收口为 `getOrganizations rejects`；保持第一条 `route getIssue rejects`、共享断言、fixture 设置与 helper/route 运行时逻辑不变。 |
+| 验证 | `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` | 通过：5 files / 57 tests |
+| 验证 | `cd frontend && ./node_modules/.bin/tsc --noEmit` | 通过 |
+| 验证 | `git diff --check` | 通过 |
+| Review | `git diff -- frontend/src/lib/routes.test.tsx` + 独立 reviewer | 复核本轮只改一处 route 级 API 失败测试标题文案，不改共享断言结构、fixture 设置或 helper/route 运行时逻辑；独立 reviewer 返回 `passed=true`，review 结论为通过。 |
+| 提交 | `git commit -m "test: relax route wording for issue detail getOrganizations rejection"` | 完成本轮 feature/work commit，得到真实提交 `d49f8f2e1008950fd1465cafb6c4294439530d94`。 |
+| 修改 | `docs/status/roadmap-state.yaml` / `docs/linear-parity/task-board.md` / `docs/planning/dev-logbook.md` / `doc/worktime.md` | 将 `IMP-165` 作为最新完成的 Implementation lane 最小增量写回，并补一条新的后继 `pending` Implementation 任务行供下一轮恢复。 |
+
+### 282.2 本轮落地结果
+
+- 已复核 helper 级标题仍通过 `returns the empty props contract when the helper workspace slug lookup misses` 明确保留 helper seam 语义。
+- 在 describe 已限定 legacy `/issues/[id]` route 上下文且第一条已维持 `route getIssue rejects` 后，第二条 `route getOrganizations rejects` 仍可安全收口为 `getOrganizations rejects`，同时继续维持与 helper 级 lookup 标题的层级区分。
+- 因此本轮仅将第二条 route 级 API 失败场景测试标题收口为 `getOrganizations rejects`，同时保持第一条 `route getIssue rejects`、共享断言、fixture 设置以及 helper/route 运行时逻辑不变。
+- `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 已写回：`IMP-165` 作为最新完成项；由于任务板原先缺失后继 pending 行，本轮新增 `IMP-166` 占位性后继任务，要求下一轮先补足明确可验证的 Implementation 切口。
+
+### 282.3 经验沉淀
+
+- 当两条 route 级 API 失败标题都暂时带有 `route` 前缀时，仍应逐条复核是否每一条都需要继续保留该最小 route wording，而不要默认必须长期保持对称。
+- 若任务板在完成当前项后缺失后继 pending 行，closeout 时必须先补一条可恢复的后继任务，否则下一轮 implementation cron 会因缺乏 lane 内 successor definition 而退化为纯文档修补。
+
+### 282.4 当前状态快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前 lane / task | `Implementation / IMP-165 → IMP-166` |
+| 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `c46ad87359cc6aeeb1bd5b62bf31b48df3b5b306` |
+| feature commit | `d49f8f2e1008950fd1465cafb6c4294439530d94` |
+| 验证 | `pnpm test -- --run src/lib/routes.test.tsx`、`./node_modules/.bin/tsc --noEmit`、`git diff --check` |
+
+
 ## Session 281 — 2026-04-21：评估并补回第一条 legacy route API 失败标题中的 route 级语义词
 
 **目标**：按 Implementation lane 恢复 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-164` 后续最小增量，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：复核 legacy `/issues/[id]` route 两条 API 失败场景当前为 `getIssue rejects` / `route getOrganizations rejects` 后，第一条是否仍需恢复最小 route 级语义词；若需要，则只改这一处安全标题并完成验证、review、提交、状态写回与 push 闭环。
