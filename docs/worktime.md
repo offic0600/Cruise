@@ -8,6 +8,7 @@
 
 | Session | 日期 | 目标 | 评估工时 | 实际工时 | 备注 |
 |---------|------|------|---------|---------|------|
+| S301 | 2026-04-21 | 重新评估并再次收口第二条 legacy route API 失败标题中的 route wording | 0.5h | 0.5h | IMP-186：将 `route getOrganizations rejects` 再次收口为 `getOrganizations rejects`，定向测试/tsc/diff 均通过 |
 | S1 | 2026-03-06 | 项目启动 + 技术选型 | 2h | 2h | 纯文档工作 |
 | S2 | 2026-03-07 | 骨架搭建 | 3h | 2h | Gradle + Next.js |
 | S3 | 2026-03-07 | 数据库切换 (PostgreSQL→H2) | 1h | 2h | 调试环境问题 |
@@ -19,6 +20,7 @@
 
 | Session | 日期 | 目标 | 评估工时 | 实际工时 | 备注 |
 |---------|------|------|---------|---------|------|
+| S301 | 2026-04-21 | 重新评估并再次收口第二条 legacy route API 失败标题中的 route wording | 0.5h | 0.5h | IMP-186：将 `route getOrganizations rejects` 再次收口为 `getOrganizations rejects`，定向测试/tsc/diff 均通过 |
 | S4 | 2026-03-07 | Phase 1 验收 + Bug 修复 | 3h | 3h | JWT 认证问题 |
 | S5 | 2026-03-09 | JWT 认证 + 完整测试 | 3h | 3h | 16/16 验收通过 |
 | **合计** | — | Phase 1 完成 | **6h** | **6h** | |
@@ -29,6 +31,7 @@
 
 | Session | 日期 | 目标 | 评估工时 | 实际工时 | 备注 |
 |---------|------|------|---------|---------|------|
+| S301 | 2026-04-21 | 重新评估并再次收口第二条 legacy route API 失败标题中的 route wording | 0.5h | 0.5h | IMP-186：将 `route getOrganizations rejects` 再次收口为 `getOrganizations rejects`，定向测试/tsc/diff 均通过 |
 | — | 2026-03-09 | 效率度量 + 趋势预测 + 风险预警 | 4h | 3h | 10/10 验收通过 |
 | **合计** | — | Phase 2 完成 | **4h** | **3h** | |
 
@@ -38,6 +41,7 @@
 
 | Session | 日期 | 目标 | 评估工时 | 实际工时 | 备注 |
 |---------|------|------|---------|---------|------|
+| S301 | 2026-04-21 | 重新评估并再次收口第二条 legacy route API 失败标题中的 route wording | 0.5h | 0.5h | IMP-186：将 `route getOrganizations rejects` 再次收口为 `getOrganizations rejects`，定向测试/tsc/diff 均通过 |
 | — | 2026-03-09 | ALM + GitLab + 工时系统对接 | 4h | 3h | 10/10 验收通过 |
 | **合计** | — | Phase 3 完成 | **4h** | **3h** | |
 
@@ -47,6 +51,7 @@
 
 | Session | 日期 | 目标 | 评估工时 | 实际工时 | 备注 |
 |---------|------|------|---------|---------|------|
+| S301 | 2026-04-21 | 重新评估并再次收口第二条 legacy route API 失败标题中的 route wording | 0.5h | 0.5h | IMP-186：将 `route getOrganizations rejects` 再次收口为 `getOrganizations rejects`，定向测试/tsc/diff 均通过 |
 | S6 | 2026-03-10 | Agent + Skill 核心实现 | 5h | 4h | 9 个 Skill |
 | S7 | 2026-03-10 | 验收测试 + 整体确认 | 2h | 2h | API 验证通过 |
 | **合计** | — | Phase 4 完成 | **7h** | **6h** | |
@@ -57,6 +62,7 @@
 
 | Session | 日期 | 目标 | 评估工时 | 实际工时 | 备注 |
 |---------|------|------|---------|---------|------|
+| S301 | 2026-04-21 | 重新评估并再次收口第二条 legacy route API 失败标题中的 route wording | 0.5h | 0.5h | IMP-186：将 `route getOrganizations rejects` 再次收口为 `getOrganizations rejects`，定向测试/tsc/diff 均通过 |
 | S10 | 2026-04-18 | Linear 对标规划 + 本机 Chrome 调试接入 | 3h | 3h | 已打通目标页元信息采集，DOM 抓取仍待稳定化 |
 | S11 | 2026-04-18 | 9222 网络采集失败记录 + Cruise issues 基线补强 | 0.5h | 0.5h | 记录 502 状态并补 gap-analysis / roadmap |
 | S12 | 2026-04-18 | Active issues 顶部工具栏差距文档补齐 | 0.5h | 0.5h | 产出工具栏级 gap 文档，锁定下一步微调落点 |
@@ -145,6 +151,7 @@
 
 | Session | 日期 | 目标 | 评估工时 | 实际工时 | 备注 |
 |---------|------|------|---------|---------|------|
+| S301 | 2026-04-21 | 重新评估并再次收口第二条 legacy route API 失败标题中的 route wording | 0.5h | 0.5h | IMP-186：将 `route getOrganizations rejects` 再次收口为 `getOrganizations rejects`，定向测试/tsc/diff 均通过 |
 | S10 | 2026-04-16 | 锁定 `codex/unify-issue-model` 分支，建立 Linear 复刻计划 + 状态源 + cron 自动推进 | 2h | 1h | 纯规划 / 自动化基础设施 |
 | S11 | 2026-04-17 | 完成 task01a，统一 issue/project/initiative view queryState 默认契约并锁定审计文档 | 2h | 1h | 前端验证通过；后端 Gradle 测试受 cron 环境缺少 Java/JAVA_HOME 限制 |
 | S12 | 2026-04-17 | 完成 task01b1 repair closure，补齐 malformed project saved view 的 fail-closed 修复与回归覆盖 | 2h | 1h | 后端 Gradle 测试仍受 cron 环境缺少 Java/JAVA_HOME 限制 |
