@@ -5,39 +5,39 @@ roadmap:
 project:
   repo_path: /Users/liuzheng/Desktop/Cruise
   branch: codex/unify-issue-model
-  head: d49f8f2e1008950fd1465cafb6c4294439530d94
+  head: d47761ab04dcdc8f21fae1529c0dae18a687553a
   baseline_commit: 5f9bbf40737ed971c5a7c4d446c68345454a161f
   docs_head: 0bd0f6fdcbf649ecc65f17bf7945c250fbf9795f
 last_completed_task:
-  id: IMP-165
+  id: IMP-166
   parent_task: linear-parity-push
-  title: 评估 legacy `/issues/[id]` route 两条 API 失败场景在再次变为双 route wording 后第二条是否仍可收口为无 route wording
+  title: 将第一条 route 级 API 失败标题重新收口为无 route wording，并验证 helper/route 层级仍可辨识
   lane: Implementation
   status: done
   summary: >-
     已复核 helper 级标题仍通过 `returns the empty props contract when the helper workspace slug lookup misses`
-    明确保留 helper seam 语义；在 describe 已限定 legacy `/issues/[id]` route 上下文且第一条已维持
-    `route getIssue rejects` 后，第二条 `route getOrganizations rejects` 仍可安全收口为
-    `getOrganizations rejects`，同时继续维持与 helper 级 lookup 标题的层级区分。因此本轮仅将该标题收口为
-    `getOrganizations rejects`，同时保持第一条 `route getIssue rejects`、共享断言、fixture 设置与 helper/route 运行时逻辑不变。
+    明确保留 helper seam 语义；在 describe 已限定 legacy `/issues/[id]` route 上下文且第二条已维持
+    `getOrganizations rejects` 后，第一条 `route getIssue rejects` 仍可安全收口为 `getIssue rejects`，同时继续维持与
+    helper 级 lookup 标题的层级区分。因此本轮仅将该标题收口为 `getIssue rejects`，同时保持第二条
+    `getOrganizations rejects`、共享断言、fixture 设置与 helper/route 运行时逻辑不变。
   tests:
     - cd frontend && pnpm test -- --run src/lib/routes.test.tsx: passed (5 files, 57 tests)
     - cd frontend && ./node_modules/.bin/tsc --noEmit: passed
     - git diff --check: passed
   review:
     code: approved
-  commit: d49f8f2e1008950fd1465cafb6c4294439530d94
-  next_task: IMP-166：按 task-board 为 Implementation lane 补充 IMP-165 的后继 pending 任务（当前缺失）
+  commit: d47761ab04dcdc8f21fae1529c0dae18a687553a
+  next_task: IMP-167：重新评估第二条 route 级 API 失败标题是否需要恢复 route wording，以维持 helper/route 层级区分
 current_task:
-  id: CAP-08
+  id: IMP-167
   parent_task: linear-parity-push
-  title: 采集 issue 创建/编辑入口的打开态与校验态证据
-  lane: Capture
-  status: blocked
+  title: 重新评估第二条 route 级 API 失败标题是否需要恢复 route wording，以维持 helper/route 层级区分
+  lane: Implementation
+  status: pending
   done_when: >-
-    只读优先，允许打开弹窗/抽屉并记录字段、默认值、校验反馈，不做持久提交；完成后立即把 task-board、roadmap-state、dev-logbook、worktime 写回。
+    基于当前 `getIssue rejects` / `getOrganizations rejects` 组合，复核第二条 API 失败场景标题是否仍需恢复为
+    `route getOrganizations rejects` 以维持与 helper 级 lookup 标题的层级区分；若需要，则仅改这一处标题并保持共享断言、
+    fixture 设置与 helper/route 运行时逻辑不变，随后通过 `cd frontend && pnpm test -- --run src/lib/routes.test.tsx`、
+    `cd frontend && ./node_modules/.bin/tsc --noEmit` 与 `git diff --check` 验证。
   blocker: >-
-    watchdog 仍显示 consumer_policy=attached_cdp_only 且 websocket_attach=ok，本轮不存在附着失败；但 tmp/linear-capture/summary.json
-    仍早于 task-board/roadmap-state/dev-logbook/worktime 的最近写回，说明现有 capture 产物已完成 docs 闭环。当前阻塞点是工作树闭环风险：状态文件与分支近期提交仍在持续收口
-    implementation lane，若此时继续新增 capture 落盘，无法保证后续按 capture 单 lane 边界安全收口。应优先在独立干净工作树执行 CAP-08 的只读采集，或待 implementation
-    收口完成后再继续 Add label search input 的空结果/建议反馈态证据。
+    当前 state 与 task-board 已对齐到 IMP-166 收口完成，下一刀可直接继续 implementation 微调；无额外 blocker。
