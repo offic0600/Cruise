@@ -112,10 +112,15 @@ const enMessages = {
     markUnread: "Mark unread",
     archive: "Archive",
     openResource: "Open resource",
+    backToList: "Back to inbox",
     noActor: "System",
     empty: "No notifications yet.",
     emptyTitle: "Select a notification",
     emptyBody: "Open a notification from the left column to inspect the full context without leaving Inbox.",
+    displayMode: {
+      split: "Show split view",
+      focus: "Focus on detail",
+    },
     filters: {
       title: "Filters",
       search: "Search notifications",

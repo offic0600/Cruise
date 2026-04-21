@@ -22,8 +22,10 @@ import { issueDetailPath, workspaceProjectViewPath, workspaceViewPath } from '@/
 import { cn } from '@/lib/utils';
 
 type InboxTab = 'all' | 'unread' | 'archived';
+type InboxDisplayMode = 'split' | 'focus';
 
 const KNOWN_EVENT_KEYS = ['ISSUE_ADDED', 'ISSUE_COMPLETED_OR_CANCELED', 'PROJECT_UPDATED', 'PROJECT_MILESTONE_ADDED'] as const;
+const INBOX_DISPLAY_PARAM = 'display';
 
 function getInitials(value: string | null | undefined) {
   if (!value) return 'SY';
@@ -222,17 +224,30 @@ function DetailPanelChrome({
   title,
   subtitle,
   actions,
+  onBack,
+  backLabel,
   children,
 }: {
   title: string;
   subtitle?: string;
   actions?: ReactNode;
+  onBack?: () => void;
+  backLabel?: string;
   children: ReactNode;
 }) {
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between gap-4 border-b border-border-soft/80 px-6 py-4">
+      <div className="flex items-center justify-between gap-4 border-b border-border-soft/80 px-5 py-4 sm:px-6">
         <div className="min-w-0">
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="mb-2 inline-flex items-center rounded-full border border-border-soft px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-ink-500 transition hover:bg-slate-50 hover:text-ink-900"
+            >
+              {backLabel}
+            </button>
+          ) : null}
           <div className="truncate text-[18px] font-semibold tracking-tight text-ink-900">{title}</div>
           {subtitle ? <div className="mt-1 text-sm text-ink-500">{subtitle}</div> : null}
         </div>
@@ -331,7 +346,10 @@ export default function InboxPage() {
   const [actorFilter, setActorFilter] = useState<string>('__all__');
   const [resourceFilter, setResourceFilter] = useState<string>('__all__');
   const [eventFilter, setEventFilter] = useState<string>('__all__');
-  const selectedId = Number(searchParams.get('notificationId') ?? '') || null;
+  const displayModeParam = searchParams.get(INBOX_DISPLAY_PARAM);
+  const displayMode: InboxDisplayMode = displayModeParam === 'focus' ? 'focus' : 'split';
+  const selectedNotificationId = Number(searchParams.get('notificationId') ?? '') || null;
+  const detailVisible = displayMode === 'split' || selectedNotificationId !== null;
 
   const notificationsQuery = useQuery({
     queryKey: ['inbox', currentUserId ?? 0],
@@ -407,11 +425,12 @@ export default function InboxPage() {
   );
 
   const selectedNotification = useMemo(
-    () => filteredNotifications.find((notification) => notification.id === selectedId) ?? filteredNotifications[0] ?? null,
-    [filteredNotifications, selectedId]
+    () => filteredNotifications.find((notification) => notification.id === selectedNotificationId) ?? (displayMode === 'split' ? filteredNotifications[0] ?? null : null),
+    [displayMode, filteredNotifications, selectedNotificationId]
   );
 
   useEffect(() => {
+    if (displayMode !== 'split') return;
     const nextSelectedId = selectedNotification?.id ?? null;
     const currentQueryId = searchParams.get('notificationId');
     if ((nextSelectedId == null && currentQueryId == null) || String(nextSelectedId ?? '') === currentQueryId) return;
@@ -422,7 +441,50 @@ export default function InboxPage() {
       params.set('notificationId', String(nextSelectedId));
     }
     router.replace(`${pathname}${params.toString() ? `?${params}` : ''}`, { scroll: false });
-  }, [pathname, router, searchParams, selectedNotification?.id]);
+  }, [displayMode, pathname, router, searchParams, selectedNotification?.id]);
+
+  function updateSearchParams(mutator: (params: URLSearchParams) => void) {
+    const params = new URLSearchParams(searchParams.toString());
+    mutator(params);
+    router.replace(`${pathname}${params.toString() ? `?${params}` : ''}`, { scroll: false });
+  }
+
+  function setDisplayMode(nextDisplayMode: InboxDisplayMode) {
+    updateSearchParams((params) => {
+      if (nextDisplayMode === 'split') {
+        params.delete(INBOX_DISPLAY_PARAM);
+      } else {
+        params.set(INBOX_DISPLAY_PARAM, nextDisplayMode);
+      }
+    });
+  }
+
+  function selectNotification(notificationId: number) {
+    updateSearchParams((params) => {
+      params.set('notificationId', String(notificationId));
+      if (displayMode === 'focus') {
+        params.set(INBOX_DISPLAY_PARAM, 'focus');
+      }
+    });
+  }
+
+  function clearFocusedSelection() {
+    updateSearchParams((params) => {
+      params.delete('notificationId');
+      if (displayMode === 'focus') {
+        params.set(INBOX_DISPLAY_PARAM, 'focus');
+      }
+    });
+  }
+
+  const focusListHref = useMemo(() => {
+    if (displayMode !== 'focus') return null;
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('notificationId');
+    params.set(INBOX_DISPLAY_PARAM, 'focus');
+    const query = params.toString();
+    return `${pathname}${query ? `?${query}` : ''}`;
+  }, [displayMode, pathname, searchParams]);
 
   useEffect(() => {
     if (!selectedNotification || selectedNotification.readAt != null || markReadMutation.isPending) return;
@@ -576,14 +638,29 @@ export default function InboxPage() {
                   </div>
                 </PopoverContent>
               </Popover>
-              <button type="button" className="rounded-full border border-border-soft p-2 text-ink-400 transition hover:bg-slate-50 hover:text-ink-700" aria-label={t('inbox.display')}>
+              <button
+                type="button"
+                onClick={() => setDisplayMode(displayMode === 'split' ? 'focus' : 'split')}
+                className={cn(
+                  'rounded-full border p-2 transition',
+                  displayMode === 'split'
+                    ? 'border-border-soft bg-slate-100 text-ink-800'
+                    : 'border-border-soft text-ink-400 hover:bg-slate-50 hover:text-ink-700'
+                )}
+                aria-label={t(displayMode === 'split' ? 'inbox.displayMode.focus' : 'inbox.displayMode.split')}
+              >
                 <PanelRightOpen className="h-4 w-4" />
               </button>
             </div>
           </div>
 
-          <div className="grid min-h-0 flex-1 grid-cols-[420px_minmax(0,1fr)]">
-            <div className="min-h-0 border-r border-border-soft/80">
+          <div
+            className={cn(
+              'min-h-0 flex-1',
+              detailVisible ? 'grid grid-cols-[minmax(320px,420px)_minmax(0,1fr)]' : 'flex flex-col'
+            )}
+          >
+            <div className={cn('min-h-0', detailVisible ? 'border-r border-border-soft/80' : '')}>
               <div className="h-full overflow-y-auto px-3 py-3">
                 {notificationsQuery.isPending ? (
                   <div className="px-4 py-8 text-sm text-ink-500">{t('common.loading')}</div>
@@ -597,11 +674,7 @@ export default function InboxPage() {
                         notification={notification}
                         item={listItems[index]}
                         selected={selectedNotification?.id === notification.id}
-                        onSelect={() => {
-                          const params = new URLSearchParams(searchParams.toString());
-                          params.set('notificationId', String(notification.id));
-                          router.replace(`${pathname}?${params}`, { scroll: false });
-                        }}
+                        onSelect={() => selectNotification(notification.id)}
                         onArchive={() => archiveMutation.mutate(notification.id)}
                         onMarkUnread={() => markUnreadMutation.mutate(notification.id)}
                         t={t}
@@ -612,66 +685,82 @@ export default function InboxPage() {
               </div>
             </div>
 
-            <div className="min-h-0 overflow-hidden bg-[linear-gradient(180deg,#ffffff_0%,#fbfcfd_100%)]">
-              {!selectedNotification ? (
-                <DetailPlaceholder title={t('inbox.emptyTitle')} body={t('inbox.emptyBody')} />
-              ) : selectedDetailKind === 'ISSUE' && selectedIssueId ? (
-                <IssueDetailPage issueId={selectedIssueId} embedded />
-              ) : selectedDetailKind === 'PROJECT' ? (
-                <DetailPanelChrome
-                  title={selectedNotification.resourceTitle ?? t('inbox.resources.PROJECT')}
-                  subtitle={eventLabel(t, selectedNotification.eventKey)}
-                  actions={
-                    <>
-                      {openSelectedResourceHref ? (
-                        <Link href={openSelectedResourceHref} className="rounded-full border border-border-soft p-2 text-ink-400 transition hover:bg-slate-50 hover:text-ink-700">
-                          <ExternalLink className="h-4 w-4" />
-                        </Link>
-                      ) : null}
-                      <button type="button" onClick={() => archiveMutation.mutate(selectedNotification.id)} className="rounded-full border border-border-soft p-2 text-ink-400 transition hover:bg-slate-50 hover:text-ink-700">
-                        <Archive className="h-4 w-4" />
-                      </button>
-                    </>
-                  }
-                >
-                  <div className="h-full overflow-y-auto px-6 py-5">
-                    {projectSummaryQuery.isLoading ? <div className="text-sm text-ink-500">{t('common.loading')}</div> : <ProjectSummaryCard project={projectSummaryQuery.data ?? null} notification={selectedNotification} locale={locale} t={t} href={openSelectedResourceHref} />}
-                  </div>
-                </DetailPanelChrome>
-              ) : selectedDetailKind === 'INITIATIVE' ? (
-                <DetailPanelChrome title={selectedNotification.resourceTitle ?? t('inbox.resources.INITIATIVE')} subtitle={eventLabel(t, selectedNotification.eventKey)}>
-                  <div className="h-full overflow-y-auto px-6 py-5">
-                    <InitiativeSummaryCard initiative={initiativeQuery.data ?? null} notification={selectedNotification} locale={locale} t={t} />
-                  </div>
-                </DetailPanelChrome>
-              ) : (
-                <DetailPanelChrome
-                  title={selectedNotification.resourceTitle ?? selectedNotification.title}
-                  subtitle={eventLabel(t, selectedNotification.eventKey)}
-                  actions={
-                    <>
-                      {openSelectedResourceHref ? (
-                        <Link href={openSelectedResourceHref} className="rounded-full border border-border-soft p-2 text-ink-400 transition hover:bg-slate-50 hover:text-ink-700">
-                          <ExternalLink className="h-4 w-4" />
-                        </Link>
-                      ) : null}
-                      {selectedNotification.readAt == null ? (
-                        <button type="button" onClick={() => markReadMutation.mutate(selectedNotification.id)} className="rounded-full border border-border-soft p-2 text-ink-400 transition hover:bg-slate-50 hover:text-ink-700">
-                          <CheckCheck className="h-4 w-4" />
+            {detailVisible ? (
+              <div className="min-h-0 overflow-hidden bg-[linear-gradient(180deg,#ffffff_0%,#fbfcfd_100%)]">
+                {!selectedNotification ? (
+                  <DetailPlaceholder title={t('inbox.emptyTitle')} body={t('inbox.emptyBody')} />
+                ) : selectedDetailKind === 'ISSUE' && selectedIssueId ? (
+                  <IssueDetailPage
+                    issueId={selectedIssueId}
+                    embedded
+                    href={focusListHref}
+                    label={displayMode === 'focus' ? t('inbox.backToList') : null}
+                  />
+                ) : selectedDetailKind === 'PROJECT' ? (
+                  <DetailPanelChrome
+                    title={selectedNotification.resourceTitle ?? t('inbox.resources.PROJECT')}
+                    subtitle={eventLabel(t, selectedNotification.eventKey)}
+                    onBack={displayMode === 'focus' ? clearFocusedSelection : undefined}
+                    backLabel={t('inbox.backToList')}
+                    actions={
+                      <>
+                        {openSelectedResourceHref ? (
+                          <Link href={openSelectedResourceHref} className="rounded-full border border-border-soft p-2 text-ink-400 transition hover:bg-slate-50 hover:text-ink-700">
+                            <ExternalLink className="h-4 w-4" />
+                          </Link>
+                        ) : null}
+                        <button type="button" onClick={() => archiveMutation.mutate(selectedNotification.id)} className="rounded-full border border-border-soft p-2 text-ink-400 transition hover:bg-slate-50 hover:text-ink-700">
+                          <Archive className="h-4 w-4" />
                         </button>
-                      ) : null}
-                    </>
-                  }
-                >
-                  <div className="h-full overflow-y-auto px-6 py-5">
-                    <div className="rounded-[20px] border border-border-soft/80 bg-white px-5 py-5">
-                      <div className="text-sm font-medium text-ink-900">{selectedNotification.title}</div>
-                      <div className="mt-3 text-sm leading-7 text-ink-600">{selectedNotification.body}</div>
+                      </>
+                    }
+                  >
+                    <div className="h-full overflow-y-auto px-6 py-5">
+                      {projectSummaryQuery.isLoading ? <div className="text-sm text-ink-500">{t('common.loading')}</div> : <ProjectSummaryCard project={projectSummaryQuery.data ?? null} notification={selectedNotification} locale={locale} t={t} href={openSelectedResourceHref} />}
                     </div>
-                  </div>
-                </DetailPanelChrome>
-              )}
-            </div>
+                  </DetailPanelChrome>
+                ) : selectedDetailKind === 'INITIATIVE' ? (
+                  <DetailPanelChrome
+                    title={selectedNotification.resourceTitle ?? t('inbox.resources.INITIATIVE')}
+                    subtitle={eventLabel(t, selectedNotification.eventKey)}
+                    onBack={displayMode === 'focus' ? clearFocusedSelection : undefined}
+                    backLabel={t('inbox.backToList')}
+                  >
+                    <div className="h-full overflow-y-auto px-6 py-5">
+                      <InitiativeSummaryCard initiative={initiativeQuery.data ?? null} notification={selectedNotification} locale={locale} t={t} />
+                    </div>
+                  </DetailPanelChrome>
+                ) : (
+                  <DetailPanelChrome
+                    title={selectedNotification.resourceTitle ?? selectedNotification.title}
+                    subtitle={eventLabel(t, selectedNotification.eventKey)}
+                    onBack={displayMode === 'focus' ? clearFocusedSelection : undefined}
+                    backLabel={t('inbox.backToList')}
+                    actions={
+                      <>
+                        {openSelectedResourceHref ? (
+                          <Link href={openSelectedResourceHref} className="rounded-full border border-border-soft p-2 text-ink-400 transition hover:bg-slate-50 hover:text-ink-700">
+                            <ExternalLink className="h-4 w-4" />
+                          </Link>
+                        ) : null}
+                        {selectedNotification.readAt == null ? (
+                          <button type="button" onClick={() => markReadMutation.mutate(selectedNotification.id)} className="rounded-full border border-border-soft p-2 text-ink-400 transition hover:bg-slate-50 hover:text-ink-700">
+                            <CheckCheck className="h-4 w-4" />
+                          </button>
+                        ) : null}
+                      </>
+                    }
+                  >
+                    <div className="h-full overflow-y-auto px-6 py-5">
+                      <div className="rounded-[20px] border border-border-soft/80 bg-white px-5 py-5">
+                        <div className="text-sm font-medium text-ink-900">{selectedNotification.title}</div>
+                        <div className="mt-3 text-sm leading-7 text-ink-600">{selectedNotification.body}</div>
+                      </div>
+                    </div>
+                  </DetailPanelChrome>
+                )}
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

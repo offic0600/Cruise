@@ -90,10 +90,15 @@ const zhCNMessages = {
     markUnread: '标记未读',
     archive: '归档',
     openResource: '打开资源',
+    backToList: '返回收件箱',
     noActor: '系统',
     empty: '暂时没有通知。',
     emptyTitle: '选择一条通知',
     emptyBody: '从左侧通知流中打开一条通知，即可在不离开收件箱的情况下查看完整上下文。',
+    displayMode: {
+      split: '显示双栏视图',
+      focus: '聚焦详情',
+    },
     filters: {
       ...enMessages.inbox?.filters,
       title: '筛选',
