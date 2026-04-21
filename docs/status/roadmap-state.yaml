@@ -5,20 +5,20 @@ roadmap:
 project:
   repo_path: /Users/liuzheng/Desktop/Cruise
   branch: codex/unify-issue-model
-  head: d85dabdbadb520c2882b5836e24f9c99fd23e8dd
+  head: 0c1aa07d26dcfcc2b467a838d062990530241773
   baseline_commit: 5f9bbf40737ed971c5a7c4d446c68345454a161f
   docs_head: 373e54cb63e32a2ee8b7720e68b4027bc349c5b5
 last_completed_task:
-  id: IMP-201
+  id: IMP-202
   parent_task: linear-parity-push
-  title: 重新评估在当前再次双 route wording 组合下第一条 API 失败标题是否仍可收口为无 route wording
+  title: 重新评估在当前再次非对称 wording 组合下第二条 API 失败标题是否仍可收口为无 route wording
   lane: Implementation
   status: done
   summary: >-
     已复核 helper 级标题仍通过 `returns the empty props contract when the helper workspace slug lookup misses`
-    明确保留 helper seam 语义；在当前 `route getIssue rejects` / `route getOrganizations rejects` 双 route wording 组合下，
-    第一条 API 失败标题仍可再次收口为 `getIssue rejects`，同时继续维持与 helper 级 lookup 标题的层级区分。
-    因此本轮仅将第一条标题再次收口为 `getIssue rejects`，同时保持第二条 `route getOrganizations rejects`、共享断言、fixture
+    明确保留 helper seam 语义；在当前 `getIssue rejects` / `route getOrganizations rejects` 非对称组合下，
+    第二条 API 失败标题仍可再次收口为 `getOrganizations rejects`，同时继续维持与 helper 级 lookup 标题的层级区分。
+    因此本轮仅将第二条标题再次收口为 `getOrganizations rejects`，同时保持第一条 `getIssue rejects`、共享断言、fixture
     设置与 helper/route 运行时逻辑不变。
   tests:
     - cd frontend && pnpm test -- --run src/lib/routes.test.tsx: passed (5 files, 57 tests)
@@ -26,18 +26,18 @@ last_completed_task:
     - git diff --check: passed
   review:
     code: approved
-  commit: d85dabdbadb520c2882b5836e24f9c99fd23e8dd
-  next_task: IMP-202：重新评估在当前再次非对称 wording 组合下第二条 API 失败标题是否仍可收口为无 route wording
+  commit: 0c1aa07d26dcfcc2b467a838d062990530241773
+  next_task: IMP-203：重新评估在当前再次双无 route wording 组合下第一条 API 失败标题是否需要恢复 route 级语义词
 current_task:
-  id: IMP-202
+  id: IMP-203
   parent_task: linear-parity-push
-  title: 重新评估在当前再次非对称 wording 组合下第二条 API 失败标题是否仍可收口为无 route wording
+  title: 重新评估在当前再次双无 route wording 组合下第一条 API 失败标题是否需要恢复 route 级语义词
   lane: Implementation
   status: pending
   done_when: >-
-    基于当前 `getIssue rejects` / `route getOrganizations rejects` 组合，复核第二条 API 失败场景标题是否仍可再次收口为
-    `getOrganizations rejects` 且继续维持与 helper 级 lookup 标题的层级区分；若可行，则仅改这一处标题并保持共享断言、fixture 设置与 helper/route
+    基于当前 `getIssue rejects` / `getOrganizations rejects` 组合，复核第一条 API 失败场景标题是否需要恢复为
+    `route getIssue rejects` 以继续维持与 helper 级 lookup 标题的层级区分；若需要，则仅改这一处标题并保持共享断言、fixture 设置与 helper/route
     运行时逻辑不变，随后通过 `cd frontend && pnpm test -- --run src/lib/routes.test.tsx`、`cd frontend && ./node_modules/.bin/tsc --noEmit`
     与 `git diff --check` 验证。
   blocker: >-
-    当前 state 与 task-board 已对齐到 IMP-201 收口完成，下一刀可直接继续 implementation 微调；无额外 blocker.
+    当前 state 与 task-board 已对齐到 IMP-202 收口完成，下一刀可直接继续 implementation 微调；无额外 blocker.
