@@ -5,38 +5,36 @@ roadmap:
 project:
   repo_path: /Users/liuzheng/Desktop/Cruise
   branch: codex/unify-issue-model
-  head: b23e70d8b58064379bb72f65f50dfcb0d2f7d0b3
+  head: 8e37c7f359848c7f9e63844d4af67b4a778e866a
   baseline_commit: 5f9bbf40737ed971c5a7c4d446c68345454a161f
   docs_head: 090dfe370a56286fbb5a29ab481eea0eaeeb153c
 last_completed_task:
-  id: IMP-213
+  id: IMP-214
   parent_task: linear-parity-push
-  title: 重新评估在当前再次双 route wording 组合下第一条 API 失败标题是否仍可收口为无 route wording
+  title: 重新评估在当前再次非对称 wording 组合下第二条 API 失败标题是否仍可收口为无 route wording
   lane: Implementation
   status: done
   summary: >-
     已复核 helper 级标题仍通过 `returns the empty props contract when the helper workspace slug lookup misses`
-    明确保留 helper seam 语义；在当前 `route getIssue rejects` / `route getOrganizations rejects` 双 route wording 组合下，
-    第一条 API 失败标题仍可再次收口为 `getIssue rejects`，同时继续维持 route 级 API 失败场景与 helper 级 lookup 标题之间的层级区分。
-    因此本轮仅将第一条标题再次收口为 `getIssue rejects`，同时保持第二条 `route getOrganizations rejects`、共享断言、fixture 设置与 helper/route 运行时逻辑不变。
+    明确保留 helper seam 语义；在当前 `getIssue rejects` / `route getOrganizations rejects` 非对称 wording 组合下，
+    第二条 API 失败标题仍可再次收口为 `getOrganizations rejects`，同时继续维持 route 级 API 失败场景与 helper 级 lookup 标题之间的层级区分。
+    因此本轮仅将第二条标题再次收口为 `getOrganizations rejects`，同时保持第一条 `getIssue rejects`、共享断言、fixture 设置与 helper/route 运行时逻辑不变。
   tests:
     - cd frontend && pnpm test -- --run src/lib/routes.test.tsx: passed (5 files, 57 tests)
     - cd frontend && ./node_modules/.bin/tsc --noEmit: passed
     - git diff --check: passed
   review:
     code: approved
-  commit: b23e70d8b58064379bb72f65f50dfcb0d2f7d0b3
-  next_task: IMP-214：重新评估在当前再次非对称 wording 组合下第二条 API 失败标题是否仍可收口为无 route wording
+  commit: 8e37c7f359848c7f9e63844d4af67b4a778e866a
+  next_task: 暂无新的 Implementation 任务；等待补充下一条线性 parity 微任务
 current_task:
-  id: IMP-214
+  id: IMP-214-followup
   parent_task: linear-parity-push
-  title: 重新评估在当前再次非对称 wording 组合下第二条 API 失败标题是否仍可收口为无 route wording
+  title: 补充下一条 Implementation lane 微任务定义
   lane: Implementation
-  status: pending
+  status: blocked
   done_when: >-
-    基于当前 `getIssue rejects` / `route getOrganizations rejects` 组合，复核第二条 API 失败场景标题是否仍可再次收口为
-    `getOrganizations rejects` 且继续维持与 helper 级 lookup 标题的层级区分；若可行，则仅改这一处标题并保持第一条 `getIssue rejects`、共享断言、fixture 设置与 helper/route
-    运行时逻辑不变，随后通过 `cd frontend && pnpm test -- --run src/lib/routes.test.tsx`、`cd frontend && ./node_modules/.bin/tsc --noEmit`
-    与 `git diff --check` 验证。
+    task-board 尚未定义 IMP-214 之后的下一条 Implementation 微任务；待补充新的 parity 微任务后，再恢复单任务执行闭环。
   blocker: >-
-    当前 state 与 task-board 已对齐到 IMP-214 待收口完成，下一刀可直接继续 implementation 微调；无额外 blocker.
+    IMP-214 已完成且 task-board 当前没有后续 Implementation 条目；本轮已完成 state/task-board closeout，下一轮需先补充新的
+    Implementation 任务定义或由人工调整 roadmap/task-board 后再继续。

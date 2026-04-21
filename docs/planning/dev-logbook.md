@@ -1,3 +1,38 @@
+## Session 327 — 2026-04-21：重新评估并再次收口第二条 legacy route API 失败标题中的 route wording
+
+### 1. 本次目标
+- 完成 IMP-214，复核 legacy `/issues/[id]` route 在当前再次非对称 wording 组合下第二条 API 失败标题是否仍可收口为无 route wording。
+
+### 2. 实施内容
+| 操作 | 文件 | 说明 |
+| --- | --- | --- |
+| 修改 | `frontend/src/lib/routes.test.tsx` | 将第二条 legacy route API 失败用例标题从 `route getOrganizations rejects` 再次收口为 `getOrganizations rejects`，保持其余断言与逻辑不变。 |
+| 更新 | `docs/status/roadmap-state.yaml` | 回写 IMP-214 完成状态、真实 feature SHA，并将当前 Implementation lane 标记为等待补充下一条微任务。 |
+| 更新 | `docs/linear-parity/task-board.md` | 将 IMP-214 标记为 done，并在 blocker 单元记录完成摘要与真实 feature SHA。 |
+| 更新 | `docs/planning/dev-logbook.md` | 记录本次 Session 327 的执行、验证与状态快照。 |
+| 更新 | `docs/worktime.md` | 追加 Session 327 的最近记录与 Phase 0 工时行。 |
+
+### 3. 验证结果
+| 命令 | 结果 |
+| --- | --- |
+| `cd frontend && pnpm test -- --run src/lib/routes.test.tsx` | 通过（5 files, 57 tests） |
+| `cd frontend && ./node_modules/.bin/tsc --noEmit` | 通过 |
+| `git diff --check` | 通过 |
+
+### 4. Review 结论
+- 已独立检查 `frontend/src/lib/routes.test.tsx` diff：仅第二条 legacy route API 失败用例标题从 `route getOrganizations rejects` 改为 `getOrganizations rejects`。
+- helper 级标题 `returns the empty props contract when the helper workspace slug lookup misses`、第一条 `getIssue rejects`、共享断言、fixture 设置与 helper/route 运行时逻辑保持不变。
+
+### 5. 状态快照
+- 当前分支：`codex/unify-issue-model`
+- 执行前 HEAD：`60b0e4177ebc39365731f779f82f242d584f6880`
+- Feature commit：`8e37c7f359848c7f9e63844d4af67b4a778e866a`（`[verified] test: drop second legacy route reject title again`）
+- Docs/state：待本次 closeout commit 写回
+- 当前 Implementation lane：IMP-214 已完成，task-board 暂无后续 Implementation 微任务定义，需下一轮先补充任务后再继续。
+
+### 6. 经验沉淀
+- 在当前 `getIssue rejects` / `route getOrganizations rejects` 非对称组合下，第二条 API 失败标题仍可再次收口为无 route wording，且不影响 helper-vs-route seam 区分；此类 legacy wording 微任务应继续坚持“一次只改一条标题”的最小收口策略。
+
 ## Session 326 — 2026-04-21：重新评估并再次收口第一条 legacy route API 失败标题中的 route wording
 
 **目标**：按 Implementation lane 推进 `docs/status/roadmap-state.yaml` 与 `docs/linear-parity/task-board.md` 指向的 `IMP-213` 最小增量，在检查 git/roadmap/task-board/logbook/worktime 后，只做一个最小 execution unit：基于当前 `route getIssue rejects` / `route getOrganizations rejects` 组合，复核第一条 API 失败场景标题是否仍可再次收口为 `getIssue rejects` 以继续维持与 helper 级 lookup 标题的层级区分；若可行，则仅改这一处标题并完成验证、review、提交、状态写回与 push 闭环。
