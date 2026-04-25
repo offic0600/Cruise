@@ -1,0 +1,312 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "work_id": "inbox-a37630be98d4",
+      "capture_run_id": "20260421T222059+0800",
+      "artifact_hash": "a37630be98d474a797a7a68844a6ae1ad218a10ac08440c2082bdfd1a9a453da",
+      "scope_key": "inbox",
+      "ui_surface": "Inbox",
+      "goal": "围绕 Inbox 做一个页面级小闭环：收紧顶部 chrome、过滤/显示控制与双栏 detail split 的 Linear 风格密度与反馈。",
+      "candidate_changes": [
+        "对齐顶部 title / more menu / segmented tabs count 的位置、层级和视觉密度。",
+        "对齐 filter chip 计数、display toggle 与二级控制区的排列和反馈样式。",
+        "对齐左侧通知列表与右侧 detail panel 的分栏比例、空态与 loading/empty feedback。"
+      ],
+      "evidence_refs": {
+        "capture_latest": "tmp/linear-capture/latest.json",
+        "capture_manifest": "tmp/linear-capture/runs/20260421T222059+0800/manifest.json",
+        "capture_summary": "tmp/linear-capture/runs/20260421T222059+0800/summary.json",
+        "page_json": "tmp/linear-capture/runs/20260421T222059+0800/pages/inbox/page.json",
+        "elements_json": "tmp/linear-capture/runs/20260421T222059+0800/pages/inbox/elements.json",
+        "screenshot": "tmp/linear-capture/runs/20260421T222059+0800/pages/inbox/screenshots/default.png",
+        "dom": "tmp/linear-capture/runs/20260421T222059+0800/pages/inbox/dom/default.json",
+        "har": "tmp/linear-capture/runs/20260421T222059+0800/pages/inbox/har/session.har.json"
+      },
+      "acceptance_checks": [
+        "Inbox 页在当前 workspace 下具备与 capture 一致的标题行、tabs、filter/display 控制区和双栏骨架。",
+        "Inbox detail 面板里的资源跳转不回归，issue/project/view 链接仍能正确生成。",
+        "`cd frontend && npx tsc --noEmit`",
+        "若本轮修改了路由或抽出了纯 helper，则补最小 focused test 并运行对应 `pnpm test -- --run ...`。"
+      ],
+      "source_paths": [
+        "frontend/src/components/inbox/InboxPage.tsx",
+        "frontend/src/app/[workspaceSlug]/inbox/page.tsx",
+        "frontend/src/i18n/messages/en.ts",
+        "frontend/src/i18n/messages/zh-CN.ts"
+      ],
+      "milestone_summary": "Inbox 页面级小闭环：顶部 chrome、filter/display controls 与双栏 detail split 已按 capture 对齐。",
+      "status": "done",
+      "created_at": "2026-04-21T22:51:52.187149+08:00",
+      "updated_at": "2026-04-21T23:53:02.738722+08:00",
+      "completed_at": "2026-04-21T16:10:25.882033+00:00",
+      "commit_sha": "8fe0c5b5240a9a63d2719013b13365d52bdd7e9d"
+    },
+    {
+      "work_id": "roadmap-ab7b2f12213c",
+      "capture_run_id": "20260421T231518+0800",
+      "artifact_hash": "ab7b2f12213c5e493633241c0920603483bdb2fb89d69a19b45681fd63847ff3",
+      "scope_key": "roadmap",
+      "ui_surface": "Roadmap",
+      "goal": "围绕 Projects 做一个页面级小闭环：把 capture 明确暴露出的主壳层与关键交互差异收口。",
+      "candidate_changes": [
+        "对齐页面标题区、主操作入口和一级导航/切换控件。",
+        "对齐主内容区的容器层级、间距和主要反馈状态。",
+        "补齐当前 capture 明确暴露出的可见空态、loading 或交互反馈差异。"
+      ],
+      "evidence_refs": {
+        "capture_latest": "tmp/linear-capture/latest.json",
+        "capture_manifest": "tmp/linear-capture/runs/20260421T231518+0800/manifest.json",
+        "capture_summary": "tmp/linear-capture/runs/20260421T231518+0800/summary.json",
+        "page_json": "tmp/linear-capture/runs/20260421T231518+0800/pages/roadmap/page.json",
+        "elements_json": "tmp/linear-capture/runs/20260421T231518+0800/pages/roadmap/elements.json",
+        "screenshot": "tmp/linear-capture/runs/20260421T231518+0800/pages/roadmap/screenshots/default.png",
+        "dom": "tmp/linear-capture/runs/20260421T231518+0800/pages/roadmap/dom/default.json",
+        "har": "tmp/linear-capture/runs/20260421T231518+0800/pages/roadmap/har/session.har.json"
+      },
+      "acceptance_checks": [
+        "当前 scope 的主壳层、主操作与关键反馈状态对齐 capture 证据。",
+        "`cd frontend && npx tsc --noEmit`"
+      ],
+      "source_paths": [
+        "frontend/src/components/AppLayout.tsx",
+        "frontend/src/lib/routes.ts"
+      ],
+      "milestone_summary": "roadmap 页面级小闭环：主壳层、主操作与关键反馈状态已按 capture 收口。",
+      "status": "done",
+      "created_at": "2026-04-22T00:41:52.044778+08:00",
+      "updated_at": "2026-04-22T00:53:10.361856+08:00",
+      "completed_at": "2026-04-22T00:53:10.361856+08:00",
+      "commit_sha": "6314ecf66e18e5dc48346467e0f93ec18ff2cc9f"
+    },
+    {
+      "work_id": "linear-toolbar-and-issue-detail-readonly-1e0c349f429b",
+      "capture_run_id": "20260421T214514+0800",
+      "source_capture_run_id": "20260421T214514+0800",
+      "source_ledger_key": "page:linear-toolbar-and-issue-detail-readonly",
+      "scope_dedupe_key": "linear-toolbar-and-issue-detail-readonly",
+      "artifact_hash": "1e0c349f429bcfa9b1a8c7106318e2803f78520c21fdb0c6c243805759405822",
+      "scope_key": "linear-toolbar-and-issue-detail-readonly",
+      "ui_surface": "Linear Active issues toolbar + issue detail baseline",
+      "goal": "围绕 linear-toolbar-and-issue-detail-readonly 做一个页面级小闭环：把 capture 明确暴露出的主壳层与关键交互差异收口。",
+      "candidate_changes": [
+        "对齐页面标题区、主操作入口和一级导航/切换控件。",
+        "对齐主内容区的容器层级、间距和主要反馈状态。"
+      ],
+      "evidence_refs": {
+        "capture_latest": "tmp/linear-capture/latest.json",
+        "capture_manifest": "tmp/linear-capture/runs/20260421T214514+0800/manifest.json",
+        "capture_summary": "tmp/linear-capture/runs/20260421T214514+0800/summary.json"
+      },
+      "acceptance_checks": [
+        "当前 scope 的主壳层、主操作与关键反馈状态对齐 capture 证据。",
+        "`cd frontend && npx tsc --noEmit`"
+      ],
+      "source_paths": [
+        "frontend/src/components/AppLayout.tsx",
+        "frontend/src/lib/routes.ts"
+      ],
+      "milestone_summary": "linear-toolbar-and-issue-detail-readonly 页面级小闭环：主壳层、主操作与关键反馈状态已按 capture 收口。",
+      "status": "terminal_blocked",
+      "created_at": "2026-04-25T18:48:12.574584+08:00",
+      "updated_at": "2026-04-25T19:30:10.076470+08:00",
+      "blocker": "capture_bundle_missing_page_or_elements"
+    },
+    {
+      "work_id": "workspace-cleantrack-team-cle-active-fe38056b1123",
+      "capture_run_id": "20260421T222007+0800",
+      "source_capture_run_id": "20260421T222007+0800",
+      "source_ledger_key": "page:workspace:cleantrack/team:CLE/active",
+      "scope_dedupe_key": "workspace:cleantrack/team:CLE/active",
+      "artifact_hash": "fe38056b1123f5b1ae9efe58d4bb9cd5d972ea92b725d5738dad4b5191263fa8",
+      "scope_key": "workspace:cleantrack/team:CLE/active",
+      "ui_surface": "Active issues",
+      "goal": "围绕 Cleantrack › Active issues 做一个页面级小闭环：把 capture 明确暴露出的主壳层与关键交互差异收口。",
+      "candidate_changes": [
+        "对齐页面标题区、主操作入口和一级导航/切换控件。",
+        "对齐主内容区的容器层级、间距和主要反馈状态。",
+        "补齐当前 capture 明确暴露出的可见空态、loading 或交互反馈差异。"
+      ],
+      "evidence_refs": {
+        "capture_latest": "tmp/linear-capture/latest.json",
+        "capture_manifest": "tmp/linear-capture/runs/20260421T222007+0800/manifest.json",
+        "capture_summary": "tmp/linear-capture/runs/20260421T222007+0800/summary.json",
+        "page_json": "tmp/linear-capture/runs/20260421T222007+0800/pages/workspace-cleantrack-team-cle-active/page.json",
+        "elements_json": "tmp/linear-capture/runs/20260421T222007+0800/pages/workspace-cleantrack-team-cle-active/elements.json",
+        "screenshot": "tmp/linear-capture/runs/20260421T222007+0800/pages/workspace-cleantrack-team-cle-active/screenshots/default.png",
+        "dom": "tmp/linear-capture/runs/20260421T222007+0800/pages/workspace-cleantrack-team-cle-active/dom/default.json",
+        "har": "tmp/linear-capture/runs/20260421T222007+0800/pages/workspace-cleantrack-team-cle-active/har/session.har.json"
+      },
+      "acceptance_checks": [
+        "当前 scope 的主壳层、主操作与关键反馈状态对齐 capture 证据。",
+        "`cd frontend && npx tsc --noEmit`"
+      ],
+      "source_paths": [
+        "frontend/src/components/issues/ActiveIssuesWorkbenchPage.tsx",
+        "frontend/src/app/[workspaceSlug]/team/[teamKey]/active/page.tsx",
+        "frontend/src/app/[workspaceSlug]/team/[teamKey]/backlog/page.tsx",
+        "frontend/src/app/[workspaceSlug]/team/[teamKey]/done/page.tsx",
+        "frontend/src/lib/routes.ts",
+        "frontend/src/i18n/messages/en.ts",
+        "frontend/src/i18n/messages/zh-CN.ts"
+      ],
+      "milestone_summary": "workspace:cleantrack/team:CLE/active 页面级小闭环：主壳层、主操作与关键反馈状态已按 capture 收口。",
+      "status": "done",
+      "created_at": "2026-04-25T18:48:12.575972+08:00",
+      "updated_at": "2026-04-25T19:36:49.675116+08:00",
+      "completed_at": "2026-04-25T19:36:49.675116+08:00",
+      "commit_sha": "ee81eac1fc6762982021a6a08a97ef1c45414d90"
+    },
+    {
+      "work_id": "my-issues-ff80892f3d31",
+      "capture_run_id": "20260421T225832+0800",
+      "source_capture_run_id": "20260421T225832+0800",
+      "source_ledger_key": "page:my-issues",
+      "scope_dedupe_key": "my-issues",
+      "artifact_hash": "ff80892f3d31c35843e7c4ddfff07dfcb772196d81645e5b9732ad86c5887d66",
+      "scope_key": "my-issues",
+      "ui_surface": "My issues",
+      "goal": "围绕 Linear 做一个页面级小闭环：把 capture 明确暴露出的主壳层与关键交互差异收口。",
+      "candidate_changes": [
+        "对齐页面标题区、主操作入口和一级导航/切换控件。",
+        "对齐主内容区的容器层级、间距和主要反馈状态。"
+      ],
+      "evidence_refs": {
+        "capture_latest": "tmp/linear-capture/latest.json",
+        "capture_manifest": "tmp/linear-capture/runs/20260421T225832+0800/manifest.json",
+        "capture_summary": "tmp/linear-capture/runs/20260421T225832+0800/summary.json",
+        "page_json": "tmp/linear-capture/runs/20260421T225832+0800/pages/my-issues/page.json",
+        "elements_json": "tmp/linear-capture/runs/20260421T225832+0800/pages/my-issues/elements.json",
+        "screenshot": "tmp/linear-capture/runs/20260421T225832+0800/pages/my-issues/screenshots/default.png",
+        "dom": "tmp/linear-capture/runs/20260421T225832+0800/pages/my-issues/dom/default.json",
+        "har": "tmp/linear-capture/runs/20260421T225832+0800/pages/my-issues/har/session.har.json"
+      },
+      "acceptance_checks": [
+        "当前 scope 的主壳层、主操作与关键反馈状态对齐 capture 证据。",
+        "`cd frontend && npx tsc --noEmit`"
+      ],
+      "source_paths": [
+        "frontend/src/components/AppLayout.tsx",
+        "frontend/src/lib/routes.ts"
+      ],
+      "milestone_summary": "my-issues 页面级小闭环：主壳层、主操作与关键反馈状态已按 capture 收口。",
+      "status": "pending",
+      "created_at": "2026-04-25T18:48:12.577068+08:00",
+      "updated_at": "2026-04-25T18:48:12.577071+08:00"
+    },
+    {
+      "work_id": "cycles-list-b9a33fa1a6c5",
+      "capture_run_id": "20260421T231302+0800",
+      "source_capture_run_id": "20260421T231302+0800",
+      "source_ledger_key": "page:cycles:list",
+      "scope_dedupe_key": "cycles:list",
+      "artifact_hash": "b9a33fa1a6c5d35b235822fa67771340dce5e6d561cebaaa87240aedc6bc12bb",
+      "scope_key": "cycles:list",
+      "ui_surface": "Discovered from cycles:list",
+      "goal": "围绕 Linear 做一个页面级小闭环：把 capture 明确暴露出的主壳层与关键交互差异收口。",
+      "candidate_changes": [
+        "对齐页面标题区、主操作入口和一级导航/切换控件。",
+        "对齐主内容区的容器层级、间距和主要反馈状态。",
+        "补齐当前 capture 明确暴露出的可见空态、loading 或交互反馈差异。"
+      ],
+      "evidence_refs": {
+        "capture_latest": "tmp/linear-capture/latest.json",
+        "capture_manifest": "tmp/linear-capture/runs/20260421T231302+0800/manifest.json",
+        "capture_summary": "tmp/linear-capture/runs/20260421T231302+0800/summary.json",
+        "page_json": "tmp/linear-capture/runs/20260421T231302+0800/pages/cycles-list/page.json",
+        "elements_json": "tmp/linear-capture/runs/20260421T231302+0800/pages/cycles-list/elements.json",
+        "screenshot": "tmp/linear-capture/runs/20260421T231302+0800/pages/cycles-list/screenshots/default.png",
+        "dom": "tmp/linear-capture/runs/20260421T231302+0800/pages/cycles-list/dom/default.json",
+        "har": "tmp/linear-capture/runs/20260421T231302+0800/pages/cycles-list/har/session.har.json"
+      },
+      "acceptance_checks": [
+        "当前 scope 的主壳层、主操作与关键反馈状态对齐 capture 证据。",
+        "`cd frontend && npx tsc --noEmit`"
+      ],
+      "source_paths": [
+        "frontend/src/components/AppLayout.tsx",
+        "frontend/src/lib/routes.ts"
+      ],
+      "milestone_summary": "cycles:list 页面级小闭环：主壳层、主操作与关键反馈状态已按 capture 收口。",
+      "status": "pending",
+      "created_at": "2026-04-25T18:48:12.578569+08:00",
+      "updated_at": "2026-04-25T18:48:12.578572+08:00"
+    },
+    {
+      "work_id": "workspace-cleantrack-team-cle-all-3b2e98e0915a",
+      "capture_run_id": "20260425T184754+0800",
+      "source_capture_run_id": "20260425T184754+0800",
+      "source_ledger_key": "page:workspace:cleantrack/team:CLE/all",
+      "scope_dedupe_key": "workspace:cleantrack/team:CLE/all",
+      "artifact_hash": "3b2e98e0915a348de4278a8d95dff92af8151f11b8982d9c7a881c45a42d3dff",
+      "scope_key": "workspace:cleantrack/team:CLE/all",
+      "ui_surface": "All issues",
+      "goal": "围绕 Linear 做一个页面级小闭环：把 capture 明确暴露出的主壳层与关键交互差异收口。",
+      "candidate_changes": [
+        "对齐页面标题区、主操作入口和一级导航/切换控件。",
+        "对齐主内容区的容器层级、间距和主要反馈状态。"
+      ],
+      "evidence_refs": {
+        "capture_latest": "tmp/linear-capture/latest.json",
+        "capture_manifest": "tmp/linear-capture/runs/20260425T184754+0800/manifest.json",
+        "capture_summary": "tmp/linear-capture/runs/20260425T184754+0800/summary.json",
+        "page_json": "tmp/linear-capture/runs/20260425T184754+0800/pages/workspace-cleantrack-team-cle-all/page.json",
+        "elements_json": "tmp/linear-capture/runs/20260425T184754+0800/pages/workspace-cleantrack-team-cle-all/elements.json",
+        "screenshot": "tmp/linear-capture/runs/20260425T184754+0800/pages/workspace-cleantrack-team-cle-all/screenshots/default.png",
+        "dom": "tmp/linear-capture/runs/20260425T184754+0800/pages/workspace-cleantrack-team-cle-all/dom/default.json",
+        "har": "tmp/linear-capture/runs/20260425T184754+0800/pages/workspace-cleantrack-team-cle-all/har/session.har.json"
+      },
+      "acceptance_checks": [
+        "当前 scope 的主壳层、主操作与关键反馈状态对齐 capture 证据。",
+        "`cd frontend && npx tsc --noEmit`"
+      ],
+      "source_paths": [
+        "frontend/src/components/AppLayout.tsx",
+        "frontend/src/lib/routes.ts"
+      ],
+      "milestone_summary": "workspace:cleantrack/team:CLE/all 页面级小闭环：主壳层、主操作与关键反馈状态已按 capture 收口。",
+      "status": "pending",
+      "created_at": "2026-04-25T18:48:12.579552+08:00",
+      "updated_at": "2026-04-25T18:48:12.579559+08:00"
+    },
+    {
+      "work_id": "workspace-cleantrack-team-cle-backlog-48c43e7f7431",
+      "capture_run_id": "20260425T185535+0800",
+      "source_capture_run_id": "20260425T185535+0800",
+      "source_ledger_key": "page:workspace:cleantrack/team:CLE/backlog",
+      "scope_dedupe_key": "workspace:cleantrack/team:CLE/backlog",
+      "artifact_hash": "48c43e7f743179e97fc29e74df3fdaa4edfd6d3bb89c0cc6613c826d7a6f4801",
+      "scope_key": "workspace:cleantrack/team:CLE/backlog",
+      "ui_surface": "Discovered from workspace:cleantrack/team:CLE/backlog",
+      "goal": "围绕 Cleantrack › Backlog 做一个页面级小闭环：把 capture 明确暴露出的主壳层与关键交互差异收口。",
+      "candidate_changes": [
+        "对齐页面标题区、主操作入口和一级导航/切换控件。",
+        "对齐主内容区的容器层级、间距和主要反馈状态。",
+        "补齐当前 capture 明确暴露出的可见空态、loading 或交互反馈差异。"
+      ],
+      "evidence_refs": {
+        "capture_latest": "tmp/linear-capture/latest.json",
+        "capture_manifest": "tmp/linear-capture/runs/20260425T185535+0800/manifest.json",
+        "capture_summary": "tmp/linear-capture/runs/20260425T185535+0800/summary.json",
+        "page_json": "tmp/linear-capture/runs/20260425T185535+0800/pages/workspace-cleantrack-team-cle-backlog/page.json",
+        "elements_json": "tmp/linear-capture/runs/20260425T185535+0800/pages/workspace-cleantrack-team-cle-backlog/elements.json",
+        "screenshot": "tmp/linear-capture/runs/20260425T185535+0800/pages/workspace-cleantrack-team-cle-backlog/screenshots/default.png",
+        "dom": "tmp/linear-capture/runs/20260425T185535+0800/pages/workspace-cleantrack-team-cle-backlog/dom/default.json",
+        "har": "tmp/linear-capture/runs/20260425T185535+0800/pages/workspace-cleantrack-team-cle-backlog/har/session.har.json"
+      },
+      "acceptance_checks": [
+        "当前 scope 的主壳层、主操作与关键反馈状态对齐 capture 证据。",
+        "`cd frontend && npx tsc --noEmit`"
+      ],
+      "source_paths": [
+        "frontend/src/components/AppLayout.tsx",
+        "frontend/src/lib/routes.ts"
+      ],
+      "milestone_summary": "workspace:cleantrack/team:CLE/backlog 页面级小闭环：主壳层、主操作与关键反馈状态已按 capture 收口。",
+      "status": "pending",
+      "created_at": "2026-04-25T18:55:50.721947+08:00",
+      "updated_at": "2026-04-25T18:55:50.721953+08:00"
+    }
+  ],
+  "updated_at": "2026-04-25T19:36:49.675116+08:00"
+}

@@ -103,19 +103,19 @@ export function noteText(filters: FilterDraft, isZh: boolean) {
   const tokens = activeFilterSummary(filters, isZh);
   if (tokens.length === 0) {
     return isZh
-      ? '本轮把 team-active 顶部搜索框接到真实 q 查询参数，继续沿旧 issues 页的 URL 状态主线推进。'
-      : 'The team-active toolbar now writes into the real q query param, keeping the workbench aligned with the legacy issues URL state.';
+      ? '当前页面已对齐主壳层、一级切换与关键反馈状态；下一步继续补齐更多真实工具栏动作。'
+      : 'The page shell, primary view switching, and key feedback states now match the capture; next, wire more real toolbar actions.';
   }
 
   return isZh
-    ? `当前筛选：${tokens.join(' · ')}；下一轮可继续迁移 Display/分组与更多 Linear 工具栏细节。`
-    : `Active filters: ${tokens.join(' · ')}. Next, move display/grouping and more Linear toolbar details.`;
+    ? `当前筛选：${tokens.join(' · ')}；主壳层与关键反馈状态已收口，后续继续补齐更多真实工具栏动作。`
+    : `Active filters: ${tokens.join(' · ')}. The shell and key feedback states are closed out; next, wire more real toolbar actions.`;
 }
 
 function buildWorkbenchDescription(isZh: boolean) {
   return isZh
-    ? 'P0 页面壳子已接通真实 issue rows、view tabs、search 查询、高级筛选与 URL 驱动的分组折叠状态，后续继续迁移排序和更细的交互。'
-    : 'The P0 workbench now uses real issue rows, view tabs, live search, advanced filters, and URL-backed grouping collapse state; sorting and finer interactions come next.';
+    ? '页面主壳层已对齐 capture：标题区、一级视图切换、列表列头与 loading/空态反馈已收口到真实 issue 数据流。'
+    : 'The captured page shell is now aligned: the title area, primary view switching, list headers, and loading/empty feedback all close against the real issue data flow.';
 }
 
 export function collapsedSummaryLabel(collapsedStates: Set<string>, isZh: boolean) {
