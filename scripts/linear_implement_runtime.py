@@ -10,6 +10,15 @@ REPO_ROOT = Path("/Users/liuzheng/Desktop/Cruise")
 CAPTURE_ROOT = REPO_ROOT / "tmp" / "linear-capture"
 IMPLEMENT_ROOT = REPO_ROOT / "tmp" / "linear-implement"
 CAPTURE_LEDGER_PATH = CAPTURE_ROOT / "state" / "coverage-ledger.json"
+RECAPTURE_REQUESTS_PATH = CAPTURE_ROOT / "state" / "recapture-requests.json"
+TEAM_ISSUES_CLUSTER_ID = "team-issues-list"
+TEAM_ISSUES_SCOPE_ORDER = [
+    "workspace:cleantrack/team:CLE/active",
+    "workspace:cleantrack/team:CLE/all",
+    "workspace:cleantrack/team:CLE/backlog",
+    "workspace:cleantrack/team:CLE/done",
+]
+LINE_BUDGET = {"min": 50, "max": 300}
 
 
 def iso_now() -> str:
@@ -46,6 +55,24 @@ def work_id_for(scope_key: str, artifact_hash: str) -> str:
 
 def relative_to_repo(path: Path) -> str:
     return str(path.relative_to(REPO_ROOT))
+
+
+def capture_summary_from_manifest(manifest: dict) -> dict:
+    run_id = manifest.get("run_id")
+    artifact_hash = manifest.get("artifact_hash")
+    scope_key = manifest.get("capture_scope")
+    manifest_path = CAPTURE_ROOT / "runs" / run_id / "manifest.json"
+    summary_path = CAPTURE_ROOT / "runs" / run_id / "summary.json"
+    return {
+        "latest_run_id": run_id,
+        "latest_artifact_hash": artifact_hash,
+        "latest_capture_scope": scope_key,
+        "latest_status": manifest.get("status"),
+        "latest_manifest": relative_to_repo(manifest_path).replace("tmp/linear-capture/", ""),
+        "latest_summary": relative_to_repo(summary_path).replace("tmp/linear-capture/", ""),
+        "run_type": manifest.get("run_type", "page"),
+        "captured_at": manifest.get("captured_at", ""),
+    }
 
 
 def load_capture_paths(latest_capture: dict):
@@ -85,6 +112,86 @@ def capture_paths_are_actionable(capture_paths: dict) -> bool:
         and capture_paths["page_json_path"].exists()
         and capture_paths["elements_json_path"].exists()
     )
+
+
+def capture_evidence_quality(capture_paths: dict) -> dict:
+    reasons = []
+    if not capture_paths_are_actionable(capture_paths):
+        reasons.append("capture_bundle_missing_page_or_elements")
+        return {"status": "invalid", "reasons": reasons, "element_count": 0}
+
+    elements = capture_paths.get("elements") or {}
+    element_count = int(elements.get("count") or len(elements.get("elements") or []))
+    page = capture_paths.get("page") or {}
+    text = " ".join(
+        str(page.get(key) or "")
+        for key in ("title", "header_text", "visible_text_excerpt", "url")
+    )
+    normalized = " ".join(text.lower().split())
+
+    if element_count <= 0:
+        reasons.append("elements=0")
+    if "loading" in normalized and element_count <= 1:
+        reasons.append("loading-only")
+    if "we could not find the page" in normalized or "not found we could not find the page" in normalized:
+        reasons.append("not-found")
+
+    return {
+        "status": "valid" if not reasons else "invalid",
+        "reasons": reasons,
+        "element_count": element_count,
+        "title": page.get("title"),
+        "url": page.get("url"),
+    }
+
+
+def load_recapture_requests() -> dict:
+    return json_load(RECAPTURE_REQUESTS_PATH, default={"version": 1, "requests": []}) or {
+        "version": 1,
+        "requests": [],
+    }
+
+
+def save_recapture_requests(payload: dict):
+    payload["updated_at"] = iso_now()
+    json_dump(RECAPTURE_REQUESTS_PATH, payload)
+
+
+def upsert_recapture_request(requests: dict, *, scope_key: str, capture: dict, quality: dict, cluster_id=None):
+    request_key = f"{scope_key}:{capture.get('latest_artifact_hash')}"
+    existing = None
+    for item in requests.setdefault("requests", []):
+        if item.get("request_key") == request_key:
+            existing = item
+            break
+    payload = {
+        "request_key": request_key,
+        "scope_key": scope_key,
+        "cluster_id": cluster_id,
+        "capture_run_id": capture.get("latest_run_id"),
+        "artifact_hash": capture.get("latest_artifact_hash"),
+        "status": "pending",
+        "reason": ",".join(quality.get("reasons") or ["invalid_evidence"]),
+        "evidence_quality": quality,
+        "requested_at": existing.get("requested_at") if existing else iso_now(),
+        "updated_at": iso_now(),
+    }
+    if existing:
+        existing.update(payload)
+    else:
+        requests["requests"].append(payload)
+    return payload
+
+
+def resolve_recapture_request(requests: dict, *, scope_key: str, artifact_hash: str):
+    changed = False
+    for item in requests.setdefault("requests", []):
+        if item.get("scope_key") == scope_key and item.get("artifact_hash") == artifact_hash and item.get("status") == "pending":
+            item["status"] = "resolved_valid_evidence"
+            item["resolved_at"] = iso_now()
+            item["updated_at"] = iso_now()
+            changed = True
+    return changed
 
 
 def existing_source_paths(scope_key: str):
@@ -129,7 +236,9 @@ def existing_source_paths(scope_key: str):
             REPO_ROOT / "frontend/src/lib/routes.ts",
         ],
     }
-    if scope_key == "inbox":
+    if scope_key == TEAM_ISSUES_CLUSTER_ID:
+        selected = candidates["team_issues"]
+    elif scope_key == "inbox":
         selected = candidates["inbox"]
     elif scope_key.startswith("issue:"):
         selected = candidates["issue"]
@@ -280,6 +389,82 @@ def build_work_item(latest_capture: dict, capture_paths: dict):
     }
 
 
+def build_team_issues_cluster(captures_by_scope: dict, quality_by_scope: dict):
+    cluster_scopes = [scope for scope in TEAM_ISSUES_SCOPE_ORDER if scope in captures_by_scope]
+    valid_scopes = [
+        scope
+        for scope in TEAM_ISSUES_SCOPE_ORDER
+        if scope in captures_by_scope and quality_by_scope.get(scope, {}).get("status") == "valid"
+    ]
+    if len(valid_scopes) < 2:
+        return None
+
+    captures = [captures_by_scope[scope] for scope in cluster_scopes]
+    artifact_hashes = [capture["latest_artifact_hash"] for capture in captures]
+    cluster_hash = hashlib.sha256("|".join(artifact_hashes).encode("utf-8")).hexdigest()
+    capture_refs = []
+    for scope, capture in zip(cluster_scopes, captures):
+        paths = load_capture_paths(capture)
+        capture_refs.append(
+            {
+                "scope_key": scope,
+                "capture_run_id": capture["latest_run_id"],
+                "artifact_hash": capture["latest_artifact_hash"],
+                **build_evidence_refs(capture, paths),
+            }
+        )
+
+    return {
+        "work_id": f"{TEAM_ISSUES_CLUSTER_ID}-{cluster_hash[:12]}",
+        "work_type": "evidence_cluster",
+        "cluster_id": TEAM_ISSUES_CLUSTER_ID,
+        "capture_run_id": captures[-1]["latest_run_id"],
+        "source_capture_run_id": captures[-1]["latest_run_id"],
+        "capture_run_ids": [capture["latest_run_id"] for capture in captures],
+        "artifact_hash": cluster_hash,
+        "artifact_hashes": artifact_hashes,
+        "source_ledger_key": f"cluster:{TEAM_ISSUES_CLUSTER_ID}",
+        "scope_dedupe_key": f"cluster:{TEAM_ISSUES_CLUSTER_ID}",
+        "scope_key": TEAM_ISSUES_CLUSTER_ID,
+        "scope_keys": cluster_scopes,
+        "ui_surface": "Team issues list",
+        "goal": "围绕 Team issues list 做一个 evidence cluster 复刻：合并 active/all/backlog 的 toolbar、tabs、列表密度、空态与 loading/error feedback 差异。",
+        "candidate_changes": [
+            "对齐 team issues 顶部标题、tabs、filter/display/sort/new issue 控制区在 active/all/backlog 间的一致布局。",
+            "对齐 issue list rows 的密度、元信息、状态徽标、优先级/标签信息和空态反馈。",
+            "把 active 已完成壳层作为基线，补齐 all/backlog 的可见 UI parity，而不是只改路由或导航。",
+            "补齐必要 i18n 和 focused tests，确保 team issues cluster 不回退已有 active 行为。",
+        ],
+        "implementation_slice": {
+            "name": "team issues list visible shell and list feedback",
+            "expected_change": "50-300 lines across team issue list component, route shells, i18n, and focused tests",
+            "allowed_gap_count": "2-6 strongly related UI gaps",
+        },
+        "line_budget": LINE_BUDGET,
+        "evidence_quality": {scope: quality_by_scope[scope] for scope in cluster_scopes},
+        "blocked_scope_keys": [
+            scope
+            for scope in TEAM_ISSUES_SCOPE_ORDER
+            if scope in quality_by_scope and quality_by_scope[scope].get("status") != "valid"
+        ],
+        "evidence_refs": {
+            "capture_latest": relative_to_repo(CAPTURE_ROOT / "latest.json"),
+            "captures": capture_refs,
+        },
+        "acceptance_checks": [
+            "active/all/backlog 在同一 team issues cluster 下共享一致的 toolbar、tabs、列表密度和反馈状态。",
+            "本轮产品代码改动保持在 50-300 行左右，且不是 blocker-only / wording-only / route-only。",
+            "`cd frontend && npx tsc --noEmit`",
+            "若改动 list helper、route helper 或 i18n 行为，补 focused test 并运行对应 `pnpm test -- --run ...`。",
+        ],
+        "source_paths": existing_source_paths(TEAM_ISSUES_CLUSTER_ID),
+        "milestone_summary": "team-issues-list evidence cluster：active/all/backlog 的 toolbar、tabs、列表密度与关键反馈状态已按 capture cluster 收口。",
+        "status": "pending",
+        "created_at": iso_now(),
+        "updated_at": iso_now(),
+    }
+
+
 def git_status_summary():
     result = subprocess.run(
         ["git", "-C", str(REPO_ROOT), "status", "--short"],
@@ -331,7 +516,7 @@ def bootstrap_state():
     if state is None:
         state = {
             "version": 1,
-            "mode": "evidence_driven_page_milestones",
+            "mode": "evidence_cluster_worker",
             "last_consumed_capture_run_id": None,
             "last_consumed_artifact_hash": None,
             "active_work_id": None,
@@ -434,6 +619,13 @@ def existing_queue_keys(queue: dict):
     return artifact_hashes, scope_keys
 
 
+def find_queue_item_by_cluster(queue: dict, cluster_id: str):
+    for item in queue.get("items", []):
+        if item.get("cluster_id") == cluster_id:
+            return item
+    return None
+
+
 def mark_ledger_enqueued(ledger: dict, item: dict):
     entries = ledger.setdefault("entries", {})
     ledger_key = item.get("source_ledger_key") or f"page:{item.get('scope_key')}"
@@ -469,6 +661,8 @@ def prune_non_actionable_items(state: dict, queue: dict) -> bool:
     for item in queue.get("items", []):
         if item.get("status") == "done":
             continue
+        if item.get("work_type") == "evidence_cluster":
+            continue
         if item_has_actionable_evidence(item):
             continue
         item["status"] = "terminal_blocked"
@@ -478,6 +672,121 @@ def prune_non_actionable_items(state: dict, queue: dict) -> bool:
             state["active_work_id"] = None
         changed = True
     return changed
+
+
+def mark_blocked_for_recapture(item: dict, requests: dict, reason: str):
+    capture = {
+        "latest_run_id": item.get("source_capture_run_id") or item.get("capture_run_id"),
+        "latest_artifact_hash": item.get("artifact_hash"),
+    }
+    quality = {"status": "invalid", "reasons": [reason]}
+    upsert_recapture_request(
+        requests,
+        scope_key=item.get("scope_key"),
+        capture=capture,
+        quality=quality,
+        cluster_id=item.get("cluster_id"),
+    )
+    item["status"] = "blocked_needs_recapture"
+    item["blocker"] = reason
+    item["updated_at"] = iso_now()
+
+
+def migrate_existing_page_items(state: dict, queue: dict, requests: dict):
+    changed = False
+    active_work_id = state.get("active_work_id")
+    for item in queue.get("items", []):
+        scope_key = item.get("scope_key")
+        if item.get("status") == "done":
+            continue
+        if scope_key in {"my-issues", "cycles:list"}:
+            mark_blocked_for_recapture(
+                item,
+                requests,
+                "capture_bundle_missing_page_or_elements_or_not_found",
+            )
+            if active_work_id == item.get("work_id"):
+                state["active_work_id"] = None
+            changed = True
+            continue
+        if scope_key in TEAM_ISSUES_SCOPE_ORDER:
+            item["status"] = "superseded"
+            item["superseded_by"] = TEAM_ISSUES_CLUSTER_ID
+            item["updated_at"] = iso_now()
+            if active_work_id == item.get("work_id"):
+                state["active_work_id"] = None
+            changed = True
+    return changed
+
+
+def load_successful_captures_by_scope():
+    captures = {}
+    for capture in successful_capture_backlog():
+        scope_key = capture.get("latest_capture_scope")
+        if not scope_key:
+            continue
+        captures[scope_key] = capture
+    return captures
+
+
+def enqueue_evidence_clusters(queue: dict, ledger: dict, requests: dict):
+    added = []
+    captures_by_scope = load_successful_captures_by_scope()
+    quality_by_scope = {}
+    for scope, capture in captures_by_scope.items():
+        capture_paths = load_capture_paths(capture)
+        quality = capture_evidence_quality(capture_paths)
+        quality_by_scope[scope] = quality
+        if quality.get("status") != "valid":
+            upsert_recapture_request(requests, scope_key=scope, capture=capture, quality=quality)
+        else:
+            resolve_recapture_request(
+                requests,
+                scope_key=scope,
+                artifact_hash=capture.get("latest_artifact_hash"),
+            )
+
+    cluster = build_team_issues_cluster(captures_by_scope, quality_by_scope)
+    if not cluster:
+        return added
+
+    existing = find_queue_item_by_cluster(queue, TEAM_ISSUES_CLUSTER_ID)
+    if existing:
+        if existing.get("status") == "done":
+            return added
+        existing.update(
+            {
+                "work_type": cluster["work_type"],
+                "scope_keys": cluster["scope_keys"],
+                "capture_run_ids": cluster["capture_run_ids"],
+                "artifact_hash": cluster["artifact_hash"],
+                "artifact_hashes": cluster["artifact_hashes"],
+                "goal": cluster["goal"],
+                "candidate_changes": cluster["candidate_changes"],
+                "implementation_slice": cluster["implementation_slice"],
+                "line_budget": cluster["line_budget"],
+                "evidence_quality": cluster["evidence_quality"],
+                "blocked_scope_keys": cluster["blocked_scope_keys"],
+                "evidence_refs": cluster["evidence_refs"],
+                "acceptance_checks": cluster["acceptance_checks"],
+                "source_paths": cluster["source_paths"],
+                "milestone_summary": cluster["milestone_summary"],
+                "status": "pending",
+                "updated_at": iso_now(),
+            }
+        )
+        item = existing
+    else:
+        queue.setdefault("items", []).append(cluster)
+        item = cluster
+        added.append(cluster["work_id"])
+
+    for scope in item.get("scope_keys", []):
+        entry = ledger.setdefault("entries", {}).get(f"page:{scope}")
+        if entry:
+            entry["implementation_enqueued_at"] = iso_now()
+            entry["implementation_work_id"] = item["work_id"]
+    return added
 
 
 def enqueue_missing_capture_backlog(queue: dict, ledger: dict):
@@ -510,7 +819,13 @@ def select_existing_active(state: dict, queue: dict):
     if not item:
         state["active_work_id"] = None
         return None
-    if item.get("status") in {"done", "blocked", "terminal_blocked"}:
+    if item.get("status") in {
+        "done",
+        "blocked",
+        "blocked_needs_recapture",
+        "terminal_blocked",
+        "superseded",
+    }:
         state["active_work_id"] = None
         return None
     item["status"] = "in_progress"
@@ -574,19 +889,55 @@ def emit_no_work(reason: str, state_path: Path, queue_path: Path, queue: dict = 
     return 0
 
 
+def emit_blocked_needs_recapture(state_path: Path, queue_path: Path, queue: dict, requests: dict):
+    pending_requests = [request for request in requests.get("requests", []) if request.get("status") == "pending"]
+    latest_path = save_latest(
+        {
+            "status": "blocked_needs_recapture",
+            "reason": "no_executable_cluster_work",
+            "recapture_requests": pending_requests,
+            "state_path": relative_to_repo(state_path),
+            "queue_path": relative_to_repo(queue_path),
+            "recapture_requests_path": relative_to_repo(RECAPTURE_REQUESTS_PATH),
+            "queue_counts": queue_counts(queue),
+        }
+    )
+    print(
+        json.dumps(
+            {
+                "status": "blocked_needs_recapture",
+                "reason": "no_executable_cluster_work",
+                "recapture_requests_path": relative_to_repo(RECAPTURE_REQUESTS_PATH),
+                "latest_work_path": relative_to_repo(latest_path),
+                "queue_counts": queue_counts(queue),
+                "recapture_request_count": len(pending_requests),
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0
+
+
 def main():
     state, state_path = bootstrap_state()
     queue, queue_path = bootstrap_queue()
     latest_capture = json_load(CAPTURE_ROOT / "latest.json", default=None)
     ledger = json_load(CAPTURE_LEDGER_PATH, default={"version": 1, "entries": {}}) or {"version": 1, "entries": {}}
+    requests = load_recapture_requests()
+    if state.get("mode") != "evidence_cluster_worker":
+        state["mode"] = "evidence_cluster_worker"
     ledger_changed = reconcile_ledger_enqueued_from_queue(queue, ledger)
     if prune_non_actionable_items(state, queue):
         save_state(state, state_path)
         save_queue(queue, queue_path)
-    backlog_added = enqueue_missing_capture_backlog(queue, ledger)
-    if backlog_added or ledger_changed:
+    migrated = migrate_existing_page_items(state, queue, requests)
+    backlog_added = enqueue_evidence_clusters(queue, ledger, requests)
+    if backlog_added or ledger_changed or migrated:
         save_queue(queue, queue_path)
+        save_state(state, state_path)
         json_dump(CAPTURE_LEDGER_PATH, ledger)
+        save_recapture_requests(requests)
 
     active_item = select_existing_active(state, queue)
     if active_item:
@@ -655,72 +1006,10 @@ def main():
         )
         return 0
 
-    if not latest_capture:
-        return emit_no_work("capture_latest_missing", state_path, queue_path, queue=queue, latest_capture=None, backlog_added=backlog_added)
-    if latest_capture.get("latest_status") != "ok":
-        return emit_no_work("capture_latest_not_ok", state_path, queue_path, queue=queue, latest_capture=latest_capture, backlog_added=backlog_added)
-    if state.get("last_consumed_artifact_hash") == latest_capture.get("latest_artifact_hash"):
-        return emit_no_work("latest_capture_already_consumed", state_path, queue_path, queue=queue, latest_capture=latest_capture, backlog_added=backlog_added)
+    if any(request.get("status") == "pending" for request in requests.get("requests", [])):
+        return emit_blocked_needs_recapture(state_path, queue_path, queue, requests)
 
-    capture_paths = load_capture_paths(latest_capture)
-    if not capture_paths_are_actionable(capture_paths):
-        return emit_no_work("capture_bundle_incomplete", state_path, queue_path, queue=queue, latest_capture=latest_capture, backlog_added=backlog_added)
-
-    new_item = build_work_item(latest_capture, capture_paths)
-    existing = find_queue_item(queue, new_item["work_id"])
-    if existing:
-        item = existing
-        item.update(
-            {
-                "goal": new_item["goal"],
-                "candidate_changes": new_item["candidate_changes"],
-                "evidence_refs": new_item["evidence_refs"],
-                "acceptance_checks": new_item["acceptance_checks"],
-                "source_paths": new_item["source_paths"],
-                "milestone_summary": new_item["milestone_summary"],
-                "ui_surface": new_item["ui_surface"],
-                "updated_at": iso_now(),
-            }
-        )
-    else:
-        item = new_item
-        queue["items"].append(item)
-        mark_ledger_enqueued(ledger, item)
-
-    item["status"] = "in_progress"
-    item["updated_at"] = iso_now()
-    state["active_work_id"] = item["work_id"]
-    worktree = worktree_context_for_item(item)
-    save_state(state, state_path)
-    save_queue(queue, queue_path)
-    json_dump(CAPTURE_LEDGER_PATH, ledger)
-    latest_path = save_latest(
-        {
-            "status": "ready",
-            "selected_work_id": item["work_id"],
-            "work_item": item,
-            "worktree": worktree,
-            "state_path": relative_to_repo(state_path),
-            "queue_path": relative_to_repo(queue_path),
-            "capture_latest_path": relative_to_repo(CAPTURE_ROOT / "latest.json"),
-        }
-    )
-    print(
-        json.dumps(
-            {
-                "status": "ready",
-                "selected_work_id": item["work_id"],
-                "work_item": item,
-                "worktree": worktree,
-                "state_path": relative_to_repo(state_path),
-                "queue_path": relative_to_repo(queue_path),
-                "latest_work_path": relative_to_repo(latest_path),
-            },
-            ensure_ascii=False,
-            indent=2,
-        )
-    )
-    return 0
+    return emit_no_work("no_executable_cluster_work", state_path, queue_path, queue=queue, latest_capture=latest_capture, backlog_added=backlog_added)
 
 
 if __name__ == "__main__":

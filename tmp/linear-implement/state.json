@@ -1,9 +1,0 @@
-{
-  "version": 1,
-  "mode": "evidence_driven_page_milestones",
-  "last_consumed_capture_run_id": "20260421T222007+0800",
-  "last_consumed_artifact_hash": "fe38056b1123f5b1ae9efe58d4bb9cd5d972ea92b725d5738dad4b5191263fa8",
-  "active_work_id": "cycles-list-b9a33fa1a6c5",
-  "last_successful_commit": "ee81eac1fc6762982021a6a08a97ef1c45414d90",
-  "updated_at": "2026-04-25T20:20:31.949477+08:00"
-}
