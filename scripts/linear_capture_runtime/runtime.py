@@ -1,3 +1,4 @@
+import fcntl
 import hashlib
 import json
 import re
@@ -16,9 +17,12 @@ TMP_ROOT = REPO_ROOT / "tmp" / "linear-capture"
 WATCHDOG_STATUS_PATH = REPO_ROOT / ".hermes" / "linear-9222-watchdog" / "last-status.txt"
 MUTATION_POLICY_PATH = REPO_ROOT / "config" / "mutation-policy.json"
 RECAPTURE_REQUESTS_PATH = TMP_ROOT / "state" / "recapture-requests.json"
+CAPTURE_LOCK_PATH = TMP_ROOT / "state" / "capture.lock"
 MAX_RETRY_COUNT = 5
 RETRY_BACKOFF_SECONDS = (60, 300, 900, 1800, 3600)
 RETRYABLE_ERROR_MARKERS = (
+    "capture_quality_not_ready",
+    "navigation_mismatch",
     "WebSocketConnectionClosedException",
     "Connection to remote host was lost",
     "BrokenPipeError",
@@ -26,6 +30,8 @@ RETRYABLE_ERROR_MARKERS = (
     "Connection closed",
 )
 NODE_TYPE_ORDER = {"page": 0, "interaction": 1, "flow": 2}
+CAPTURE_QUALITY_RETRY_COUNT = 4
+CAPTURE_QUALITY_RETRY_SECONDS = 2.5
 RECAPTURE_PRIORITY_BY_SCOPE = {
     "workspace:cleantrack/team:CLE/all": 0,
     "my-issues": 1,
@@ -42,6 +48,19 @@ def json_load(path: Path, default=None):
     if not path.exists():
         return default
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def try_acquire_capture_lock():
+    CAPTURE_LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
+    lock_handle = CAPTURE_LOCK_PATH.open("w", encoding="utf-8")
+    try:
+        fcntl.flock(lock_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        lock_handle.close()
+        return None
+    lock_handle.write(f"locked_at={iso_now()}\n")
+    lock_handle.flush()
+    return lock_handle
 
 
 def sha256_file(path: Path) -> str:
@@ -128,7 +147,10 @@ def derive_scope_key(url: str) -> str:
     if len(parts) >= 2 and parts[1] in {"my-issues", "assigned"}:
         return "my-issues"
     if len(parts) >= 3 and parts[1] == "settings":
-        return f"settings:{parts[2]}"
+        setting_key = parts[2]
+        if setting_key == "issue-labels":
+            setting_key = "labels"
+        return f"settings:{setting_key}"
     return f"route:{slugify('/'.join(parts))}"
 
 
@@ -146,7 +168,10 @@ def derive_url_for_scope(scope_key: str) -> str:
     if scope_key == "roadmap":
         return "https://linear.app/cleantrack/roadmap"
     if scope_key.startswith("settings:"):
-        return f"https://linear.app/cleantrack/settings/{scope_key.split(':', 1)[1]}"
+        setting_key = scope_key.split(":", 1)[1]
+        if setting_key == "labels":
+            setting_key = "issue-labels"
+        return f"https://linear.app/cleantrack/settings/{setting_key}"
     if scope_key.startswith("workspace:"):
         match = re.match(r"workspace:([^/]+)/team:([^/]+)/(.+)", scope_key)
         if match:
@@ -823,6 +848,62 @@ def classify_elements(snapshot: dict, page_scope_key: str):
     return elements
 
 
+def page_capture_quality(snapshot: dict, elements: list) -> dict:
+    visible_text = snapshot.get("visibleText") or ""
+    header_text = snapshot.get("headerText") or ""
+    normalized = " ".join(f"{header_text} {visible_text}".lower().split())
+    reasons = []
+    if len(elements) <= 0:
+        reasons.append("elements=0")
+    if "loading" in normalized and len(elements) <= 1:
+        reasons.append("loading-only")
+    if "we could not find the page" in normalized:
+        reasons.append("not-found")
+    return {
+        "status": "valid" if not reasons else "invalid",
+        "reasons": reasons,
+        "element_count": len(elements),
+        "title": snapshot.get("title"),
+        "url": snapshot.get("href"),
+        "ready_state": snapshot.get("ready"),
+    }
+
+
+def capture_page_until_quality(session: CdpSession, page_dir: Path, node: dict):
+    last_snapshot = None
+    last_elements = []
+    last_quality = {}
+    for attempt in range(1, CAPTURE_QUALITY_RETRY_COUNT + 1):
+        snapshot = session.capture_page(page_dir, label="default")
+        elements = classify_elements(snapshot, node["scope_key"])
+        quality = page_capture_quality(snapshot, elements)
+        if quality["status"] == "valid":
+            return snapshot, elements, quality
+        last_snapshot = snapshot
+        last_elements = elements
+        last_quality = quality
+        if attempt < CAPTURE_QUALITY_RETRY_COUNT:
+            time.sleep(CAPTURE_QUALITY_RETRY_SECONDS)
+    reasons = ",".join(last_quality.get("reasons") or ["unknown"])
+    title = last_quality.get("title") or (last_snapshot or {}).get("title")
+    url = last_quality.get("url") or (last_snapshot or {}).get("href")
+    raise RuntimeError(
+        "capture_quality_not_ready: "
+        f"{reasons}; elements={len(last_elements)}; title={title}; url={url}"
+    )
+
+
+def page_navigation_matches_node(node: dict, snapshot: dict) -> bool:
+    expected_path = urlparse(node["source_url"]).path
+    actual_url = snapshot.get("href") or ""
+    actual_path = urlparse(actual_url).path
+    if expected_path and expected_path in actual_path:
+        return True
+    if actual_url and derive_scope_key(actual_url) == node.get("scope_key"):
+        return True
+    return False
+
+
 def register_discoveries(frontier: dict, ledger: dict, page_snapshot: dict, page_scope_key: str, page_url: str):
     discovered = {"pages": [], "interactions": [], "flows": []}
     elements = classify_elements(page_snapshot, page_scope_key)
@@ -1012,8 +1093,16 @@ def finalize_run(
 def execute_page_node(session: CdpSession, run_dir: Path, node: dict, frontier: dict, ledger: dict):
     session.reset_network_events()
     session.navigate(node["source_url"], expect_url_part=urlparse(node["source_url"]).path)
-    snapshot = session.capture_page(run_dir / "pages" / page_dir_name(node["scope_key"]), label="default")
-    network_artifacts = session.write_network_artifacts(run_dir / "pages" / page_dir_name(node["scope_key"]))
+    page_root = run_dir / "pages" / page_dir_name(node["scope_key"])
+    snapshot, _, quality = capture_page_until_quality(session, page_root, node)
+    expected_path = urlparse(node["source_url"]).path
+    if not page_navigation_matches_node(node, snapshot):
+        raise RuntimeError(
+            "navigation_mismatch: "
+            f"expected_path={expected_path}; actual_url={snapshot.get('href')}; "
+            f"scope_key={node.get('scope_key')}"
+        )
+    network_artifacts = session.write_network_artifacts(page_root)
     elements, discovered = register_discoveries(
         frontier=frontier,
         ledger=ledger,
@@ -1022,15 +1111,13 @@ def execute_page_node(session: CdpSession, run_dir: Path, node: dict, frontier: 
         page_url=snapshot.get("href") or node["source_url"],
     )
     _, page_payload = record_page_bundle(run_dir, node, snapshot, elements)
-    expected_path = urlparse(node["source_url"]).path
-    actual_path = urlparse(snapshot.get("href") or "").path
-    navigation_mismatch = bool(expected_path and expected_path not in actual_path)
     summary = {
         "node": node,
-        "status": "blocked" if navigation_mismatch else "ok",
-        "reason": "navigation_mismatch" if navigation_mismatch else "ok",
+        "status": "ok",
+        "reason": "ok",
         "expected_path": expected_path,
         "actual_url": snapshot.get("href"),
+        "evidence_quality": quality,
         "page": page_payload,
         "network": {key: str(path.relative_to(TMP_ROOT)) for key, path in network_artifacts.items()},
         "discovered": {
@@ -1047,8 +1134,7 @@ def execute_page_node(session: CdpSession, run_dir: Path, node: dict, frontier: 
         "summary": summary,
         "source_title": snapshot.get("title") or node.get("ui_surface"),
         "source_url": snapshot.get("href") or node["source_url"],
-        "status": "blocked" if navigation_mismatch else "ok",
-        "reason": "navigation_mismatch" if navigation_mismatch else None,
+        "status": "ok",
     }
 
 
@@ -1304,6 +1390,24 @@ def execute_node_with_retry(status: dict, run_dir: Path, node: dict, frontier: d
 
 
 def run_capture_once():
+    lock_handle = try_acquire_capture_lock()
+    if lock_handle is None:
+        payload = {
+            "status": "already-running",
+            "reason": "capture_lock_held",
+            "lock_path": str(CAPTURE_LOCK_PATH.relative_to(REPO_ROOT)),
+            "updated_at": iso_now(),
+        }
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
+    try:
+        return run_capture_once_unlocked()
+    finally:
+        fcntl.flock(lock_handle, fcntl.LOCK_UN)
+        lock_handle.close()
+
+
+def run_capture_once_unlocked():
     status = read_watchdog_status(WATCHDOG_STATUS_PATH)
     if status.get("consumer_policy") != "attached_cdp_only":
         payload = blocked_response(status, "consumer_policy_not_attached_cdp_only")
@@ -1449,8 +1553,9 @@ def run_capture_once():
         save_frontier(frontier)
         save_coverage(ledger)
         save_recapture_requests(recapture_requests)
+        is_retryable = failure_status == "retryable_blocked"
         error_payload = {
-            "status": "error",
+            "status": "retryable_blocked" if is_retryable else "error",
             "run_id": run_id,
             "recapture_applied": recapture_applied,
             "blocker_type": node.get("blocker_type"),
@@ -1463,7 +1568,7 @@ def run_capture_once():
             "error": error_message,
         }
         print(json.dumps(error_payload, ensure_ascii=False, indent=2))
-        return 1
+        return 0 if is_retryable else 1
 
 
 def run_legacy_capture(out_root: Path = None):
