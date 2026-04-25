@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { filterSummaryLabel, summarizeFilterTokens, type FilterDraft } from './issue-workbench';
-import { noteText, searchStatusText, sortSummaryLabel } from './ActiveIssuesWorkbenchPage';
+import { loadingText, noteText, pageTitle, searchStatusText, sortSummaryLabel } from './ActiveIssuesWorkbenchPage';
 import { normalizeIssueView } from './issue-view';
 
 describe('normalizeIssueView', () => {
@@ -11,10 +11,27 @@ describe('normalizeIssueView', () => {
     expect(normalizeIssueView('all')).toBe('all');
   });
 
-  it('对未知或空值回退到 all', () => {
+  it('默认对未知或空值回退到 all，并支持自定义 fallback', () => {
     expect(normalizeIssueView('completed')).toBe('all');
     expect(normalizeIssueView('random')).toBe('all');
     expect(normalizeIssueView(null)).toBe('all');
+    expect(normalizeIssueView(null, 'active')).toBe('active');
+  });
+});
+
+describe('view-specific shell copy', () => {
+  it('pageTitle 对不同 issue 视图返回对应标题', () => {
+    expect(pageTitle('all', false)).toBe('All issues');
+    expect(pageTitle('backlog', false)).toBe('Backlog');
+    expect(pageTitle('done', false)).toBe('Completed');
+    expect(pageTitle('active', false)).toBe('Active issues');
+  });
+
+  it('loadingText 对不同 issue 视图返回对应 loading 文案', () => {
+    expect(loadingText('all', false)).toBe('Loading all issues…');
+    expect(loadingText('backlog', false)).toBe('Loading backlog…');
+    expect(loadingText('done', false)).toBe('Loading completed issues…');
+    expect(loadingText('active', true)).toBe('正在加载 Active issues…');
   });
 });
 
@@ -45,7 +62,7 @@ describe('summarizeFilterTokens', () => {
 
   it('noteText 在有无筛选条件时输出对应 workbench 说明', () => {
     expect(noteText(emptyFilters, false)).toBe(
-      'The team-active toolbar now writes into the real q query param, keeping the workbench aligned with the legacy issues URL state.'
+      'The page shell, primary view switching, and key feedback states now match the capture; next, wire more real toolbar actions.'
     );
     expect(
       noteText(
@@ -57,7 +74,7 @@ describe('summarizeFilterTokens', () => {
         false
       )
     ).toBe(
-      'Active filters: Search: login · State: IN_PROGRESS. Next, move display/grouping and more Linear toolbar details.'
+      'Active filters: Search: login · State: IN_PROGRESS. The shell and key feedback states are closed out; next, wire more real toolbar actions.'
     );
   });
 

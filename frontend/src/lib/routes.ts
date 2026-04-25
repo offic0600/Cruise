@@ -143,7 +143,7 @@ export function parseTeamRoute(pathname: string) {
 export function issueViewFromTeamRoute(pathname: string) {
   const route = parseTeamRoute(pathname);
   const view = route?.suffix[0] ?? null;
-  if (view === 'active' || view === 'backlog' || view === 'done') return view;
+  if (view === 'all' || view === 'active' || view === 'backlog' || view === 'done') return view;
   return null;
 }
 

@@ -31,7 +31,7 @@ import {
   type FilterDraft,
   type FilterSummaryContext,
 } from './issue-workbench';
-import { normalizeIssueView, type IssueView } from './issue-view';
+import { DEFAULT_TEAM_ISSUES_VIEW, normalizeIssueView, type IssueView } from './issue-view';
 
 type TeamMember = {
   id: number;
@@ -56,9 +56,9 @@ const DISPLAY_LABEL = {
 } as const;
 
 type ActiveTab = {
-  id: Exclude<IssueView, 'all'>;
+  id: IssueView;
   label: string;
-  count: number;
+  count: number | null;
 };
 
 
@@ -112,10 +112,46 @@ export function noteText(filters: FilterDraft, isZh: boolean) {
     : `Active filters: ${tokens.join(' · ')}. The shell and key feedback states are closed out; next, wire more real toolbar actions.`;
 }
 
-function buildWorkbenchDescription(isZh: boolean) {
-  return isZh
-    ? '页面主壳层已对齐 capture：标题区、一级视图切换、列表列头与 loading/空态反馈已收口到真实 issue 数据流。'
-    : 'The captured page shell is now aligned: the title area, primary view switching, list headers, and loading/empty feedback all close against the real issue data flow.';
+export function pageTitle(view: IssueView, isZh: boolean) {
+  if (isZh) {
+    if (view === 'all') return 'All issues';
+    if (view === 'backlog') return 'Backlog';
+    if (view === 'done') return 'Completed';
+    return 'Active issues';
+  }
+
+  if (view === 'all') return 'All issues';
+  if (view === 'backlog') return 'Backlog';
+  if (view === 'done') return 'Completed';
+  return 'Active issues';
+}
+
+function buildWorkbenchDescription(view: IssueView, isZh: boolean) {
+  if (isZh) {
+    if (view === 'all') return '页面主壳层已对齐 capture：标题区、一级视图切换、列表列头与 loading/空态反馈会跟随 All issues 视图收口到真实 issue 数据流。';
+    if (view === 'backlog') return '页面主壳层已对齐 capture：标题区、一级视图切换、列表列头与 loading/空态反馈会跟随 Backlog 视图收口到真实 issue 数据流。';
+    if (view === 'done') return '页面主壳层已对齐 capture：标题区、一级视图切换、列表列头与 loading/空态反馈会跟随 Completed 视图收口到真实 issue 数据流。';
+    return '页面主壳层已对齐 capture：标题区、一级视图切换、列表列头与 loading/空态反馈会跟随 Active 视图收口到真实 issue 数据流。';
+  }
+
+  if (view === 'all') return 'The captured page shell is now aligned: the title area, primary view switching, list headers, and loading/empty feedback all close against the real All issues data flow.';
+  if (view === 'backlog') return 'The captured page shell is now aligned: the title area, primary view switching, list headers, and loading/empty feedback all close against the real Backlog data flow.';
+  if (view === 'done') return 'The captured page shell is now aligned: the title area, primary view switching, list headers, and loading/empty feedback all close against the real Completed data flow.';
+  return 'The captured page shell is now aligned: the title area, primary view switching, list headers, and loading/empty feedback all close against the real Active data flow.';
+}
+
+export function loadingText(view: IssueView, isZh: boolean) {
+  if (isZh) {
+    if (view === 'all') return '正在加载 All issues…';
+    if (view === 'backlog') return '正在加载 Backlog…';
+    if (view === 'done') return '正在加载 Completed…';
+    return '正在加载 Active issues…';
+  }
+
+  if (view === 'all') return 'Loading all issues…';
+  if (view === 'backlog') return 'Loading backlog…';
+  if (view === 'done') return 'Loading completed issues…';
+  return 'Loading active issues…';
 }
 
 export function collapsedSummaryLabel(collapsedStates: Set<string>, isZh: boolean) {
@@ -189,7 +225,7 @@ export default function ActiveIssuesWorkbenchPage() {
   const { locale = 'en' } = useI18n();
   const isZh = locale.startsWith('zh');
   const { currentTeam, currentOrganization, currentOrganizationSlug, organizationId, currentTeamId } = useCurrentWorkspace();
-  const currentView = issueViewFromTeamRoute(pathname) ?? normalizeIssueView(searchParams.get('view'));
+  const currentView = normalizeIssueView(issueViewFromTeamRoute(pathname) ?? searchParams.get('view'), DEFAULT_TEAM_ISSUES_VIEW);
   const [searchDraft, setSearchDraft] = useState(() => createSearchDraft(searchParams));
   const apiFilters = useMemo(
     () => buildIssueFilters(searchParams, organizationId ?? 1, currentTeamId),
@@ -257,19 +293,21 @@ export default function ActiveIssuesWorkbenchPage() {
 
   const issueCounts = useMemo(() => {
     return {
+      all: issues.length,
       active: issues.filter((issue) => issue.stateCategory === 'ACTIVE' || issue.stateCategory === 'REVIEW').length,
       backlog: issues.filter((issue) => issue.stateCategory === 'BACKLOG').length,
       done: issues.filter((issue) => issue.stateCategory === 'COMPLETED').length,
-    } satisfies Record<Exclude<IssueView, 'all'>, number>;
+    } satisfies Record<IssueView, number>;
   }, [issues]);
 
   const activeTabs = useMemo<ActiveTab[]>(
     () => [
+      { id: 'all', label: 'All issues', count: null },
       { id: 'active', label: 'Active', count: issueCounts.active },
       { id: 'backlog', label: 'Backlog', count: issueCounts.backlog },
       { id: 'done', label: 'Completed', count: issueCounts.done },
     ],
-    [issueCounts]
+    [issueCounts.active, issueCounts.backlog, issueCounts.done]
   );
 
   const openIssue = (issueId: number) => {
@@ -289,14 +327,14 @@ export default function ActiveIssuesWorkbenchPage() {
                   {currentOrganization?.name ?? 'Workspace'} / {currentTeam?.name ?? 'Team'}
                 </div>
                 <div className="space-y-1">
-                  <h1 className="text-[28px] font-semibold tracking-[-0.03em] text-white">Active issues</h1>
-                  <p className="max-w-2xl text-sm text-slate-400">{buildWorkbenchDescription(isZh)}</p>
+                  <h1 className="text-[28px] font-semibold tracking-[-0.03em] text-white">{pageTitle(currentView, isZh)}</h1>
+                  <p className="max-w-2xl text-sm text-slate-400">{buildWorkbenchDescription(currentView, isZh)}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {activeTabs.map((tab) => {
-                    const active = currentView === tab.id || (currentView === 'all' && tab.id === 'active');
+                    const active = currentView === tab.id;
                     const tabHref = currentOrganizationSlug && currentTeam?.key
-                      ? updateHref(teamIssuesPath(currentOrganizationSlug, currentTeam.key, tab.id), searchParams, {})
+                      ? updateHref(teamIssuesPath(currentOrganizationSlug, currentTeam.key, tab.id === 'all' ? undefined : tab.id), searchParams, {})
                       : updateHref(pathname, searchParams, { view: tab.id });
                     return (
                       <Link
@@ -311,7 +349,9 @@ export default function ActiveIssuesWorkbenchPage() {
                         aria-current={active ? 'page' : undefined}
                       >
                         {tab.label}
-                        <span className="ml-2 rounded-full bg-black/10 px-1.5 py-0.5 text-[11px] text-inherit">{tab.count}</span>
+                        {tab.count === null ? null : (
+                          <span className="ml-2 rounded-full bg-black/10 px-1.5 py-0.5 text-[11px] text-inherit">{tab.count}</span>
+                        )}
                       </Link>
                     );
                   })}
@@ -376,7 +416,7 @@ export default function ActiveIssuesWorkbenchPage() {
 
           <div className="divide-y divide-slate-800/80">
             {issuesQuery.isLoading ? (
-              <div className="px-5 py-8 text-sm text-slate-500 sm:px-6">Loading active issues…</div>
+              <div className="px-5 py-8 text-sm text-slate-500 sm:px-6">{loadingText(currentView, isZh)}</div>
             ) : workbenchRows.length === 0 ? (
               <div className="px-5 py-8 text-sm text-slate-500 sm:px-6">{noResultsText(searchQuery, draftFilters, isZh)}</div>
             ) : groupedRows.every((group) => collapsedStates.has(group.state)) ? (
