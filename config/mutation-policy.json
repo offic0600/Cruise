@@ -1,0 +1,9 @@
+{
+  "allowed_workspace_slug": "cleantrack",
+  "allowed_team_keys": [
+    "CLE"
+  ],
+  "allowed_project_ids": [],
+  "entity_name_prefix": "HERMES_CAP_",
+  "allow_destructive_on_owned_entities_only": true
+}

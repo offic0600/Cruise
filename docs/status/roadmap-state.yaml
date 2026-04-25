@@ -5,12 +5,43 @@ roadmap:
 project:
   repo_path: /Users/liuzheng/Desktop/Cruise
   branch: codex/unify-issue-model
-  head: dc633bcc15836c5185a38597578d08590fa7be28
+  head: 6314ecf66e18e5dc48346467e0f93ec18ff2cc9f
   baseline_commit: 5f9bbf40737ed971c5a7c4d446c68345454a161f
   docs_head: 4db3e2a1fcbffc588cb7cc216e223780d7d8eab5
+implementation_state:
+  authoritative_state_path: tmp/linear-implement/state.json
+  queue_path: tmp/linear-implement/queue.json
+  latest_work_path: tmp/linear-implement/latest.json
+  docs_role: milestone_summary_only
+  last_consumed_capture_run_id: 20260421T231518+0800
+  last_consumed_artifact_hash: ab7b2f12213c5e493633241c0920603483bdb2fb89d69a19b45681fd63847ff3
+  active_work_id: workspace-cleantrack-team-cle-active-fe38056b1123
+  last_successful_commit: 6314ecf66e18e5dc48346467e0f93ec18ff2cc9f
+  queue_summary: 2 done / 1 in_progress / 4 pending / 1 terminal_blocked
+implementation_milestones:
+  - scope_key: legacy:/issues/[id] wording-loop closeout
+    capture_run_id: historical
+    summary: 已人工收口 legacy `/issues/[id]` route API 失败标题 wording 振荡链，并切换到 evidence-driven implementation model
+    verification:
+      - cd frontend && pnpm test -- --run src/lib/routes.test.tsx: passed
+      - cd frontend && ./node_modules/.bin/tsc --noEmit: passed
+      - git diff --check: passed
+    commit: dc633bcc15836c5185a38597578d08590fa7be28
+  - scope_key: inbox
+    capture_run_id: 20260421T222059+0800
+    summary: Inbox 顶部 chrome、filter/display controls 与双栏 detail split 已按 capture 证据收口
+    verification:
+      - cd frontend && npx tsc --noEmit: passed
+    commit: 8fe0c5b5240a9a63d2719013b13365d52bdd7e9d
+  - scope_key: roadmap
+    capture_run_id: 20260421T231518+0800
+    summary: Roadmap 主壳层、主操作与关键反馈状态已按 capture 证据收口
+    verification:
+      - cd frontend && npx tsc --noEmit: passed
+    commit: 6314ecf66e18e5dc48346467e0f93ec18ff2cc9f
 last_completed_task:
   id: IMP-215
-  parent_task: linear-parity-push
+  parent_task: cruise-linear-parity-implement
   title: 人工收口 legacy `/issues/[id]` route API 失败标题 wording 振荡链，禁止继续派生同类微任务
   lane: Implementation
   status: done
@@ -29,17 +60,12 @@ last_completed_task:
   next_task: 暂无新的 Implementation 任务；legacy `/issues/[id]` route API 失败标题 wording 振荡链已人工收口，禁止继续派生仅涉及 wording/命名/对称性的微任务，等待真正改变运行时行为或 contract 的下一条线性 parity 微任务
 current_task:
   id: CAP-08
-  parent_task: linear-parity-push
+  parent_task: cruise-linear-parity-capture
   title: 采集 issue 创建/编辑入口的打开态与校验态证据
   lane: Capture
-  status: blocked
+  status: in_progress
   done_when: >-
-    在 attached_cdp_only + websocket_attach=ok 的前提下，只读采集 issue 创建/编辑入口的打开态、字段默认值与校验反馈，并把证据与 docs/logbook/worktime 按 capture lane 单独收口。
-  blocker: >-
-    2026-04-21 20:18 CST 已再次复核 watchdog，确认 `consumer_policy=attached_cdp_only`、`metadata_layer=ok`、
-    `websocket_attach=ok` 仍成立，且 `tmp/linear-capture/summary.json` 已在 19:45 CST 晚于 task-board / dev-logbook /
-    worktime / roadmap-state 的最近写回，因此本轮优先补齐 capture docs 闭环而不重复采集。现已把 CAP-08 的 task-board、
-    roadmap-state、dev-logbook 与 worktime 对齐回 capture lane 最新事实：issue 详情页与 team issues 顶部入口的只读证据
-    已刷新完毕，但当前仍不宜在混有 implementation 收口痕迹的工作树中继续扩展更多打开态/校验态采集。下一轮宜在独立
-    干净工作树继续 `Create new issue` / `Issue options` / `Add label` 的只读打开态采集；当前 blocker 仍是工作树闭环风险，
-    不是附着失败。
+    在 `attached_cdp_only + websocket_attach=ok` 的前提下，只读采集 issue 创建/编辑入口的打开态、字段默认值与校验反馈，
+    并把结果写成 `tmp/linear-capture/runs/<run_id>/manifest.json`、`summary.json`、`screenshots/`、`har/`、`dom/`
+    与 `tmp/linear-capture/latest.json`；capture 不再负责更新 task-board、roadmap-state、dev-logbook 或 worktime。
+  blocker: -

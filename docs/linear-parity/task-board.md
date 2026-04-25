@@ -2,10 +2,11 @@
 
 > 目的：作为 Linear 对标工作的统一状态源，但按 **采集（capture）** 与 **实现（implementation）** 两条 cron 分轨推进。
 > 当前约束：
-> - `cruise-linear-parity-capture` 只处理采集类任务
-> - `cruise-linear-parity-push` 只处理实现类任务
-> - 两条任务线都必须更新本文件，但只能推进各自所属 lane 的任务
-> - `docs/status/roadmap-state.yaml` 是 cron 恢复状态源；本文件负责 lane 明细、最小增量定义与后继任务衔接
+> - `linear-9222-watchdog` 只是基础设施保活层，只刷新 `~/Desktop/Cruise/.hermes/linear-9222-watchdog/last-status.txt`
+> - `cruise-linear-parity-capture` 只做只读取证，产出 `tmp/linear-capture/runs/<run_id>/...` 与 `tmp/linear-capture/latest.json`
+> - `cruise-linear-parity-implement` 现改为 evidence-driven page worker：运行期状态在 `tmp/linear-implement/state.json`、`tmp/linear-implement/queue.json`、`tmp/linear-implement/latest.json`
+> - 本文件与 `docs/status/roadmap-state.yaml` 只保留里程碑摘要与历史参考，不再承担 implementation 的逐轮排程
+> - capture 与 implementation 之间的唯一最新证据入口仍是 `tmp/linear-capture/latest.json`
 
 ## 状态说明
 
@@ -22,17 +23,20 @@ depends_on: comma-separated IDs or -
 blocker: '-' when none
 ```
 
-## 调度规则（machine-friendly）
+## 调度规则（machine-friendly, summary only）
 
 ```yaml
 state_source:
-  primary: docs/status/roadmap-state.yaml
-  lane_detail_source: docs/linear-parity/task-board.md
+  capture_runtime: tmp/linear-capture/latest.json
+  implementation_runtime:
+    - tmp/linear-implement/state.json
+    - tmp/linear-implement/queue.json
+    - tmp/linear-implement/latest.json
+  docs_role:
+    - docs/linear-parity/task-board.md is milestone-summary-only
+    - docs/status/roadmap-state.yaml is milestone-summary-only
   required_reads:
     - AGENTS.md
-    - docs/planning/dev-logbook.md
-    - doc/worktime.md
-    - docs/status/roadmap-state.yaml
     - docs/plans/2026-04-16-linear-parity-roadmap.md
 recovery_checks:
   - git status --short
@@ -40,31 +44,18 @@ recovery_checks:
   - git rev-parse HEAD
   - git log --oneline -5
 selection:
-  capture:
-    lane: Capture
-    pick: first(in_progress) || first(pending)
-    skip_blocked_if_independent_next_exists: true
-  push:
-    lane: Implementation
-    pick: first(in_progress) || first(pending)
-    skip_blocked_if_independent_next_exists: true
+  capture: runtime frontier decides
+  implementation: tmp/linear-implement latest work item decides
 planning_rules:
-  next_task_required_when_done: true
-  next_task_format:
-    - add exactly one new pending item immediately after the done item when a natural next implementation/capture step exists
-    - title must describe the next concrete increment, not a vague phase label
-    - done_when must be a verifiable completion standard
-    - blocker must be '-' unless currently blocked
-  in_progress_must_include_next_increment_hint: true
-  if_selected_item_has_no_concrete_next_increment:
-    - split_it_into_smaller_follow_up_items_before_next_run
-    - do_not_leave_lane_in_plan_only_loop
+  implementation_queue_generates_page_level_small_closures: true
+  implementation_docs_are_updated_only_when_a_page_milestone_closes: true
   stop_conditions:
     - if_the_only_candidate_next_task_is_rechecking_wording_naming_symmetry_or_title_phrasing_without_runtime_or_contract_change_then_stop_instead_of_creating_a_new_task
     - do_not_spawn_another_microtask_that_only_flips_existing_assertion_titles_between_restore_and_drop_variants
+    - if_the_candidate_task_cannot_point_to_a_specific_capture_run_or_artifact_hash_then_do_not_schedule_it_as_a_new_implementation_task
 execution_model:
-  one_execution_unit_per_run: true
-  closure_after_single_task: true
+  implementation_one_page_level_work_item_per_run: true
+  implementation_may_merge_2_to_4_strongly_related_gaps: true
   special_run_types:
     - closure-only
     - repair
@@ -72,11 +63,50 @@ execution_model:
 constraints:
   capture_forbidden:
     - Cruise 产品代码实现
+    - docs/linear-parity/task-board.md
+    - docs/status/roadmap-state.yaml
+    - docs/planning/dev-logbook.md
+    - docs/worktime.md
+    - git commit
+    - git push
   push_forbidden:
     - 截图
     - DOM 取证
     - HAR 取证
     - 浏览器只读探测
+capture_contract:
+  watchdog_gate:
+    - read ~/Desktop/Cruise/.hermes/linear-9222-watchdog/last-status.txt first
+    - if consumer_policy != attached_cdp_only then stop_as_infra_blocked
+    - if websocket_attach != ok then stop_as_infra_blocked
+  outputs:
+    - tmp/linear-capture/runs/<run_id>/manifest.json
+    - tmp/linear-capture/runs/<run_id>/summary.json
+    - tmp/linear-capture/runs/<run_id>/screenshots/
+    - tmp/linear-capture/runs/<run_id>/har/
+    - tmp/linear-capture/runs/<run_id>/dom/
+    - tmp/linear-capture/latest.json
+  immutability:
+    - capture_may_only_overwrite_tmp/linear-capture/latest.json
+    - previous_run_directories_are_immutable
+implementation_contract:
+  required_inputs:
+    - tmp/linear-implement/state.json
+    - tmp/linear-implement/queue.json
+    - tmp/linear-implement/latest.json
+    - capture artifacts referenced by the selected work item
+  gating_rules:
+    - if script_stdout_reports_no_work then_stop_without_self_scheduling
+    - no_work_must_report_queue_counts_and_whether_backlog_or_retryable_capture_evidence_remains
+    - no_work_is_only_silent_when_queue_and_capture_backlog_are_truly_empty
+    - only_schedule_work_that_changes_runtime_behavior_ui_structure_interaction_feedback_or_contract
+    - wording_naming_symmetry_only_tasks_are_forbidden
+  update_targets:
+    - tmp/linear-implement/state.json
+    - tmp/linear-implement/queue.json
+    - tmp/linear-implement/latest.json
+    - docs/linear-parity/task-board.md (milestone summary only)
+    - docs/status/roadmap-state.yaml (milestone summary only)
 run_rules:
   min_real_increment_minutes: 5
   max_real_increment_minutes: 15
@@ -84,18 +114,11 @@ run_rules:
   blocked_requires_blocker_note: true
   dirty_tree_requires_scope_judgement: true
 closure_order:
-  - feature/work commit
-  - record real commit hash
-  - update state/task docs
-  - docs/state commit
+  - work commit
+  - update implementation runtime state files
+  - update milestone summary docs if and only if page closure is complete
   - confirm clean working tree
   - git push origin HEAD
-update_after_each_run:
-  - docs/linear-parity/task-board.md
-  - docs/planning/dev-logbook.md
-  - doc/worktime.md
-  - docs/status/roadmap-state.yaml
-  - task_related_artifacts
 delivery:
   push_done_requires_commit_and_push: true
   push_git_author: offic0600 <offic0600@163.com>
@@ -112,7 +135,15 @@ report_format:
 
 ---
 
-## Capture lane（只给 `cruise-linear-parity-capture`）
+## Implementation milestones
+
+| scope_key | capture_run_id | user-visible result | verification | commit |
+|---|---|---|---|---|
+| legacy:/issues/[id] wording-loop closeout | historical | 人工收口 legacy `/issues/[id]` route API 失败标题 wording 振荡链，并迁移到 evidence-driven implementation model | `pnpm test -- --run src/lib/routes.test.tsx` / `npx tsc --noEmit` / `git diff --check` | `dc633bcc15836c5185a38597578d08590fa7be28` |
+| inbox | `20260421T222059+0800` | Inbox 顶部 chrome、filter/display controls 与双栏 detail split 已按 capture 证据收口 | `npx tsc --noEmit` | `8fe0c5b5240a9a63d2719013b13365d52bdd7e9d` |
+| roadmap | `20260421T231518+0800` | Roadmap 主壳层、主操作与关键反馈状态已按 capture 证据收口 | `npx tsc --noEmit` | `6314ecf66e18e5dc48346467e0f93ec18ff2cc9f` |
+
+## Capture lane（只给 `cruise-linear-parity-capture`，作为人工规划板；capture cron 不自动写回此表）
 
 | id | title | status | depends_on | done_when | blocker |
 |---|---|---|---|---|---|
@@ -123,7 +154,7 @@ report_format:
 | CAP-05 | 建立全功能 1:1 采集计划 | done | CAP-02 | 已新增 `docs/linear-parity/full-parity-capture-plan.md`，明确页面 × 控件 × 状态 × 流程的采集口径 | - |
 | CAP-06 | 枚举 Active issues 顶部工具栏与 tabs 的交互证据 | blocked | CAP-03, CAP-04, CAP-05 | 为 Active issues 页的顶部 tabs / 搜索 / filter / display / sort / new 等控件逐项补前后状态、截图/DOM/网络摘要，并新增对应 flow 文档 | authenticated page/session reuse failure：10:01 CST 最新复测中，browser 侧 `json/list` 仍可读且继续枚举到 6 个 live page targets + 1 个 worker target，其中 Linear target=`Cleantrack › Active issues`（id=`81A3713C33BCA35B2A0B8C7D177F43AD`）；但 terminal 直连 `/json/version` 与 `/json/list` 继续返回 `502`。browser 打开目标 URL 仍先落到 `Link opened in the Linear app` 中转页；本轮再次通过显式点击 `Open here instead` 稳定复现登录页分支，且仍未见 CAPTCHA/iframe，因此文档页继续只应归类为 `Learn more` / 激活歧义分支，而不是新 blocker 类型。下一最小任务仍应优先改做 page websocket/CDP 对该 target 的只读取证。证据见 `docs/linear-parity/har/2026-04-19-1001-browser-terminal-metadata-discrepancy-and-auth-blocked.json`、`docs/linear-parity/flows/active-issues-auth-session-blocker-2026-04-19-1001.md` |
 | CAP-07 | 采集一个 issue 详情页的页面级与控件级证据 | done | CAP-06 | 至少拿到 issue 详情页默认态截图、DOM、可见模块、主要操作入口与网络摘要 | 2026-04-19 14:19 CST 本轮开始前已先读取 `~/Desktop/Cruise/.hermes/linear-9222-watchdog/last-status.txt`，其中 `consumer_policy=attached_cdp_only`、`metadata_layer=ok`、`websocket_attach=ok`，因此严格只复用已附着成功的本地 Chrome 9222 target `81A3713C33BCA35B2A0B8C7D177F43AD`。通过清代理后复查 `/json/list` 与 page websocket/CDP，再次确认 issue detail 页面 `CLE-28 Views 页面补齐创建/编辑/删除与状态反馈` 仍为 `readyState=complete`；在 14:08 已补默认态整页截图、可见模块与主要操作入口枚举的基础上，本轮继续对同一 target 执行 8 秒只读 `Network.requestWillBeSent/responseReceived` 监听，结果 `request_count=0`、`response_count=0`，由此把“默认态 network-idle”沉淀为明确网络摘要结论，满足 CAP-07 done_when。证据见 `docs/linear-parity/flows/issue-detail-page-cdp-screenshot-and-controls-2026-04-19-1408.md`、`docs/linear-parity/flows/issue-detail-page-cdp-network-idle-2026-04-19-1416.md`、`docs/linear-parity/har/2026-04-19-1408-issue-detail-screenshot-and-controls-summary.json`、`docs/linear-parity/har/2026-04-19-1416-issue-detail-network-idle-summary.json`、`docs/linear-parity/screenshots/issue-detail-page-2026-04-19-1408.png` |
-| CAP-08 | 采集 issue 创建/编辑入口的打开态与校验态证据 | blocked | CAP-06 | 只读优先，允许打开弹窗/抽屉并记录字段、默认值、校验反馈，不做持久提交 | 2026-04-21 20:18 CST 再次复核 `~/Desktop/Cruise/.hermes/linear-9222-watchdog/last-status.txt`，仍明确显示 `consumer_policy=attached_cdp_only`、`metadata_layer=ok`、`websocket_attach=ok`，且附着 target 继续指向 issue detail 页面 `CLE-28 Views 页面补齐创建/编辑/删除与状态反馈`，因此本轮继续禁止使用 Hermes 内置 `browser_*`，也不存在“附着失败”类 blocker。本轮未重复采集：因为 `tmp/linear-capture/summary.json` 已在 2026-04-21 19:45 CST 刷新，且晚于 `docs/linear-parity/task-board.md`、`docs/planning/dev-logbook.md`、`doc/worktime.md` 与 `docs/status/roadmap-state.yaml` 的最近写回时间，确认当前更真实的问题是 capture 证据已更新但 docs 闭环缺失，而不是 capture 未生效。现已仅按 capture lane 补齐 docs 闭环：把 CAP-08 blocker 与 roadmap-state `current_task` 重新对齐到 Capture，并在 dev-logbook / worktime 追加本轮 closeout，明确 `summary.json` 与同批 `.png/.json` 产物已提供最新只读证据基线——其中 issue 详情页顶部仍可见 `Create new issue`、`Issue options`、`Add label`、`Add sub-issues`、`Unsubscribe` 等入口，团队 issue 列表顶部仍可见 `Add filter`、`Display options`、`Create new issue` 以及 `All issues` / `Active` / `Backlog` tabs，`summary.json` 继续包含 `baselineAfterTabs`、`issueDetail`、`issueDirect` 与 `interactions` 结构。CAP-08 继续保持 blocked；当前 blocker 仍是工作树闭环风险而非附着失败。下一轮建议优先在独立干净工作树继续针对 `Create new issue` / `Issue options` / `Add label` 的打开态与校验反馈做同口径只读采集，并在 capture lane 下单独收口。 |
+| CAP-08 | 采集 issue 创建/编辑入口的打开态与校验态证据 | in_progress | CAP-06 | 在 `attached_cdp_only + websocket_attach=ok` 前提下，只读采集 issue 创建/编辑入口的打开态、字段默认值与校验反馈，并将结果写入 `tmp/linear-capture/runs/<run_id>/manifest.json`、`summary.json`、`screenshots/`、`har/`、`dom/` 与 `tmp/linear-capture/latest.json`；不得做持久提交，也不得更新 repo-tracked docs/logs。 | - |
 | CAP-09 | 采集 Projects 域页面与关键控件证据 | pending | CAP-08 | 至少完成 Projects 列表页的页面级截图、DOM、主要按钮/筛选/详情入口摘要 | - |
 | CAP-10 | 采集 Views 域页面与关键控件证据 | pending | CAP-05 | 至少完成 Views 列表/入口级证据，明确创建/编辑/删除入口形态 | - |
 | CAP-11 | 采集 Cycles / Roadmap 域页面证据 | pending | CAP-05 | 至少完成一个 Cycles 或 Roadmap 页面级证据包 | - |
@@ -131,7 +162,7 @@ report_format:
 
 ---
 
-## Implementation lane（只给 `cruise-linear-parity-push`）
+## Frozen implementation history（legacy，不再作为自动排程源）
 
 | id | title | status | depends_on | done_when | blocker |
 |---|---|---|---|---|---|
@@ -373,13 +404,14 @@ report_format:
 - 2026-04-18：进一步收紧为 capture / implementation 双 lane；采集 cron 与实现 cron 禁止跨 lane 抢任务。
 - 2026-04-19：引入 `docs/status/roadmap-state.yaml` 作为 cron 恢复状态源，任务板退化为 lane 明细与后继任务定义源。
 - 2026-04-21：人工收口 IMP-205 至 IMP-214 的 wording 振荡链，并新增硬规则：若候选下一步只剩 wording/命名/对称性复评且不改变运行时行为或 contract，则必须停止，不再派生同类微任务。
+- 2026-04-21：重构为 `watchdog + capture + implement` 三层模型；capture 只产出 `tmp/linear-capture/runs/<run_id>/...` 证据包，不再写 task-board / roadmap-state / dev-logbook / worktime。
 
 ## Cron 执行提示（给未来运行）
 
 - 不要重新发明任务顺序；先恢复 git 真实状态与 `docs/status/roadmap-state.yaml`，再回到本文件对应 lane。
-- capture cron 只补证据，不做实现；implementation cron 只做实现，不扩展成采集。
+- capture cron 只补证据，不做实现，也不写 repo-tracked docs/logs；implementation cron 只做实现，不扩展成采集。
 - 若无真实 blocker，必须落一个真实增量。
-- 某项任务一旦标记为 `done`，必须立刻在其后补一个新的、同 lane 的 `pending` 详细任务，写清具体切口、可验证完成标准与依赖。
+- implementation 某项任务一旦标记为 `done`，必须立刻在其后补一个新的 `pending` 详细任务，写清具体切口、可验证完成标准、依赖与所消费的 capture 证据。
 - 若某个 `in_progress` 任务的 done_when 已过宽、导致连续两轮无法判断下一刀做什么，必须先拆小或补“下一最小增量”说明，不能继续空转复核。
 - 每轮只做一个 execution unit；完成或阻塞后都必须写回状态并停止。
 - 报告格式固定为：本轮完成的唯一 task / 关键改动文件 / 测试或验证结果 / review 结论 / commit SHA / push 结果 / 更新后的 task-board 摘要 / 下一轮应执行的 task。
