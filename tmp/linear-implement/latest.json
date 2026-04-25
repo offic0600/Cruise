@@ -1,68 +1,66 @@
 {
-  "status": "done",
-  "selected_work_id": "workspace-cleantrack-team-cle-active-fe38056b1123",
+  "status": "blocked",
+  "selected_work_id": "my-issues-ff80892f3d31",
   "work_item": {
-    "work_id": "workspace-cleantrack-team-cle-active-fe38056b1123",
-    "capture_run_id": "20260421T222007+0800",
-    "source_capture_run_id": "20260421T222007+0800",
-    "source_ledger_key": "page:workspace:cleantrack/team:CLE/active",
-    "scope_dedupe_key": "workspace:cleantrack/team:CLE/active",
-    "artifact_hash": "fe38056b1123f5b1ae9efe58d4bb9cd5d972ea92b725d5738dad4b5191263fa8",
-    "scope_key": "workspace:cleantrack/team:CLE/active",
-    "ui_surface": "Active issues",
-    "goal": "围绕 Cleantrack › Active issues 做一个页面级小闭环：把 capture 明确暴露出的主壳层与关键交互差异收口。",
+    "work_id": "my-issues-ff80892f3d31",
+    "capture_run_id": "20260421T225832+0800",
+    "source_capture_run_id": "20260421T225832+0800",
+    "source_ledger_key": "page:my-issues",
+    "scope_dedupe_key": "my-issues",
+    "artifact_hash": "ff80892f3d31c35843e7c4ddfff07dfcb772196d81645e5b9732ad86c5887d66",
+    "scope_key": "my-issues",
+    "ui_surface": "My issues",
+    "goal": "围绕 Linear 做一个页面级小闭环：把 capture 明确暴露出的主壳层与关键交互差异收口。",
     "candidate_changes": [
       "对齐页面标题区、主操作入口和一级导航/切换控件。",
-      "对齐主内容区的容器层级、间距和主要反馈状态。",
-      "补齐当前 capture 明确暴露出的可见空态、loading 或交互反馈差异。"
+      "对齐主内容区的容器层级、间距和主要反馈状态。"
     ],
     "evidence_refs": {
       "capture_latest": "tmp/linear-capture/latest.json",
-      "capture_manifest": "tmp/linear-capture/runs/20260421T222007+0800/manifest.json",
-      "capture_summary": "tmp/linear-capture/runs/20260421T222007+0800/summary.json",
-      "page_json": "tmp/linear-capture/runs/20260421T222007+0800/pages/workspace-cleantrack-team-cle-active/page.json",
-      "elements_json": "tmp/linear-capture/runs/20260421T222007+0800/pages/workspace-cleantrack-team-cle-active/elements.json",
-      "screenshot": "tmp/linear-capture/runs/20260421T222007+0800/pages/workspace-cleantrack-team-cle-active/screenshots/default.png",
-      "dom": "tmp/linear-capture/runs/20260421T222007+0800/pages/workspace-cleantrack-team-cle-active/dom/default.json",
-      "har": "tmp/linear-capture/runs/20260421T222007+0800/pages/workspace-cleantrack-team-cle-active/har/session.har.json"
+      "capture_manifest": "tmp/linear-capture/runs/20260421T225832+0800/manifest.json",
+      "capture_summary": "tmp/linear-capture/runs/20260421T225832+0800/summary.json",
+      "page_json": "tmp/linear-capture/runs/20260421T225832+0800/pages/my-issues/page.json",
+      "elements_json": "tmp/linear-capture/runs/20260421T225832+0800/pages/my-issues/elements.json",
+      "screenshot": "tmp/linear-capture/runs/20260421T225832+0800/pages/my-issues/screenshots/default.png",
+      "dom": "tmp/linear-capture/runs/20260421T225832+0800/pages/my-issues/dom/default.json",
+      "har": "tmp/linear-capture/runs/20260421T225832+0800/pages/my-issues/har/session.har.json"
     },
     "acceptance_checks": [
       "当前 scope 的主壳层、主操作与关键反馈状态对齐 capture 证据。",
       "`cd frontend && npx tsc --noEmit`"
     ],
     "source_paths": [
-      "frontend/src/components/issues/ActiveIssuesWorkbenchPage.tsx",
-      "frontend/src/app/[workspaceSlug]/team/[teamKey]/active/page.tsx",
-      "frontend/src/app/[workspaceSlug]/team/[teamKey]/backlog/page.tsx",
-      "frontend/src/app/[workspaceSlug]/team/[teamKey]/done/page.tsx",
-      "frontend/src/lib/routes.ts",
-      "frontend/src/i18n/messages/en.ts",
-      "frontend/src/i18n/messages/zh-CN.ts"
+      "frontend/src/components/AppLayout.tsx",
+      "frontend/src/lib/routes.ts"
     ],
-    "milestone_summary": "workspace:cleantrack/team:CLE/active 页面级小闭环：主壳层、主操作与关键反馈状态已按 capture 收口。",
-    "status": "in_progress",
-    "created_at": "2026-04-25T18:48:12.575972+08:00",
-    "updated_at": "2026-04-25T19:30:10.085886+08:00"
+    "milestone_summary": "my-issues 页面级小闭环：主壳层、主操作与关键反馈状态已按 capture 收口。",
+    "status": "blocked",
+    "created_at": "2026-04-25T18:48:12.577068+08:00",
+    "updated_at": "2026-04-25T20:12:09.516525+08:00",
+    "blocker": "capture_bundle_missing_page_or_elements: my-issues evidence only contains Loading… shell (elements=0, dom.elements=0), so no page-level UI delta can be implemented or verified without re-capture."
   },
   "worktree": {
-    "tracked_dirty_paths": [],
+    "tracked_dirty_paths": [
+      "tmp/linear-implement/queue.json",
+      "tmp/linear-implement/state.json"
+    ],
     "untracked_paths": [
       "scripts/__pycache__/",
       "scripts/linear_capture_runtime/__pycache__/"
     ],
     "source_dirty_paths": [],
-    "unrelated_tracked_dirty_paths": [],
+    "unrelated_tracked_dirty_paths": [
+      "tmp/linear-implement/queue.json",
+      "tmp/linear-implement/state.json"
+    ],
     "selective_commit_required": true,
     "commit_scope_paths": [
-      "frontend/src/components/issues/ActiveIssuesWorkbenchPage.tsx",
-      "frontend/src/app/[workspaceSlug]/team/[teamKey]/active/page.tsx",
-      "frontend/src/app/[workspaceSlug]/team/[teamKey]/backlog/page.tsx",
-      "frontend/src/app/[workspaceSlug]/team/[teamKey]/done/page.tsx",
-      "frontend/src/lib/routes.ts",
-      "frontend/src/i18n/messages/en.ts",
-      "frontend/src/i18n/messages/zh-CN.ts"
+      "frontend/src/components/AppLayout.tsx",
+      "frontend/src/lib/routes.ts"
     ],
     "raw": [
+      " M tmp/linear-implement/queue.json",
+      " M tmp/linear-implement/state.json",
       "?? scripts/__pycache__/",
       "?? scripts/linear_capture_runtime/__pycache__/"
     ]
@@ -70,8 +68,6 @@
   "state_path": "tmp/linear-implement/state.json",
   "queue_path": "tmp/linear-implement/queue.json",
   "capture_latest_path": "tmp/linear-capture/latest.json",
-  "generated_at": "2026-04-25T19:30:10.136163+08:00",
-  "completed_at": "2026-04-25T19:36:49.675116+08:00",
-  "commit_sha": "ee81eac1fc6762982021a6a08a97ef1c45414d90",
-  "updated_at": "2026-04-25T19:36:49.675116+08:00"
+  "generated_at": "2026-04-25T20:12:09.516525+08:00",
+  "blocker": "capture_bundle_missing_page_or_elements: my-issues evidence only contains Loading… shell (elements=0, dom.elements=0), so no page-level UI delta can be implemented or verified without re-capture."
 }

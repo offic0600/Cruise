@@ -109,7 +109,7 @@
       "milestone_summary": "linear-toolbar-and-issue-detail-readonly 页面级小闭环：主壳层、主操作与关键反馈状态已按 capture 收口。",
       "status": "terminal_blocked",
       "created_at": "2026-04-25T18:48:12.574584+08:00",
-      "updated_at": "2026-04-25T19:30:10.076470+08:00",
+      "updated_at": "2026-04-25T20:10:17.906017+08:00",
       "blocker": "capture_bundle_missing_page_or_elements"
     },
     {
@@ -190,9 +190,10 @@
         "frontend/src/lib/routes.ts"
       ],
       "milestone_summary": "my-issues 页面级小闭环：主壳层、主操作与关键反馈状态已按 capture 收口。",
-      "status": "pending",
+      "status": "blocked",
       "created_at": "2026-04-25T18:48:12.577068+08:00",
-      "updated_at": "2026-04-25T18:48:12.577071+08:00"
+      "updated_at": "2026-04-25T20:12:09.516525+08:00",
+      "blocker": "capture_bundle_missing_page_or_elements: my-issues evidence only contains Loading… shell (elements=0, dom.elements=0), so no page-level UI delta can be implemented or verified without re-capture."
     },
     {
       "work_id": "cycles-list-b9a33fa1a6c5",
@@ -308,5 +309,5 @@
       "updated_at": "2026-04-25T18:55:50.721953+08:00"
     }
   ],
-  "updated_at": "2026-04-25T19:36:49.675116+08:00"
+  "updated_at": "2026-04-25T20:12:09.516525+08:00"
 }
