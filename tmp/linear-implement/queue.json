@@ -109,7 +109,7 @@
       "milestone_summary": "linear-toolbar-and-issue-detail-readonly 页面级小闭环：主壳层、主操作与关键反馈状态已按 capture 收口。",
       "status": "terminal_blocked",
       "created_at": "2026-04-25T18:48:12.574584+08:00",
-      "updated_at": "2026-04-25T20:10:17.906017+08:00",
+      "updated_at": "2026-04-25T20:20:31.925818+08:00",
       "blocker": "capture_bundle_missing_page_or_elements"
     },
     {
@@ -229,9 +229,9 @@
         "frontend/src/lib/routes.ts"
       ],
       "milestone_summary": "cycles:list 页面级小闭环：主壳层、主操作与关键反馈状态已按 capture 收口。",
-      "status": "pending",
+      "status": "in_progress",
       "created_at": "2026-04-25T18:48:12.578569+08:00",
-      "updated_at": "2026-04-25T18:48:12.578572+08:00"
+      "updated_at": "2026-04-25T20:20:31.933872+08:00"
     },
     {
       "work_id": "workspace-cleantrack-team-cle-all-3b2e98e0915a",
@@ -309,5 +309,5 @@
       "updated_at": "2026-04-25T18:55:50.721953+08:00"
     }
   ],
-  "updated_at": "2026-04-25T20:12:09.516525+08:00"
+  "updated_at": "2026-04-25T20:20:31.949893+08:00"
 }

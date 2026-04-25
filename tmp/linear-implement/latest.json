@@ -1,29 +1,30 @@
 {
-  "status": "blocked",
-  "selected_work_id": "my-issues-ff80892f3d31",
+  "status": "ready",
+  "selected_work_id": "cycles-list-b9a33fa1a6c5",
   "work_item": {
-    "work_id": "my-issues-ff80892f3d31",
-    "capture_run_id": "20260421T225832+0800",
-    "source_capture_run_id": "20260421T225832+0800",
-    "source_ledger_key": "page:my-issues",
-    "scope_dedupe_key": "my-issues",
-    "artifact_hash": "ff80892f3d31c35843e7c4ddfff07dfcb772196d81645e5b9732ad86c5887d66",
-    "scope_key": "my-issues",
-    "ui_surface": "My issues",
+    "work_id": "cycles-list-b9a33fa1a6c5",
+    "capture_run_id": "20260421T231302+0800",
+    "source_capture_run_id": "20260421T231302+0800",
+    "source_ledger_key": "page:cycles:list",
+    "scope_dedupe_key": "cycles:list",
+    "artifact_hash": "b9a33fa1a6c5d35b235822fa67771340dce5e6d561cebaaa87240aedc6bc12bb",
+    "scope_key": "cycles:list",
+    "ui_surface": "Discovered from cycles:list",
     "goal": "围绕 Linear 做一个页面级小闭环：把 capture 明确暴露出的主壳层与关键交互差异收口。",
     "candidate_changes": [
       "对齐页面标题区、主操作入口和一级导航/切换控件。",
-      "对齐主内容区的容器层级、间距和主要反馈状态。"
+      "对齐主内容区的容器层级、间距和主要反馈状态。",
+      "补齐当前 capture 明确暴露出的可见空态、loading 或交互反馈差异。"
     ],
     "evidence_refs": {
       "capture_latest": "tmp/linear-capture/latest.json",
-      "capture_manifest": "tmp/linear-capture/runs/20260421T225832+0800/manifest.json",
-      "capture_summary": "tmp/linear-capture/runs/20260421T225832+0800/summary.json",
-      "page_json": "tmp/linear-capture/runs/20260421T225832+0800/pages/my-issues/page.json",
-      "elements_json": "tmp/linear-capture/runs/20260421T225832+0800/pages/my-issues/elements.json",
-      "screenshot": "tmp/linear-capture/runs/20260421T225832+0800/pages/my-issues/screenshots/default.png",
-      "dom": "tmp/linear-capture/runs/20260421T225832+0800/pages/my-issues/dom/default.json",
-      "har": "tmp/linear-capture/runs/20260421T225832+0800/pages/my-issues/har/session.har.json"
+      "capture_manifest": "tmp/linear-capture/runs/20260421T231302+0800/manifest.json",
+      "capture_summary": "tmp/linear-capture/runs/20260421T231302+0800/summary.json",
+      "page_json": "tmp/linear-capture/runs/20260421T231302+0800/pages/cycles-list/page.json",
+      "elements_json": "tmp/linear-capture/runs/20260421T231302+0800/pages/cycles-list/elements.json",
+      "screenshot": "tmp/linear-capture/runs/20260421T231302+0800/pages/cycles-list/screenshots/default.png",
+      "dom": "tmp/linear-capture/runs/20260421T231302+0800/pages/cycles-list/dom/default.json",
+      "har": "tmp/linear-capture/runs/20260421T231302+0800/pages/cycles-list/har/session.har.json"
     },
     "acceptance_checks": [
       "当前 scope 的主壳层、主操作与关键反馈状态对齐 capture 证据。",
@@ -33,23 +34,21 @@
       "frontend/src/components/AppLayout.tsx",
       "frontend/src/lib/routes.ts"
     ],
-    "milestone_summary": "my-issues 页面级小闭环：主壳层、主操作与关键反馈状态已按 capture 收口。",
-    "status": "blocked",
-    "created_at": "2026-04-25T18:48:12.577068+08:00",
-    "updated_at": "2026-04-25T20:12:09.516525+08:00",
-    "blocker": "capture_bundle_missing_page_or_elements: my-issues evidence only contains Loading… shell (elements=0, dom.elements=0), so no page-level UI delta can be implemented or verified without re-capture."
+    "milestone_summary": "cycles:list 页面级小闭环：主壳层、主操作与关键反馈状态已按 capture 收口。",
+    "status": "in_progress",
+    "created_at": "2026-04-25T18:48:12.578569+08:00",
+    "updated_at": "2026-04-25T20:20:31.933872+08:00"
   },
   "worktree": {
     "tracked_dirty_paths": [
+      "scripts/linear_implement_runtime.py",
       "tmp/linear-implement/queue.json",
       "tmp/linear-implement/state.json"
     ],
-    "untracked_paths": [
-      "scripts/__pycache__/",
-      "scripts/linear_capture_runtime/__pycache__/"
-    ],
+    "untracked_paths": [],
     "source_dirty_paths": [],
     "unrelated_tracked_dirty_paths": [
+      "scripts/linear_implement_runtime.py",
       "tmp/linear-implement/queue.json",
       "tmp/linear-implement/state.json"
     ],
@@ -59,15 +58,13 @@
       "frontend/src/lib/routes.ts"
     ],
     "raw": [
+      " M scripts/linear_implement_runtime.py",
       " M tmp/linear-implement/queue.json",
-      " M tmp/linear-implement/state.json",
-      "?? scripts/__pycache__/",
-      "?? scripts/linear_capture_runtime/__pycache__/"
+      " M tmp/linear-implement/state.json"
     ]
   },
   "state_path": "tmp/linear-implement/state.json",
   "queue_path": "tmp/linear-implement/queue.json",
   "capture_latest_path": "tmp/linear-capture/latest.json",
-  "generated_at": "2026-04-25T20:12:09.516525+08:00",
-  "blocker": "capture_bundle_missing_page_or_elements: my-issues evidence only contains Loading… shell (elements=0, dom.elements=0), so no page-level UI delta can be implemented or verified without re-capture."
+  "generated_at": "2026-04-25T20:20:31.950300+08:00"
 }

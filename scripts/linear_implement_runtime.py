@@ -510,7 +510,7 @@ def select_existing_active(state: dict, queue: dict):
     if not item:
         state["active_work_id"] = None
         return None
-    if item.get("status") == "done":
+    if item.get("status") in {"done", "blocked", "terminal_blocked"}:
         state["active_work_id"] = None
         return None
     item["status"] = "in_progress"
@@ -524,7 +524,7 @@ def select_oldest_pending(queue: dict, last_consumed_artifact_hash: Optional[str
     pending = [
         item
         for item in queue.get("items", [])
-        if item.get("status") in {"pending", "in_progress", "blocked"}
+        if item.get("status") in {"pending", "in_progress"}
         and item.get("artifact_hash") != last_consumed_artifact_hash
     ]
     if not pending:
