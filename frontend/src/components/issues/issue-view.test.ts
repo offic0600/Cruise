@@ -25,6 +25,10 @@ describe('view-specific shell copy', () => {
     expect(pageTitle('backlog', false)).toBe('Backlog');
     expect(pageTitle('done', false)).toBe('Completed');
     expect(pageTitle('active', false)).toBe('Active issues');
+    expect(pageTitle('all', true)).toBe('全部事项');
+    expect(pageTitle('backlog', true)).toBe('待规划');
+    expect(pageTitle('done', true)).toBe('已完成');
+    expect(pageTitle('active', true)).toBe('进行中事项');
   });
 
   it('loadingText 对不同 issue 视图返回对应 loading 文案', () => {

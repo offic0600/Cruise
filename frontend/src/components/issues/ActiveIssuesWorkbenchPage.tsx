@@ -55,6 +55,185 @@ const DISPLAY_LABEL = {
   zh: '显示',
 } as const;
 
+const VIEW_LABELS = {
+  all: { en: 'All issues', zh: '全部事项' },
+  active: { en: 'Active', zh: '进行中' },
+  backlog: { en: 'Backlog', zh: '待规划' },
+  done: { en: 'Completed', zh: '已完成' },
+} as const;
+
+const COLUMN_LABELS = {
+  issue: { en: 'Issue', zh: '事项' },
+  assignee: { en: 'Assignee', zh: '负责人' },
+  priority: { en: 'Priority', zh: '优先级' },
+  updated: { en: 'Updated', zh: '更新时间' },
+} as const;
+
+function viewLabel(view: IssueView, isZh: boolean) {
+  const pair = VIEW_LABELS[view];
+  return isZh ? pair.zh : pair.en;
+}
+
+function columnLabel(column: keyof typeof COLUMN_LABELS, isZh: boolean) {
+  const pair = COLUMN_LABELS[column];
+  return isZh ? pair.zh : pair.en;
+}
+
+function noteHeading(isZh: boolean) {
+  return isZh ? '工作台说明' : 'Workbench notes';
+}
+
+function nextIntegrationHeading(isZh: boolean) {
+  return isZh ? '下一步挂接点' : 'Next integration points';
+}
+
+function issuesEyebrow(isZh: boolean) {
+  return isZh ? '事项' : 'Issues';
+}
+
+function filterSheetTitle(isZh: boolean) {
+  return isZh ? '高级筛选' : 'Advanced filter';
+}
+
+function collapsedGroupsText(isZh: boolean) {
+  return isZh ? '当前视图的所有状态分组都已折叠。可在 Display 中重新展开。' : 'All state groups in this view are collapsed. Re-open them from Display.';
+}
+
+function searchPlaceholder(isZh: boolean) {
+  return isZh ? '搜索标题或编号' : 'Search title or identifier';
+}
+
+function closeLabel(isZh: boolean) {
+  return isZh ? '关闭' : 'Close';
+}
+
+function clearFiltersLabel(isZh: boolean) {
+  return isZh ? '清空筛选' : 'Clear filters';
+}
+
+function applyFiltersLabel(isZh: boolean) {
+  return isZh ? '应用筛选' : 'Apply filters';
+}
+
+function allTypesLabel(isZh: boolean) {
+  return isZh ? '所有类型' : 'All types';
+}
+
+function allStatesLabel(isZh: boolean) {
+  return isZh ? '所有状态' : 'All states';
+}
+
+function allPrioritiesLabel(isZh: boolean) {
+  return isZh ? '所有优先级' : 'All priorities';
+}
+
+function allMembersLabel(isZh: boolean) {
+  return isZh ? '所有成员' : 'All members';
+}
+
+function allProjectsLabel(isZh: boolean) {
+  return isZh ? '所有项目' : 'All projects';
+}
+
+function allTeamsLabel(isZh: boolean) {
+  return isZh ? '所有团队' : 'All teams';
+}
+
+function allLabelsLabel(isZh: boolean) {
+  return isZh ? '所有标签' : 'All labels';
+}
+
+function selectedLabelsSummary(count: number, isZh: boolean) {
+  return isZh ? `已选 ${count} 个标签` : `${count} labels selected`;
+}
+
+function anyValueLabel(isZh: boolean) {
+  return isZh ? '任意' : 'Any';
+}
+
+function trueValueLabel(isZh: boolean) {
+  return isZh ? '是' : 'True';
+}
+
+function falseValueLabel(isZh: boolean) {
+  return isZh ? '否' : 'False';
+}
+
+function filterValuePlaceholder(isZh: boolean) {
+  return isZh ? '输入筛选值' : 'Enter filter value';
+}
+
+function notSetLabel(isZh: boolean) {
+  return isZh ? '未设置' : 'Not set';
+}
+
+function workspaceFallback(isZh: boolean) {
+  return isZh ? '工作区' : 'Workspace';
+}
+
+function teamFallback(isZh: boolean) {
+  return isZh ? '团队' : 'Team';
+}
+
+function expandHintDisplayLabel(isZh: boolean) {
+  return isZh ? '显示' : 'Display';
+}
+
+function currentSortIntentText(sort: ActiveWorkbenchSort, isZh: boolean) {
+  const currentSort = sortLabel(sort, isZh);
+  return isZh
+    ? `1. 当前先用 URL 参数保留排序意图（${currentSort}），下一轮再接真实排序逻辑。`
+    : `1. Keep sort intent in the URL first (${currentSort}), then wire the real sort behavior next.`;
+}
+
+function toolbarTighteningText(isZh: boolean) {
+  return isZh ? '2. 继续补齐顶部工具栏与 issue row 的 Linear 对标细节。' : '2. Continue tightening toolbar and issue-row fidelity against Linear.';
+}
+
+function richerFiltersText(isZh: boolean) {
+  return isZh ? '3. 逐步接入更真实的筛选文案与字段级交互。' : '3. Gradually wire richer filter copy and field-level interactions.';
+}
+
+function noAssigneeLabel(isZh: boolean) {
+  return isZh ? '未设置' : 'Not set';
+}
+
+function issueSearchLabel(isZh: boolean) {
+  return isZh ? '搜索' : 'Search';
+}
+
+function typeFilterLabel(isZh: boolean) {
+  return isZh ? '类型' : 'Type';
+}
+
+function stateFilterLabel(isZh: boolean) {
+  return isZh ? '状态' : 'State';
+}
+
+function priorityFilterLabel(isZh: boolean) {
+  return isZh ? '优先级' : 'Priority';
+}
+
+function assigneeFilterLabel(isZh: boolean) {
+  return isZh ? '负责人' : 'Assignee';
+}
+
+function projectFilterLabel(isZh: boolean) {
+  return isZh ? '项目' : 'Project';
+}
+
+function teamFilterLabel(isZh: boolean) {
+  return isZh ? '团队' : 'Team';
+}
+
+function labelsFilterLabel(isZh: boolean) {
+  return isZh ? '标签' : 'Labels';
+}
+
+function customFieldsLabel(isZh: boolean) {
+  return isZh ? '自定义字段' : 'Custom fields';
+}
+
 type ActiveTab = {
   id: IssueView;
   label: string;
@@ -113,17 +292,10 @@ export function noteText(filters: FilterDraft, isZh: boolean) {
 }
 
 export function pageTitle(view: IssueView, isZh: boolean) {
-  if (isZh) {
-    if (view === 'all') return 'All issues';
-    if (view === 'backlog') return 'Backlog';
-    if (view === 'done') return 'Completed';
-    return 'Active issues';
+  if (view === 'active') {
+    return isZh ? '进行中事项' : 'Active issues';
   }
-
-  if (view === 'all') return 'All issues';
-  if (view === 'backlog') return 'Backlog';
-  if (view === 'done') return 'Completed';
-  return 'Active issues';
+  return viewLabel(view, isZh);
 }
 
 function buildWorkbenchDescription(view: IssueView, isZh: boolean) {
@@ -175,11 +347,10 @@ export function sortSummaryLabel(sort: ActiveWorkbenchSort, isZh: boolean) {
 }
 
 function nextSteps(isZh: boolean, sort: ActiveWorkbenchSort) {
-  const currentSort = sortLabel(sort, isZh);
   return [
-    isZh ? `1. 当前先用 URL 参数保留排序意图（${currentSort}），下一轮再接真实排序逻辑。` : `1. Keep sort intent in the URL first (${currentSort}), then wire the real sort behavior next.`,
-    isZh ? '2. 继续补齐顶部工具栏与 issue row 的 Linear 对标细节。' : '2. Continue tightening toolbar and issue-row fidelity against Linear.',
-    isZh ? '3. 逐步接入更真实的筛选文案与字段级交互。' : '3. Gradually wire richer filter copy and field-level interactions.',
+    currentSortIntentText(sort, isZh),
+    toolbarTighteningText(isZh),
+    richerFiltersText(isZh),
   ];
 }
 
@@ -302,12 +473,12 @@ export default function ActiveIssuesWorkbenchPage() {
 
   const activeTabs = useMemo<ActiveTab[]>(
     () => [
-      { id: 'all', label: 'All issues', count: null },
-      { id: 'active', label: 'Active', count: issueCounts.active },
-      { id: 'backlog', label: 'Backlog', count: issueCounts.backlog },
-      { id: 'done', label: 'Completed', count: issueCounts.done },
+      { id: 'all', label: viewLabel('all', isZh), count: null },
+      { id: 'active', label: viewLabel('active', isZh), count: issueCounts.active },
+      { id: 'backlog', label: viewLabel('backlog', isZh), count: issueCounts.backlog },
+      { id: 'done', label: viewLabel('done', isZh), count: issueCounts.done },
     ],
-    [issueCounts.active, issueCounts.backlog, issueCounts.done]
+    [isZh, issueCounts.active, issueCounts.backlog, issueCounts.done]
   );
 
   const openIssue = (issueId: number) => {
@@ -324,7 +495,7 @@ export default function ActiveIssuesWorkbenchPage() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div className="space-y-3">
                 <div className="inline-flex items-center rounded-full border border-slate-800 bg-slate-900/80 px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-slate-400">
-                  {currentOrganization?.name ?? 'Workspace'} / {currentTeam?.name ?? 'Team'}
+                  {currentOrganization?.name ?? workspaceFallback(isZh)} / {currentTeam?.name ?? teamFallback(isZh)}
                 </div>
                 <div className="space-y-1">
                   <h1 className="text-[28px] font-semibold tracking-[-0.03em] text-white">{pageTitle(currentView, isZh)}</h1>
@@ -370,7 +541,7 @@ export default function ActiveIssuesWorkbenchPage() {
                   <Input
                     value={searchDraft}
                     onChange={(event) => setSearchDraft(event.target.value)}
-                    placeholder={isZh ? '搜索标题或编号' : 'Search title or identifier'}
+                    placeholder={searchPlaceholder(isZh)}
                     className="h-10 rounded-full border-slate-800 bg-slate-950 pl-9 pr-3 text-sm text-slate-100 placeholder:text-slate-500"
                   />
                 </form>
@@ -407,10 +578,10 @@ export default function ActiveIssuesWorkbenchPage() {
 
           <div className="border-b border-slate-800/90 px-5 py-3 sm:px-6">
             <div className="grid grid-cols-[minmax(0,1fr)_140px_120px_72px] items-center gap-4 text-[11px] uppercase tracking-[0.22em] text-slate-500">
-              <span>Issue</span>
-              <span>Assignee</span>
-              <span>Priority</span>
-              <span className="text-right">Updated</span>
+              <span>{columnLabel('issue', isZh)}</span>
+              <span>{columnLabel('assignee', isZh)}</span>
+              <span>{columnLabel('priority', isZh)}</span>
+              <span className="text-right">{columnLabel('updated', isZh)}</span>
             </div>
           </div>
 
@@ -421,7 +592,7 @@ export default function ActiveIssuesWorkbenchPage() {
               <div className="px-5 py-8 text-sm text-slate-500 sm:px-6">{noResultsText(searchQuery, draftFilters, isZh)}</div>
             ) : groupedRows.every((group) => collapsedStates.has(group.state)) ? (
               <div className="px-5 py-8 text-sm text-slate-500 sm:px-6">
-                {isZh ? '当前视图的所有状态分组都已折叠。可在 Display 中重新展开。' : 'All state groups in this view are collapsed. Re-open them from Display.'}
+                {collapsedGroupsText(isZh)}
               </div>
             ) : (
               groupedRows.map((group) => {
@@ -472,7 +643,7 @@ export default function ActiveIssuesWorkbenchPage() {
           <div className="rounded-[24px] border border-slate-800 bg-[#0b0d11] p-5">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-medium text-slate-200">Workbench notes</div>
+                <div className="text-sm font-medium text-slate-200">{noteHeading(isZh)}</div>
                 <div className="mt-1 text-sm text-slate-500">{noteText(draftFilters, isZh)}</div>
                 <div className="mt-2 text-xs text-slate-500">{searchStatusText(searchQuery, draftFilters, isZh)}</div>
               </div>
@@ -486,7 +657,7 @@ export default function ActiveIssuesWorkbenchPage() {
           </div>
 
           <aside className="rounded-[24px] border border-slate-800 bg-[#0b0d11] p-5">
-            <div className="text-sm font-medium text-slate-200">{isZh ? '下一步挂接点' : 'Next integration points'}</div>
+            <div className="text-sm font-medium text-slate-200">{nextIntegrationHeading(isZh)}</div>
             <div className="mt-2 text-xs text-slate-500">{filterSummaryLabel(draftFilters, isZh, filterSummaryContext)}</div>
             <div className="mt-2 text-xs text-slate-500">{collapsedSummaryLabel(collapsedStates, isZh)}</div>
             <div className="mt-2 text-xs text-slate-500">{sortSummaryLabel(sort, isZh)}</div>
@@ -586,10 +757,10 @@ function FilterSheet({
         <SheetHeader className="border-b border-slate-800 px-6 py-5 text-left">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Issues</div>
-              <SheetTitle className="mt-2 text-xl text-white">{isZh ? '高级筛选' : 'Advanced filter'}</SheetTitle>
+              <div className="text-xs uppercase tracking-[0.18em] text-slate-500">{issuesEyebrow(isZh)}</div>
+              <SheetTitle className="mt-2 text-xl text-white">{filterSheetTitle(isZh)}</SheetTitle>
             </div>
-            <SheetDismissButton className="rounded-full border border-slate-800 text-slate-400 hover:bg-slate-900 hover:text-slate-200" aria-label={isZh ? '关闭' : 'Close'} />
+            <SheetDismissButton className="rounded-full border border-slate-800 text-slate-400 hover:bg-slate-900 hover:text-slate-200" aria-label={closeLabel(isZh)} />
           </div>
         </SheetHeader>
         <ScrollArea className="h-[calc(100vh-92px)]">
