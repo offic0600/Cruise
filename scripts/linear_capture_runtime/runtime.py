@@ -15,6 +15,7 @@ REPO_ROOT = Path("/Users/liuzheng/Desktop/Cruise")
 TMP_ROOT = REPO_ROOT / "tmp" / "linear-capture"
 WATCHDOG_STATUS_PATH = REPO_ROOT / ".hermes" / "linear-9222-watchdog" / "last-status.txt"
 MUTATION_POLICY_PATH = REPO_ROOT / "config" / "mutation-policy.json"
+RECAPTURE_REQUESTS_PATH = TMP_ROOT / "state" / "recapture-requests.json"
 MAX_RETRY_COUNT = 5
 RETRY_BACKOFF_SECONDS = (60, 300, 900, 1800, 3600)
 RETRYABLE_ERROR_MARKERS = (
@@ -25,6 +26,11 @@ RETRYABLE_ERROR_MARKERS = (
     "Connection closed",
 )
 NODE_TYPE_ORDER = {"page": 0, "interaction": 1, "flow": 2}
+RECAPTURE_PRIORITY_BY_SCOPE = {
+    "workspace:cleantrack/team:CLE/all": 0,
+    "my-issues": 1,
+    "cycles:list": 2,
+}
 
 
 def json_dump(path: Path, payload):
@@ -124,6 +130,29 @@ def derive_scope_key(url: str) -> str:
     if len(parts) >= 3 and parts[1] == "settings":
         return f"settings:{parts[2]}"
     return f"route:{slugify('/'.join(parts))}"
+
+
+def derive_url_for_scope(scope_key: str) -> str:
+    if scope_key == "inbox":
+        return "https://linear.app/cleantrack/inbox"
+    if scope_key == "my-issues":
+        return "https://linear.app/cleantrack/my-issues"
+    if scope_key == "projects:list":
+        return "https://linear.app/cleantrack/projects"
+    if scope_key == "views:list":
+        return "https://linear.app/cleantrack/views"
+    if scope_key == "cycles:list":
+        return "https://linear.app/cleantrack/cycles"
+    if scope_key == "roadmap":
+        return "https://linear.app/cleantrack/roadmap"
+    if scope_key.startswith("settings:"):
+        return f"https://linear.app/cleantrack/settings/{scope_key.split(':', 1)[1]}"
+    if scope_key.startswith("workspace:"):
+        match = re.match(r"workspace:([^/]+)/team:([^/]+)/(.+)", scope_key)
+        if match:
+            workspace, team_key, section = match.groups()
+            return f"https://linear.app/{workspace}/team/{team_key}/{section}"
+    return ""
 
 
 def page_dir_name(scope_key: str) -> str:
@@ -425,6 +454,38 @@ def save_coverage(ledger: dict):
     json_dump(TMP_ROOT / "state" / "coverage-ledger.json", ledger)
 
 
+def load_recapture_requests() -> dict:
+    return json_load(RECAPTURE_REQUESTS_PATH, default={"version": 1, "requests": []}) or {
+        "version": 1,
+        "requests": [],
+    }
+
+
+def save_recapture_requests(requests: dict):
+    requests["updated_at"] = iso_now()
+    json_dump(RECAPTURE_REQUESTS_PATH, requests)
+
+
+def pending_recapture_requests(requests: dict) -> list[dict]:
+    now = datetime.now().astimezone()
+    pending = []
+    for request in requests.setdefault("requests", []):
+        if request.get("status") != "pending":
+            continue
+        next_after = parse_iso(request.get("next_recapture_after"))
+        if next_after and next_after > now:
+            continue
+        pending.append(request)
+    pending.sort(
+        key=lambda item: (
+            RECAPTURE_PRIORITY_BY_SCOPE.get(item.get("scope_key"), 50),
+            item.get("requested_at", ""),
+            item.get("scope_key", ""),
+        )
+    )
+    return pending
+
+
 def load_mutation_policy():
     policy = json_load(MUTATION_POLICY_PATH, default={}) or {}
     policy.setdefault("allowed_workspace_slug", "cleantrack")
@@ -466,6 +527,10 @@ def find_node(frontier: dict, node_key: str):
     return None
 
 
+def find_page_node_by_scope(frontier: dict, scope_key: str):
+    return find_node(frontier, f"page:{scope_key}")
+
+
 def upsert_node(frontier: dict, node: dict):
     current = find_node(frontier, node["node_key"])
     if current:
@@ -483,6 +548,80 @@ def upsert_node(frontier: dict, node: dict):
         return current
     frontier.setdefault("nodes", []).append(node)
     return node
+
+
+def source_url_for_recapture_request(frontier: dict, request: dict) -> str:
+    quality = request.get("evidence_quality") or {}
+    url = (quality.get("url") or "").strip()
+    if url:
+        return canonicalize_url(url)
+    scope_key = request.get("scope_key", "")
+    existing = find_page_node_by_scope(frontier, scope_key)
+    if existing and existing.get("source_url"):
+        return existing["source_url"]
+    return derive_url_for_scope(scope_key)
+
+
+def apply_recapture_requests(frontier: dict, ledger: dict, requests: dict) -> int:
+    applied = 0
+    entries = ledger.setdefault("entries", {})
+    for request in pending_recapture_requests(requests):
+        scope_key = request.get("scope_key")
+        if not scope_key:
+            continue
+        source_url = source_url_for_recapture_request(frontier, request)
+        if not source_url:
+            request["status"] = "blocked_missing_source_url"
+            request["updated_at"] = iso_now()
+            continue
+        node_key = f"page:{scope_key}"
+        node = find_node(frontier, node_key)
+        metadata = {
+            "recapture_request_key": request.get("request_key"),
+            "recapture_source_artifact_hash": request.get("artifact_hash"),
+            "recapture_reason": request.get("reason"),
+            "recapture_requested_at": request.get("requested_at"),
+        }
+        if node is None:
+            node = {
+                "node_key": node_key,
+                "node_type": "page",
+                "scope_key": scope_key,
+                "source_url": source_url,
+                "ui_surface": f"Recapture {scope_key}",
+                "priority": RECAPTURE_PRIORITY_BY_SCOPE.get(scope_key, 50),
+                "retry_count": 0,
+                "status": "needs_recapture",
+                "discovered_from": "recapture-requests",
+                "created_at": iso_now(),
+                "metadata": metadata,
+            }
+            frontier.setdefault("nodes", []).append(node)
+        else:
+            node["status"] = "needs_recapture"
+            node["source_url"] = source_url
+            node["priority"] = min(
+                int(node.get("priority", 999)),
+                RECAPTURE_PRIORITY_BY_SCOPE.get(scope_key, 50),
+            )
+            node["retry_count"] = 0
+            node["next_retry_at"] = None
+            node.pop("blocker_type", None)
+            node.pop("last_error", None)
+            node.setdefault("metadata", {}).update(metadata)
+        entry = entries.setdefault(node_key, {})
+        entry.update(
+            {
+                "node_type": "page",
+                "scope_key": scope_key,
+                "status": "needs_recapture",
+                "run_status": "needs_recapture",
+                "status_reason": request.get("reason") or "recapture_requested",
+                "updated_at": iso_now(),
+            }
+        )
+        applied += 1
+    return applied
 
 
 def update_ledger(
@@ -562,6 +701,7 @@ def reconcile_ledger_from_successful_runs(ledger: dict) -> int:
 def summarize_frontier(frontier: dict) -> dict:
     summary = {
         "pending": 0,
+        "needs_recapture": 0,
         "completed": 0,
         "retryable_blocked": 0,
         "terminal_blocked": 0,
@@ -636,6 +776,43 @@ def mark_node_failure(node: dict, error_message: str):
         node["blocker_type"] = "terminal"
         node["next_retry_at"] = None
     return node["status"]
+
+
+def mark_recapture_request_attempt(
+    requests: dict,
+    node: dict,
+    *,
+    run_id: str,
+    status: str,
+    artifact_hash=None,
+    error=None,
+):
+    request_key = (node.get("metadata") or {}).get("recapture_request_key")
+    if not request_key:
+        return False
+    for request in requests.setdefault("requests", []):
+        if request.get("request_key") != request_key:
+            continue
+        attempts = int(request.get("recapture_attempts", 0)) + 1
+        request["recapture_attempts"] = attempts
+        request["last_recapture_run_id"] = run_id
+        request["last_recapture_at"] = iso_now()
+        if status == "ok":
+            request["status"] = "recaptured_pending_validation"
+            request["recaptured_run_id"] = run_id
+            request["recaptured_artifact_hash"] = artifact_hash
+            request.pop("next_recapture_after", None)
+            request.pop("last_recapture_error", None)
+        else:
+            request["status"] = "pending"
+            request["last_recapture_error"] = error or status
+            delay = retry_delay_for(attempts)
+            request["next_recapture_after"] = (
+                datetime.now().astimezone() + timedelta(seconds=delay)
+            ).isoformat()
+        request["updated_at"] = iso_now()
+        return True
+    return False
 
 
 def classify_elements(snapshot: dict, page_scope_key: str):
@@ -1140,14 +1317,17 @@ def run_capture_once():
     registry = initialize_registry(status)
     frontier = initialize_frontier(registry)
     ledger = initialize_coverage(registry)
+    recapture_requests = load_recapture_requests()
     policy = load_mutation_policy()
     repaired = recover_legacy_retryable_nodes(frontier, ledger, status)
     reconciled = reconcile_ledger_from_successful_runs(ledger)
-    if repaired or reconciled:
+    recapture_applied = apply_recapture_requests(frontier, ledger, recapture_requests)
+    if repaired or reconciled or recapture_applied:
         backup_state_file_once(TMP_ROOT / "state" / "frontier.json")
         backup_state_file_once(TMP_ROOT / "state" / "coverage-ledger.json")
         save_frontier(frontier)
         save_coverage(ledger)
+        save_recapture_requests(recapture_requests)
     node = select_next_node(frontier)
     if not node:
         frontier_summary = summarize_frontier(frontier)
@@ -1216,11 +1396,21 @@ def run_capture_once():
             artifact_hash=manifest["artifact_hash"],
             reason=result.get("reason") or result["status"],
         )
+        mark_recapture_request_attempt(
+            recapture_requests,
+            node,
+            run_id=run_id,
+            status=result["status"],
+            artifact_hash=manifest["artifact_hash"],
+            error=result.get("reason"),
+        )
         save_frontier(frontier)
         save_coverage(ledger)
+        save_recapture_requests(recapture_requests)
         payload = {
             "status": result["status"],
             "run_id": run_id,
+            "recapture_applied": recapture_applied,
             "node": {
                 "node_key": node["node_key"],
                 "node_type": node["node_type"],
@@ -1249,11 +1439,20 @@ def run_capture_once():
             run_id=run_id,
             reason=error_message,
         )
+        mark_recapture_request_attempt(
+            recapture_requests,
+            node,
+            run_id=run_id,
+            status=failure_status,
+            error=error_message,
+        )
         save_frontier(frontier)
         save_coverage(ledger)
+        save_recapture_requests(recapture_requests)
         error_payload = {
             "status": "error",
             "run_id": run_id,
+            "recapture_applied": recapture_applied,
             "blocker_type": node.get("blocker_type"),
             "next_retry_at": node.get("next_retry_at"),
             "node": {

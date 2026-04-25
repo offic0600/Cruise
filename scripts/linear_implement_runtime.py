@@ -186,7 +186,11 @@ def upsert_recapture_request(requests: dict, *, scope_key: str, capture: dict, q
 def resolve_recapture_request(requests: dict, *, scope_key: str, artifact_hash: str):
     changed = False
     for item in requests.setdefault("requests", []):
-        if item.get("scope_key") == scope_key and item.get("artifact_hash") == artifact_hash and item.get("status") == "pending":
+        if (
+            item.get("scope_key") == scope_key
+            and item.get("status") in {"pending", "recaptured_pending_validation"}
+            and artifact_hash in {item.get("artifact_hash"), item.get("recaptured_artifact_hash")}
+        ):
             item["status"] = "resolved_valid_evidence"
             item["resolved_at"] = iso_now()
             item["updated_at"] = iso_now()
@@ -619,9 +623,11 @@ def existing_queue_keys(queue: dict):
     return artifact_hashes, scope_keys
 
 
-def find_queue_item_by_cluster(queue: dict, cluster_id: str):
-    for item in queue.get("items", []):
+def find_queue_item_by_cluster(queue: dict, cluster_id: str, *, include_done=True):
+    for item in reversed(queue.get("items", [])):
         if item.get("cluster_id") == cluster_id:
+            if not include_done and item.get("status") == "done":
+                continue
             return item
     return None
 
@@ -750,7 +756,26 @@ def enqueue_evidence_clusters(queue: dict, ledger: dict, requests: dict):
     if not cluster:
         return added
 
-    existing = find_queue_item_by_cluster(queue, TEAM_ISSUES_CLUSTER_ID)
+    same_work = find_queue_item(queue, cluster["work_id"])
+    if same_work and same_work.get("status") == "done":
+        return added
+
+    previous_done = find_queue_item_by_cluster(queue, TEAM_ISSUES_CLUSTER_ID)
+    if previous_done and previous_done.get("status") == "done" and previous_done.get("work_id") != cluster["work_id"]:
+        cluster["followup_of"] = previous_done.get("work_id")
+        cluster["implementation_slice"] = {
+            **cluster["implementation_slice"],
+            "name": "team issues list newly recaptured scope parity",
+            "expected_change": (
+                "50-300 lines focused on newly valid recaptured scopes plus shared team issue list feedback"
+            ),
+        }
+
+    existing = same_work or find_queue_item_by_cluster(
+        queue,
+        TEAM_ISSUES_CLUSTER_ID,
+        include_done=False,
+    )
     if existing:
         if existing.get("status") == "done":
             return added
