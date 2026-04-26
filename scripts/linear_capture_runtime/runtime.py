@@ -587,9 +587,15 @@ def select_next_node(frontier: dict):
             return 0
         return NODE_TYPE_ORDER.get(node.get("node_type"), 9) + 1
 
+    def status_rank(node: dict) -> int:
+        if node.get("status") == "retryable_blocked":
+            return 1
+        return 0
+
     eligible.sort(
         key=lambda node: (
             lane_rank(node),
+            status_rank(node),
             int(node.get("priority", 999)),
             node.get("next_retry_at") or "",
             node.get("created_at", ""),
