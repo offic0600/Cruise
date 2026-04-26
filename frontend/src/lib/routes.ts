@@ -30,6 +30,10 @@ export function workspaceMyIssuesPath(workspaceSlug: string) {
   return normalizePath(`/${workspaceSlug}/my-issues`);
 }
 
+export function workspaceMyIssuesAssignedPath(workspaceSlug: string) {
+  return normalizePath(`/${workspaceSlug}/my-issues/assigned`);
+}
+
 export function workspaceInboxPath(workspaceSlug: string) {
   return normalizePath(`/${workspaceSlug}/inbox`);
 }
@@ -69,6 +73,10 @@ export function resourceTypeToViewSegment(resourceType: ViewResourceType): Works
 
 export function workspaceViewsPath(workspaceSlug: string, resourceType: WorkspaceViewResourceSegment) {
   return normalizePath(`/${workspaceSlug}/views/${resourceType}`);
+}
+
+export function workspaceViewsRootPath(workspaceSlug: string) {
+  return normalizePath(`/${workspaceSlug}/views`);
 }
 
 export function workspaceNewViewPath(workspaceSlug: string, resourceType: WorkspaceViewResourceSegment) {

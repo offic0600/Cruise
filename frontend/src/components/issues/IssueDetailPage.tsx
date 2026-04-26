@@ -32,10 +32,12 @@ import {
   Plus,
   Quote,
   Repeat,
+  Search,
   SmilePlus,
   Star,
   Tag,
   Trash2,
+  UserCircle2,
 } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import { IssueDetailActionBar } from '@/components/issues/issue-detail/IssueDetailActionBar';
@@ -78,7 +80,16 @@ import {
 import { getStoredUser } from '@/lib/auth';
 import { useIssueDetailWorkspace, useIssueMutations } from '@/lib/query/issues';
 import { queryKeys } from '@/lib/query/keys';
-import { issueDetailPath, slugifyPathSegment, teamActivePath } from '@/lib/routes';
+import {
+  issueDetailPath,
+  slugifyPathSegment,
+  teamActivePath,
+  workspaceInboxPath,
+  workspaceMyIssuesAssignedPath,
+  workspaceRootPath,
+  workspaceSectionPath,
+  workspaceViewsRootPath,
+} from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
 const EMPTY = '__empty__';
@@ -996,6 +1007,15 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
             onCopyPrompt={() => void copyIssuePrompt()}
             onConfigureCodingTools={showCodingToolsHint}
           />
+
+          {currentOrganizationSlug ? (
+            <IssueDetailNavigationLaunchpad
+              workspaceSlug={currentOrganizationSlug}
+              teamHref={currentTeamKey ? teamActivePath(currentOrganizationSlug, currentTeamKey) : null}
+              createIssueHref={`/issues/new?teamId=${issue.teamId ?? currentTeamId ?? ''}`}
+              t={t}
+            />
+          ) : null}
 
           <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_292px]">
             <main className="min-w-0 space-y-8">
@@ -1969,6 +1989,89 @@ function IssueDetailDeveloperHandoff({
           <FolderKanban className="h-4 w-4 text-slate-300" />
           {t('issues.detailPage.configureTools')}
         </button>
+      </div>
+    </section>
+  );
+}
+
+function IssueDetailNavigationLaunchpad({
+  workspaceSlug,
+  teamHref,
+  createIssueHref,
+  t,
+}: {
+  workspaceSlug: string;
+  teamHref: string | null;
+  createIssueHref: string;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}) {
+  const launchItems = [
+    {
+      href: workspaceSectionPath(workspaceSlug, 'search'),
+      label: t('issues.detailPage.launchSearch'),
+      description: t('issues.detailPage.launchSearchDescription'),
+      icon: Search,
+    },
+    {
+      href: createIssueHref,
+      label: t('issues.detailPage.launchCreateIssue'),
+      description: t('issues.detailPage.launchCreateIssueDescription'),
+      icon: Plus,
+    },
+    {
+      href: workspaceInboxPath(workspaceSlug),
+      label: t('nav.inbox'),
+      description: t('issues.detailPage.launchInboxDescription'),
+      icon: MessageSquare,
+    },
+    {
+      href: workspaceMyIssuesAssignedPath(workspaceSlug),
+      label: t('nav.myIssues'),
+      description: t('issues.detailPage.launchMyIssuesDescription'),
+      icon: UserCircle2,
+    },
+    {
+      href: workspaceViewsRootPath(workspaceSlug),
+      label: t('nav.views'),
+      description: t('issues.detailPage.launchViewsDescription'),
+      icon: CircleEllipsis,
+    },
+    {
+      href: teamHref ?? workspaceRootPath(workspaceSlug),
+      label: t('issues.detailPage.launchWorkspace'),
+      description: t('issues.detailPage.launchWorkspaceDescription'),
+      icon: FolderKanban,
+    },
+  ];
+
+  return (
+    <section className="rounded-[24px] border border-border-soft bg-white p-3 shadow-[0_12px_34px_rgba(15,23,42,0.04)]">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-1 pb-3">
+        <div>
+          <div className="text-sm font-semibold text-ink-900">{t('issues.detailPage.navigationLaunchpad')}</div>
+          <p className="mt-1 text-sm text-ink-500">{t('issues.detailPage.navigationLaunchpadDescription')}</p>
+        </div>
+        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-ink-500">⌘K</span>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        {launchItems.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="group flex min-h-20 items-start gap-3 rounded-2xl border border-transparent bg-slate-50 px-3 py-3 transition hover:border-border-soft hover:bg-white hover:shadow-[0_10px_28px_rgba(15,23,42,0.06)]"
+            >
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white text-ink-500 ring-1 ring-inset ring-slate-200 transition group-hover:bg-slate-950 group-hover:text-white">
+                <Icon className="h-4 w-4" />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold text-ink-900">{item.label}</span>
+                <span className="mt-1 line-clamp-2 block text-xs leading-5 text-ink-500">{item.description}</span>
+              </span>
+            </Link>
+          );
+        })}
       </div>
     </section>
   );

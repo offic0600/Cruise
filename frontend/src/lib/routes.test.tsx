@@ -4,7 +4,7 @@ import { render, screen, within } from '@testing-library/react';
 import type { Issue } from '@/lib/api';
 import { IssueDetailRouteEmptyState, IssueDetailRouteEmptyStateCard, IssueDetailRouteSkeleton, buildIssueDetailRouteBackLink, buildIssueDetailRouteEmptyCopy, buildIssueDetailRouteEmptyStateBackLinkModel, buildIssueDetailRouteEmptyStateCardModel, buildIssueDetailRouteEmptyStateCardTestIds, buildIssueDetailRouteEmptyStateLinkHref, buildIssueDetailRouteEmptyStateModel, buildIssueDetailRouteShellModel } from '@/app/[workspaceSlug]/issue/[identifier]/[titleSlug]/page';
 import { buildIssueDetailRouteBackLinkProps, loadIssueDetailRouteLookup } from '@/app/issues/[id]/page';
-import { issueDetailPath, issueViewFromTeamRoute, parseTeamRoute, parseWorkspaceSlug, replaceTeamKeyInPath, teamActivePath, teamIssuesPath, teamNewViewPath, teamProjectsPath, teamViewsRootPath } from '@/lib/routes';
+import { issueDetailPath, issueViewFromTeamRoute, parseTeamRoute, parseWorkspaceSlug, replaceTeamKeyInPath, teamActivePath, teamIssuesPath, teamNewViewPath, teamProjectsPath, teamViewsRootPath, workspaceMyIssuesAssignedPath, workspaceViewsRootPath } from '@/lib/routes';
 
 const issueDetailPageSpy = vi.fn();
 
@@ -155,6 +155,8 @@ describe('routes helpers for active issues workspace routing', () => {
     expect(teamProjectsPath('acme', 'eng')).toBe('/acme/team/eng/projects/all');
     expect(teamViewsRootPath('acme', 'eng')).toBe('/acme/team/eng/views');
     expect(teamNewViewPath('acme', 'eng')).toBe('/acme/team/eng/view/new');
+    expect(workspaceViewsRootPath('acme')).toBe('/acme/views');
+    expect(workspaceMyIssuesAssignedPath('acme')).toBe('/acme/my-issues/assigned');
   });
 
   it('preserves backlog and done suffixes when replacing the team key', () => {
