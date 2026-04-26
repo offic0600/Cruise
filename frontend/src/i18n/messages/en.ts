@@ -646,6 +646,11 @@ const enMessages = {
       quoteLatestComment: "Quote latest",
       mentionAssignee: "Mention assignee",
       insertChecklist: "Checklist",
+      developerHandoff: "Developer handoff",
+      developerHandoffDescription: "Copy the branch, prompt, or coding setup without opening the more menu.",
+      copyBranchName: "Branch",
+      copyPrompt: "Prompt",
+      configureTools: "Tools",
     },
     activityEvent: {
       system: "System",

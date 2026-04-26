@@ -33,6 +33,7 @@ export function IssueDetailActionBar({
   onCreateRelated,
   onAddLink,
   onCopyPrompt,
+  onCopyBranchName,
   onConfigureCodingTools,
   isFavorite,
   onToggleFavorite,
@@ -45,6 +46,7 @@ export function IssueDetailActionBar({
   onCreateRelated: (relation: 'subIssue' | 'related') => Promise<void>;
   onAddLink: () => Promise<void>;
   onCopyPrompt: () => Promise<void>;
+  onCopyBranchName: () => Promise<void>;
   onConfigureCodingTools: () => void;
   isFavorite: boolean;
   onToggleFavorite: () => void;
@@ -154,6 +156,10 @@ export function IssueDetailActionBar({
             <DropdownMenuItem onSelect={() => void runAction('Prompt copied', onCopyPrompt)} className="flex items-center justify-between rounded-xl px-3 py-2.5">
               <span>Copy as prompt</span>
               <span className="text-xs text-ink-400">Ctrl Alt P</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void runAction('Branch copied', onCopyBranchName)} className="flex items-center justify-between rounded-xl px-3 py-2.5">
+              <span>Copy branch name</span>
+              <span className="text-xs text-ink-400">Git</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={onConfigureCodingTools} className="gap-3 rounded-xl px-3 py-2.5">

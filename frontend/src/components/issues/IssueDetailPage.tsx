@@ -78,7 +78,7 @@ import {
 import { getStoredUser } from '@/lib/auth';
 import { useIssueDetailWorkspace, useIssueMutations } from '@/lib/query/issues';
 import { queryKeys } from '@/lib/query/keys';
-import { issueDetailPath, teamActivePath } from '@/lib/routes';
+import { issueDetailPath, slugifyPathSegment, teamActivePath } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
 const EMPTY = '__empty__';
@@ -452,6 +452,11 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
       labelNames: draftIssue?.labelIds.map((labelId) => labelMap.get(labelId)).filter(Boolean) as string[] | undefined,
     });
     await copyText(prompt, issue.identifier);
+  };
+
+  const copyBranchName = async () => {
+    if (!issue) return;
+    await copyText(buildIssueBranchName(issue), issue.identifier);
   };
 
   const showCodingToolsHint = () => {
@@ -904,6 +909,7 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
                 onCreateRelated={createRelatedIssue}
                 onAddLink={addLinkAttachment}
                 onCopyPrompt={copyIssuePrompt}
+                onCopyBranchName={copyBranchName}
                 onConfigureCodingTools={showCodingToolsHint}
                 isFavorite={isFavorite}
                 onToggleFavorite={toggleFavorite}
@@ -961,6 +967,15 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
             }}
             onAddDocument={() => void quickCreateDoc()}
             onToggleSubscribed={() => setIsSubscribed((current) => !current)}
+          />
+
+          <IssueDetailDeveloperHandoff
+            issue={issue}
+            branchName={buildIssueBranchName(issue)}
+            t={t}
+            onCopyBranchName={() => void copyBranchName()}
+            onCopyPrompt={() => void copyIssuePrompt()}
+            onConfigureCodingTools={showCodingToolsHint}
           />
 
           <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_292px]">
@@ -1882,6 +1897,61 @@ function CommentComposerQuickButton({
     >
       {label}
     </button>
+  );
+}
+
+function IssueDetailDeveloperHandoff({
+  issue,
+  branchName,
+  t,
+  onCopyBranchName,
+  onCopyPrompt,
+  onConfigureCodingTools,
+}: {
+  issue: Issue;
+  branchName: string;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+  onCopyBranchName: () => void;
+  onCopyPrompt: () => void;
+  onConfigureCodingTools: () => void;
+}) {
+  return (
+    <section className="grid gap-3 rounded-[24px] border border-dashed border-slate-300 bg-white/80 p-4 shadow-[0_12px_34px_rgba(15,23,42,0.04)] md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-slate-950 px-2.5 py-1 text-xs font-semibold text-white">{t('issues.detailPage.developerHandoff')}</span>
+          <span className="text-xs font-medium text-ink-400">{issue.identifier}</span>
+        </div>
+        <div className="mt-2 truncate font-mono text-sm text-ink-700">{branchName}</div>
+        <p className="mt-1 text-sm text-ink-500">{t('issues.detailPage.developerHandoffDescription')}</p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={onCopyBranchName}
+          className="inline-flex h-9 items-center gap-2 rounded-full border border-border-soft bg-white px-3 text-sm font-medium text-ink-700 transition hover:bg-slate-50"
+        >
+          <Copy className="h-4 w-4 text-ink-400" />
+          {t('issues.detailPage.copyBranchName')}
+        </button>
+        <button
+          type="button"
+          onClick={onCopyPrompt}
+          className="inline-flex h-9 items-center gap-2 rounded-full border border-border-soft bg-white px-3 text-sm font-medium text-ink-700 transition hover:bg-slate-50"
+        >
+          <MessageSquare className="h-4 w-4 text-ink-400" />
+          {t('issues.detailPage.copyPrompt')}
+        </button>
+        <button
+          type="button"
+          onClick={onConfigureCodingTools}
+          className="inline-flex h-9 items-center gap-2 rounded-full bg-slate-950 px-3 text-sm font-medium text-white transition hover:bg-slate-900"
+        >
+          <FolderKanban className="h-4 w-4 text-slate-300" />
+          {t('issues.detailPage.configureTools')}
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -3224,6 +3294,11 @@ function buildIssuePrompt({
 
   lines.push('', 'Please help me work on this issue with the context above.');
   return lines.join('\n');
+}
+
+function buildIssueBranchName(issue: Pick<Issue, 'identifier' | 'title'>) {
+  const titleSlug = slugifyPathSegment(issue.title).slice(0, 56).replace(/-+$/g, '');
+  return `feature/${issue.identifier.toLowerCase()}${titleSlug ? `-${titleSlug}` : ''}`;
 }
 
 function translateIssueValue(t: (key: string) => string, key: string, fallback: string) {

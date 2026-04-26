@@ -388,6 +388,11 @@ const zhCNMessages = {
       quoteLatestComment: '引用最新',
       mentionAssignee: '提及负责人',
       insertChecklist: '检查项',
+      developerHandoff: '开发交接',
+      developerHandoffDescription: '不用打开更多菜单，也能复制分支、提示词或配置开发工具。',
+      copyBranchName: '分支',
+      copyPrompt: '提示词',
+      configureTools: '工具',
     },
     activityEvent: {
       system: '系统',
