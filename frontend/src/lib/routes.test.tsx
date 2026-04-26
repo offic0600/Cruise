@@ -4,7 +4,7 @@ import { render, screen, within } from '@testing-library/react';
 import type { Issue } from '@/lib/api';
 import { IssueDetailRouteEmptyState, IssueDetailRouteEmptyStateCard, IssueDetailRouteSkeleton, buildIssueDetailRouteBackLink, buildIssueDetailRouteEmptyCopy, buildIssueDetailRouteEmptyStateBackLinkModel, buildIssueDetailRouteEmptyStateCardModel, buildIssueDetailRouteEmptyStateCardTestIds, buildIssueDetailRouteEmptyStateLinkHref, buildIssueDetailRouteEmptyStateModel, buildIssueDetailRouteShellModel } from '@/app/[workspaceSlug]/issue/[identifier]/[titleSlug]/page';
 import { buildIssueDetailRouteBackLinkProps, loadIssueDetailRouteLookup } from '@/app/issues/[id]/page';
-import { issueDetailPath, issueViewFromTeamRoute, parseTeamRoute, parseWorkspaceSlug, replaceTeamKeyInPath, teamActivePath, teamIssuesPath, teamNewViewPath, teamProjectsPath, teamViewsRootPath, workspaceMyIssuesAssignedPath, workspaceViewsRootPath } from '@/lib/routes';
+import { issueDetailPath, issueViewFromTeamRoute, parseTeamRoute, parseWorkspaceSlug, replaceTeamKeyInPath, teamActivePath, teamIssuesPath, teamNewViewPath, teamProjectsPath, teamViewsRootPath, workspaceGithubIntegrationPath, workspaceIntegrationPath, workspaceMyIssuesAssignedPath, workspaceViewsRootPath } from '@/lib/routes';
 
 const issueDetailPageSpy = vi.fn();
 
@@ -157,6 +157,9 @@ describe('routes helpers for active issues workspace routing', () => {
     expect(teamNewViewPath('acme', 'eng')).toBe('/acme/team/eng/view/new');
     expect(workspaceViewsRootPath('acme')).toBe('/acme/views');
     expect(workspaceMyIssuesAssignedPath('acme')).toBe('/acme/my-issues/assigned');
+    expect(workspaceIntegrationPath('acme', 'slack')).toBe('/acme/settings/integrations/slack');
+    expect(workspaceGithubIntegrationPath('acme')).toBe('/acme/settings/integrations/github?source=try');
+    expect(workspaceGithubIntegrationPath('acme', 'issue-detail')).toBe('/acme/settings/integrations/github?source=issue-detail');
   });
 
   it('preserves backlog and done suffixes when replacing the team key', () => {

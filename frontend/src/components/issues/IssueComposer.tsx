@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Calendar, CalendarPlus, CheckCircle2, ChevronDown, ChevronRight, Circle, CircleDashed, CircleEllipsis, Equal, Expand, Flame, Link2, LoaderCircle, Minimize2, Minus, MoreHorizontal, Paperclip, Repeat, Save, Tag, UserCircle2, X, XCircle } from 'lucide-react';
+import { Calendar, CalendarPlus, CheckCircle2, ChevronDown, ChevronRight, Circle, CircleDashed, CircleEllipsis, Equal, Expand, Flame, FolderKanban, GitBranchPlus, Link2, LoaderCircle, Minimize2, Minus, MoreHorizontal, Paperclip, Repeat, Save, Tag, UserCircle2, X, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/providers/ToastProvider';
 import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
@@ -67,7 +67,7 @@ import {
   parseIssueCreateParams,
 } from '@/lib/issues/composer';
 import { queryKeys } from '@/lib/query/keys';
-import { issueDetailPath, teamSettingsPath, workspaceSectionPath } from '@/lib/routes';
+import { issueDetailPath, teamSettingsPath, workspaceGithubIntegrationPath, workspaceSectionPath } from '@/lib/routes';
 import { buildIssueCreatedToast } from '@/lib/toast/issue-created';
 import { cn } from '@/lib/utils';
 import { issuePriorityIcon, issuePriorityLabelKey, issueStatusMenuIcon, issueStatusMenuLabelKey } from './issues-list-utils';
@@ -500,6 +500,8 @@ export default function IssueComposer({
       templates={templates}
       currentUserId={storedUser?.id != null ? String(storedUser.id) : null}
       currentUserName={storedUser?.username ?? null}
+      currentOrganizationSlug={currentOrganizationSlug}
+      currentTeamKey={currentTeamKey}
       t={t}
       locale={locale}
       isExpanded={isExpanded}
@@ -613,6 +615,8 @@ function QuickCreateView({
   templates,
   currentUserId,
   currentUserName,
+  currentOrganizationSlug,
+  currentTeamKey,
   t,
   locale,
   isExpanded,
@@ -648,6 +652,8 @@ function QuickCreateView({
   templates: IssueTemplate[];
   currentUserId: string | null;
   currentUserName: string | null;
+  currentOrganizationSlug: string | null;
+  currentTeamKey: string | null;
   t: (key: string, params?: Record<string, string | number>) => string;
   locale: Locale;
   isExpanded: boolean;
@@ -809,6 +815,19 @@ function QuickCreateView({
         createPending={createPending}
         createError={createError}
         recurringEnabled={recurringEnabled}
+        t={t}
+        compact={!isExpanded}
+      />
+
+      <ComposerContextDock
+        draft={draft}
+        projects={projects}
+        teams={teams}
+        members={members}
+        pendingFiles={pendingFiles}
+        templates={templates}
+        currentOrganizationSlug={currentOrganizationSlug}
+        currentTeamKey={currentTeamKey}
         t={t}
         compact={!isExpanded}
       />
@@ -1012,6 +1031,18 @@ function FullCreateView({
         createPending={createPending}
         createError={createError}
         recurringEnabled={false}
+        t={t}
+      />
+
+      <ComposerContextDock
+        draft={draft}
+        projects={projects}
+        teams={teams}
+        members={members}
+        pendingFiles={pendingFiles}
+        templates={templates}
+        currentOrganizationSlug={currentOrganizationSlug}
+        currentTeamKey={currentTeamKey}
         t={t}
       />
 
@@ -1363,6 +1394,127 @@ function ComposerSubmitPlan({
         ))}
       </div>
     </div>
+  );
+}
+
+function ComposerContextDock({
+  draft,
+  projects,
+  teams,
+  members,
+  pendingFiles,
+  templates,
+  currentOrganizationSlug,
+  currentTeamKey,
+  t,
+  compact = false,
+}: {
+  draft: IssueComposerDraft;
+  projects: Array<{ id: number; name: string }>;
+  teams: Array<{ id: number; name: string }>;
+  members: TeamMember[];
+  pendingFiles: File[];
+  templates: IssueTemplate[];
+  currentOrganizationSlug: string | null;
+  currentTeamKey: string | null;
+  t: (key: string, params?: Record<string, string | number>) => string;
+  compact?: boolean;
+}) {
+  const selectedProject = projects.find((project) => String(project.id) === draft.projectId)?.name;
+  const selectedTeam = teams.find((team) => String(team.id) === draft.teamId)?.name;
+  const selectedAssignee = members.find((member) => String(member.id) === draft.assigneeId)?.name;
+  const selectedTemplate = templates.find((template) => String(template.id) === draft.templateId)?.name;
+  const linkCount = countDraftLinks(draft);
+  const githubHref = currentOrganizationSlug ? workspaceGithubIntegrationPath(currentOrganizationSlug, 'issue-create') : null;
+  const templateHref =
+    currentOrganizationSlug && currentTeamKey
+      ? teamSettingsPath(currentOrganizationSlug, currentTeamKey, 'templates')
+      : null;
+
+  const cards = [
+    {
+      id: 'scope',
+      icon: FolderKanban,
+      label: t('settings.composer.contextScope'),
+      value: [selectedTeam ?? t('common.notSet'), selectedProject ?? t('settings.composer.noProject')].join(' · '),
+      detail: selectedTemplate
+        ? t('settings.composer.contextTemplateValue', { name: selectedTemplate })
+        : t('settings.composer.contextNoTemplate'),
+    },
+    {
+      id: 'ownership',
+      icon: UserCircle2,
+      label: t('settings.composer.contextOwnership'),
+      value: selectedAssignee ?? t('common.notSet'),
+      detail: draft.priority ? issuePriorityLabel(draft.priority, t) : t('views.new.preview.noPriority'),
+    },
+    {
+      id: 'resources',
+      icon: Link2,
+      label: t('settings.composer.contextResources'),
+      value: [
+        linkCount ? t('settings.composer.linkCount', { count: linkCount }) : t('settings.composer.noLinks'),
+        pendingFiles.length ? t('settings.composer.filesSelected', { count: pendingFiles.length }) : t('settings.composer.noAttachments'),
+      ].join(' · '),
+      detail: t('settings.composer.submitPlanBody'),
+    },
+  ];
+
+  return (
+    <section
+      data-testid="issue-create-context-dock"
+      className={cn(
+        'mt-4 rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-[0_12px_34px_rgba(15,23,42,0.04)]',
+        compact ? 'hidden md:block' : ''
+      )}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-ink-900">{t('settings.composer.creationContextTitle')}</div>
+          <p className="mt-1 text-sm text-ink-500">{t('settings.composer.creationContextDescription')}</p>
+        </div>
+        {githubHref ? (
+          <Link
+            href={githubHref}
+            className="inline-flex h-9 items-center gap-2 rounded-full bg-slate-950 px-3 text-sm font-semibold text-white transition hover:bg-slate-900"
+          >
+            <GitBranchPlus className="h-4 w-4 text-slate-300" />
+            {t('settings.composer.connectGitHub')}
+          </Link>
+        ) : (
+          <span className="inline-flex h-9 items-center rounded-full border border-border-soft bg-slate-50 px-3 text-xs font-semibold text-ink-400">
+            {t('settings.composer.contextGitHubUnavailable')}
+          </span>
+        )}
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        {cards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <div key={card.id} className="rounded-2xl border border-black/5 bg-slate-50 px-4 py-3">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-ink-400">
+                <Icon className="h-4 w-4 text-ink-400" />
+                {card.label}
+              </div>
+              <div className="mt-2 truncate text-sm font-semibold text-ink-900">{card.value}</div>
+              <div className="mt-1 truncate text-xs text-ink-500">{card.detail}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-ink-500">
+        <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-ink-600">
+          {t('settings.composer.contextGitHubDescription')}
+        </span>
+        {templateHref ? (
+          <Link href={templateHref} className="rounded-full bg-white px-3 py-1 font-semibold text-ink-600 ring-1 ring-inset ring-slate-200 transition hover:bg-slate-50">
+            {t('issues.actions.manageTemplates')}
+          </Link>
+        ) : null}
+      </div>
+    </section>
   );
 }
 

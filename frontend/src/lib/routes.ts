@@ -26,6 +26,16 @@ export function workspaceSectionPath(workspaceSlug: string, section: string) {
   return normalizePath(`/${workspaceSlug}/${section}`);
 }
 
+export function workspaceIntegrationPath(workspaceSlug: string, integration: string, source?: string) {
+  const path = normalizePath(`/${workspaceSlug}/settings/integrations/${integration}`);
+  if (!source?.trim()) return path;
+  return `${path}?${new URLSearchParams({ source: source.trim() }).toString()}`;
+}
+
+export function workspaceGithubIntegrationPath(workspaceSlug: string, source = 'try') {
+  return workspaceIntegrationPath(workspaceSlug, 'github', source);
+}
+
 export function workspaceMyIssuesPath(workspaceSlug: string) {
   return normalizePath(`/${workspaceSlug}/my-issues`);
 }
