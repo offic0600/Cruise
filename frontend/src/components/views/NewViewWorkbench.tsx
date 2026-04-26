@@ -342,8 +342,10 @@ function DisplayToggleRow({
 
 export default function NewViewWorkbench({
   resourceType,
+  initialSaveTarget = 'PERSONAL',
 }: {
   resourceType: ViewResourceType;
+  initialSaveTarget?: SaveTarget;
 }) {
   const router = useRouter();
   const { locale, t } = useI18n();
@@ -357,7 +359,7 @@ export default function NewViewWorkbench({
     isLoading: workspaceLoading,
   } = useCurrentWorkspace();
   const createViewMutation = useCreateView();
-  const [saveTarget, setSaveTarget] = useState<SaveTarget>('PERSONAL');
+  const [saveTarget, setSaveTarget] = useState<SaveTarget>(initialSaveTarget);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [queryState, setQueryState] = useState<ViewQueryState>(() => createDefaultViewQueryState(resourceType));

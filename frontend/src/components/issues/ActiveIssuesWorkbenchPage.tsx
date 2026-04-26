@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Sheet, SheetContent, SheetDismissButton, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useI18n } from '@/i18n/useI18n';
 import type { CustomFieldDefinition, Team } from '@/lib/api';
-import { issueDetailPath, issueViewFromTeamRoute, teamIssuesPath, workspaceNewViewPath } from '@/lib/routes';
+import { issueDetailPath, issueViewFromTeamRoute, teamIssuesPath, teamNewViewPath } from '@/lib/routes';
 import { useIssueWorkspace } from '@/lib/query/issues';
 import {
   activeFilterSummary,
@@ -616,7 +616,7 @@ export default function ActiveIssuesWorkbenchPage() {
                 </Button>
                 {currentOrganizationSlug ? (
                   <Link
-                    href={workspaceNewViewPath(currentOrganizationSlug, 'issues')}
+                    href={currentTeam?.key ? teamNewViewPath(currentOrganizationSlug, currentTeam.key) : '#'}
                     className="inline-flex h-10 items-center rounded-full border border-slate-800 bg-slate-900 px-3 text-sm font-medium text-slate-200 transition hover:bg-slate-800"
                   >
                     <LayoutList className="mr-2 h-4 w-4" />

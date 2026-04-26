@@ -13,6 +13,7 @@ import { useCreateView, useViewsIndex } from '@/lib/query/views';
 import { createDefaultViewQueryState } from '@/lib/views/queryState';
 import {
   resourceTypeToViewSegment,
+  teamNewViewPath,
   workspaceNewViewPath,
   workspaceProjectViewPath,
   workspaceViewPath,
@@ -115,6 +116,10 @@ export default function ViewsDirectory({
   async function handleCreate() {
     if (!currentOrganizationSlug) return;
     if (resourceType === 'INITIATIVE' || defaultQueryState.display.visibleColumns.length === 0) return;
+    if (scopeType === 'TEAM' && (teamKey ?? currentTeamKey)) {
+      router.push(teamNewViewPath(currentOrganizationSlug, teamKey ?? currentTeamKey!));
+      return;
+    }
     router.push(workspaceNewViewPath(currentOrganizationSlug, resourceTypeToViewSegment(resourceType)));
   }
 

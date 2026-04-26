@@ -38,6 +38,10 @@ export function workspaceProjectsAllPath(workspaceSlug: string) {
   return normalizePath(`/${workspaceSlug}/projects/all`);
 }
 
+export function teamProjectsPath(workspaceSlug: string, teamKey: string) {
+  return normalizePath(`/${workspaceSlug}/team/${teamKey}/projects`);
+}
+
 export function workspaceProjectViewPath(
   workspaceSlug: string,
   view: number | string | { id: number | string; name?: string | null }
@@ -73,6 +77,14 @@ export function workspaceNewViewPath(workspaceSlug: string, resourceType: Worksp
 
 export function teamViewsPath(workspaceSlug: string, teamKey: string, resourceType: 'issues') {
   return normalizePath(`/${workspaceSlug}/team/${teamKey}/views/${resourceType}`);
+}
+
+export function teamViewsRootPath(workspaceSlug: string, teamKey: string) {
+  return normalizePath(`/${workspaceSlug}/team/${teamKey}/views`);
+}
+
+export function teamNewViewPath(workspaceSlug: string, teamKey: string) {
+  return normalizePath(`/${workspaceSlug}/team/${teamKey}/view/new`);
 }
 
 export function workspaceViewPath(
