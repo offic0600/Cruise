@@ -12,12 +12,15 @@ IMPLEMENT_ROOT = REPO_ROOT / "tmp" / "linear-implement"
 CAPTURE_LEDGER_PATH = CAPTURE_ROOT / "state" / "coverage-ledger.json"
 RECAPTURE_REQUESTS_PATH = CAPTURE_ROOT / "state" / "recapture-requests.json"
 TEAM_ISSUES_CLUSTER_ID = "team-issues-list"
+SETTINGS_CONFIGURATION_CLUSTER_ID = "settings-configuration"
+ISSUE_CREATE_FLOW_CLUSTER_ID = "issue-create-flow"
 TEAM_ISSUES_SCOPE_ORDER = [
     "workspace:cleantrack/team:CLE/active",
     "workspace:cleantrack/team:CLE/all",
     "workspace:cleantrack/team:CLE/backlog",
     "workspace:cleantrack/team:CLE/done",
 ]
+CREATE_FLOW_SCOPE_ORDER = ["create_issue", "create_project", "create_view", "create_label"]
 LINE_BUDGET = {"min": 50, "max": 300}
 
 
@@ -82,30 +85,45 @@ def load_capture_paths(latest_capture: dict):
     summary = json_load(summary_path, default={}) or {}
 
     scope_key = manifest.get("capture_scope") or latest_capture.get("latest_capture_scope")
+    run_type = manifest.get("run_type", latest_capture.get("run_type", "page"))
     page_dir_name = slugify(scope_key.replace(":", "-").replace("/", "-"))
     page_root = CAPTURE_ROOT / "runs" / latest_capture["latest_run_id"] / "pages" / page_dir_name
+    flow_root = CAPTURE_ROOT / "runs" / latest_capture["latest_run_id"] / "flows" / slugify(scope_key)
     page_json_path = page_root / "page.json"
     elements_json_path = page_root / "elements.json"
     screenshot_path = page_root / "screenshots" / "default.png"
     dom_path = page_root / "dom" / "default.json"
     har_path = page_root / "har" / "session.har.json"
+    trace_path = flow_root / "trace.json"
+    flow_har_path = flow_root / "har" / "session.har.json"
 
     return {
         "manifest_path": manifest_path,
         "summary_path": summary_path,
+        "run_type": run_type,
         "page_json_path": page_json_path,
         "elements_json_path": elements_json_path,
         "screenshot_path": screenshot_path,
         "dom_path": dom_path,
         "har_path": har_path,
+        "flow_root": flow_root,
+        "trace_path": trace_path,
+        "flow_har_path": flow_har_path,
         "manifest": manifest,
         "summary": summary,
         "page": json_load(page_json_path, default={}) or {},
         "elements": json_load(elements_json_path, default={}) or {},
+        "trace": json_load(trace_path, default={}) or {},
     }
 
 
 def capture_paths_are_actionable(capture_paths: dict) -> bool:
+    if capture_paths.get("run_type") == "flow":
+        return (
+            bool(capture_paths.get("manifest"))
+            and bool(capture_paths.get("summary"))
+            and capture_paths["trace_path"].exists()
+        )
     return (
         bool(capture_paths.get("manifest"))
         and bool(capture_paths.get("summary"))
@@ -116,6 +134,24 @@ def capture_paths_are_actionable(capture_paths: dict) -> bool:
 
 def capture_evidence_quality(capture_paths: dict) -> dict:
     reasons = []
+    if capture_paths.get("run_type") == "flow":
+        if not capture_paths_are_actionable(capture_paths):
+            reasons.append("capture_bundle_missing_flow_trace")
+            return {"status": "invalid", "reasons": reasons, "element_count": 0}
+        summary = capture_paths.get("summary") or {}
+        trace = capture_paths.get("trace") or {}
+        reason = summary.get("reason") or trace.get("reason") or summary.get("status")
+        return {
+            "status": "valid",
+            "reasons": [],
+            "element_count": int((trace.get("after_state") or {}).get("form_control_count", 0) or 0),
+            "title": capture_paths.get("manifest", {}).get("source_target_title"),
+            "url": capture_paths.get("manifest", {}).get("source_target_url"),
+            "flow_status": summary.get("status") or trace.get("status"),
+            "flow_reason": reason,
+            "mutation_status": (summary.get("mutation") or {}).get("status"),
+        }
+
     if not capture_paths_are_actionable(capture_paths):
         reasons.append("capture_bundle_missing_page_or_elements")
         return {"status": "invalid", "reasons": reasons, "element_count": 0}
@@ -236,12 +272,42 @@ def existing_source_paths(scope_key: str):
             REPO_ROOT / "frontend/src/lib/routes.ts",
         ],
         "settings": [
+            REPO_ROOT / "frontend/src/components/settings/TeamSettingsShell.tsx",
+            REPO_ROOT / "frontend/src/components/settings/TemplateSettingsView.tsx",
+            REPO_ROOT / "frontend/src/components/settings/RecurringSettingsView.tsx",
+            REPO_ROOT / "frontend/src/components/settings/EmailIntakeSettingsView.tsx",
+            REPO_ROOT / "frontend/src/app/[workspaceSlug]/team/[teamKey]/settings/[[...section]]/page.tsx",
+            REPO_ROOT / "frontend/src/app/teams/current/settings/templates/page.tsx",
+            REPO_ROOT / "frontend/src/app/teams/current/settings/recurring/page.tsx",
+            REPO_ROOT / "frontend/src/app/teams/current/settings/email-intake/page.tsx",
             REPO_ROOT / "frontend/src/components/AppLayout.tsx",
             REPO_ROOT / "frontend/src/lib/routes.ts",
+            REPO_ROOT / "frontend/src/i18n/messages/en.ts",
+            REPO_ROOT / "frontend/src/i18n/messages/zh-CN.ts",
+        ],
+        "issue_create_flow": [
+            REPO_ROOT / "frontend/src/components/issues/IssueComposer.tsx",
+            REPO_ROOT / "frontend/src/components/issues/MarkdownEditor.tsx",
+            REPO_ROOT / "frontend/src/components/issues/IssueAssigneeSelectMenu.tsx",
+            REPO_ROOT / "frontend/src/components/issues/IssueLabelsSelectMenu.tsx",
+            REPO_ROOT / "frontend/src/components/issues/IssuePrioritySelectMenu.tsx",
+            REPO_ROOT / "frontend/src/components/issues/IssueStatusSelectMenu.tsx",
+            REPO_ROOT / "frontend/src/app/issues/new/page.tsx",
+            REPO_ROOT / "frontend/src/app/[workspaceSlug]/views/issues/new/page.tsx",
+            REPO_ROOT / "frontend/src/lib/forms/issue.ts",
+            REPO_ROOT / "frontend/src/lib/issues/composer.ts",
+            REPO_ROOT / "frontend/src/lib/toast/issue-created.ts",
+            REPO_ROOT / "frontend/src/lib/routes.ts",
+            REPO_ROOT / "frontend/src/i18n/messages/en.ts",
+            REPO_ROOT / "frontend/src/i18n/messages/zh-CN.ts",
         ],
     }
     if scope_key == TEAM_ISSUES_CLUSTER_ID:
         selected = candidates["team_issues"]
+    elif scope_key == SETTINGS_CONFIGURATION_CLUSTER_ID:
+        selected = candidates["settings"]
+    elif scope_key == ISSUE_CREATE_FLOW_CLUSTER_ID:
+        selected = candidates["issue_create_flow"]
     elif scope_key == "inbox":
         selected = candidates["inbox"]
     elif scope_key.startswith("issue:"):
@@ -355,10 +421,34 @@ def build_evidence_refs(latest_capture: dict, capture_paths: dict):
         "capture_manifest": relative_to_repo(capture_paths["manifest_path"]),
         "capture_summary": relative_to_repo(capture_paths["summary_path"]),
     }
-    for key in ("page_json_path", "elements_json_path", "screenshot_path", "dom_path", "har_path"):
-        path = capture_paths[key]
-        if path.exists():
+    for key in (
+        "page_json_path",
+        "elements_json_path",
+        "screenshot_path",
+        "dom_path",
+        "har_path",
+        "trace_path",
+        "flow_har_path",
+    ):
+        path = capture_paths.get(key)
+        if path and path.exists():
             refs[key.replace("_path", "")] = relative_to_repo(path)
+    flow_root = capture_paths.get("flow_root")
+    if flow_root and flow_root.exists():
+        for label in ("before", "dialog", "filled", "after-submit", "after-open"):
+            screenshot = flow_root / "screenshots" / f"{label}.png"
+            dom = flow_root / "dom" / f"{label}.json"
+            state = flow_root / "interaction-state" / f"{label}.json"
+            if screenshot.exists():
+                refs[f"{label}_screenshot"] = relative_to_repo(screenshot)
+            if dom.exists():
+                refs[f"{label}_dom"] = relative_to_repo(dom)
+            if state.exists():
+                refs[f"{label}_interaction_state"] = relative_to_repo(state)
+        mutation_dir = flow_root.parent.parent / "mutations"
+        mutations = sorted(mutation_dir.glob("*.json")) if mutation_dir.exists() else []
+        if mutations:
+            refs["mutations"] = [relative_to_repo(path) for path in mutations]
     return refs
 
 
@@ -467,6 +557,188 @@ def build_team_issues_cluster(captures_by_scope: dict, quality_by_scope: dict):
         "created_at": iso_now(),
         "updated_at": iso_now(),
     }
+
+
+def capture_ref_for(scope_key: str, capture: dict) -> dict:
+    paths = load_capture_paths(capture)
+    return {
+        "scope_key": scope_key,
+        "capture_run_id": capture["latest_run_id"],
+        "artifact_hash": capture["latest_artifact_hash"],
+        "run_type": capture.get("run_type", "page"),
+        **build_evidence_refs(capture, paths),
+    }
+
+
+def build_settings_configuration_cluster(captures_by_scope: dict, quality_by_scope: dict):
+    settings_scopes = sorted(scope for scope in captures_by_scope if scope.startswith("settings:"))
+    valid_scopes = [
+        scope for scope in settings_scopes if quality_by_scope.get(scope, {}).get("status") == "valid"
+    ]
+    if not valid_scopes:
+        return None
+
+    captures = [captures_by_scope[scope] for scope in valid_scopes]
+    captures.sort(key=lambda capture: (capture.get("captured_at") or "", capture["latest_run_id"]))
+    artifact_hashes = [capture["latest_artifact_hash"] for capture in captures]
+    cluster_hash = hashlib.sha256("|".join(artifact_hashes).encode("utf-8")).hexdigest()
+    latest_capture = captures[-1]
+
+    return {
+        "work_id": f"{SETTINGS_CONFIGURATION_CLUSTER_ID}-{cluster_hash[:12]}",
+        "work_type": "evidence_cluster",
+        "cluster_id": SETTINGS_CONFIGURATION_CLUSTER_ID,
+        "capture_run_id": latest_capture["latest_run_id"],
+        "source_capture_run_id": latest_capture["latest_run_id"],
+        "capture_run_ids": [capture["latest_run_id"] for capture in captures],
+        "artifact_hash": cluster_hash,
+        "artifact_hashes": artifact_hashes,
+        "source_ledger_key": f"cluster:{SETTINGS_CONFIGURATION_CLUSTER_ID}",
+        "scope_dedupe_key": f"cluster:{SETTINGS_CONFIGURATION_CLUSTER_ID}",
+        "scope_key": SETTINGS_CONFIGURATION_CLUSTER_ID,
+        "scope_keys": valid_scopes,
+        "ledger_refs": [f"page:{scope}" for scope in valid_scopes],
+        "ui_surface": "Settings configuration",
+        "goal": "围绕 Settings configuration 做一个 evidence cluster 复刻：合并 settings:* 页面证据，收口设置页导航、表单/模板列表、配置卡片和反馈状态。",
+        "candidate_changes": [
+            "对齐 settings 页面左/顶部导航、section tabs、标题层级和主操作入口。",
+            "补齐 issue templates / labels / workflows / account 等设置面的列表、卡片、空态和 loading feedback。",
+            "统一 TeamSettingsShell 与 workspace/team settings 路由映射，避免 settings:* 证据只能落到 AppLayout/routes。",
+            "补齐必要 i18n 和 focused route/settings tests，确保配置页 contract 不回退。",
+        ],
+        "implementation_slice": {
+            "name": "settings configuration navigation and form surfaces",
+            "expected_change": "50-300 lines across settings shell, settings views, routes, i18n, and focused tests",
+            "allowed_gap_count": "2-6 strongly related settings UI gaps",
+        },
+        "line_budget": LINE_BUDGET,
+        "evidence_quality": {scope: quality_by_scope[scope] for scope in settings_scopes},
+        "blocked_scope_keys": [
+            scope for scope in settings_scopes if quality_by_scope.get(scope, {}).get("status") != "valid"
+        ],
+        "evidence_refs": {
+            "capture_latest": relative_to_repo(CAPTURE_ROOT / "latest.json"),
+            "captures": [capture_ref_for(scope, captures_by_scope[scope]) for scope in valid_scopes],
+        },
+        "acceptance_checks": [
+            "settings:* valid scopes 在同一 settings-configuration cluster 下共享一致的设置导航、标题层级、表单/列表和反馈状态。",
+            "本轮产品代码改动保持在 50-300 行左右，且不是 blocker-only / route-only。",
+            "`cd frontend && npx tsc --noEmit`",
+            "若改动 settings route helper、TeamSettingsShell 或 i18n，补 focused test 并运行对应 `pnpm test -- --run ...`。",
+        ],
+        "source_paths": existing_source_paths(SETTINGS_CONFIGURATION_CLUSTER_ID),
+        "milestone_summary": "settings-configuration evidence cluster：settings:* 的导航、配置列表/表单与关键反馈状态已按 capture cluster 收口。",
+        "status": "pending",
+        "created_at": iso_now(),
+        "updated_at": iso_now(),
+    }
+
+
+def build_issue_create_flow_cluster(captures_by_scope: dict, quality_by_scope: dict):
+    flow_scopes = [scope for scope in CREATE_FLOW_SCOPE_ORDER if scope in captures_by_scope]
+    valid_scopes = [
+        scope for scope in flow_scopes if quality_by_scope.get(scope, {}).get("status") == "valid"
+    ]
+    if not valid_scopes:
+        return None
+
+    captures = [captures_by_scope[scope] for scope in valid_scopes]
+    captures.sort(key=lambda capture: (capture.get("captured_at") or "", capture["latest_run_id"]))
+    artifact_hashes = [capture["latest_artifact_hash"] for capture in captures]
+    cluster_hash = hashlib.sha256("|".join(artifact_hashes).encode("utf-8")).hexdigest()
+    latest_capture = captures[-1]
+
+    return {
+        "work_id": f"{ISSUE_CREATE_FLOW_CLUSTER_ID}-{cluster_hash[:12]}",
+        "work_type": "evidence_cluster",
+        "cluster_id": ISSUE_CREATE_FLOW_CLUSTER_ID,
+        "capture_run_id": latest_capture["latest_run_id"],
+        "source_capture_run_id": latest_capture["latest_run_id"],
+        "capture_run_ids": [capture["latest_run_id"] for capture in captures],
+        "artifact_hash": cluster_hash,
+        "artifact_hashes": artifact_hashes,
+        "source_ledger_key": f"cluster:{ISSUE_CREATE_FLOW_CLUSTER_ID}",
+        "scope_dedupe_key": f"cluster:{ISSUE_CREATE_FLOW_CLUSTER_ID}",
+        "scope_key": ISSUE_CREATE_FLOW_CLUSTER_ID,
+        "scope_keys": valid_scopes,
+        "ledger_refs": [f"flow:{scope}" for scope in valid_scopes],
+        "ui_surface": "Issue create flow",
+        "goal": "围绕 Issue create flow 做一个 evidence cluster 复刻：把 create_issue flow 证据转成可执行的创建入口、composer 弹窗/页面和提交反馈闭环。",
+        "candidate_changes": [
+            "让 issue detail / issues list 等入口的 Create new issue 能打开与 Linear 对齐的 IssueComposer modal 或 page surface。",
+            "对齐创建表单的标题、team/project/status/priority/assignee/label/template/description 控件层级和 loading feedback。",
+            "补齐 create-more、保存草稿、创建成功 toast/跳转，以及失败/readonly 状态的反馈 contract。",
+            "保留 sandbox 前缀证据约束，确保测试只验证创建 flow 行为，不触碰 destructive 操作。",
+        ],
+        "implementation_slice": {
+            "name": "issue create entrypoints and composer feedback",
+            "expected_change": "50-300 lines across IssueComposer, create routes, issue form helpers, toast, i18n, and focused tests",
+            "allowed_gap_count": "2-6 strongly related issue create flow gaps",
+        },
+        "line_budget": LINE_BUDGET,
+        "evidence_quality": {scope: quality_by_scope[scope] for scope in flow_scopes},
+        "blocked_scope_keys": [
+            scope for scope in flow_scopes if quality_by_scope.get(scope, {}).get("status") != "valid"
+        ],
+        "evidence_refs": {
+            "capture_latest": relative_to_repo(CAPTURE_ROOT / "latest.json"),
+            "captures": [capture_ref_for(scope, captures_by_scope[scope]) for scope in valid_scopes],
+        },
+        "acceptance_checks": [
+            "Create new issue 入口能打开 issue create surface，而不是产生 no-op / safe_create_form_not_opened。",
+            "IssueComposer 的核心控件、提交反馈和成功 toast/跳转对齐 create_issue flow evidence。",
+            "`cd frontend && npx tsc --noEmit`",
+            "若改动 composer helpers、routes 或 toast，补 focused test 并运行对应 `pnpm test -- --run ...`。",
+        ],
+        "source_paths": existing_source_paths(ISSUE_CREATE_FLOW_CLUSTER_ID),
+        "milestone_summary": "issue-create-flow evidence cluster：创建入口、IssueComposer 表单与提交反馈已按 create_issue flow evidence 收口。",
+        "status": "pending",
+        "created_at": iso_now(),
+        "updated_at": iso_now(),
+    }
+
+
+def enqueue_cluster_item(queue: dict, ledger: dict, cluster: dict):
+    if not cluster:
+        return []
+    same_work = find_queue_item(queue, cluster["work_id"])
+    if same_work and same_work.get("status") == "done":
+        return []
+
+    previous_done = find_queue_item_by_cluster(queue, cluster["cluster_id"])
+    if (
+        previous_done
+        and previous_done.get("status") == "done"
+        and previous_done.get("work_id") != cluster["work_id"]
+    ):
+        cluster["followup_of"] = previous_done.get("work_id")
+
+    existing = same_work or find_queue_item_by_cluster(
+        queue,
+        cluster["cluster_id"],
+        include_done=False,
+    )
+    if existing:
+        created_at = existing.get("created_at") or cluster.get("created_at")
+        work_id = existing.get("work_id")
+        existing.update({key: value for key, value in cluster.items() if key != "work_id"})
+        existing["work_id"] = work_id
+        existing["created_at"] = created_at
+        existing["status"] = "pending"
+        existing["updated_at"] = iso_now()
+        item = existing
+        added = []
+    else:
+        queue.setdefault("items", []).append(cluster)
+        item = cluster
+        added = [cluster["work_id"]]
+
+    for ledger_key in item.get("ledger_refs", []):
+        entry = ledger.setdefault("entries", {}).get(ledger_key)
+        if entry:
+            entry["implementation_enqueued_at"] = iso_now()
+            entry["implementation_work_id"] = item["work_id"]
+    return added
 
 
 def git_status_summary():
@@ -753,64 +1025,79 @@ def enqueue_evidence_clusters(queue: dict, ledger: dict, requests: dict):
             )
 
     cluster = build_team_issues_cluster(captures_by_scope, quality_by_scope)
-    if not cluster:
-        return added
+    if cluster:
+        same_work = find_queue_item(queue, cluster["work_id"])
+        if not (same_work and same_work.get("status") == "done"):
+            previous_done = find_queue_item_by_cluster(queue, TEAM_ISSUES_CLUSTER_ID)
+            if (
+                previous_done
+                and previous_done.get("status") == "done"
+                and previous_done.get("work_id") != cluster["work_id"]
+            ):
+                cluster["followup_of"] = previous_done.get("work_id")
+                cluster["implementation_slice"] = {
+                    **cluster["implementation_slice"],
+                    "name": "team issues list newly recaptured scope parity",
+                    "expected_change": (
+                        "50-300 lines focused on newly valid recaptured scopes plus shared team issue list feedback"
+                    ),
+                }
 
-    same_work = find_queue_item(queue, cluster["work_id"])
-    if same_work and same_work.get("status") == "done":
-        return added
+            existing = same_work or find_queue_item_by_cluster(
+                queue,
+                TEAM_ISSUES_CLUSTER_ID,
+                include_done=False,
+            )
+            if existing and existing.get("status") != "done":
+                existing.update(
+                    {
+                        "work_type": cluster["work_type"],
+                        "scope_keys": cluster["scope_keys"],
+                        "capture_run_ids": cluster["capture_run_ids"],
+                        "artifact_hash": cluster["artifact_hash"],
+                        "artifact_hashes": cluster["artifact_hashes"],
+                        "goal": cluster["goal"],
+                        "candidate_changes": cluster["candidate_changes"],
+                        "implementation_slice": cluster["implementation_slice"],
+                        "line_budget": cluster["line_budget"],
+                        "evidence_quality": cluster["evidence_quality"],
+                        "blocked_scope_keys": cluster["blocked_scope_keys"],
+                        "evidence_refs": cluster["evidence_refs"],
+                        "acceptance_checks": cluster["acceptance_checks"],
+                        "source_paths": cluster["source_paths"],
+                        "milestone_summary": cluster["milestone_summary"],
+                        "status": "pending",
+                        "updated_at": iso_now(),
+                    }
+                )
+                item = existing
+            elif not existing:
+                queue.setdefault("items", []).append(cluster)
+                item = cluster
+                added.append(cluster["work_id"])
+            else:
+                item = existing
 
-    previous_done = find_queue_item_by_cluster(queue, TEAM_ISSUES_CLUSTER_ID)
-    if previous_done and previous_done.get("status") == "done" and previous_done.get("work_id") != cluster["work_id"]:
-        cluster["followup_of"] = previous_done.get("work_id")
-        cluster["implementation_slice"] = {
-            **cluster["implementation_slice"],
-            "name": "team issues list newly recaptured scope parity",
-            "expected_change": (
-                "50-300 lines focused on newly valid recaptured scopes plus shared team issue list feedback"
-            ),
-        }
+            for scope in item.get("scope_keys", []):
+                entry = ledger.setdefault("entries", {}).get(f"page:{scope}")
+                if entry:
+                    entry["implementation_enqueued_at"] = iso_now()
+                    entry["implementation_work_id"] = item["work_id"]
 
-    existing = same_work or find_queue_item_by_cluster(
-        queue,
-        TEAM_ISSUES_CLUSTER_ID,
-        include_done=False,
-    )
-    if existing:
-        if existing.get("status") == "done":
-            return added
-        existing.update(
-            {
-                "work_type": cluster["work_type"],
-                "scope_keys": cluster["scope_keys"],
-                "capture_run_ids": cluster["capture_run_ids"],
-                "artifact_hash": cluster["artifact_hash"],
-                "artifact_hashes": cluster["artifact_hashes"],
-                "goal": cluster["goal"],
-                "candidate_changes": cluster["candidate_changes"],
-                "implementation_slice": cluster["implementation_slice"],
-                "line_budget": cluster["line_budget"],
-                "evidence_quality": cluster["evidence_quality"],
-                "blocked_scope_keys": cluster["blocked_scope_keys"],
-                "evidence_refs": cluster["evidence_refs"],
-                "acceptance_checks": cluster["acceptance_checks"],
-                "source_paths": cluster["source_paths"],
-                "milestone_summary": cluster["milestone_summary"],
-                "status": "pending",
-                "updated_at": iso_now(),
-            }
+    added.extend(
+        enqueue_cluster_item(
+            queue,
+            ledger,
+            build_settings_configuration_cluster(captures_by_scope, quality_by_scope),
         )
-        item = existing
-    else:
-        queue.setdefault("items", []).append(cluster)
-        item = cluster
-        added.append(cluster["work_id"])
-
-    for scope in item.get("scope_keys", []):
-        entry = ledger.setdefault("entries", {}).get(f"page:{scope}")
-        if entry:
-            entry["implementation_enqueued_at"] = iso_now()
-            entry["implementation_work_id"] = item["work_id"]
+    )
+    added.extend(
+        enqueue_cluster_item(
+            queue,
+            ledger,
+            build_issue_create_flow_cluster(captures_by_scope, quality_by_scope),
+        )
+    )
     return added
 
 
