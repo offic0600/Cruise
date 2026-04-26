@@ -152,6 +152,9 @@ const zhCNMessages = {
     navSearchOpened: '已打开工作区搜索。',
     navComposerOpened: '已打开事项创建器。',
     navSettingsOpened: '已打开团队设置。',
+    yourTeams: '你的团队',
+    joinTeam: '加入',
+    joinTeamOpened: '已打开团队目录。',
   },
   login: {
     ...enMessages.login,

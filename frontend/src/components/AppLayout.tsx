@@ -11,7 +11,7 @@ import IssueComposer from '@/components/issues/IssueComposer';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/i18n/useI18n';
 import { clearSession, getStoredSession, type StoredUser } from '@/lib/auth';
-import { publicPath, teamActivePath, teamSettingsPath, workspaceInboxPath, workspaceMyIssuesPath, workspaceProjectsAllPath, workspaceRootPath, workspaceSectionPath, workspaceViewsPath } from '@/lib/routes';
+import { publicPath, teamActivePath, teamIssuesPath, teamProjectsPath, teamSettingsPath, teamViewsRootPath, workspaceInboxPath, workspaceMyIssuesPath, workspaceProjectsAllPath, workspaceRootPath, workspaceSectionPath, workspaceViewsPath } from '@/lib/routes';
 
 interface NavItem {
   href: string;
@@ -39,6 +39,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     currentOrganizationSlug,
     currentOrganizationId,
     setCurrentOrganizationId,
+    currentTeam,
     currentTeamKey,
     currentTeamId,
     isLoading: workspaceLoading,
@@ -380,6 +381,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     </div>
                   ) : null}
                 </div>
+                {currentOrganizationSlug && currentTeamKey ? (
+                  <TeamWorkspaceCluster
+                    teamName={currentTeam?.name ?? currentTeamKey}
+                    issuesHref={teamIssuesPath(currentOrganizationSlug, currentTeamKey, 'backlog')}
+                    projectsHref={teamProjectsPath(currentOrganizationSlug, currentTeamKey)}
+                    viewsHref={teamViewsRootPath(currentOrganizationSlug, currentTeamKey)}
+                    issuesLabel={t('nav.issues')}
+                    projectsLabel={t('nav.projects')}
+                    viewsLabel={t('nav.views')}
+                    titleLabel={t('workspaceMenu.yourTeams')}
+                    joinLabel={t('workspaceMenu.joinTeam')}
+                    onJoinTeam={() => {
+                      router.push(membersHref);
+                      setLastNavigationAction(t('workspaceMenu.joinTeamOpened'));
+                    }}
+                  />
+                ) : null}
               </div>
             </div>
           </nav>
@@ -515,5 +533,67 @@ function NavigationConsoleButton({ icon, label, onClick }: { icon: React.ReactNo
       {icon}
       <span className="truncate">{label}</span>
     </button>
+  );
+}
+
+function TeamWorkspaceCluster({
+  teamName,
+  issuesHref,
+  projectsHref,
+  viewsHref,
+  issuesLabel,
+  projectsLabel,
+  viewsLabel,
+  titleLabel,
+  joinLabel,
+  onJoinTeam,
+}: {
+  teamName: string;
+  issuesHref: string;
+  projectsHref: string;
+  viewsHref: string;
+  issuesLabel: string;
+  projectsLabel: string;
+  viewsLabel: string;
+  titleLabel: string;
+  joinLabel: string;
+  onJoinTeam: () => void;
+}) {
+  const links = [
+    { href: issuesHref, label: issuesLabel, accent: 'bg-emerald-100 text-emerald-700' },
+    { href: projectsHref, label: projectsLabel, accent: 'bg-sky-100 text-sky-700' },
+    { href: viewsHref, label: viewsLabel, accent: 'bg-amber-100 text-amber-700' },
+  ];
+
+  return (
+    <div className="ml-3 rounded-2xl border border-border-soft bg-white p-2 shadow-[0_10px_26px_rgba(15,23,42,0.05)]">
+      <div className="flex items-center justify-between gap-2 px-2 pb-2">
+        <div className="min-w-0">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-400">{titleLabel}</div>
+          <div className="mt-1 truncate text-sm font-semibold text-ink-900">{teamName}</div>
+        </div>
+        <button
+          type="button"
+          onClick={onJoinTeam}
+          className="shrink-0 rounded-full bg-slate-950 px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-slate-800"
+        >
+          {joinLabel}
+        </button>
+      </div>
+      <div className="grid grid-cols-3 gap-1.5">
+        {links.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className="group rounded-2xl border border-transparent bg-slate-50 px-2 py-2 text-center transition hover:border-border-soft hover:bg-white"
+          >
+            <span className={`mx-auto flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold ${item.accent}`}>
+              {item.label.slice(0, 1)}
+            </span>
+            <span className="mt-1 block truncate text-[11px] font-medium text-ink-600 group-hover:text-ink-900">{item.label}</span>
+          </Link>
+        ))}
+      </div>
+    </div>
   );
 }

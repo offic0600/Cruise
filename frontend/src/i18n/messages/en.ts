@@ -167,6 +167,13 @@ const enMessages = {
     noWorkspaces: "No workspaces available",
     search: "Search",
     newIssue: "New issue",
+    navPinned: "Pinned to workspace navigation.",
+    navSearchOpened: "Opened workspace search.",
+    navComposerOpened: "Opened the issue composer.",
+    navSettingsOpened: "Opened team settings.",
+    yourTeams: "Your teams",
+    joinTeam: "Join",
+    joinTeamOpened: "Team directory opened.",
     shortcuts: {
       settings: "G then S",
       switchWorkspace: "O then W",
