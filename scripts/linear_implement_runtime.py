@@ -889,9 +889,15 @@ def existing_queue_keys(queue: dict):
     for item in queue.get("items", []):
         if item.get("artifact_hash"):
             artifact_hashes.add(item["artifact_hash"])
+        for artifact_hash in item.get("artifact_hashes") or []:
+            if artifact_hash:
+                artifact_hashes.add(artifact_hash)
         scope_key = item.get("scope_dedupe_key") or item.get("scope_key")
         if scope_key:
             scope_keys.add(scope_key)
+        for covered_scope in item.get("scope_keys") or []:
+            if covered_scope:
+                scope_keys.add(covered_scope)
     return artifact_hashes, scope_keys
 
 
@@ -1245,6 +1251,7 @@ def main():
         save_queue(queue, queue_path)
     migrated = migrate_existing_page_items(state, queue, requests)
     backlog_added = enqueue_evidence_clusters(queue, ledger, requests)
+    backlog_added.extend(enqueue_missing_capture_backlog(queue, ledger))
     if backlog_added or ledger_changed or migrated:
         save_queue(queue, queue_path)
         save_state(state, state_path)
