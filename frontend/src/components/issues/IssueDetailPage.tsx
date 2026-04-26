@@ -38,6 +38,8 @@ import {
   Tag,
   Trash2,
   UserCircle2,
+  History,
+  WandSparkles,
 } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import { IssueDetailActionBar } from '@/components/issues/issue-detail/IssueDetailActionBar';
@@ -84,11 +86,14 @@ import {
   issueDetailPath,
   slugifyPathSegment,
   teamActivePath,
+  teamIssuesPath,
   workspaceInboxPath,
   workspaceMyIssuesAssignedPath,
   workspaceRootPath,
   workspaceSectionPath,
+  workspaceViewsPath,
   workspaceViewsRootPath,
+  workspaceNewViewPath,
 } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
@@ -484,6 +489,34 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
       'Configure coding tools',
       locale.startsWith('zh') ? '该入口暂时为占位交互。' : 'This entry is currently a placeholder.'
     );
+  };
+
+  const openAskLinear = () => {
+    if (!currentOrganizationSlug || !issue) {
+      showActionToast(
+        'Ask Linear',
+        locale.startsWith('zh') ? '当前 issue 上下文暂不可用。' : 'The current issue context is not available yet.'
+      );
+      return;
+    }
+
+    const query = encodeURIComponent(`${issue.identifier} ${issue.title}`.trim());
+    router.push(`${workspaceSectionPath(currentOrganizationSlug, 'search')}?query=${query}`);
+  };
+
+  const openChatHistory = () => {
+    if (!currentOrganizationSlug || !issue) return;
+    router.push(`${issueDetailPath(currentOrganizationSlug, issue)}#activity`);
+  };
+
+  const openRelationsPanel = () => {
+    if (!currentOrganizationSlug || !issue) return;
+    router.push(`${issueDetailPath(currentOrganizationSlug, issue)}#relations`);
+  };
+
+  const openChildIssueComposer = () => {
+    if (!currentOrganizationSlug || !issue) return;
+    router.push(`${workspaceNewViewPath(currentOrganizationSlug, 'issues')}?parentIssueId=${issue.id}&sourceIssueId=${issue.id}`);
   };
 
   const quickCreateDoc = async () => {
