@@ -639,6 +639,13 @@ const enMessages = {
       quoteReply: "Quote reply",
       commentTextCopied: "Comment text copied.",
       commentQuoted: "Comment quoted in the reply box.",
+      attachToComment: "Attach",
+      commentShortcut: "Press Cmd/Ctrl Enter to submit.",
+      commentCharacterCount: "{count} chars",
+      commentSubmitting: "Posting...",
+      quoteLatestComment: "Quote latest",
+      mentionAssignee: "Mention assignee",
+      insertChecklist: "Checklist",
     },
     activityEvent: {
       system: "System",

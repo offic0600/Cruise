@@ -381,6 +381,13 @@ const zhCNMessages = {
       quoteReply: '引用回复',
       commentTextCopied: '评论内容已复制。',
       commentQuoted: '已把评论引用到回复框。',
+      attachToComment: '附件',
+      commentShortcut: '按 Cmd/Ctrl Enter 提交。',
+      commentCharacterCount: '{count} 字',
+      commentSubmitting: '发布中...',
+      quoteLatestComment: '引用最新',
+      mentionAssignee: '提及负责人',
+      insertChecklist: '检查项',
     },
     activityEvent: {
       system: '系统',

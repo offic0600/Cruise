@@ -686,6 +686,11 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
     showActionToast(t('issues.detailPage.commentQuoted'), t('issues.detail.commentPlaceholder'));
   };
 
+  const appendCommentSnippet = (snippet: string) => {
+    setCommentBody((current) => `${current ? `${current.trimEnd()}\n` : ''}${snippet}`);
+    window.setTimeout(() => commentTextareaRef.current?.focus(), 0);
+  };
+
   const createLinkedDoc = async () => {
     if (!issue || !docTitle.trim()) return;
     await createDocMutation.mutateAsync({
@@ -1311,27 +1316,70 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
                     ref={commentTextareaRef}
                     value={commentBody}
                     onChange={(event) => setCommentBody(event.target.value)}
+                    onKeyDown={(event) => {
+                      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                        event.preventDefault();
+                        void addComment();
+                      }
+                    }}
                     data-testid="issue-detail-comment-input"
                     placeholder={t('issues.detail.commentPlaceholder')}
                     className="min-h-[104px] resize-none border-0 px-0 py-0 text-[15px] leading-7 text-ink-900 placeholder:text-ink-300 focus-visible:ring-0"
                   />
-                  <div className="mt-3 flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-transparent text-ink-400 transition hover:border-slate-200 hover:bg-slate-50 hover:text-ink-700"
-                      aria-label={t('issues.detailPage.uploadAttachment')}
-                    >
-                      <Paperclip className="h-4 w-4 stroke-[1.8]" />
-                    </button>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <CommentComposerQuickButton
+                      label={t('issues.detailPage.quoteLatestComment')}
+                      disabled={!commentItems.length}
+                      onClick={() => {
+                        const latestComment = commentItems[commentItems.length - 1];
+                        if (latestComment) quoteComment(latestComment.body);
+                      }}
+                    />
+                    <CommentComposerQuickButton
+                      label={t('issues.detailPage.mentionAssignee')}
+                      disabled={draftIssue.assigneeId == null}
+                      onClick={() => {
+                        const assigneeName = members.find((member) => member.id === draftIssue.assigneeId)?.name;
+                        if (assigneeName) appendCommentSnippet(`@${assigneeName} `);
+                      }}
+                    />
+                    <CommentComposerQuickButton
+                      label={t('issues.detailPage.insertChecklist')}
+                      onClick={() => appendCommentSnippet('- [ ] ')}
+                    />
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border-soft/70 pt-3">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-ink-400">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="inline-flex h-8 items-center gap-1.5 rounded-full border border-transparent px-2.5 transition hover:border-slate-200 hover:bg-slate-50 hover:text-ink-700"
+                        aria-label={t('issues.detailPage.uploadAttachment')}
+                      >
+                        <Paperclip className="h-4 w-4 stroke-[1.8]" />
+                        {t('issues.detailPage.attachToComment')}
+                      </button>
+                      <span className="hidden sm:inline">{t('issues.detailPage.commentShortcut')}</span>
+                      {commentBody.trim() ? (
+                        <span className="rounded-full bg-slate-50 px-2 py-1 text-ink-500">
+                          {t('issues.detailPage.commentCharacterCount', { count: commentBody.trim().length })}
+                        </span>
+                      ) : null}
+                    </div>
                     <button
                       type="button"
                       onClick={() => void addComment()}
+                      disabled={!commentBody.trim() || createCommentMutation.isPending}
                       data-testid="issue-detail-comment-submit-button"
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-ink-500 transition hover:bg-slate-50 hover:text-ink-900"
+                      className="inline-flex h-8 items-center gap-2 rounded-full border border-slate-200 bg-slate-950 px-3 text-sm font-medium text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-ink-300"
                       aria-label={t('issues.detail.addComment')}
                     >
-                      <ArrowUp className="h-3.5 w-3.5 stroke-[2.2]" />
+                      {createCommentMutation.isPending ? (
+                        <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <ArrowUp className="h-3.5 w-3.5 stroke-[2.2]" />
+                      )}
+                      {createCommentMutation.isPending ? t('issues.detailPage.commentSubmitting') : t('issues.detail.addComment')}
                     </button>
                   </div>
                 </div>
@@ -1813,6 +1861,27 @@ function DetailSection({
       </div>
       <div className="space-y-3">{children}</div>
     </section>
+  );
+}
+
+function CommentComposerQuickButton({
+  label,
+  disabled = false,
+  onClick,
+}: {
+  label: string;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="inline-flex h-7 items-center rounded-full border border-border-soft bg-slate-50 px-2.5 text-xs font-medium text-ink-500 transition hover:bg-white hover:text-ink-800 disabled:cursor-not-allowed disabled:opacity-45"
+    >
+      {label}
+    </button>
   );
 }
 
