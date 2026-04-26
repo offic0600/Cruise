@@ -999,6 +999,17 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
             onToggleSubscribed={() => setIsSubscribed((current) => !current)}
           />
 
+          <IssueDetailReferenceRail
+            activityItems={activityItems}
+            commentItems={commentItems}
+            relations={relations}
+            attachments={attachments}
+            actorNameMap={actorNameMap}
+            workspaceSlug={currentOrganizationSlug}
+            locale={locale}
+            t={t}
+          />
+
           <IssueDetailDeveloperHandoff
             issue={issue}
             branchName={buildIssueBranchName(issue)}
@@ -1896,6 +1907,169 @@ function IssueDetailInteractionStrip({
   );
 }
 
+function IssueDetailReferenceRail({
+  activityItems,
+  commentItems,
+  relations,
+  attachments,
+  actorNameMap,
+  workspaceSlug,
+  locale,
+  t,
+}: {
+  activityItems: Array<{
+    id: string;
+    createdAt: string;
+    authorId: number | null;
+    summary: string | null;
+    eventType: string;
+    payload: Record<string, unknown> | null;
+  }>;
+  commentItems: Array<{
+    id: string;
+    commentId: number;
+    createdAt: string;
+    authorId: number | null;
+    body: string;
+  }>;
+  relations: Array<{ id: number; relationType: string; toIssueId: number; createdAt: string }>;
+  attachments: Array<{ id: number; filename: string; attachmentType: string; externalUrl: string | null; linkTitle: string | null }>;
+  actorNameMap: Map<number, string>;
+  workspaceSlug: string | null;
+  locale: string;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}) {
+  const timelineItems = [
+    ...activityItems.map((item) => ({
+      id: item.id,
+      href: `#${item.id}`,
+      label: renderActivitySummary(item, t),
+      meta: formatRelativeTime(item.createdAt, locale),
+      createdAt: item.createdAt,
+      actor: valueFromMap(actorNameMap, item.authorId, t('issues.activityEvent.system')),
+    })),
+    ...commentItems.map((item) => ({
+      id: item.id,
+      href: `#${item.id}`,
+      label: item.body.trim() || t('issues.tabs.comments'),
+      meta: formatRelativeTime(item.createdAt, locale),
+      createdAt: item.createdAt,
+      actor: valueFromMap(actorNameMap, item.authorId, t('issues.activityEvent.system')),
+    })),
+  ]
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+    .slice(0, 3);
+
+  const participants = Array.from(
+    new Map(
+      [...activityItems, ...commentItems]
+        .filter((item) => item.authorId != null)
+        .map((item) => [item.authorId!, valueFromMap(actorNameMap, item.authorId, t('issues.activityEvent.system'))])
+    ).entries()
+  ).slice(0, 4);
+  const visibleRelations = relations.slice(0, 3);
+  const visibleLinks = attachments.filter((attachment) => attachment.attachmentType === 'LINK' || attachment.externalUrl).slice(0, 2);
+
+  return (
+    <section
+      data-testid="issue-detail-reference-rail"
+      className="grid gap-3 rounded-[24px] border border-border-soft bg-white p-4 shadow-[0_12px_34px_rgba(15,23,42,0.04)] lg:grid-cols-3"
+    >
+      <div className="lg:col-span-3">
+        <div className="text-sm font-semibold text-ink-900">{t('issues.detailPage.referenceRailTitle')}</div>
+        <p className="mt-1 text-sm text-ink-500">{t('issues.detailPage.referenceRailDescription')}</p>
+      </div>
+
+      <ReferenceRailCard icon={Clock3} title={t('issues.detailPage.referenceRailActivity')}>
+        {timelineItems.length ? (
+          timelineItems.map((item) => (
+            <a key={item.id} href={item.href} className="block rounded-2xl px-3 py-2 transition hover:bg-slate-50">
+              <span className="block truncate text-sm font-medium text-ink-800">{item.label}</span>
+              <span className="mt-0.5 block truncate text-xs text-ink-400">
+                {item.actor} · {item.meta}
+              </span>
+            </a>
+          ))
+        ) : (
+          <ReferenceRailEmpty label={t('issues.detailPage.referenceRailNoActivity')} />
+        )}
+      </ReferenceRailCard>
+
+      <ReferenceRailCard icon={UserCircle2} title={t('issues.detailPage.referenceRailPeople')}>
+        {participants.length ? (
+          participants.map(([id, name]) => {
+            const profileHref = workspaceSlug ? `/${workspaceSlug}/profiles/${slugifyPathSegment(name.split('@')[0] ?? name)}` : '#activity';
+            return (
+              <a key={id} href={profileHref} className="flex items-center gap-3 rounded-2xl px-3 py-2 transition hover:bg-slate-50">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-100 text-xs font-semibold text-rose-600">
+                  {initialsForName(name)}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium text-ink-800">{name}</span>
+                  <span className="block text-xs text-ink-400">{t('issues.detailPage.referenceRailOpenProfile')}</span>
+                </span>
+              </a>
+            );
+          })
+        ) : (
+          <ReferenceRailEmpty label={t('issues.detailPage.referenceRailNoPeople')} />
+        )}
+      </ReferenceRailCard>
+
+      <ReferenceRailCard icon={Link2} title={t('issues.detailPage.referenceRailResources')}>
+        {visibleRelations.length || visibleLinks.length ? (
+          <>
+            {visibleRelations.map((relation) => (
+              <a key={relation.id} href="#relations" className="block rounded-2xl px-3 py-2 transition hover:bg-slate-50">
+                <span className="block truncate text-sm font-medium text-ink-800">
+                  {t(`issues.relationType.${relation.relationType}`)}
+                </span>
+                <span className="mt-0.5 block text-xs text-ink-400">#{relation.toIssueId}</span>
+              </a>
+            ))}
+            {visibleLinks.map((attachment) => (
+              <a
+                key={attachment.id}
+                href={attachment.externalUrl ?? '#resources'}
+                className="block rounded-2xl px-3 py-2 transition hover:bg-slate-50"
+              >
+                <span className="block truncate text-sm font-medium text-ink-800">{attachment.linkTitle || attachment.filename}</span>
+                <span className="mt-0.5 block truncate text-xs text-ink-400">{attachment.externalUrl ?? attachment.filename}</span>
+              </a>
+            ))}
+          </>
+        ) : (
+          <ReferenceRailEmpty label={t('issues.detailPage.referenceRailNoRelations')} />
+        )}
+      </ReferenceRailCard>
+    </section>
+  );
+}
+
+function ReferenceRailCard({
+  icon: Icon,
+  title,
+  children,
+}: {
+  icon: typeof Clock3;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-[20px] border border-black/5 bg-slate-50 p-2">
+      <div className="flex items-center gap-2 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-ink-400">
+        <Icon className="h-4 w-4 text-ink-400" />
+        {title}
+      </div>
+      <div className="space-y-1">{children}</div>
+    </div>
+  );
+}
+
+function ReferenceRailEmpty({ label }: { label: string }) {
+  return <div className="rounded-2xl px-3 py-3 text-sm text-ink-400">{label}</div>;
+}
+
 function DetailSection({
   id,
   title,
@@ -2549,7 +2723,7 @@ function IssueActivityTimeline({
         const actorName = valueFromMap(actorNameMap, item.authorId, t('issues.activityEvent.system'));
         const translatedSummary = renderActivitySummary(item, t);
         return (
-          <div key={item.id} className="grid grid-cols-[22px_minmax(0,1fr)] gap-3">
+          <div key={item.id} id={item.id} className="grid grid-cols-[22px_minmax(0,1fr)] gap-3">
             <div className="relative flex justify-center pt-[7px]">
               {index < items.length - 1 ? (
                 <span className="absolute left-1/2 top-[15px] h-[calc(100%-6px)] w-px -translate-x-1/2 bg-slate-200" />
