@@ -472,6 +472,10 @@ export default function ActiveIssuesWorkbenchPage() {
     }),
     [labels, members, projects, teams]
   );
+  const activeFilterTokens = useMemo(
+    () => activeFilterSummary(draftFilters, isZh, filterSummaryContext),
+    [draftFilters, filterSummaryContext, isZh]
+  );
 
   useEffect(() => {
     setSearchDraft((current) => syncSearchDraft(current, searchParams));
@@ -661,6 +665,29 @@ export default function ActiveIssuesWorkbenchPage() {
             </div>
           </div>
 
+          <WorkbenchInteractionRail
+            isZh={isZh}
+            currentView={currentView}
+            visibleCount={workbenchRows.length}
+            totalCount={issues.length}
+            filterCount={activeFilterTokens.length}
+            collapsedCount={collapsedStates.size}
+            detailsOpen={detailsOpen}
+            selectedIssue={selectedIssue}
+            onOpenFilters={() => setFilterOpen(true)}
+            onToggleDetails={() => {
+              setDetailsOpen((current) => !current);
+              announceWorkbenchAction(detailsOpen ? (isZh ? '已关闭右侧详情预览' : 'Closed the detail preview') : (isZh ? '已打开右侧详情预览' : 'Opened the detail preview'));
+            }}
+            onCreateIssue={() => setCreateIssueOpen(true)}
+            onFocusSelected={() => {
+              if (!selectedIssue) return;
+              setDetailsOpen(true);
+              setSelectedIssueId(selectedIssue.id);
+              announceWorkbenchAction(isZh ? `已聚焦 ${selectedIssue.identifier}` : `Focused ${selectedIssue.identifier}`);
+            }}
+          />
+
           <div className="border-b border-slate-800/90 px-5 py-3 sm:px-6">
             <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
               <div className="grid flex-1 grid-cols-[minmax(0,1fr)_140px_120px_72px] items-center gap-4 text-[11px] uppercase tracking-[0.22em] text-slate-500">
@@ -813,6 +840,100 @@ export default function ActiveIssuesWorkbenchPage() {
         localeScope="team-issues-workbench"
       />
     </AppLayout>
+  );
+}
+
+function WorkbenchInteractionRail({
+  isZh,
+  currentView,
+  visibleCount,
+  totalCount,
+  filterCount,
+  collapsedCount,
+  detailsOpen,
+  selectedIssue,
+  onOpenFilters,
+  onToggleDetails,
+  onCreateIssue,
+  onFocusSelected,
+}: {
+  isZh: boolean;
+  currentView: IssueView;
+  visibleCount: number;
+  totalCount: number;
+  filterCount: number;
+  collapsedCount: number;
+  detailsOpen: boolean;
+  selectedIssue: ActiveWorkbenchRow | null;
+  onOpenFilters: () => void;
+  onToggleDetails: () => void;
+  onCreateIssue: () => void;
+  onFocusSelected: () => void;
+}) {
+  const metrics = [
+    { label: isZh ? '当前视图' : 'Current view', value: viewLabel(currentView, isZh) },
+    { label: isZh ? '可见事项' : 'Visible issues', value: String(visibleCount) },
+    { label: isZh ? '全部事项' : 'All issues', value: String(totalCount) },
+    { label: isZh ? '筛选/折叠' : 'Filters/groups', value: `${filterCount}/${collapsedCount}` },
+  ];
+
+  return (
+    <div className="border-b border-slate-800/90 bg-slate-950/55 px-5 py-4 sm:px-6">
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+            {isZh ? '交互控制台' : 'Interaction console'}
+          </div>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {metrics.map((metric) => (
+              <div key={metric.label} className="rounded-2xl border border-slate-800 bg-[#090b10] px-3 py-2.5">
+                <div className="text-[10px] uppercase tracking-[0.16em] text-slate-600">{metric.label}</div>
+                <div className="mt-1 truncate text-sm font-semibold text-slate-100">{metric.value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+          <button
+            type="button"
+            onClick={onOpenFilters}
+            className="inline-flex h-9 items-center gap-2 rounded-full border border-slate-800 bg-slate-900 px-3 text-xs font-medium text-slate-200 transition hover:bg-slate-800"
+          >
+            <SlidersHorizontal className="h-4 w-4 text-slate-500" />
+            {isZh ? '筛选面板' : 'Filter panel'}
+          </button>
+          <button
+            type="button"
+            onClick={onToggleDetails}
+            className={`inline-flex h-9 items-center gap-2 rounded-full px-3 text-xs font-medium transition ${
+              detailsOpen
+                ? 'bg-slate-100 text-slate-950 hover:bg-white'
+                : 'border border-slate-800 bg-slate-900 text-slate-200 hover:bg-slate-800'
+            }`}
+          >
+            <PanelRightOpen className="h-4 w-4" />
+            {detailsOpen ? (isZh ? '详情已开' : 'Details on') : (isZh ? '打开详情' : 'Open details')}
+          </button>
+          <button
+            type="button"
+            onClick={onFocusSelected}
+            disabled={!selectedIssue}
+            className="inline-flex h-9 items-center gap-2 rounded-full border border-slate-800 bg-slate-900 px-3 text-xs font-medium text-slate-200 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <CheckCircle2 className="h-4 w-4 text-slate-500" />
+            {selectedIssue ? (isZh ? `聚焦 ${selectedIssue.identifier}` : `Focus ${selectedIssue.identifier}`) : (isZh ? '无选中事项' : 'No issue selected')}
+          </button>
+          <button
+            type="button"
+            onClick={onCreateIssue}
+            className="inline-flex h-9 items-center gap-2 rounded-full bg-slate-100 px-3 text-xs font-semibold text-slate-950 transition hover:bg-white"
+          >
+            <Plus className="h-4 w-4" />
+            {isZh ? '新建事项' : 'New issue'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

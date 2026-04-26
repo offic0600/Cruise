@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Menu } from 'lucide-react';
+import { Command, Menu, Plus, Search, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import LocaleSwitcher from '@/components/LocaleSwitcher';
@@ -51,6 +51,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [workspaceNavItemKeys, setWorkspaceNavItemKeys] = useState<string[]>(DEFAULT_WORKSPACE_NAV_ITEMS);
   const [focusSwitchWorkspace, setFocusSwitchWorkspace] = useState(false);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [lastNavigationAction, setLastNavigationAction] = useState<string | null>(null);
   const shortcutBuffer = useRef('');
   const shortcutTimerRef = useRef<number | null>(null);
 
@@ -210,6 +211,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       : [...workspaceNavItemKeys, href];
     persistWorkspaceNavItems(Array.from(new Set(next)));
     setWorkspaceMoreOpen(false);
+    setLastNavigationAction(t('workspaceMenu.navPinned'));
   };
 
   const resolveNavHref = (item: NavItem) =>
@@ -382,6 +384,30 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </nav>
 
+          <WorkspaceNavigationConsole
+            workspaceName={currentOrganization?.name ?? t('common.workspace')}
+            pinnedCount={workspaceNavItems.length}
+            moreCount={workspaceMoreItems.length}
+            currentPath={pathname}
+            lastAction={lastNavigationAction}
+            searchLabel={t('nav.search')}
+            newIssueLabel={t('workspaceMenu.newIssue')}
+            settingsLabel={t('workspaceMenu.settings')}
+            shortcutLabel={t('workspaceMenu.shortcuts.search')}
+            onSearch={() => {
+              router.push(searchHref);
+              setLastNavigationAction(t('workspaceMenu.navSearchOpened'));
+            }}
+            onNewIssue={() => {
+              setQuickCreateOpen(true);
+              setLastNavigationAction(t('workspaceMenu.navComposerOpened'));
+            }}
+            onSettings={() => {
+              router.push(settingsHref);
+              setLastNavigationAction(t('workspaceMenu.navSettingsOpened'));
+            }}
+          />
+
           <div className="border-t border-border-subtle px-4 py-4">
             <div className="subtle-card p-4">
               <div className="text-sm font-medium text-ink-900">{user.username}</div>
@@ -418,5 +444,76 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         localeScope="issues-list-modal"
       />
     </div>
+  );
+}
+
+function WorkspaceNavigationConsole({
+  workspaceName,
+  pinnedCount,
+  moreCount,
+  currentPath,
+  lastAction,
+  searchLabel,
+  newIssueLabel,
+  settingsLabel,
+  shortcutLabel,
+  onSearch,
+  onNewIssue,
+  onSettings,
+}: {
+  workspaceName: string;
+  pinnedCount: number;
+  moreCount: number;
+  currentPath: string;
+  lastAction: string | null;
+  searchLabel: string;
+  newIssueLabel: string;
+  settingsLabel: string;
+  shortcutLabel: string;
+  onSearch: () => void;
+  onNewIssue: () => void;
+  onSettings: () => void;
+}) {
+  return (
+    <div className="px-4 pb-4">
+      <div className="rounded-[22px] border border-border-subtle bg-white/70 p-3 shadow-[0_12px_32px_rgba(15,23,42,0.06)]">
+        <div className="flex items-start gap-2">
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-2xl bg-ink-900 text-white">
+            <Command className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-semibold text-ink-900">{workspaceName}</div>
+            <div className="mt-1 truncate text-xs text-ink-500">{currentPath}</div>
+          </div>
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <NavigationConsoleButton icon={<Search className="h-3.5 w-3.5" />} label={searchLabel} onClick={onSearch} />
+          <NavigationConsoleButton icon={<Plus className="h-3.5 w-3.5" />} label={newIssueLabel} onClick={onNewIssue} />
+          <NavigationConsoleButton icon={<Settings className="h-3.5 w-3.5" />} label={settingsLabel} onClick={onSettings} />
+        </div>
+        <div className="mt-3 flex items-center justify-between gap-2 rounded-2xl bg-ink-50 px-3 py-2 text-[11px] text-ink-500">
+          <span>{shortcutLabel}</span>
+          <span>{pinnedCount} pinned · {moreCount} more</span>
+        </div>
+        {lastAction ? (
+          <div aria-live="polite" className="mt-2 rounded-2xl bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">
+            {lastAction}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function NavigationConsoleButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-2xl border border-border-soft bg-white px-2 text-[11px] font-medium text-ink-700 transition hover:bg-ink-50 hover:text-ink-900"
+    >
+      {icon}
+      <span className="truncate">{label}</span>
+    </button>
   );
 }

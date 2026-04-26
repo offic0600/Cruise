@@ -19,7 +19,7 @@ type SearchTab = 'all' | 'issues' | 'projects' | 'documents';
 const tabs: SearchTab[] = ['all', 'issues', 'projects', 'documents'];
 
 export default function SearchPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { organizationId, currentOrganizationSlug, currentTeamId } = useCurrentWorkspace();
   const router = useRouter();
   const pathname = usePathname();
@@ -191,6 +191,17 @@ export default function SearchPage() {
           ))}
         </div>
 
+        <SearchCommandPanel
+          isZh={locale.startsWith('zh')}
+          query={q}
+          activeTab={activeTab}
+          totalResults={totalResults}
+          isLoading={isLoading}
+          hasQuery={hasQuery}
+          onSetTab={(tab) => updateSearch({ type: tab })}
+          onClear={() => updateSearch({ q: '', type: 'all' })}
+        />
+
         <div className="flex-1 px-4 pb-16 pt-2">
           {!hasQuery ? (
             <div className="flex h-full min-h-[420px] items-center justify-center rounded-[22px] border border-dashed border-white/10 text-sm text-zinc-600">
@@ -238,6 +249,81 @@ export default function SearchPage() {
         </div>
       </div>
     </AppLayout>
+  );
+}
+
+function SearchCommandPanel({
+  isZh,
+  query,
+  activeTab,
+  totalResults,
+  isLoading,
+  hasQuery,
+  onSetTab,
+  onClear,
+}: {
+  isZh: boolean;
+  query: string;
+  activeTab: SearchTab;
+  totalResults: number;
+  isLoading: boolean;
+  hasQuery: boolean;
+  onSetTab: (tab: SearchTab) => void;
+  onClear: () => void;
+}) {
+  const suggestedTabs: Array<{ tab: SearchTab; label: string }> = [
+    { tab: 'issues', label: isZh ? '事项结果' : 'Issue results' },
+    { tab: 'projects', label: isZh ? '项目结果' : 'Project results' },
+    { tab: 'documents', label: isZh ? '文档结果' : 'Document results' },
+  ];
+
+  return (
+    <div className="border-y border-white/10 bg-white/[0.025] px-4 py-3">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <div className="grid gap-2 sm:grid-cols-3">
+          <SearchSignal label={isZh ? '查询' : 'Query'} value={query || (isZh ? '等待输入' : 'Waiting for input')} />
+          <SearchSignal label={isZh ? '范围' : 'Scope'} value={activeTab} />
+          <SearchSignal label={isZh ? '结果' : 'Results'} value={isLoading ? (isZh ? '加载中' : 'Loading') : String(totalResults)} />
+        </div>
+        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+          {suggestedTabs.map((item) => (
+            <button
+              key={item.tab}
+              type="button"
+              onClick={() => onSetTab(item.tab)}
+              className={`inline-flex h-8 items-center rounded-full border px-3 text-xs font-medium transition ${
+                activeTab === item.tab
+                  ? 'border-white/20 bg-white/15 text-white'
+                  : 'border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={onClear}
+            disabled={!hasQuery && activeTab === 'all'}
+            className="inline-flex h-8 items-center rounded-full border border-white/10 bg-white/5 px-3 text-xs font-medium text-zinc-400 transition hover:bg-white/10 hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            {isZh ? '清空' : 'Clear'}
+          </button>
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+        <span className="rounded-full bg-white/5 px-2.5 py-1">{isZh ? '快捷键：⌘/Ctrl K' : 'Shortcut: ⌘/Ctrl K'}</span>
+        <span className="rounded-full bg-white/5 px-2.5 py-1">{isZh ? '支持事项、项目和文档聚合搜索' : 'Aggregates issues, projects, and documents'}</span>
+      </div>
+    </div>
+  );
+}
+
+function SearchSignal({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-600">{label}</div>
+      <div className="mt-1 truncate text-sm font-medium text-zinc-200">{value}</div>
+    </div>
   );
 }
 

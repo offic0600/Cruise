@@ -156,6 +156,94 @@ function ProjectStatusRing({ progressPercent }: { progressPercent: number }) {
   );
 }
 
+function ProjectWorkspaceRail({
+  title,
+  rows,
+  totalRows,
+  visibleColumnCount,
+  sortLabel,
+  includeArchived,
+  t,
+  onCreate,
+  onResetFilters,
+  onToggleArchived,
+}: {
+  title: string;
+  rows: WorkspaceProjectRow[];
+  totalRows: number;
+  visibleColumnCount: number;
+  sortLabel: string;
+  includeArchived: boolean;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+  onCreate: () => void;
+  onResetFilters: () => void;
+  onToggleArchived: () => void;
+}) {
+  const atRiskCount = rows.filter((row) => row.health === 'AT_RISK' || row.health === 'OFF_TRACK').length;
+  const withMilestoneCount = rows.filter((row) => row.nextMilestoneName).length;
+  const avgProgress = rows.length
+    ? Math.round(rows.reduce((sum, row) => sum + row.progressPercent, 0) / rows.length)
+    : 0;
+  const metrics = [
+    { label: t('projects.workspace.rail.visible'), value: String(rows.length) },
+    { label: t('projects.workspace.rail.total'), value: String(totalRows) },
+    { label: t('projects.workspace.rail.risk'), value: String(atRiskCount) },
+    { label: t('projects.workspace.rail.progress'), value: `${avgProgress}%` },
+  ];
+
+  return (
+    <section className="mb-5 overflow-hidden rounded-[26px] border border-border-soft bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 text-white shadow-[0_20px_60px_rgba(15,23,42,0.18)]">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{t('projects.workspace.rail.eyebrow')}</div>
+          <div className="mt-2 text-xl font-semibold tracking-tight">{title}</div>
+          <div className="mt-1 text-sm text-slate-400">
+            {t('projects.workspace.rail.summary', {
+              columns: visibleColumnCount,
+              sort: sortLabel,
+              milestones: withMilestoneCount,
+            })}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={onResetFilters}
+            className="inline-flex h-9 items-center rounded-full border border-white/10 bg-white/5 px-3 text-xs font-medium text-slate-200 transition hover:bg-white/10"
+          >
+            {t('projects.workspace.rail.reset')}
+          </button>
+          <button
+            type="button"
+            onClick={onToggleArchived}
+            className={`inline-flex h-9 items-center rounded-full px-3 text-xs font-medium transition ${
+              includeArchived ? 'bg-white text-slate-950 hover:bg-slate-100' : 'border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10'
+            }`}
+          >
+            {includeArchived ? t('projects.workspace.rail.archivedOn') : t('projects.workspace.rail.archivedOff')}
+          </button>
+          <button
+            type="button"
+            onClick={onCreate}
+            className="inline-flex h-9 items-center gap-2 rounded-full bg-white px-3 text-xs font-semibold text-slate-950 transition hover:bg-slate-100"
+          >
+            <Plus className="h-4 w-4" />
+            {t('projects.actions.new')}
+          </button>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {metrics.map((metric) => (
+          <div key={metric.label} className="rounded-2xl border border-white/10 bg-white/[0.06] px-3 py-3">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{metric.label}</div>
+            <div className="mt-1 text-2xl font-semibold tracking-tight text-white">{metric.value}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function WorkspaceProjectsPage({ activeViewId }: WorkspaceProjectsPageProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -276,6 +364,15 @@ export default function WorkspaceProjectsPage({ activeViewId }: WorkspaceProject
   }, [activeView, ownerId, projectsQuery.data?.items, sortField, targetDate]);
 
   const showColumn = (column: ProjectTableColumn) => visibleColumns.includes(column);
+  const resetFilters = () => {
+    setSearch('');
+    setStatus('__all__');
+    setPriority('__all__');
+    setOwnerId('__all__');
+    setHealth('__all__');
+    setHasMilestone('__all__');
+    setTargetDate('all');
+  };
 
   return (
     <AppLayout>
@@ -503,6 +600,19 @@ export default function WorkspaceProjectsPage({ activeViewId }: WorkspaceProject
             {t('views.newView')}
           </Button>
         </div>
+
+        <ProjectWorkspaceRail
+          title={activeView?.name ?? t('projects.workspace.allProjects')}
+          rows={filteredRows}
+          totalRows={projectsQuery.data?.items.length ?? 0}
+          visibleColumnCount={visibleColumns.length}
+          sortLabel={t(`projects.workspace.sort.${sortField}`)}
+          includeArchived={includeArchived}
+          t={t}
+          onCreate={() => setCreateOpen(true)}
+          onResetFilters={resetFilters}
+          onToggleArchived={() => setIncludeArchived((current) => !current)}
+        />
 
         <div className="overflow-hidden rounded-[28px] border border-border-soft bg-white">
           <div className="grid grid-cols-[minmax(340px,1fr)_160px_100px_110px_130px_110px] gap-4 border-b border-border-soft px-12 py-4 text-sm font-medium text-ink-600">

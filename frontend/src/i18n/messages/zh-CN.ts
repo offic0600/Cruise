@@ -148,6 +148,10 @@ const zhCNMessages = {
     noWorkspaces: '暂无可用工作区',
     search: '搜索',
     newIssue: '新建事项',
+    navPinned: '已固定到工作区导航。',
+    navSearchOpened: '已打开工作区搜索。',
+    navComposerOpened: '已打开事项创建器。',
+    navSettingsOpened: '已打开团队设置。',
   },
   login: {
     ...enMessages.login,
@@ -704,6 +708,17 @@ const zhCNMessages = {
         priority: '优先级',
         health: '健康状态',
         progress: '进度',
+      },
+      rail: {
+        eyebrow: '项目控制面',
+        summary: '{columns} 个显示列 · 按 {sort} 排序 · {milestones} 个项目有里程碑',
+        visible: '可见',
+        total: '已加载',
+        risk: '风险项目',
+        progress: '平均进度',
+        reset: '重置筛选',
+        archivedOn: '已包含归档',
+        archivedOff: '未包含归档',
       },
     },
     composer: {
