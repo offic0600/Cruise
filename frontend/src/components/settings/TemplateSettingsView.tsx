@@ -10,6 +10,16 @@ import { createIssueTemplate, deleteIssueTemplate, getIssueTemplates, getProject
 import { getStoredUser } from '@/lib/auth';
 import { queryKeys } from '@/lib/query/keys';
 
+function formatScope(projectId: number | null, teamId: number | null) {
+  if (projectId) {
+    return `Project #${projectId}`;
+  }
+  if (teamId) {
+    return `Team #${teamId}`;
+  }
+  return 'Workspace';
+}
+
 export default function TemplateSettingsView() {
   const queryClient = useQueryClient();
   const { t } = useI18n();
@@ -34,28 +44,36 @@ export default function TemplateSettingsView() {
     },
   });
 
+  const templates = templatesQuery.data ?? [];
+
   return (
     <div className="space-y-6">
-      <section className="space-y-3 rounded-3xl border border-border-soft bg-white p-5">
-        <div>
-          <div className="text-sm font-semibold text-ink-900">{t('settings.templates.title')}</div>
-          <p className="mt-1 text-sm text-ink-500">{t('settings.templates.subtitle')}</p>
+      <section className="space-y-4 rounded-3xl border border-border-soft bg-white p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-sm font-semibold text-ink-900">{t('settings.templates.title')}</div>
+            <p className="mt-1 text-sm text-ink-500">{t('settings.templates.subtitle')}</p>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-ink-600">
+            {t('settings.templates.count', { count: templates.length })}
+          </span>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
-          <Input placeholder="Template name" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
-          <Input placeholder="Default issue title" value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} />
+          <Input placeholder={t('settings.templates.fields.name')} value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
+          <Input placeholder={t('settings.templates.fields.title')} value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} />
           <select className="h-10 rounded-xl border border-border-soft px-3" value={form.projectId} onChange={(event) => setForm((current) => ({ ...current, projectId: event.target.value }))}>
-            <option value="">Select project</option>
+            <option value="">{t('settings.templates.fields.project')}</option>
             {(projectsQuery.data ?? []).map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
           </select>
           <select className="h-10 rounded-xl border border-border-soft px-3" value={form.teamId} onChange={(event) => setForm((current) => ({ ...current, teamId: event.target.value }))}>
-            <option value="">Select team</option>
+            <option value="">{t('settings.templates.fields.team')}</option>
             {(teamsQuery.data ?? []).map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
           </select>
           <div className="md:col-span-2">
-            <Textarea placeholder="Template description" value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} className="min-h-[120px]" />
+            <Textarea placeholder={t('settings.templates.fields.description')} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} className="min-h-[120px]" />
           </div>
-          <div className="md:col-span-2 flex justify-end">
+          <div className="md:col-span-2 flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-ink-500">
+            <span>{t('settings.templates.helper')}</span>
             <Button onClick={() => createMutation.mutate({
               organizationId,
               name: form.name,
@@ -63,27 +81,47 @@ export default function TemplateSettingsView() {
               description: form.description || null,
               projectId: form.projectId ? Number(form.projectId) : null,
               teamId: form.teamId ? Number(form.teamId) : null,
-            })} disabled={!form.name.trim()}>
-              {t('settings.templates.create')}
+            })} disabled={!form.name.trim() || createMutation.isPending}>
+              {createMutation.isPending ? t('settings.shared.saving') : t('settings.templates.create')}
             </Button>
           </div>
         </div>
       </section>
 
-      <div className="space-y-3">
-        {(templatesQuery.data ?? []).map((template: IssueTemplate) => (
-          <div key={template.id} className="rounded-3xl border border-border-soft bg-white p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="text-lg font-semibold text-ink-900">{template.name}</div>
-                <div className="mt-1 text-sm text-ink-500">{template.title || 'Untitled template'}</div>
-                <div className="mt-2 text-sm text-ink-600">{template.description || 'No description'}</div>
+      {templatesQuery.isLoading ? (
+        <section className="rounded-3xl border border-dashed border-border-soft bg-slate-50 p-8 text-sm text-ink-500">
+          {t('settings.shared.loading')}
+        </section>
+      ) : templates.length === 0 ? (
+        <section className="rounded-3xl border border-dashed border-border-soft bg-slate-50 p-8 text-sm text-ink-500">
+          {t('settings.templates.empty')}
+        </section>
+      ) : (
+        <div className="space-y-3">
+          {templates.map((template: IssueTemplate) => (
+            <div key={template.id} className="rounded-3xl border border-border-soft bg-white p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-lg font-semibold text-ink-900">{template.name}</div>
+                    <div className="mt-1 text-sm text-ink-500">{template.title || t('settings.templates.untitled')}</div>
+                  </div>
+                  <div className="text-sm text-ink-600">{template.description || t('settings.templates.noDescription')}</div>
+                  <div className="flex flex-wrap gap-2 text-xs text-ink-500">
+                    <span className="rounded-full bg-slate-100 px-3 py-1">{formatScope(template.projectId, template.teamId)}</span>
+                    {template.updatedAt ? (
+                      <span className="rounded-full bg-slate-100 px-3 py-1">{t('settings.shared.updatedAt', { value: template.updatedAt })}</span>
+                    ) : null}
+                  </div>
+                </div>
+                <Button variant="secondary" onClick={() => deleteMutation.mutate(template.id)} disabled={deleteMutation.isPending}>
+                  {t('settings.shared.delete')}
+                </Button>
               </div>
-              <Button variant="secondary" onClick={() => deleteMutation.mutate(template.id)}>Delete</Button>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
