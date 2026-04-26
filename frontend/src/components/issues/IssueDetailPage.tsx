@@ -195,6 +195,11 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
   const projects = projectsQuery.data ?? [];
   const teams = teamsQuery.data ?? [];
   const labels = labelsQuery.data ?? [];
+  const issueLabels = useMemo(() => {
+    const labelMap = new Map(labels.map((label) => [label.id, label]));
+    issue?.labels.forEach((label) => labelMap.set(label.id, label));
+    return [...labelMap.values()];
+  }, [issue?.labels, labels]);
   const members = useMemo(() => {
     const allMembers = (membersQuery.data as Array<{ id: number; name: string; teamId?: number | null }> | undefined) ?? [];
     const scopedTeamId = issue?.teamId ?? currentTeamId ?? null;
@@ -811,7 +816,7 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
         <div className="flex flex-col gap-8 pb-10">
           <header className="flex flex-col gap-6 border-b border-border-soft/80 pb-7">
             <div className="flex items-start justify-between gap-6">
-              <div className="min-w-0 space-y-4">
+              <div className="min-w-0 flex-1 space-y-4">
                 {!embedded ? (
                   <div className="flex items-center gap-2 text-sm text-ink-500">
                     {detailBackHref ? (
@@ -843,6 +848,25 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
                 <EditableTitle
                   value={draftIssue.title}
                   onChange={(value) => setDraftIssue((current) => (current ? { ...current, title: value } : current))}
+                />
+                <IssueDetailHeroMeta
+                  issue={issue}
+                  draftIssue={draftIssue}
+                  members={members}
+                  projects={projects}
+                  labels={issueLabels}
+                  relationsCount={relations.length}
+                  t={t}
+                  onSetDraftIssue={(updater) => setDraftIssue((current) => (current ? updater(current) : current))}
+                  onCreateLabel={async (scopeType, name) => {
+                    await createLabelMutation.mutateAsync({
+                      organizationId,
+                      scopeType,
+                      scopeId: scopeType === 'TEAM' ? issue.teamId : null,
+                      name,
+                      createdBy: user?.id ?? null,
+                    });
+                  }}
                 />
               </div>
               <IssueDetailActionBar
@@ -1267,7 +1291,8 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
               issue={issue}
               members={members}
               projects={projects}
-              labels={labels}
+              labels={issueLabels}
+              relations={relations}
               visibleCustomFields={visibleCustomFields}
               activeProperty={activeProperty}
               locale={locale}
@@ -1285,6 +1310,14 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
                   createdBy: user?.id ?? null,
                 });
               }}
+              onCreateRelated={() => createRelatedIssue('related')}
+              onAddLink={addLinkAttachment}
+              onAskLinear={() =>
+                showActionToast(
+                  'Ask Linear',
+                  locale.startsWith('zh') ? '该入口会基于当前 issue 上下文提问。' : 'This will ask with the current issue context.'
+                )
+              }
               renderCustomFieldInput={(field, value, onChange, onDone) => (
                 <CustomFieldInput field={field} value={value} onChange={onChange} onDone={onDone} />
               )}
@@ -2100,6 +2133,118 @@ function EditableTitle({
       className="min-h-[1.2em] cursor-text text-[40px] font-semibold leading-[1.08] tracking-[-0.03em] text-ink-900 outline-none lg:text-[46px]"
     >
       {value}
+    </div>
+  );
+}
+
+function IssueDetailHeroMeta({
+  issue,
+  draftIssue,
+  members,
+  projects,
+  labels,
+  relationsCount,
+  t,
+  onSetDraftIssue,
+  onCreateLabel,
+}: {
+  issue: Issue;
+  draftIssue: DraftIssue;
+  members: Array<{ id: number; name: string }>;
+  projects: Project[];
+  labels: Label[];
+  relationsCount: number;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+  onSetDraftIssue: (updater: (current: DraftIssue) => DraftIssue) => void;
+  onCreateLabel: (scopeType: 'TEAM' | 'WORKSPACE', name: string) => Promise<void>;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2.5 pt-1">
+      <span className="inline-flex h-9 items-center rounded-full border border-border-soft bg-slate-50 px-3 text-sm font-semibold tracking-[-0.01em] text-ink-700">
+        {issue.identifier}
+      </span>
+      <InlineIssuePill
+        label={issueStateLabel(draftIssue.state, t)}
+        value={draftIssue.state}
+        options={ISSUE_STATES.map((value) => buildInlineStateOption(value, t))}
+        onChange={(value) =>
+          onSetDraftIssue((current) => ({
+            ...current,
+            state: value as Issue['state'],
+            resolution: nextResolutionForState(value as Issue['state'], current.resolution),
+          }))
+        }
+      />
+      <InlineIssuePill
+        label={issuePriorityLabel(draftIssue.priority, t)}
+        value={draftIssue.priority ?? EMPTY}
+        options={ISSUE_PRIORITIES.map((value) => buildInlinePriorityOption(value, t))}
+        emptyLabel={t('views.new.preview.noPriority')}
+        onChange={(value) =>
+          onSetDraftIssue((current) => ({
+            ...current,
+            priority: value === EMPTY ? null : (value as Issue['priority']),
+          }))
+        }
+      />
+      <InlineIssuePill
+        label={members.find((member) => member.id === draftIssue.assigneeId)?.name ?? t('common.notSet')}
+        value={draftIssue.assigneeId != null ? String(draftIssue.assigneeId) : EMPTY}
+        options={members.map((member) => ({
+          value: String(member.id),
+          label: member.name,
+          avatarText: initialsForName(member.name),
+          avatarClassName: 'bg-rose-100 text-rose-600',
+        }))}
+        emptyLabel={t('common.notSet')}
+        searchable
+        searchPlaceholder={t('issues.detailSidebar.searchAssignee')}
+        noSearchResultsLabel={t('issues.detailSidebar.noAssigneeResults')}
+        onChange={(value) =>
+          onSetDraftIssue((current) => ({
+            ...current,
+            assigneeId: value === EMPTY ? null : Number(value),
+          }))
+        }
+      />
+      <InlineIssuePill
+        label={projects.find((project) => project.id === draftIssue.projectId)?.name ?? t('issues.detailSidebar.addToProject')}
+        value={draftIssue.projectId != null ? String(draftIssue.projectId) : EMPTY}
+        options={projects.map((project) => ({
+          value: String(project.id),
+          label: project.name,
+          icon: <FolderKanban className="h-4 w-4 text-ink-400" />,
+        }))}
+        emptyLabel={t('common.notSet')}
+        searchable
+        searchPlaceholder={t('issues.detailSidebar.addToProject')}
+        noSearchResultsLabel={t('common.empty')}
+        onChange={(value) =>
+          onSetDraftIssue((current) => ({
+            ...current,
+            projectId: value === EMPTY ? null : Number(value),
+          }))
+        }
+      />
+      <InlineLabelsPill
+        labels={labels}
+        teamId={issue.teamId}
+        selectedLabelIds={draftIssue.labelIds}
+        t={t}
+        onCreateLabel={onCreateLabel}
+        onToggle={(labelId) =>
+          onSetDraftIssue((current) => ({
+            ...current,
+            labelIds: current.labelIds.includes(labelId)
+              ? current.labelIds.filter((value) => value !== labelId)
+              : [...current.labelIds, labelId],
+          }))
+        }
+      />
+      <a href="#relations" className="inline-flex h-9 items-center gap-2 rounded-full border border-border-soft bg-white px-3 text-sm font-medium text-ink-600 transition hover:bg-slate-50 hover:text-ink-900">
+        <Link2 className="h-3.5 w-3.5 text-ink-400" />
+        <span>{relationsCount ? `${relationsCount} relations` : t('issues.emptyStates.relations')}</span>
+      </a>
     </div>
   );
 }
@@ -2961,5 +3106,3 @@ function formatDate(value: string | null, locale: string) {
     minute: '2-digit',
   }).format(new Date(value));
 }
-
-

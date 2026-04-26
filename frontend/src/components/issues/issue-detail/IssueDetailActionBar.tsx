@@ -1,6 +1,6 @@
 'use client';
 
-import type { ComponentProps, ReactNode } from 'react';
+import { useState, type ComponentProps, type ReactNode } from 'react';
 import {
   ChevronDown,
   Copy,
@@ -42,11 +42,19 @@ export function IssueDetailActionBar({
   onCopyPrompt: () => Promise<void>;
   onConfigureCodingTools: () => void;
 }) {
+  const [lastAction, setLastAction] = useState<string | null>(null);
+
+  const runAction = async (label: string, action: () => Promise<void> | void) => {
+    await action();
+    setLastAction(label);
+    window.setTimeout(() => setLastAction((current) => (current === label ? null : current)), 1800);
+  };
+
   return (
     <div className="flex justify-end">
       <div className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200/90 bg-white/95 px-1.5 py-1 shadow-[0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/90">
         <Tooltip content="Copy issue URL">
-          <ActionIconButton aria-label="Copy issue URL" onClick={() => void onCopyLink()}>
+          <ActionIconButton aria-label="Copy issue URL" onClick={() => void runAction('Link copied', onCopyLink)}>
             <Link2 className="h-4 w-4" strokeWidth={2} />
           </ActionIconButton>
         </Tooltip>
@@ -59,10 +67,10 @@ export function IssueDetailActionBar({
               </ActionIconButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52 rounded-[18px] p-1.5">
-              <DropdownMenuItem onSelect={() => void onCopyIdentifier()} className="rounded-xl px-3 py-2.5">
+              <DropdownMenuItem onSelect={() => void runAction('ID copied', onCopyIdentifier)} className="rounded-xl px-3 py-2.5">
                 Copy issue ID
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void onCopyTitle()} className="rounded-xl px-3 py-2.5">
+              <DropdownMenuItem onSelect={() => void runAction('Title copied', onCopyTitle)} className="rounded-xl px-3 py-2.5">
                 Copy issue title
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -97,7 +105,7 @@ export function IssueDetailActionBar({
               <button
                 type="button"
                 aria-label="Copy as prompt"
-                onClick={() => void onCopyPrompt()}
+                onClick={() => void runAction('Prompt copied', onCopyPrompt)}
                 className="inline-flex h-9 items-center justify-center px-3 text-slate-700 outline-none transition hover:bg-slate-50 hover:text-slate-950 focus:outline-none focus-visible:outline-none focus-visible:ring-0"
               >
                 <Send className="h-4 w-4" strokeWidth={2} />
@@ -115,7 +123,7 @@ export function IssueDetailActionBar({
             </DropdownMenuTrigger>
           </div>
           <DropdownMenuContent align="end" className="w-[280px] rounded-[18px] p-1.5">
-            <DropdownMenuItem onSelect={() => void onCopyPrompt()} className="flex items-center justify-between rounded-xl px-3 py-2.5">
+            <DropdownMenuItem onSelect={() => void runAction('Prompt copied', onCopyPrompt)} className="flex items-center justify-between rounded-xl px-3 py-2.5">
               <span>Copy as prompt</span>
               <span className="text-xs text-ink-400">Ctrl Alt P</span>
             </DropdownMenuItem>
@@ -128,6 +136,11 @@ export function IssueDetailActionBar({
             {moreMenu}
           </DropdownMenuContent>
         </DropdownMenu>
+        {lastAction ? (
+          <span aria-live="polite" className="hidden rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 sm:inline-flex">
+            {lastAction}
+          </span>
+        ) : null}
       </div>
     </div>
   );

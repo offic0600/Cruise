@@ -4,7 +4,10 @@ import { type ReactNode, useMemo, useState } from 'react';
 import {
   ChevronDown,
   FolderKanban,
+  GitBranchPlus,
+  Link2,
   Plus,
+  Sparkles,
   Tag,
   UserCircle2,
 } from 'lucide-react';
@@ -13,7 +16,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import type { CustomFieldDefinition, Issue, Label, Project } from '@/lib/api';
+import type { CustomFieldDefinition, Issue, IssueRelation, Label, Project } from '@/lib/api';
 import { getStoredUser } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import { IssueAssigneeSelectMenu } from '../IssueAssigneeSelectMenu';
@@ -57,6 +60,7 @@ export function IssueDetailSidebar({
   members,
   projects,
   labels,
+  relations,
   visibleCustomFields,
   activeProperty,
   locale: _locale,
@@ -64,6 +68,9 @@ export function IssueDetailSidebar({
   onSetDraftIssue,
   onSetActiveProperty,
   onCreateLabel,
+  onCreateRelated,
+  onAddLink,
+  onAskLinear,
   renderCustomFieldInput,
   formatCustomFieldValue,
 }: {
@@ -72,6 +79,7 @@ export function IssueDetailSidebar({
   members: Array<{ id: number; name: string }>;
   projects: Project[];
   labels: Label[];
+  relations: IssueRelation[];
   visibleCustomFields: CustomFieldDefinition[];
   activeProperty: string | null;
   locale: string;
@@ -79,6 +87,9 @@ export function IssueDetailSidebar({
   onSetDraftIssue: (updater: (current: SidebarDraft) => SidebarDraft) => void;
   onSetActiveProperty: (value: string | null) => void;
   onCreateLabel: (scopeType: 'TEAM' | 'WORKSPACE', name: string) => Promise<void>;
+  onCreateRelated: () => Promise<void>;
+  onAddLink: () => Promise<void>;
+  onAskLinear: () => void;
   renderCustomFieldInput: (
     field: CustomFieldDefinition,
     value: unknown,
@@ -191,6 +202,63 @@ export function IssueDetailSidebar({
             }))
           }
         />
+      </SidebarCard>
+
+      <div id="relations">
+        <SidebarCard title={t('issues.tabs.relations')} bodyClassName="space-y-2">
+          {relations.length ? (
+            <div className="space-y-1.5">
+              {relations.slice(0, 4).map((relation) => {
+                const relatedId = relation.fromIssueId === issue.id ? relation.toIssueId : relation.fromIssueId;
+                return (
+                  <div key={relation.id} className="rounded-2xl border border-border-soft/80 bg-surface-soft/40 px-3 py-2.5">
+                    <div className="text-[11px] uppercase tracking-[0.16em] text-ink-400">{formatRelationType(relation.relationType)}</div>
+                    <div className="mt-0.5 truncate text-sm font-medium text-ink-800">Issue #{relatedId}</div>
+                  </div>
+                );
+              })}
+              {relations.length > 4 ? (
+                <div className="px-1 text-xs text-ink-400">+{relations.length - 4} more</div>
+              ) : null}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-border-soft bg-surface-soft/30 px-3 py-3 text-sm text-ink-400">
+              {t('issues.emptyStates.relations')}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => void onCreateRelated()}
+            className="inline-flex h-9 items-center gap-2 rounded-full border border-border-soft bg-white px-3 text-sm font-medium text-ink-700 transition hover:bg-slate-50 hover:text-ink-950"
+          >
+            <GitBranchPlus className="h-4 w-4 text-ink-400" />
+            <span>{t('issues.more.relatedIssue')}</span>
+          </button>
+        </SidebarCard>
+      </div>
+
+      <SidebarCard title="Ask Linear" bodyClassName="space-y-2">
+        <button
+          type="button"
+          onClick={onAskLinear}
+          className="flex w-full items-center gap-3 rounded-2xl border border-border-soft bg-gradient-to-br from-white to-slate-50 px-3 py-3 text-left transition hover:border-slate-300 hover:shadow-[0_8px_22px_rgba(15,23,42,0.06)]"
+        >
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-ink-900 text-white">
+            <Sparkles className="h-4 w-4" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-medium text-ink-800">Ask about this issue</span>
+            <span className="block truncate text-xs text-ink-400">{issue.identifier} context, activity, and relations</span>
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => void onAddLink()}
+          className="inline-flex items-center gap-2 px-1 text-sm font-medium text-ink-500 transition hover:text-ink-900"
+        >
+          <Link2 className="h-3.5 w-3.5" />
+          <span>{t('issues.more.addLink')}</span>
+        </button>
       </SidebarCard>
 
       {visibleCustomFields.length ? (
@@ -642,6 +710,14 @@ function AvatarChip({ text, className }: { text: string; className?: string }) {
       {text}
     </span>
   );
+}
+
+function formatRelationType(value: IssueRelation['relationType']) {
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 function InlineEditableRow({

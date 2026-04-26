@@ -128,6 +128,7 @@ export default function IssueComposer({
   const [recurringEnabled, setRecurringEnabled] = useState(false);
   const [recurringInterval, setRecurringInterval] = useState('1');
   const [recurringUnit, setRecurringUnit] = useState<'day' | 'week' | 'month'>('week');
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const projectsQuery = useQuery({
     queryKey: queryKeys.projects,
@@ -278,6 +279,13 @@ export default function IssueComposer({
 
   const scopeName = currentTeam?.name ?? currentOrganization?.name ?? 'Workspace';
   const selectedLabelIds = draft.labelIds;
+  const composerBusy =
+    projectsQuery.isLoading ||
+    teamsQuery.isLoading ||
+    membersQuery.isLoading ||
+    templatesQuery.isLoading ||
+    createIssueMutation.isPending ||
+    createRecurringMutation.isPending;
 
   const resetComposer = () => {
     const nextDraft = parseIssueCreateParams(initialParams ?? new URLSearchParams(), projects, templates);
@@ -290,6 +298,7 @@ export default function IssueComposer({
     setRecurringEnabled(false);
     setRecurringInterval('1');
     setRecurringUnit('week');
+    setCreateError(null);
   };
 
   const handleClose = () => {
@@ -297,7 +306,7 @@ export default function IssueComposer({
     onClose?.();
   };
 
-  const handleCreate = async () => {
+  const submitCreate = async () => {
     if (recurringEnabled) {
       await createRecurringMutation.mutateAsync({
         organizationId,
@@ -405,6 +414,15 @@ export default function IssueComposer({
     onClose?.();
   };
 
+  const handleCreate = async () => {
+    setCreateError(null);
+    try {
+      await submitCreate();
+    } catch {
+      setCreateError(t('issues.errors.create'));
+    }
+  };
+
   const handleSaveServerDraft = async () => {
     await saveDraftMutation.mutateAsync({
       id: initialDraftId ?? undefined,
@@ -475,6 +493,7 @@ export default function IssueComposer({
       recurringInterval={recurringInterval}
       recurringUnit={recurringUnit}
       createPending={createIssueMutation.isPending || createRecurringMutation.isPending}
+      createError={createError}
       selectedLabelIds={selectedLabelIds}
       templates={templates}
       currentUserId={storedUser?.id != null ? String(storedUser.id) : null}
@@ -519,6 +538,7 @@ export default function IssueComposer({
       savingTemplate={savingTemplate}
       templateName={templateName}
       createPending={createIssueMutation.isPending}
+      createError={createError}
       currentOrganizationSlug={currentOrganizationSlug}
       currentTeamKey={currentTeamKey}
       locale={locale}
@@ -548,6 +568,11 @@ export default function IssueComposer({
       ) : (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/16 px-6 py-10 backdrop-blur-[2px]">
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('issues.actions.new')}
+            aria-busy={composerBusy}
+            data-testid="issue-composer-dialog"
             className={cn(
               'w-full overflow-hidden rounded-[32px] border border-black/5 bg-white shadow-[0_28px_80px_rgba(15,23,42,0.18)] transition-[width,height,max-width] duration-200 ease-linear',
               isExpanded
@@ -579,6 +604,7 @@ function QuickCreateView({
   recurringInterval,
   recurringUnit,
   createPending,
+  createError,
   selectedLabelIds,
   templates,
   currentUserId,
@@ -611,6 +637,7 @@ function QuickCreateView({
   recurringInterval: string;
   recurringUnit: 'day' | 'week' | 'month';
   createPending: boolean;
+  createError: string | null;
   selectedLabelIds: string[];
   templates: IssueTemplate[];
   currentUserId: string | null;
@@ -674,6 +701,12 @@ function QuickCreateView({
           ) : null}
         </div>
       </div>
+
+      {createError ? (
+        <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+          {createError}
+        </div>
+      ) : null}
 
       <div className={cn('mt-10', isExpanded ? 'flex-1' : '')}>
         <input
@@ -866,6 +899,7 @@ function FullCreateView({
   savingTemplate,
   templateName,
   createPending,
+  createError,
   currentOrganizationSlug,
   currentTeamKey,
   locale,
@@ -890,6 +924,7 @@ function FullCreateView({
   savingTemplate: boolean;
   templateName: string;
   createPending: boolean;
+  createError: string | null;
   currentOrganizationSlug: string | null;
   currentTeamKey: string | null;
   locale: Locale;
@@ -928,6 +963,12 @@ function FullCreateView({
           </Button>
         </div>
       </div>
+
+      {createError ? (
+        <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+          {createError}
+        </div>
+      ) : null}
 
       <div className="mt-8 grid gap-6">
         <div className="grid gap-3">

@@ -6,9 +6,13 @@ import { redirect } from 'next/navigation';
 
 const SECTION_COMPONENTS = {
   'email-intake': TeamSettingsEmailIntakePage,
+  'issue-templates': TeamSettingsTemplatesPage,
+  'project-templates': TeamSettingsTemplatesPage,
   recurring: TeamSettingsRecurringPage,
   templates: TeamSettingsTemplatesPage,
 } satisfies Record<string, ComponentType>;
+
+const DEFAULT_SECTION = 'templates';
 
 export default async function TeamSettingsRoutePage({
   params,
@@ -19,12 +23,12 @@ export default async function TeamSettingsRoutePage({
   const currentSection = section?.[0];
 
   if (!currentSection) {
-    redirect(`/${workspaceSlug}/team/${teamKey}/settings/templates`);
+    redirect(`/${workspaceSlug}/team/${teamKey}/settings/${DEFAULT_SECTION}`);
   }
 
   const Component = SECTION_COMPONENTS[currentSection as keyof typeof SECTION_COMPONENTS];
   if (!Component) {
-    redirect(`/${workspaceSlug}/team/${teamKey}/settings/templates`);
+    redirect(`/${workspaceSlug}/team/${teamKey}/settings/${DEFAULT_SECTION}`);
   }
 
   return <Component />;
