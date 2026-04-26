@@ -485,6 +485,8 @@ export default function IssueComposer({
       labels={labels}
       labelCatalog={labelCatalog}
       members={members}
+      projects={projects}
+      teams={teams}
       scopeName={scopeName}
       dirty={dirty}
       pendingFiles={pendingFiles}
@@ -596,6 +598,8 @@ function QuickCreateView({
   labels,
   labelCatalog,
   members,
+  projects,
+  teams,
   scopeName,
   dirty,
   pendingFiles,
@@ -629,6 +633,8 @@ function QuickCreateView({
   labels: Label[];
   labelCatalog?: { teamLabels: Label[]; workspaceLabels: Label[] };
   members: TeamMember[];
+  projects: Array<{ id: number; name: string }>;
+  teams: Array<{ id: number; name: string }>;
   scopeName: string;
   dirty: boolean;
   pendingFiles: File[];
@@ -660,6 +666,17 @@ function QuickCreateView({
 }) {
   const labelsLabel = t('settings.composer.labels');
   const dueDateInputRef = useRef<HTMLInputElement | null>(null);
+  const readinessSignals = buildComposerReadinessSignals({
+    draft,
+    projects,
+    teams,
+    members,
+    labels,
+    pendingFiles,
+    recurringEnabled,
+    createMore,
+    t,
+  });
 
   return (
     <div className={cn('flex flex-col', isExpanded ? 'h-full min-h-0' : '')}>
@@ -786,6 +803,15 @@ function QuickCreateView({
           t={t}
         />
       </div>
+
+      <ComposerFlowRail
+        signals={readinessSignals}
+        createPending={createPending}
+        createError={createError}
+        recurringEnabled={recurringEnabled}
+        t={t}
+        compact={!isExpanded}
+      />
 
       <div className="mt-10 flex items-end justify-between gap-4">
         <div className="flex min-h-12 flex-1 items-center gap-3">
@@ -939,6 +965,17 @@ function FullCreateView({
   onCreate: () => Promise<void>;
 }) {
   const selectedLabelNames = labels.filter((item) => draft.labelIds.includes(String(item.id))).map((item) => item.name).join(', ');
+  const readinessSignals = buildComposerReadinessSignals({
+    draft,
+    projects,
+    teams,
+    members,
+    labels,
+    pendingFiles,
+    recurringEnabled: false,
+    createMore: false,
+    t,
+  });
 
   return (
     <div className="rounded-[32px] border border-border-soft bg-white p-8 shadow-sm">
@@ -969,6 +1006,14 @@ function FullCreateView({
           {createError}
         </div>
       ) : null}
+
+      <ComposerFlowRail
+        signals={readinessSignals}
+        createPending={createPending}
+        createError={createError}
+        recurringEnabled={false}
+        t={t}
+      />
 
       <div className="mt-8 grid gap-6">
         <div className="grid gap-3">
@@ -1124,6 +1169,13 @@ function FullCreateView({
           </div>
         ) : null}
 
+        <ComposerSubmitPlan
+          draft={draft}
+          pendingFiles={pendingFiles}
+          createPending={createPending}
+          t={t}
+        />
+
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border-soft pt-6">
           <div className="flex flex-wrap items-center gap-3">
             <Button type="button" variant="secondary" onClick={onPickFiles}>
@@ -1159,6 +1211,156 @@ function FullCreateView({
             </div>
           </div>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+type ComposerReadinessSignal = {
+  id: string;
+  label: string;
+  value: string;
+  complete: boolean;
+  optional?: boolean;
+};
+
+function ComposerFlowRail({
+  signals,
+  createPending,
+  createError,
+  recurringEnabled,
+  t,
+  compact = false,
+}: {
+  signals: ComposerReadinessSignal[];
+  createPending: boolean;
+  createError: string | null;
+  recurringEnabled: boolean;
+  t: (key: string, params?: Record<string, string | number>) => string;
+  compact?: boolean;
+}) {
+  const titleReady = signals.find((signal) => signal.id === 'title')?.complete ?? false;
+  const completeCount = signals.filter((signal) => signal.complete).length;
+  const visibleSignals = compact ? signals.slice(0, 4) : signals;
+
+  return (
+    <div
+      data-testid="issue-create-flow-rail"
+      className={cn(
+        'mt-6 overflow-hidden rounded-[24px] border px-5 py-4 shadow-[0_10px_30px_rgba(15,23,42,0.05)]',
+        createError
+          ? 'border-rose-200 bg-rose-50'
+          : titleReady
+            ? 'border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-slate-50'
+            : 'border-border-soft bg-gradient-to-br from-slate-50 via-white to-white'
+      )}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <span
+            className={cn(
+              'mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-2xl',
+              createPending
+                ? 'bg-sky-100 text-sky-600'
+                : titleReady
+                  ? 'bg-emerald-100 text-emerald-600'
+                  : 'bg-slate-100 text-ink-500'
+            )}
+          >
+            {createPending ? <LoaderCircle className="h-4.5 w-4.5 animate-spin" /> : titleReady ? <CheckCircle2 className="h-4.5 w-4.5" /> : <CircleDashed className="h-4.5 w-4.5" />}
+          </span>
+          <div>
+            <div className="text-sm font-semibold text-ink-900">{t('settings.composer.flowTitle')}</div>
+            <div className="mt-1 text-sm text-ink-500">
+              {createPending
+                ? t('issues.actions.creating')
+                : titleReady
+                  ? t('settings.composer.flowReady')
+                  : t('settings.composer.flowNeedsTitle')}
+            </div>
+          </div>
+        </div>
+        <div className="rounded-full border border-black/5 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-ink-400">
+          {t('settings.composer.flowSubtitle', { complete: completeCount, total: signals.length })}
+        </div>
+      </div>
+
+      <div className={cn('mt-4 grid gap-2', compact ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-2 xl:grid-cols-4')}>
+        {visibleSignals.map((signal) => (
+          <ComposerReadinessSignalCard key={signal.id} signal={signal} />
+        ))}
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-ink-500">
+        <span className="rounded-full bg-white px-3 py-1 font-medium text-ink-600">
+          {recurringEnabled ? t('settings.composer.recurringPlanBody') : t('settings.composer.submitPlanBody')}
+        </span>
+        {createError ? <span className="rounded-full bg-rose-100 px-3 py-1 font-semibold text-rose-700">{createError}</span> : null}
+      </div>
+    </div>
+  );
+}
+
+function ComposerReadinessSignalCard({ signal }: { signal: ComposerReadinessSignal }) {
+  return (
+    <div className="rounded-2xl border border-black/5 bg-white px-3.5 py-3">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-ink-400">
+        <span
+          className={cn(
+            'inline-flex h-5 w-5 items-center justify-center rounded-full',
+            signal.complete ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
+          )}
+        >
+          {signal.complete ? <CheckCircle2 className="h-3.5 w-3.5" /> : <CircleDashed className="h-3.5 w-3.5" />}
+        </span>
+        <span>{signal.label}</span>
+      </div>
+      <div className={cn('mt-2 truncate text-sm font-medium', signal.complete ? 'text-ink-800' : 'text-amber-700')}>
+        {signal.value}
+      </div>
+    </div>
+  );
+}
+
+function ComposerSubmitPlan({
+  draft,
+  pendingFiles,
+  createPending,
+  t,
+}: {
+  draft: IssueComposerDraft;
+  pendingFiles: File[];
+  createPending: boolean;
+  t: (key: string, params?: Record<string, string | number>) => string;
+}) {
+  const linkCount = countDraftLinks(draft);
+  const steps = [
+    t('settings.composer.planCreateIssue'),
+    pendingFiles.length ? t('settings.composer.planUploadFiles', { count: pendingFiles.length }) : t('settings.composer.planSkipFiles'),
+    linkCount ? t('settings.composer.planAttachLinks', { count: linkCount }) : t('settings.composer.planSkipLinks'),
+    t('settings.composer.planRouteDetail'),
+  ];
+
+  return (
+    <div className="rounded-[24px] border border-border-soft bg-slate-50/80 p-5">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-ink-900">{t('settings.composer.submitPlan')}</div>
+          <div className="mt-1 text-sm text-ink-500">{t('settings.composer.metadataHint')}</div>
+        </div>
+        <span className="inline-flex h-9 items-center rounded-full border border-border-soft bg-white px-3 text-xs font-semibold uppercase tracking-[0.14em] text-ink-400">
+          {createPending ? t('issues.actions.creating') : t('settings.composer.metadataPreview')}
+        </span>
+      </div>
+      <div className="mt-4 grid gap-2 md:grid-cols-4">
+        {steps.map((step, index) => (
+          <div key={step} className="rounded-2xl border border-black/5 bg-white px-3 py-3 text-sm text-ink-700">
+            <div className="mb-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">
+              {index + 1}
+            </div>
+            <div className="font-medium leading-5">{step}</div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -1914,6 +2116,102 @@ function buildPriorityOption(value: Exclude<Issue['priority'], null>, t: (key: s
     return { value, label, icon: <ChevronDown className="h-4 w-4 rotate-180" />, iconClassName: 'text-orange-500' };
   }
   return { value, label, icon: <Flame className="h-4 w-4" />, iconClassName: 'text-rose-500' };
+}
+
+function buildComposerReadinessSignals({
+  draft,
+  projects,
+  teams,
+  members,
+  labels,
+  pendingFiles,
+  recurringEnabled,
+  createMore,
+  t,
+}: {
+  draft: IssueComposerDraft;
+  projects: Array<{ id: number; name: string }>;
+  teams: Array<{ id: number; name: string }>;
+  members: TeamMember[];
+  labels: Label[];
+  pendingFiles: File[];
+  recurringEnabled: boolean;
+  createMore: boolean;
+  t: (key: string, params?: Record<string, string | number>) => string;
+}): ComposerReadinessSignal[] {
+  const projectName = projects.find((project) => String(project.id) === draft.projectId)?.name;
+  const teamName = teams.find((team) => String(team.id) === draft.teamId)?.name;
+  const assigneeName = members.find((member) => String(member.id) === draft.assigneeId)?.name;
+  const selectedLabelCount = labels.filter((label) => draft.labelIds.includes(String(label.id))).length;
+  const linkCount = countDraftLinks(draft);
+
+  return [
+    {
+      id: 'title',
+      label: t('settings.composer.signalTitle'),
+      value: draft.title.trim() || t('settings.composer.signalRequired'),
+      complete: !!draft.title.trim(),
+    },
+    {
+      id: 'project',
+      label: t('settings.composer.signalProject'),
+      value: projectName ?? t('settings.composer.noProject'),
+      complete: true,
+      optional: true,
+    },
+    {
+      id: 'team',
+      label: t('settings.composer.signalTeam'),
+      value: teamName ?? t('common.notSet'),
+      complete: true,
+      optional: true,
+    },
+    {
+      id: 'assignee',
+      label: t('settings.composer.signalAssignee'),
+      value: assigneeName ?? t('common.notSet'),
+      complete: true,
+      optional: true,
+    },
+    {
+      id: 'labels',
+      label: t('settings.composer.signalLabels'),
+      value: selectedLabelCount ? t('settings.composer.labelCount', { count: selectedLabelCount }) : t('settings.composer.noLabels'),
+      complete: true,
+      optional: true,
+    },
+    {
+      id: 'attachments',
+      label: t('settings.composer.signalAttachments'),
+      value: pendingFiles.length ? t('settings.composer.filesSelected', { count: pendingFiles.length }) : t('settings.composer.noAttachments'),
+      complete: true,
+      optional: true,
+    },
+    {
+      id: 'links',
+      label: t('settings.composer.signalLinks'),
+      value: linkCount ? t('settings.composer.linkCount', { count: linkCount }) : t('settings.composer.noLinks'),
+      complete: true,
+      optional: true,
+    },
+    {
+      id: 'mode',
+      label: t('settings.composer.signalMode'),
+      value: recurringEnabled
+        ? t('settings.composer.signalRecurringIssue')
+        : createMore
+          ? t('settings.composer.signalCreateMore')
+          : t('settings.composer.signalStandardIssue'),
+      complete: true,
+    },
+  ];
+}
+
+function countDraftLinks(draft: IssueComposerDraft) {
+  return draft.linksText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean).length;
 }
 
 function getInitials(name: string) {

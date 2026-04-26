@@ -915,6 +915,25 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
             </div>
           </header>
 
+          <IssueDetailInteractionStrip
+            issue={issue}
+            attachmentsCount={attachments.length}
+            relationsCount={relations.length}
+            docsCount={docs.length}
+            childIssuesCount={childIssues.length}
+            activityCount={activity.length + comments.length}
+            isSubscribed={isSubscribed}
+            t={t}
+            onAddLink={() => void addLinkAttachment()}
+            onCreateSubIssue={() => {
+              setSubIssueDraft(createSubIssueDraft(issue));
+              setSubIssueFiles([]);
+              setIsAddingChild(true);
+            }}
+            onAddDocument={() => void quickCreateDoc()}
+            onToggleSubscribed={() => setIsSubscribed((current) => !current)}
+          />
+
           <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_292px]">
             <main className="min-w-0 space-y-8">
               <section className="pb-2">
@@ -1641,6 +1660,104 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
           </div>
         </div>
       </div>
+  );
+}
+
+function IssueDetailInteractionStrip({
+  issue,
+  attachmentsCount,
+  relationsCount,
+  docsCount,
+  childIssuesCount,
+  activityCount,
+  isSubscribed,
+  t,
+  onAddLink,
+  onCreateSubIssue,
+  onAddDocument,
+  onToggleSubscribed,
+}: {
+  issue: Issue;
+  attachmentsCount: number;
+  relationsCount: number;
+  docsCount: number;
+  childIssuesCount: number;
+  activityCount: number;
+  isSubscribed: boolean;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+  onAddLink: () => void;
+  onCreateSubIssue: () => void;
+  onAddDocument: () => void;
+  onToggleSubscribed: () => void;
+}) {
+  const metrics = [
+    { label: t('issues.detailPage.resources'), value: attachmentsCount + relationsCount },
+    { label: t('issues.detailPage.subIssues'), value: childIssuesCount },
+    { label: t('issues.detailPage.linkedDocs'), value: docsCount },
+    { label: t('issues.tabs.activity'), value: activityCount },
+  ];
+
+  return (
+    <section
+      data-testid="issue-detail-interaction-strip"
+      className="overflow-hidden rounded-[28px] border border-border-soft bg-gradient-to-br from-white via-slate-50 to-white p-4 shadow-[0_16px_48px_rgba(15,23,42,0.05)]"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div className="text-sm font-semibold text-ink-900">{t('issues.detailPage.interactionStripTitle')}</div>
+          <div className="mt-1 text-sm text-ink-500">
+            {t('issues.detailPage.interactionStripSubtitle', { identifier: issue.identifier })}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={onAddLink}
+            className="inline-flex h-9 items-center gap-2 rounded-full border border-border-soft bg-white px-3 text-sm font-medium text-ink-700 transition hover:bg-slate-50"
+          >
+            <Link2 className="h-4 w-4 text-ink-400" />
+            {t('issues.detailPage.actionAddLink')}
+          </button>
+          <button
+            type="button"
+            onClick={onCreateSubIssue}
+            className="inline-flex h-9 items-center gap-2 rounded-full border border-border-soft bg-white px-3 text-sm font-medium text-ink-700 transition hover:bg-slate-50"
+          >
+            <Plus className="h-4 w-4 text-ink-400" />
+            {t('issues.detailPage.actionCreateSubIssue')}
+          </button>
+          <button
+            type="button"
+            onClick={onAddDocument}
+            className="inline-flex h-9 items-center gap-2 rounded-full border border-border-soft bg-white px-3 text-sm font-medium text-ink-700 transition hover:bg-slate-50"
+          >
+            <FileText className="h-4 w-4 text-ink-400" />
+            {t('issues.detailPage.actionAddDocument')}
+          </button>
+          <button
+            type="button"
+            onClick={onToggleSubscribed}
+            className={cn(
+              'inline-flex h-9 items-center gap-2 rounded-full px-3 text-sm font-medium transition',
+              isSubscribed
+                ? 'bg-slate-900 text-white hover:bg-slate-800'
+                : 'border border-border-soft bg-white text-ink-700 hover:bg-slate-50'
+            )}
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            {isSubscribed ? t('issues.detailPage.actionSubscribed') : t('issues.detailPage.actionSubscribe')}
+          </button>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        {metrics.map((metric) => (
+          <div key={metric.label} className="rounded-2xl border border-black/5 bg-white px-4 py-3">
+            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-400">{metric.label}</div>
+            <div className="mt-2 text-2xl font-semibold tracking-tight text-ink-900">{metric.value}</div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
