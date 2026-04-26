@@ -636,6 +636,9 @@ def upsert_node(frontier: dict, node: dict):
 
 
 def source_url_for_recapture_request(frontier: dict, request: dict) -> str:
+    source_node = request.get("source_node") or {}
+    if source_node.get("source_url"):
+        return canonicalize_url(source_node["source_url"])
     quality = request.get("evidence_quality") or {}
     url = (quality.get("url") or "").strip()
     if url:
@@ -659,9 +662,12 @@ def apply_recapture_requests(frontier: dict, ledger: dict, requests: dict) -> in
             request["status"] = "blocked_missing_source_url"
             request["updated_at"] = iso_now()
             continue
-        node_key = f"page:{scope_key}"
+        source_node = request.get("source_node") or {}
+        request_node_type = request.get("run_type") or source_node.get("node_type") or "page"
+        node_key = source_node.get("node_key") or f"{request_node_type}:{scope_key}"
         node = find_node(frontier, node_key)
         metadata = {
+            **source_node.get("metadata", {}),
             "recapture_request_key": request.get("request_key"),
             "recapture_source_artifact_hash": request.get("artifact_hash"),
             "recapture_reason": request.get("reason"),
@@ -670,7 +676,7 @@ def apply_recapture_requests(frontier: dict, ledger: dict, requests: dict) -> in
         if node is None:
             node = {
                 "node_key": node_key,
-                "node_type": "page",
+                "node_type": request_node_type,
                 "scope_key": scope_key,
                 "source_url": source_url,
                 "ui_surface": f"Recapture {scope_key}",
@@ -697,7 +703,7 @@ def apply_recapture_requests(frontier: dict, ledger: dict, requests: dict) -> in
         entry = entries.setdefault(node_key, {})
         entry.update(
             {
-                "node_type": "page",
+                "node_type": request_node_type,
                 "scope_key": scope_key,
                 "status": "needs_recapture",
                 "run_status": "needs_recapture",
@@ -949,6 +955,37 @@ def capture_page_until_quality(session: CdpSession, page_dir: Path, node: dict):
     url = last_quality.get("url") or (last_snapshot or {}).get("href")
     raise RuntimeError(
         "capture_quality_not_ready: "
+        f"{reasons}; elements={len(last_elements)}; title={title}; url={url}"
+    )
+
+
+def capture_labeled_page_until_quality(
+    session: CdpSession,
+    out_dir: Path,
+    *,
+    label: str,
+    page_scope_key: str,
+):
+    last_snapshot = None
+    last_elements = []
+    last_quality = {}
+    node = {"scope_key": page_scope_key}
+    for attempt in range(1, CAPTURE_QUALITY_RETRY_COUNT + 1):
+        snapshot = session.capture_page(out_dir, label=label)
+        elements = classify_elements(snapshot, page_scope_key)
+        quality = page_capture_quality(snapshot, elements)
+        if quality["status"] == "valid":
+            return snapshot, quality
+        last_snapshot = snapshot
+        last_elements = elements
+        last_quality = quality
+        if attempt < CAPTURE_QUALITY_RETRY_COUNT:
+            time.sleep(CAPTURE_QUALITY_RETRY_SECONDS)
+    reasons = ",".join(last_quality.get("reasons") or ["unknown"])
+    title = last_quality.get("title") or (last_snapshot or {}).get("title")
+    url = last_quality.get("url") or (last_snapshot or {}).get("href")
+    raise RuntimeError(
+        f"{label}_capture_quality_not_ready: "
         f"{reasons}; elements={len(last_elements)}; title={title}; url={url}"
     )
 
@@ -1274,7 +1311,12 @@ def execute_interaction_node(session: CdpSession, run_dir: Path, node: dict, fro
     flow_root = run_dir / "flows" / slugify(node["scope_key"])
     session.reset_network_events()
     session.navigate(node["source_url"], expect_url_part=urlparse(node["source_url"]).path)
-    before = session.capture_page(flow_root, label="before")
+    before, _ = capture_labeled_page_until_quality(
+        session,
+        flow_root,
+        label="before",
+        page_scope_key=page_scope_key,
+    )
     before_state = session.inspect_interaction_state(flow_root, label="before")
     click = session.click_locator(trigger_element["selector_strategy"])
     time.sleep(1.0)
@@ -1416,7 +1458,12 @@ def execute_readonly_form_probe(session: CdpSession, run_dir: Path, node: dict):
     flow_root = run_dir / "flows" / slugify(node["scope_key"])
     session.reset_network_events()
     session.navigate(node["source_url"], expect_url_part=urlparse(node["source_url"]).path)
-    before = session.capture_page(flow_root, label="before")
+    before, _ = capture_labeled_page_until_quality(
+        session,
+        flow_root,
+        label="before",
+        page_scope_key=node.get("metadata", {}).get("page_scope_key", node["scope_key"]),
+    )
     before_state = session.inspect_interaction_state(flow_root, label="before")
     trigger = node["metadata"].get("trigger_element")
     click = session.click_locator(trigger["selector_strategy"]) if trigger else {"ok": False, "reason": "missing-trigger"}
@@ -1465,7 +1512,12 @@ def execute_safe_create_flow(session: CdpSession, run_dir: Path, node: dict, pol
     flow_root = run_dir / "flows" / slugify(flow_key)
     session.reset_network_events()
     session.navigate(node["source_url"], expect_url_part=urlparse(node["source_url"]).path)
-    before = session.capture_page(flow_root, label="before")
+    before, _ = capture_labeled_page_until_quality(
+        session,
+        flow_root,
+        label="before",
+        page_scope_key=node.get("metadata", {}).get("page_scope_key", flow_key),
+    )
     before_state = session.inspect_interaction_state(flow_root, label="before")
     trigger = node["metadata"].get("trigger_element")
     click = session.click_locator(trigger["selector_strategy"]) if trigger else {"ok": False, "reason": "missing-trigger"}

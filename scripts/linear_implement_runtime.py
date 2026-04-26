@@ -64,6 +64,28 @@ def relative_to_repo(path: Path) -> str:
     return str(path.relative_to(REPO_ROOT))
 
 
+def file_size(path: Path) -> int:
+    return path.stat().st_size if path.exists() else 0
+
+
+def interaction_dom_reasons(path: Path, label: str) -> list[str]:
+    snapshot = json_load(path, default={}) or {}
+    text = " ".join(
+        str(snapshot.get(key) or "")
+        for key in ("title", "headerText", "visibleText", "href")
+    )
+    normalized = " ".join(text.lower().split())
+    element_count = len(snapshot.get("elements") or [])
+    reasons = []
+    if element_count <= 0:
+        reasons.append(f"{label}_elements=0")
+    if "loading" in normalized and element_count <= 1:
+        reasons.append(f"{label}_loading-only")
+    if "we could not find the page" in normalized:
+        reasons.append(f"{label}_not-found")
+    return reasons
+
+
 def capture_summary_from_manifest(manifest: dict) -> dict:
     run_id = manifest.get("run_id")
     artifact_hash = manifest.get("artifact_hash")
@@ -144,6 +166,40 @@ def capture_evidence_quality(capture_paths: dict) -> dict:
             return {"status": "invalid", "reasons": reasons, "element_count": 0}
         summary = capture_paths.get("summary") or {}
         trace = capture_paths.get("trace") or {}
+        source_node = trace.get("node") or summary.get("node") or {}
+        flow_root = capture_paths.get("flow_root")
+        if flow_root:
+            before_dom = flow_root / "dom" / "before.json"
+            before_screenshot = flow_root / "screenshots" / "before.png"
+            if file_size(before_dom) < 1000:
+                reasons.append("before_dom_missing_or_tiny")
+            else:
+                reasons.extend(interaction_dom_reasons(before_dom, "before"))
+            if file_size(before_screenshot) < 20000:
+                reasons.append("before_screenshot_missing_or_blank")
+            if capture_paths.get("run_type") == "interaction":
+                after_dom = flow_root / "dom" / "after.json"
+                after_screenshot = flow_root / "screenshots" / "after.png"
+                if file_size(after_dom) < 1000:
+                    reasons.append("after_dom_missing_or_tiny")
+                else:
+                    reasons.extend(interaction_dom_reasons(after_dom, "after"))
+                if file_size(after_screenshot) < 20000:
+                    reasons.append("after_screenshot_missing_or_blank")
+        if reasons:
+            return {
+                "status": "invalid",
+                "reasons": reasons,
+                "element_count": 0,
+                "title": capture_paths.get("manifest", {}).get("source_target_title"),
+                "url": (
+                    source_node.get("source_url")
+                    or trace.get("before_url")
+                    or capture_paths.get("manifest", {}).get("source_target_url")
+                ),
+                "run_type": capture_paths.get("run_type"),
+                "source_node": source_node,
+            }
         reason = summary.get("reason") or trace.get("reason") or summary.get("status")
         return {
             "status": "valid",
@@ -151,6 +207,8 @@ def capture_evidence_quality(capture_paths: dict) -> dict:
             "element_count": int((trace.get("after_state") or {}).get("form_control_count", 0) or 0),
             "title": capture_paths.get("manifest", {}).get("source_target_title"),
             "url": capture_paths.get("manifest", {}).get("source_target_url"),
+            "run_type": capture_paths.get("run_type"),
+            "source_node": source_node,
             "interaction_label": element_label(trace.get("interaction_element") or {}),
             "interaction_outcome": trace.get("outcome"),
             "flow_status": summary.get("status") or trace.get("status"),
@@ -212,6 +270,8 @@ def upsert_recapture_request(requests: dict, *, scope_key: str, capture: dict, q
         "cluster_id": cluster_id,
         "capture_run_id": capture.get("latest_run_id"),
         "artifact_hash": capture.get("latest_artifact_hash"),
+        "run_type": quality.get("run_type") or capture.get("run_type") or "page",
+        "source_node": quality.get("source_node"),
         "status": "pending",
         "reason": ",".join(quality.get("reasons") or ["invalid_evidence"]),
         "evidence_quality": quality,
@@ -972,7 +1032,7 @@ def item_has_actionable_evidence(item: dict) -> bool:
     return (REPO_ROOT / page_ref).exists() and (REPO_ROOT / elements_ref).exists()
 
 
-def prune_non_actionable_items(state: dict, queue: dict) -> bool:
+def prune_non_actionable_items(state: dict, queue: dict, requests: dict) -> bool:
     changed = False
     active_work_id = state.get("active_work_id")
     for item in queue.get("items", []):
@@ -981,6 +1041,19 @@ def prune_non_actionable_items(state: dict, queue: dict) -> bool:
         if item.get("work_type") == "evidence_cluster":
             continue
         if item_has_actionable_evidence(item):
+            capture = capture_summary_for_queue_item(item)
+            if capture:
+                quality = capture_evidence_quality(load_capture_paths(capture))
+                if quality.get("status") != "valid":
+                    mark_blocked_for_recapture(
+                        item,
+                        requests,
+                        ",".join(quality.get("reasons") or ["invalid_capture_quality"]),
+                    )
+                    if active_work_id == item.get("work_id"):
+                        state["active_work_id"] = None
+                    changed = True
+                    continue
             continue
         item["status"] = "terminal_blocked"
         item["blocker"] = "capture_bundle_missing_page_or_elements"
@@ -1007,6 +1080,17 @@ def mark_blocked_for_recapture(item: dict, requests: dict, reason: str):
     item["status"] = "blocked_needs_recapture"
     item["blocker"] = reason
     item["updated_at"] = iso_now()
+
+
+def capture_summary_for_queue_item(item: dict) -> Optional[dict]:
+    run_id = item.get("source_capture_run_id") or item.get("capture_run_id")
+    if not run_id:
+        return None
+    manifest_path = CAPTURE_ROOT / "runs" / run_id / "manifest.json"
+    manifest = json_load(manifest_path, default={}) or {}
+    if manifest.get("status") != "ok":
+        return None
+    return capture_summary_from_manifest(manifest)
 
 
 def migrate_existing_page_items(state: dict, queue: dict, requests: dict):
@@ -1140,7 +1224,7 @@ def enqueue_evidence_clusters(queue: dict, ledger: dict, requests: dict):
     return added
 
 
-def enqueue_missing_capture_backlog(queue: dict, ledger: dict):
+def enqueue_missing_capture_backlog(queue: dict, ledger: dict, requests: dict):
     added = []
     artifact_hashes, scope_keys = existing_queue_keys(queue)
     for capture in successful_capture_backlog():
@@ -1151,7 +1235,9 @@ def enqueue_missing_capture_backlog(queue: dict, ledger: dict):
         if artifact_hash in artifact_hashes or scope_key in scope_keys:
             continue
         capture_paths = load_capture_paths(capture)
-        if not capture_paths_are_actionable(capture_paths):
+        quality = capture_evidence_quality(capture_paths)
+        if quality.get("status") != "valid":
+            upsert_recapture_request(requests, scope_key=scope_key, capture=capture, quality=quality)
             continue
         item = build_work_item(capture, capture_paths)
         queue.setdefault("items", []).append(item)
@@ -1279,12 +1365,12 @@ def main():
     if state.get("mode") != "evidence_cluster_worker":
         state["mode"] = "evidence_cluster_worker"
     ledger_changed = reconcile_ledger_enqueued_from_queue(queue, ledger)
-    if prune_non_actionable_items(state, queue):
+    if prune_non_actionable_items(state, queue, requests):
         save_state(state, state_path)
         save_queue(queue, queue_path)
     migrated = migrate_existing_page_items(state, queue, requests)
     backlog_added = enqueue_evidence_clusters(queue, ledger, requests)
-    backlog_added.extend(enqueue_missing_capture_backlog(queue, ledger))
+    backlog_added.extend(enqueue_missing_capture_backlog(queue, ledger, requests))
     if backlog_added or ledger_changed or migrated:
         save_queue(queue, queue_path)
         save_state(state, state_path)
