@@ -1512,14 +1512,27 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
                   createdBy: user?.id ?? null,
                 });
               }}
-              onCreateRelated={() => createRelatedIssue('related')}
-              onAddLink={addLinkAttachment}
-              onAskLinear={() =>
+              onCreateRelated={async () => {
+                openChildIssueComposer();
                 showActionToast(
-                  'Ask Linear',
-                  locale.startsWith('zh') ? '该入口会基于当前 issue 上下文提问。' : 'This will ask with the current issue context.'
-                )
-              }
+                  t('issues.detailSidebar.feedbackRelated'),
+                  locale.startsWith('zh') ? '已带入当前事项上下文打开新建入口。' : 'Opened the new issue flow with this issue prefilled as context.'
+                );
+              }}
+              onAddLink={async () => {
+                openRelationsPanel();
+                showActionToast(
+                  t('issues.detailSidebar.feedbackLink'),
+                  locale.startsWith('zh') ? '已跳转到关联区域以继续补充外部链接。' : 'Jumped to the relations section so you can keep adding links.'
+                );
+              }}
+              onAskLinear={() => {
+                openAskLinear();
+                showActionToast(
+                  t('issues.detailSidebar.feedbackAskLinear'),
+                  locale.startsWith('zh') ? '已在搜索页带入当前事项标题与编号。' : 'Opened workspace search with the current issue identifier and title.'
+                );
+              }}
               renderCustomFieldInput={(field, value, onChange, onDone) => (
                 <CustomFieldInput field={field} value={value} onChange={onChange} onDone={onDone} />
               )}
