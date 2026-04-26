@@ -38,6 +38,12 @@ export default function EmailIntakeSettingsView() {
   });
   const configs = configsQuery.data ?? [];
   const isSaving = createMutation.isPending || deleteMutation.isPending;
+  const formReady = Boolean(form.name.trim() && form.emailAddress.trim());
+  const targetPreview = [
+    form.projectId ? `Project #${form.projectId}` : null,
+    form.teamId ? `Team #${form.teamId}` : null,
+    form.templateId ? `Template #${form.templateId}` : null,
+  ].filter(Boolean).join(' / ') || 'Workspace fallback';
 
   return (
     <div className="space-y-6">
@@ -75,21 +81,31 @@ export default function EmailIntakeSettingsView() {
             </div>
           </div>
         </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <SettingsSignalCard label="Route state" value={formReady ? 'Ready to save' : 'Needs name and email'} />
+          <SettingsSignalCard label="Target" value={targetPreview} />
+          <SettingsSignalCard label="Routes" value={String(configs.length)} />
+        </div>
         <div className="flex flex-col gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-ink-500 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div>Email intake routes are team-scoped and can target a project, team, and template.</div>
             {feedback ? <div className="mt-1 font-medium text-emerald-700">{feedback}</div> : null}
           </div>
-          <Button onClick={() => createMutation.mutate({
-            organizationId,
-            name: form.name,
-            emailAddress: form.emailAddress,
-            projectId: form.projectId ? Number(form.projectId) : null,
-            teamId: form.teamId ? Number(form.teamId) : null,
-            templateId: form.templateId ? Number(form.templateId) : null,
-          })} disabled={!form.name.trim() || !form.emailAddress.trim() || createMutation.isPending}>
-            {createMutation.isPending ? t('settings.shared.saving') : t('settings.emailIntake.create')}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={() => setFeedback(`Preview: ${form.emailAddress || 'email'} -> ${targetPreview}`)}>
+              Preview
+            </Button>
+            <Button onClick={() => createMutation.mutate({
+              organizationId,
+              name: form.name,
+              emailAddress: form.emailAddress,
+              projectId: form.projectId ? Number(form.projectId) : null,
+              teamId: form.teamId ? Number(form.teamId) : null,
+              templateId: form.templateId ? Number(form.templateId) : null,
+            })} disabled={!form.name.trim() || !form.emailAddress.trim() || createMutation.isPending}>
+              {createMutation.isPending ? t('settings.shared.saving') : t('settings.emailIntake.create')}
+            </Button>
+          </div>
         </div>
       </section>
 
@@ -118,6 +134,15 @@ export default function EmailIntakeSettingsView() {
         ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function SettingsSignalCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-border-soft bg-white px-4 py-3">
+      <div className="text-[11px] uppercase tracking-[0.16em] text-ink-400">{label}</div>
+      <div className="mt-1 truncate text-sm font-medium text-ink-800">{value}</div>
     </div>
   );
 }

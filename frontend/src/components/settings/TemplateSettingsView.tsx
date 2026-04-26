@@ -49,6 +49,8 @@ export default function TemplateSettingsView() {
 
   const templates = templatesQuery.data ?? [];
   const isSaving = createMutation.isPending || deleteMutation.isPending;
+  const formReady = form.name.trim().length > 0;
+  const scopePreview = formatScope(form.projectId ? Number(form.projectId) : null, form.teamId ? Number(form.teamId) : null);
 
   return (
     <div className="space-y-6">
@@ -83,21 +85,31 @@ export default function TemplateSettingsView() {
             </div>
           </div>
         </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <SettingsSignalCard label="Scope" value={scopePreview} />
+          <SettingsSignalCard label="Template state" value={formReady ? 'Ready to save' : 'Needs a name'} />
+          <SettingsSignalCard label="Create menu" value={form.title.trim() ? 'Title preset' : 'Description only'} />
+        </div>
         <div className="flex flex-col gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-ink-500 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div>{t('settings.templates.helper')}</div>
             {feedback ? <div className="mt-1 font-medium text-emerald-700">{feedback}</div> : null}
           </div>
-          <Button onClick={() => createMutation.mutate({
-            organizationId,
-            name: form.name,
-            title: form.title || null,
-            description: form.description || null,
-            projectId: form.projectId ? Number(form.projectId) : null,
-            teamId: form.teamId ? Number(form.teamId) : null,
-          })} disabled={!form.name.trim() || createMutation.isPending}>
-            {createMutation.isPending ? t('settings.shared.saving') : t('settings.templates.create')}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={() => setFeedback(`Preview: ${form.name || 'Untitled template'} -> ${scopePreview}`)}>
+              Preview
+            </Button>
+            <Button onClick={() => createMutation.mutate({
+              organizationId,
+              name: form.name,
+              title: form.title || null,
+              description: form.description || null,
+              projectId: form.projectId ? Number(form.projectId) : null,
+              teamId: form.teamId ? Number(form.teamId) : null,
+            })} disabled={!form.name.trim() || createMutation.isPending}>
+              {createMutation.isPending ? t('settings.shared.saving') : t('settings.templates.create')}
+            </Button>
+          </div>
         </div>
       </section>
 
@@ -139,6 +151,15 @@ export default function TemplateSettingsView() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function SettingsSignalCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-border-soft bg-white px-4 py-3">
+      <div className="text-[11px] uppercase tracking-[0.16em] text-ink-400">{label}</div>
+      <div className="mt-1 truncate text-sm font-medium text-ink-800">{value}</div>
     </div>
   );
 }

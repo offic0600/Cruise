@@ -241,6 +241,8 @@ type ActiveTab = {
   count: number | null;
 };
 
+type RowDensity = 'comfortable' | 'compact';
+
 
 function isFilterActive(filters: FilterDraft) {
   return activeFilterSummary(filters, false).length > 0;
@@ -334,6 +336,18 @@ export function collapsedSummaryLabel(collapsedStates: Set<string>, isZh: boolea
 
   const labels = GROUP_ORDER.filter((state) => collapsedStates.has(state)).map((state) => labelForState(state, isZh));
   return isZh ? `已折叠分组：${labels.join('、')}` : `Collapsed groups: ${labels.join(', ')}`;
+}
+
+function densityLabel(density: RowDensity, isZh: boolean) {
+  return density === 'compact' ? (isZh ? '紧凑' : 'Compact') : (isZh ? '舒适' : 'Comfortable');
+}
+
+function selectedIssueFeedback(issue: ActiveWorkbenchRow | null, detailsOpen: boolean, isZh: boolean) {
+  if (!issue) return isZh ? '未选择事项' : 'No issue selected';
+  if (detailsOpen) {
+    return isZh ? `右侧正在预览 ${issue.identifier}` : `Previewing ${issue.identifier} in the side pane`;
+  }
+  return isZh ? `点击将打开 ${issue.identifier}` : `Click opens ${issue.identifier}`;
 }
 
 function sortLabel(sort: ActiveWorkbenchSort, isZh: boolean) {
@@ -446,6 +460,9 @@ export default function ActiveIssuesWorkbenchPage() {
   const [detailsOpen, setDetailsOpen] = useState(() => searchParams.get('details') === 'open');
   const [selectedIssueId, setSelectedIssueId] = useState<number | null>(null);
   const [draftFilters, setDraftFilters] = useState<FilterDraft>(() => readFilterDraft(searchParams, []));
+  const [rowDensity, setRowDensity] = useState<RowDensity>('comfortable');
+  const [showRowMetadata, setShowRowMetadata] = useState(true);
+  const [lastWorkbenchAction, setLastWorkbenchAction] = useState<string | null>(null);
   const filterSummaryContext = useMemo<FilterSummaryContext>(
     () => ({
       assignees: members.map((member) => ({ id: String(member.id), name: member.name })),
@@ -511,6 +528,11 @@ export default function ActiveIssuesWorkbenchPage() {
     const issue = issues.find((item) => item.id === issueId);
     if (!issue || !currentOrganizationSlug) return;
     router.push(issueDetailPath(currentOrganizationSlug, issue));
+  };
+
+  const announceWorkbenchAction = (message: string) => {
+    setLastWorkbenchAction(message);
+    window.setTimeout(() => setLastWorkbenchAction((current) => (current === message ? null : current)), 2200);
   };
 
   return (
@@ -597,8 +619,12 @@ export default function ActiveIssuesWorkbenchPage() {
                   isZh={isZh}
                   sort={sort}
                   collapsedStates={collapsedStates}
+                  rowDensity={rowDensity}
+                  showRowMetadata={showRowMetadata}
                   onSetSort={(nextSort) => setSort(router, pathname, searchParams, nextSort)}
                   onToggleGroup={(state) => toggleGroupCollapsed(router, pathname, searchParams, collapsedStates, state)}
+                  onSetRowDensity={setRowDensity}
+                  onSetShowRowMetadata={setShowRowMetadata}
                 />
                 <Button
                   type="button"
@@ -636,11 +662,21 @@ export default function ActiveIssuesWorkbenchPage() {
           </div>
 
           <div className="border-b border-slate-800/90 px-5 py-3 sm:px-6">
-            <div className="grid grid-cols-[minmax(0,1fr)_140px_120px_72px] items-center gap-4 text-[11px] uppercase tracking-[0.22em] text-slate-500">
-              <span>{columnLabel('issue', isZh)}</span>
-              <span>{columnLabel('assignee', isZh)}</span>
-              <span>{columnLabel('priority', isZh)}</span>
-              <span className="text-right">{columnLabel('updated', isZh)}</span>
+            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+              <div className="grid flex-1 grid-cols-[minmax(0,1fr)_140px_120px_72px] items-center gap-4 text-[11px] uppercase tracking-[0.22em] text-slate-500">
+                <span>{columnLabel('issue', isZh)}</span>
+                <span>{columnLabel('assignee', isZh)}</span>
+                <span>{columnLabel('priority', isZh)}</span>
+                <span className="text-right">{columnLabel('updated', isZh)}</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <span className="rounded-full border border-slate-800 px-2.5 py-1">
+                  {densityLabel(rowDensity, isZh)}
+                </span>
+                <span className="rounded-full border border-slate-800 px-2.5 py-1">
+                  {selectedIssueFeedback(selectedIssue, detailsOpen, isZh)}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -676,7 +712,9 @@ export default function ActiveIssuesWorkbenchPage() {
                             openIssue(issue.id);
                           }}
                           aria-selected={selectedIssue?.id === issue.id}
-                          className={`grid w-full grid-cols-[minmax(0,1fr)_140px_120px_72px] items-center gap-4 px-5 py-3 text-left transition hover:bg-slate-900/70 sm:px-6 ${
+                          className={`grid w-full grid-cols-[minmax(0,1fr)_140px_120px_72px] items-center gap-4 px-5 text-left transition hover:bg-slate-900/70 sm:px-6 ${
+                            rowDensity === 'compact' ? 'py-2' : 'py-3'
+                          } ${
                             selectedIssue?.id === issue.id && detailsOpen ? 'bg-slate-900/80 ring-1 ring-inset ring-slate-700' : ''
                           }`}
                         >
@@ -688,11 +726,13 @@ export default function ActiveIssuesWorkbenchPage() {
                               <span className="text-[13px] font-medium text-slate-500">{issue.identifier}</span>
                               <span className="truncate text-[14px] font-medium text-slate-100">{issue.title}</span>
                             </div>
-                            <div className="flex flex-wrap items-center gap-2 pl-8 text-[12px] text-slate-500">
-                              {issue.projectName ? <span>{issue.projectName}</span> : null}
-                              {issue.projectName ? <span>•</span> : null}
-                              <span>{issue.typeLabel}</span>
-                            </div>
+                            {showRowMetadata ? (
+                              <div className="flex flex-wrap items-center gap-2 pl-8 text-[12px] text-slate-500">
+                                {issue.projectName ? <span>{issue.projectName}</span> : null}
+                                {issue.projectName ? <span>•</span> : null}
+                                <span>{issue.typeLabel}</span>
+                              </div>
+                            ) : null}
                           </div>
                           <span className="truncate text-[13px] text-slate-300">{issue.assigneeLabel}</span>
                           <span className="text-[13px] text-slate-300">{issue.priorityLabel}</span>
@@ -727,6 +767,7 @@ export default function ActiveIssuesWorkbenchPage() {
                 issue={selectedIssue}
                 isZh={isZh}
                 onOpenIssue={(issueId) => openIssue(issueId)}
+                onPreviewAction={(message) => announceWorkbenchAction(message)}
               />
             ) : null}
           </div>
@@ -736,6 +777,11 @@ export default function ActiveIssuesWorkbenchPage() {
             <div className="mt-2 text-xs text-slate-500">{filterSummaryLabel(draftFilters, isZh, filterSummaryContext)}</div>
             <div className="mt-2 text-xs text-slate-500">{collapsedSummaryLabel(collapsedStates, isZh)}</div>
             <div className="mt-2 text-xs text-slate-500">{sortSummaryLabel(sort, isZh)}</div>
+            {lastWorkbenchAction ? (
+              <div aria-live="polite" className="mt-3 rounded-2xl border border-emerald-900/60 bg-emerald-950/30 px-3 py-2 text-xs font-medium text-emerald-300">
+                {lastWorkbenchAction}
+              </div>
+            ) : null}
             <ul className="mt-3 space-y-3 text-sm text-slate-400">
               {nextSteps(isZh, sort).map((item) => (
                 <li key={item}>{item}</li>
@@ -774,14 +820,22 @@ function DisplayMenu({
   isZh,
   sort,
   collapsedStates,
+  rowDensity,
+  showRowMetadata,
   onSetSort,
   onToggleGroup,
+  onSetRowDensity,
+  onSetShowRowMetadata,
 }: {
   isZh: boolean;
   sort: ActiveWorkbenchSort;
   collapsedStates: Set<string>;
+  rowDensity: RowDensity;
+  showRowMetadata: boolean;
   onSetSort: (sort: ActiveWorkbenchSort) => void;
   onToggleGroup: (state: (typeof GROUP_ORDER)[number]) => void;
+  onSetRowDensity: (density: RowDensity) => void;
+  onSetShowRowMetadata: (value: boolean) => void;
 }) {
   return (
     <DropdownMenu>
@@ -821,6 +875,32 @@ function DisplayMenu({
           {sortLabel('manual', isZh)}
         </DropdownMenuCheckboxItem>
         <DropdownMenuSeparator className="bg-slate-800" />
+        <DropdownMenuCheckboxItem
+          checked={rowDensity === 'comfortable'}
+          onCheckedChange={(checked) => {
+            if (checked) onSetRowDensity('comfortable');
+          }}
+          className="text-slate-100 focus:bg-slate-900"
+        >
+          {isZh ? '舒适行距' : 'Comfortable rows'}
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuCheckboxItem
+          checked={rowDensity === 'compact'}
+          onCheckedChange={(checked) => {
+            if (checked) onSetRowDensity('compact');
+          }}
+          className="text-slate-100 focus:bg-slate-900"
+        >
+          {isZh ? '紧凑行距' : 'Compact rows'}
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuCheckboxItem
+          checked={showRowMetadata}
+          onCheckedChange={(checked) => onSetShowRowMetadata(Boolean(checked))}
+          className="text-slate-100 focus:bg-slate-900"
+        >
+          {isZh ? '显示项目与类型' : 'Show project and type'}
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuSeparator className="bg-slate-800" />
         {GROUP_ORDER.map((state) => {
           const visible = !collapsedStates.has(state);
           return (
@@ -843,10 +923,12 @@ function IssueDetailsPreview({
   issue,
   isZh,
   onOpenIssue,
+  onPreviewAction,
 }: {
   issue: ActiveWorkbenchRow | null;
   isZh: boolean;
   onOpenIssue: (issueId: number) => void;
+  onPreviewAction: (message: string) => void;
 }) {
   if (!issue) {
     return (
@@ -888,6 +970,24 @@ function IssueDetailsPreview({
       <div className="border-t border-slate-800 px-5 py-4 text-sm text-slate-500">
         {issue.projectName ? `${isZh ? '项目' : 'Project'} · ${issue.projectName} · ` : ''}
         {issue.typeLabel}
+      </div>
+      <div className="flex flex-wrap items-center gap-2 border-t border-slate-800 px-5 py-4">
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => onPreviewAction(isZh ? `${issue.identifier} 已加入本地上下文` : `${issue.identifier} added to local context`)}
+          className="h-8 rounded-full border-slate-800 bg-slate-900 px-3 text-xs text-slate-200 hover:bg-slate-800"
+        >
+          {isZh ? '加入上下文' : 'Add context'}
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => onPreviewAction(isZh ? `已聚焦 ${issue.identifier} 的动态入口` : `Focused the activity entry for ${issue.identifier}`)}
+          className="h-8 rounded-full border-slate-800 bg-slate-900 px-3 text-xs text-slate-200 hover:bg-slate-800"
+        >
+          {isZh ? '聚焦动态' : 'Focus activity'}
+        </Button>
       </div>
     </div>
   );

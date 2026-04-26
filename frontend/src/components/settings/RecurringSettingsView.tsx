@@ -47,6 +47,8 @@ export default function RecurringSettingsView() {
 
   const recurring = recurringQuery.data ?? [];
   const isSaving = createMutation.isPending || triggerMutation.isPending || deleteMutation.isPending;
+  const formReady = Boolean(form.name.trim() && form.projectId && form.nextRunAt);
+  const nextRunPreview = form.nextRunAt ? new Date(form.nextRunAt).toLocaleString() : 'Not scheduled';
 
   return (
     <div className="space-y-6">
@@ -78,26 +80,36 @@ export default function RecurringSettingsView() {
             </div>
           </div>
         </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <SettingsSignalCard label="Rule state" value={formReady ? 'Ready to schedule' : 'Needs project and date'} />
+          <SettingsSignalCard label="Next run" value={nextRunPreview} />
+          <SettingsSignalCard label="Existing rules" value={String(recurring.length)} />
+        </div>
         <div className="flex flex-col gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-ink-500 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div>{t('settings.recurring.helper')}</div>
             {feedback ? <div className="mt-1 font-medium text-emerald-700">{feedback}</div> : null}
           </div>
-          <Button
-            onClick={() =>
-              createMutation.mutate({
-                organizationId,
-                projectId: Number(form.projectId),
-                name: form.name,
-                title: form.title || null,
-                description: form.description || null,
-                nextRunAt: new Date(form.nextRunAt).toISOString(),
-              })
-            }
-            disabled={!form.name.trim() || !form.projectId || !form.nextRunAt || createMutation.isPending}
-          >
-            {createMutation.isPending ? t('settings.shared.saving') : t('settings.recurring.create')}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={() => setFeedback(`Preview: ${form.name || 'Untitled rule'} -> ${nextRunPreview}`)}>
+              Preview
+            </Button>
+            <Button
+              onClick={() =>
+                createMutation.mutate({
+                  organizationId,
+                  projectId: Number(form.projectId),
+                  name: form.name,
+                  title: form.title || null,
+                  description: form.description || null,
+                  nextRunAt: new Date(form.nextRunAt).toISOString(),
+                })
+              }
+              disabled={!form.name.trim() || !form.projectId || !form.nextRunAt || createMutation.isPending}
+            >
+              {createMutation.isPending ? t('settings.shared.saving') : t('settings.recurring.create')}
+            </Button>
+          </div>
         </div>
       </section>
 
@@ -142,6 +154,15 @@ export default function RecurringSettingsView() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function SettingsSignalCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-border-soft bg-white px-4 py-3">
+      <div className="text-[11px] uppercase tracking-[0.16em] text-ink-400">{label}</div>
+      <div className="mt-1 truncate text-sm font-medium text-ink-800">{value}</div>
     </div>
   );
 }

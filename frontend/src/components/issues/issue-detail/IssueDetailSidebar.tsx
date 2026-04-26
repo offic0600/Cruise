@@ -99,6 +99,7 @@ export function IssueDetailSidebar({
   formatCustomFieldValue: (field: CustomFieldDefinition, value: unknown) => string;
 }) {
   const storedUser = getStoredUser();
+  const [lastSidebarAction, setLastSidebarAction] = useState<string | null>(null);
   const notSetLabel = t('common.notSet');
   const selectedProject = projects.find((project) => project.id === draftIssue.projectId) ?? null;
   const selectedAssignee = members.find((member) => member.id === draftIssue.assigneeId) ?? null;
@@ -112,9 +113,66 @@ export function IssueDetailSidebar({
       resolution: draftIssue.resolution,
     } as Issue);
   }, [draftIssue.resolution, draftIssue.state]);
+  const announceSidebarAction = (message: string) => {
+    setLastSidebarAction(message);
+    window.setTimeout(() => setLastSidebarAction((current) => (current === message ? null : current)), 2200);
+  };
 
   return (
     <aside className="space-y-3 xl:sticky xl:top-24 xl:self-start">
+      <SidebarCard title="Issue context" bodyClassName="space-y-3">
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <ContextMetric label="Status" value={t(issueStatusMenuLabelKey(currentStatusValue))} />
+          <ContextMetric label="Priority" value={draftIssue.priority == null ? t('views.new.preview.noPriority') : t(issuePriorityLabelKey(draftIssue.priority) ?? 'views.new.preview.noPriority')} />
+          <ContextMetric label="Labels" value={String(draftIssue.labelIds.length)} />
+          <ContextMetric label="Relations" value={String(relations.length)} />
+        </div>
+        <div className="grid gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              announceSidebarAction('Ask Linear opened');
+              onAskLinear();
+            }}
+            className="flex w-full items-center justify-between rounded-2xl border border-border-soft bg-slate-950 px-3 py-2.5 text-left text-sm font-medium text-white transition hover:bg-slate-900"
+          >
+            <span className="inline-flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-amber-300" />
+              Ask Linear
+            </span>
+            <span className="text-xs text-slate-400">{issue.identifier}</span>
+          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                announceSidebarAction('Related issue prompt opened');
+                void onCreateRelated();
+              }}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-border-soft bg-white px-3 text-xs font-medium text-ink-700 transition hover:bg-slate-50 hover:text-ink-950"
+            >
+              <GitBranchPlus className="h-3.5 w-3.5" />
+              Related
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                announceSidebarAction('Link prompt opened');
+                void onAddLink();
+              }}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-border-soft bg-white px-3 text-xs font-medium text-ink-700 transition hover:bg-slate-50 hover:text-ink-950"
+            >
+              <Link2 className="h-3.5 w-3.5" />
+              Link
+            </button>
+          </div>
+        </div>
+        {lastSidebarAction ? (
+          <div aria-live="polite" className="rounded-2xl bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">
+            {lastSidebarAction}
+          </div>
+        ) : null}
+      </SidebarCard>
       <SidebarCard title={t('issues.detailPage.properties')} bodyClassName="flex flex-col items-start gap-2.5">
         <IssueStatusPill
           testId="issue-detail-sidebar-state-pill"
@@ -236,30 +294,6 @@ export function IssueDetailSidebar({
           </button>
         </SidebarCard>
       </div>
-
-      <SidebarCard title="Ask Linear" bodyClassName="space-y-2">
-        <button
-          type="button"
-          onClick={onAskLinear}
-          className="flex w-full items-center gap-3 rounded-2xl border border-border-soft bg-gradient-to-br from-white to-slate-50 px-3 py-3 text-left transition hover:border-slate-300 hover:shadow-[0_8px_22px_rgba(15,23,42,0.06)]"
-        >
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-ink-900 text-white">
-            <Sparkles className="h-4 w-4" />
-          </span>
-          <span className="min-w-0">
-            <span className="block text-sm font-medium text-ink-800">Ask about this issue</span>
-            <span className="block truncate text-xs text-ink-400">{issue.identifier} context, activity, and relations</span>
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={() => void onAddLink()}
-          className="inline-flex items-center gap-2 px-1 text-sm font-medium text-ink-500 transition hover:text-ink-900"
-        >
-          <Link2 className="h-3.5 w-3.5" />
-          <span>{t('issues.more.addLink')}</span>
-        </button>
-      </SidebarCard>
 
       {visibleCustomFields.length ? (
         <SidebarCard title={t('issues.detailSidebar.additionalFields')} bodyClassName="space-y-2">
@@ -441,6 +475,15 @@ function SidebarCard({
       </div>
       <div className={cn('space-y-0.5', bodyClassName)}>{children}</div>
     </section>
+  );
+}
+
+function ContextMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-border-soft bg-surface-soft/50 px-3 py-2">
+      <div className="text-[10px] uppercase tracking-[0.16em] text-ink-400">{label}</div>
+      <div className="mt-1 truncate text-sm font-medium text-ink-800">{value}</div>
+    </div>
   );
 }
 
