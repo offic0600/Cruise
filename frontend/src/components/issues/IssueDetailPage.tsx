@@ -238,6 +238,7 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
   const [activeProperty, setActiveProperty] = useState<string | null>(null);
   const [isAddingChild, setIsAddingChild] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [issueReactions, setIssueReactions] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!issue) return;
@@ -406,6 +407,14 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
       dismissLabel: t('issueCreatedToast.dismiss'),
       durationMs: 3200,
     });
+  };
+
+  const addIssueReaction = (reaction: string) => {
+    setIssueReactions((current) => ({
+      ...current,
+      [reaction]: (current[reaction] ?? 0) + 1,
+    }));
+    showActionToast(t('issues.detailPage.reactionAddedTitle'), t('issues.detailPage.reactionAddedDescription', { reaction }));
   };
 
   const copyText = async (value: string, description: string) => {
@@ -1050,16 +1059,11 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
                   onChange={(event) => uploadAttachment(event.target.files?.[0] ?? null)}
                 />
                 <div className="flex items-center gap-2.5 text-ink-400">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      showActionToast('Reactions', locale.startsWith('zh') ? '表情反馈即将支持。' : 'Reactions are coming soon.')
-                    }
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-transparent transition hover:border-slate-200 hover:bg-white hover:text-ink-900"
-                    aria-label="Add reaction"
-                  >
-                    <SmilePlus className="h-4 w-4 stroke-[1.8]" />
-                  </button>
+                  <IssueReactionPicker
+                    reactions={issueReactions}
+                    t={t}
+                    onReact={addIssueReaction}
+                  />
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
@@ -2288,6 +2292,68 @@ function CommentOptionsMenu({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+const ISSUE_REACTION_OPTIONS = ['👍', '👀', '✅', '🚀', '❤️', '🔥'] as const;
+
+function IssueReactionPicker({
+  reactions,
+  t,
+  onReact,
+}: {
+  reactions: Record<string, number>;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+  onReact: (reaction: string) => void;
+}) {
+  const activeReactions = Object.entries(reactions).filter(([, count]) => count > 0);
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-transparent transition hover:border-slate-200 hover:bg-white hover:text-ink-900 data-[state=open]:border-slate-200 data-[state=open]:bg-white data-[state=open]:text-ink-900"
+            aria-label={t('issues.detailPage.addReaction')}
+          >
+            <SmilePlus className="h-4 w-4 stroke-[1.8]" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-[280px] rounded-[22px] border-border-soft p-3 shadow-[0_18px_48px_rgba(15,23,42,0.12)]">
+          <div className="px-1 pb-2">
+            <div className="text-sm font-semibold text-ink-900">{t('issues.detailPage.reactionPickerTitle')}</div>
+            <div className="mt-1 text-xs text-ink-400">{t('issues.detailPage.reactionPickerDescription')}</div>
+          </div>
+          <div className="grid grid-cols-6 gap-1.5">
+            {ISSUE_REACTION_OPTIONS.map((reaction) => (
+              <button
+                key={reaction}
+                type="button"
+                onClick={() => onReact(reaction)}
+                className="flex h-10 items-center justify-center rounded-2xl text-xl transition hover:bg-slate-100"
+                aria-label={t('issues.detailPage.addReactionValue', { reaction })}
+              >
+                {reaction}
+              </button>
+            ))}
+          </div>
+        </PopoverContent>
+      </Popover>
+
+      {activeReactions.map(([reaction, count]) => (
+        <button
+          key={reaction}
+          type="button"
+          onClick={() => onReact(reaction)}
+          className="inline-flex h-7 items-center gap-1 rounded-full border border-border-soft bg-white px-2 text-xs font-semibold text-ink-700 transition hover:bg-slate-50"
+          aria-label={t('issues.detailPage.addReactionValue', { reaction })}
+        >
+          <span>{reaction}</span>
+          <span className="text-ink-400">{count}</span>
+        </button>
+      ))}
+    </div>
   );
 }
 
