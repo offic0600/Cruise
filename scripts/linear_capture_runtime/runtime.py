@@ -29,9 +29,38 @@ RETRYABLE_ERROR_MARKERS = (
     "ConnectionResetError",
     "Connection closed",
 )
-NODE_TYPE_ORDER = {"page": 0, "interaction": 1, "flow": 2}
+NODE_TYPE_ORDER = {"flow": 0, "interaction": 1, "page": 2}
 CAPTURE_QUALITY_RETRY_COUNT = 4
 CAPTURE_QUALITY_RETRY_SECONDS = 2.5
+DEEP_INTERACTION_ELEMENT_LIMIT = 100
+SAFE_CREATE_FLOW_CONFIG = {
+    "create_issue": {
+        "entity_type": "issue",
+        "submit_labels": ["Create issue", "Create", "Save"],
+        "name_prefix": "issue",
+    },
+    "create_project": {
+        "entity_type": "project",
+        "submit_labels": ["Create project", "Create", "Save"],
+        "name_prefix": "project",
+    },
+    "create_view": {
+        "entity_type": "view",
+        "submit_labels": ["Create view", "Create", "Save"],
+        "name_prefix": "view",
+    },
+    "create_label": {
+        "entity_type": "label",
+        "submit_labels": ["Create label", "Create", "Add label", "Save"],
+        "name_prefix": "label",
+    },
+}
+SAFE_CREATE_FLOW_LABELS = {
+    "create_issue": ("create new issue", "new issue", "create issue"),
+    "create_project": ("create project", "new project"),
+    "create_view": ("create view", "new view"),
+    "create_label": ("create label", "new label", "add label"),
+}
 RECAPTURE_PRIORITY_BY_SCOPE = {
     "workspace:cleantrack/team:CLE/all": 0,
     "my-issues": 1,
@@ -188,8 +217,26 @@ def element_label(element: dict) -> str:
     return (element.get("text") or element.get("aria") or element.get("href") or "").strip()
 
 
+def normalized_label(value: str) -> str:
+    return " ".join((value or "").lower().split())
+
+
+def flow_key_for_element(element: dict):
+    label = normalized_label(element_label(element))
+    if not label:
+        return None
+    if any(word in label for word in ("delete", "remove", "archive", "discard")):
+        return None
+    if any(word in label for word in ("invite", "connect github", "import issues")):
+        return None
+    for flow_key, candidates in SAFE_CREATE_FLOW_LABELS.items():
+        if any(candidate in label for candidate in candidates):
+            return flow_key
+    return None
+
+
 def classify_action_type(element: dict) -> str:
-    label = element_label(element).lower()
+    label = normalized_label(element_label(element))
     if element.get("disabled"):
         return "disabled"
     if element.get("href"):
@@ -371,7 +418,7 @@ def make_page_node(surface: dict) -> dict:
 
 def make_interaction_node(page_scope_key: str, page_url: str, element: dict, discovered_from: str):
     action_type = element.get("action_type")
-    if action_type in {"submit_destructive", "disabled"}:
+    if action_type in {"submit_destructive", "submit_safe", "disabled"}:
         return None
     return {
         "node_key": f"interaction:{page_scope_key}:{element['element_key']}",
@@ -392,20 +439,21 @@ def make_interaction_node(page_scope_key: str, page_url: str, element: dict, dis
 
 
 def make_flow_node(flow_key: str, page_scope_key: str, page_url: str, discovered_from: str, metadata=None):
+    metadata = metadata or {}
     return {
         "node_key": f"flow:{page_scope_key}:{flow_key}",
         "node_type": "flow",
         "scope_key": flow_key,
         "source_url": canonicalize_url(page_url),
         "ui_surface": f"{page_scope_key} / {flow_key}",
-        "priority": 30,
+        "priority": int(metadata.get("priority", 10 if flow_key in SAFE_CREATE_FLOW_CONFIG else 30)),
         "retry_count": 0,
         "status": "pending",
         "discovered_from": discovered_from,
         "created_at": iso_now(),
         "metadata": {
             "page_scope_key": page_scope_key,
-            **(metadata or {}),
+            **metadata,
         },
     }
 
@@ -533,9 +581,15 @@ def select_next_node(frontier: dict):
             eligible.append(node)
     if not eligible:
         return None
+
+    def lane_rank(node: dict) -> int:
+        if node.get("node_type") == "page" and node.get("status") == "needs_recapture":
+            return 0
+        return NODE_TYPE_ORDER.get(node.get("node_type"), 9) + 1
+
     eligible.sort(
         key=lambda node: (
-            NODE_TYPE_ORDER.get(node.get("node_type"), 9),
+            lane_rank(node),
             int(node.get("priority", 999)),
             node.get("next_retry_at") or "",
             node.get("created_at", ""),
@@ -907,7 +961,7 @@ def page_navigation_matches_node(node: dict, snapshot: dict) -> bool:
 def register_discoveries(frontier: dict, ledger: dict, page_snapshot: dict, page_scope_key: str, page_url: str):
     discovered = {"pages": [], "interactions": [], "flows": []}
     elements = classify_elements(page_snapshot, page_scope_key)
-    for element in elements[:80]:
+    for element in elements[:DEEP_INTERACTION_ELEMENT_LIMIT]:
         resolved_href = resolve_linear_href(page_url, element.get("href") or "")
         if resolved_href.startswith("https://linear.app/cleantrack/"):
             page_node = make_page_node(
@@ -946,32 +1000,18 @@ def register_discoveries(frontier: dict, ledger: dict, page_snapshot: dict, page
                 reason=f"Discovered from {page_scope_key}",
             )
             discovered["interactions"].append(interaction_node["scope_key"])
-        label = (element.get("label") or "").lower()
-        if "create new issue" in label or label == "new issue":
+        flow_key = flow_key_for_element(element)
+        if flow_key:
             flow_node = make_flow_node(
-                flow_key="create_issue",
+                flow_key=flow_key,
                 page_scope_key=page_scope_key,
                 page_url=page_url,
                 discovered_from=f"page:{page_scope_key}",
-                metadata={"trigger_element": element},
-            )
-            upsert_node(frontier, flow_node)
-            update_ledger(
-                ledger,
-                flow_node["node_key"],
-                "flow",
-                flow_node["scope_key"],
-                "discovered",
-                reason=f"Discovered from {page_scope_key}",
-            )
-            discovered["flows"].append(flow_node["scope_key"])
-        if "create project" in label:
-            flow_node = make_flow_node(
-                flow_key="create_project",
-                page_scope_key=page_scope_key,
-                page_url=page_url,
-                discovered_from=f"page:{page_scope_key}",
-                metadata={"trigger_element": element},
+                metadata={
+                    "trigger_element": element,
+                    "flow_kind": "safe_create",
+                    "safety_policy": "sandbox_prefixed_mutation_only",
+                },
             )
             upsert_node(frontier, flow_node)
             update_ledger(
@@ -1021,6 +1061,90 @@ def record_mutation(run_dir: Path, name: str, payload: dict):
     path = run_dir / "mutations" / f"{slugify(name)}.json"
     json_dump(path, payload)
     return path
+
+
+def summarize_interaction_state(state: dict) -> dict:
+    return {
+        "href": state.get("href"),
+        "title": state.get("title"),
+        "overlay_count": state.get("overlay_count", 0),
+        "form_control_count": state.get("form_control_count", 0),
+        "submit_candidate_count": state.get("submit_candidate_count", 0),
+        "destructive_button_count": state.get("destructive_button_count", 0),
+    }
+
+
+def interaction_outcome(before: dict, after: dict, before_state: dict, after_state: dict) -> str:
+    before_url = canonicalize_url(before.get("href") or before_state.get("href") or "")
+    after_url = canonicalize_url(after.get("href") or after_state.get("href") or "")
+    if before_url and after_url and before_url != after_url:
+        return "navigation"
+    if int(after_state.get("form_control_count", 0)) > int(before_state.get("form_control_count", 0)):
+        return "form"
+    if int(after_state.get("overlay_count", 0)) > int(before_state.get("overlay_count", 0)):
+        return "overlay"
+    if int(after_state.get("submit_candidate_count", 0)) > int(
+        before_state.get("submit_candidate_count", 0)
+    ):
+        return "form"
+    before_text = (before.get("visibleText") or "")[:2000]
+    after_text = (after.get("visibleText") or "")[:2000]
+    if before_text != after_text:
+        return "state_change"
+    return "no_visible_change"
+
+
+def enqueue_form_probe_from_interaction(
+    frontier: dict,
+    ledger: dict,
+    *,
+    page_scope_key: str,
+    page_url: str,
+    element: dict,
+    before_state: dict,
+    after_state: dict,
+    discovered_from: str,
+):
+    form_delta = int(after_state.get("form_control_count", 0)) - int(
+        before_state.get("form_control_count", 0)
+    )
+    overlay_delta = int(after_state.get("overlay_count", 0)) - int(before_state.get("overlay_count", 0))
+    if form_delta <= 0 and overlay_delta <= 0:
+        return None
+    if int(after_state.get("form_control_count", 0)) <= 0:
+        return None
+    if int(after_state.get("submit_candidate_count", 0)) <= 0:
+        return None
+    if int(after_state.get("destructive_button_count", 0)) > 0:
+        return None
+    flow_key = flow_key_for_element(element) or f"form_probe:{element['element_key']}"
+    flow_kind = "safe_create" if flow_key in SAFE_CREATE_FLOW_CONFIG else "readonly_form_probe"
+    flow_node = make_flow_node(
+        flow_key=flow_key,
+        page_scope_key=page_scope_key,
+        page_url=page_url,
+        discovered_from=discovered_from,
+        metadata={
+            "trigger_element": element,
+            "flow_kind": flow_kind,
+            "safety_policy": (
+                "sandbox_prefixed_mutation_only"
+                if flow_kind == "safe_create"
+                else "readonly_open_state_only"
+            ),
+            "priority": 12 if flow_kind == "safe_create" else 28,
+        },
+    )
+    upsert_node(frontier, flow_node)
+    update_ledger(
+        ledger,
+        flow_node["node_key"],
+        "flow",
+        flow_node["scope_key"],
+        "discovered",
+        reason=f"Discovered form flow from {discovered_from}",
+    )
+    return flow_node
 
 
 def compute_artifact_hash(run_dir: Path) -> str:
@@ -1140,13 +1264,16 @@ def execute_page_node(session: CdpSession, run_dir: Path, node: dict, frontier: 
 
 def execute_interaction_node(session: CdpSession, run_dir: Path, node: dict, frontier: dict, ledger: dict):
     page_scope_key = node["metadata"]["page_scope_key"]
+    trigger_element = node["metadata"]["element"]
     flow_root = run_dir / "flows" / slugify(node["scope_key"])
     session.reset_network_events()
     session.navigate(node["source_url"], expect_url_part=urlparse(node["source_url"]).path)
     before = session.capture_page(flow_root, label="before")
-    click = session.click_locator(node["metadata"]["element"]["selector_strategy"])
+    before_state = session.inspect_interaction_state(flow_root, label="before")
+    click = session.click_locator(trigger_element["selector_strategy"])
     time.sleep(1.0)
     after = session.capture_page(flow_root, label="after")
+    after_state = session.inspect_interaction_state(flow_root, label="after")
     network_artifacts = session.write_network_artifacts(flow_root)
     if not click.get("ok"):
         trace = {
@@ -1154,10 +1281,12 @@ def execute_interaction_node(session: CdpSession, run_dir: Path, node: dict, fro
             "status": "captured_readonly",
             "reason": click.get("reason") or "interaction_open_failed",
             "page_scope_key": page_scope_key,
-            "interaction_element": node["metadata"]["element"],
+            "interaction_element": trigger_element,
             "click": click,
             "before_url": before.get("href"),
             "after_url": after.get("href"),
+            "before_state": summarize_interaction_state(before_state),
+            "after_state": summarize_interaction_state(after_state),
             "captured_at": iso_now(),
         }
         record_flow_trace(run_dir, node["scope_key"], trace)
@@ -1177,10 +1306,10 @@ def execute_interaction_node(session: CdpSession, run_dir: Path, node: dict, fro
             "mutation_status": "captured_readonly",
             "reason": trace["reason"],
         }
-    outcome = "overlay"
+    outcome = interaction_outcome(before, after, before_state, after_state)
+    discovered_after = {"pages": [], "interactions": [], "flows": []}
     after_url = after.get("href") or node["source_url"]
-    if canonicalize_url(after_url) != canonicalize_url(node["source_url"]):
-        outcome = "navigation"
+    if outcome == "navigation":
         new_page_node = make_page_node(
             {
                 "scope_key": derive_scope_key(after_url),
@@ -1199,24 +1328,60 @@ def execute_interaction_node(session: CdpSession, run_dir: Path, node: dict, fro
             "discovered",
             reason=f"Navigated from {node['node_key']}",
         )
+        discovered_after["pages"].append(new_page_node["scope_key"])
+    else:
+        _, discovered_after = register_discoveries(
+            frontier=frontier,
+            ledger=ledger,
+            page_snapshot=after,
+            page_scope_key=page_scope_key,
+            page_url=after_url,
+        )
+        form_flow_node = enqueue_form_probe_from_interaction(
+            frontier,
+            ledger,
+            page_scope_key=page_scope_key,
+            page_url=node["source_url"],
+            element=trigger_element,
+            before_state=before_state,
+            after_state=after_state,
+            discovered_from=node["node_key"],
+        )
+        if form_flow_node:
+            discovered_after["flows"].append(form_flow_node["scope_key"])
     trace = {
         "node": node,
         "status": "ok",
         "page_scope_key": page_scope_key,
-        "interaction_element": node["metadata"]["element"],
+        "interaction_element": trigger_element,
         "click": click,
         "outcome": outcome,
         "before_url": before.get("href"),
         "after_url": after.get("href"),
         "before_title": before.get("title"),
         "after_title": after.get("title"),
+        "before_state": before_state,
+        "after_state": after_state,
+        "discovered_after": {
+            "page_count": len(discovered_after["pages"]),
+            "interaction_count": len(discovered_after["interactions"]),
+            "flow_count": len(discovered_after["flows"]),
+            "pages": discovered_after["pages"][:20],
+            "interactions": discovered_after["interactions"][:20],
+            "flows": discovered_after["flows"][:20],
+        },
         "captured_at": iso_now(),
     }
     record_flow_trace(run_dir, node["scope_key"], trace)
+    session.press_escape()
     summary = {
         "node": node,
         "status": "ok",
         "interaction_trace": trace,
+        "interaction_state_summary": {
+            "before": summarize_interaction_state(before_state),
+            "after": summarize_interaction_state(after_state),
+        },
         "network": {key: str(path.relative_to(TMP_ROOT)) for key, path in network_artifacts.items()},
     }
     return {
@@ -1241,37 +1406,240 @@ def flow_allowed(node: dict, policy: dict) -> bool:
     return True
 
 
-def execute_create_issue_flow(session: CdpSession, run_dir: Path, node: dict, policy: dict):
+def execute_readonly_form_probe(session: CdpSession, run_dir: Path, node: dict):
     flow_root = run_dir / "flows" / slugify(node["scope_key"])
     session.reset_network_events()
     session.navigate(node["source_url"], expect_url_part=urlparse(node["source_url"]).path)
     before = session.capture_page(flow_root, label="before")
+    before_state = session.inspect_interaction_state(flow_root, label="before")
+    trigger = node["metadata"].get("trigger_element")
+    click = session.click_locator(trigger["selector_strategy"]) if trigger else {"ok": False, "reason": "missing-trigger"}
+    time.sleep(1.0)
+    after = session.capture_page(flow_root, label="after-open")
+    after_state = session.inspect_interaction_state(flow_root, label="after-open")
+    network_artifacts = session.write_network_artifacts(flow_root)
+    session.press_escape()
+    trace = {
+        "node": node,
+        "status": "captured_readonly",
+        "reason": "readonly_form_probe",
+        "trigger": click,
+        "before_url": before.get("href"),
+        "after_url": after.get("href"),
+        "before_state": before_state,
+        "after_state": after_state,
+        "submit_policy": "not_submitted",
+        "captured_at": iso_now(),
+    }
+    record_flow_trace(run_dir, node["scope_key"], trace)
+    summary = {
+        "node": node,
+        "status": "captured_readonly",
+        "reason": "readonly_form_probe",
+        "form_state": {
+            "before": summarize_interaction_state(before_state),
+            "after": summarize_interaction_state(after_state),
+        },
+        "network": {key: str(path.relative_to(TMP_ROOT)) for key, path in network_artifacts.items()},
+    }
+    return {
+        "run_type": "flow",
+        "summary": summary,
+        "source_title": after.get("title") or before.get("title") or node.get("ui_surface"),
+        "source_url": after.get("href") or before.get("href") or node["source_url"],
+        "status": "ok",
+        "mutation_status": "captured_readonly",
+        "reason": "readonly_form_probe",
+    }
+
+
+def execute_safe_create_flow(session: CdpSession, run_dir: Path, node: dict, policy: dict):
+    flow_key = node["scope_key"]
+    config = SAFE_CREATE_FLOW_CONFIG[flow_key]
+    flow_root = run_dir / "flows" / slugify(flow_key)
+    session.reset_network_events()
+    session.navigate(node["source_url"], expect_url_part=urlparse(node["source_url"]).path)
+    before = session.capture_page(flow_root, label="before")
+    before_state = session.inspect_interaction_state(flow_root, label="before")
     trigger = node["metadata"].get("trigger_element")
     click = session.click_locator(trigger["selector_strategy"]) if trigger else {"ok": False, "reason": "missing-trigger"}
     time.sleep(1.0)
     dialog = session.capture_page(flow_root, label="dialog")
-    title_value = f"{policy['entity_name_prefix']}{run_dir.name}"
-    fill = session.fill_first_text_input(title_value)
-    submit = session.submit_dialog(["Create issue", "Create", "Save"])
+    dialog_state = session.inspect_interaction_state(flow_root, label="dialog")
+    if not click.get("ok"):
+        network_artifacts = session.write_network_artifacts(flow_root)
+        trace = {
+            "node": node,
+            "status": "captured_readonly",
+            "reason": click.get("reason") or "trigger_open_failed",
+            "trigger": click,
+            "before_state": before_state,
+            "dialog_state": dialog_state,
+            "captured_at": iso_now(),
+        }
+        record_flow_trace(run_dir, flow_key, trace)
+        return {
+            "run_type": "flow",
+            "summary": {
+                "node": node,
+                "status": "captured_readonly",
+                "reason": trace["reason"],
+                "network": {key: str(path.relative_to(TMP_ROOT)) for key, path in network_artifacts.items()},
+            },
+            "source_title": dialog.get("title") or before.get("title") or node.get("ui_surface"),
+            "source_url": dialog.get("href") or before.get("href") or node["source_url"],
+            "status": "ok",
+            "mutation_status": "captured_readonly",
+            "reason": trace["reason"],
+        }
+    opened_outcome = interaction_outcome(before, dialog, before_state, dialog_state)
+    form_delta = int(dialog_state.get("form_control_count", 0)) - int(
+        before_state.get("form_control_count", 0)
+    )
+    overlay_delta = int(dialog_state.get("overlay_count", 0)) - int(
+        before_state.get("overlay_count", 0)
+    )
+    if form_delta <= 0 and overlay_delta <= 0:
+        network_artifacts = session.write_network_artifacts(flow_root)
+        trace = {
+            "node": node,
+            "status": "captured_readonly",
+            "reason": "safe_create_form_not_opened",
+            "trigger": click,
+            "opened_outcome": opened_outcome,
+            "before_state": before_state,
+            "dialog_state": dialog_state,
+            "captured_at": iso_now(),
+        }
+        record_flow_trace(run_dir, flow_key, trace)
+        session.press_escape()
+        return {
+            "run_type": "flow",
+            "summary": {
+                "node": node,
+                "status": "captured_readonly",
+                "reason": "safe_create_form_not_opened",
+                "network": {key: str(path.relative_to(TMP_ROOT)) for key, path in network_artifacts.items()},
+            },
+            "source_title": dialog.get("title") or before.get("title") or node.get("ui_surface"),
+            "source_url": dialog.get("href") or before.get("href") or node["source_url"],
+            "status": "ok",
+            "mutation_status": "captured_readonly",
+            "reason": "safe_create_form_not_opened",
+        }
+    if not flow_allowed(node, policy):
+        network_artifacts = session.write_network_artifacts(flow_root)
+        trace = {
+            "node": node,
+            "status": "captured_readonly",
+            "reason": "sandbox_not_allowed",
+            "trigger": click,
+            "before_state": before_state,
+            "dialog_state": dialog_state,
+            "captured_at": iso_now(),
+        }
+        record_flow_trace(run_dir, flow_key, trace)
+        session.press_escape()
+        return {
+            "run_type": "flow",
+            "summary": {
+                "node": node,
+                "status": "captured_readonly",
+                "reason": "sandbox_not_allowed",
+                "network": {key: str(path.relative_to(TMP_ROOT)) for key, path in network_artifacts.items()},
+            },
+            "source_title": dialog.get("title") or before.get("title") or node.get("ui_surface"),
+            "source_url": dialog.get("href") or before.get("href") or node["source_url"],
+            "status": "ok",
+            "mutation_status": "captured_readonly",
+            "reason": "sandbox_not_allowed",
+        }
+    if int(dialog_state.get("destructive_button_count", 0)) > 0:
+        network_artifacts = session.write_network_artifacts(flow_root)
+        trace = {
+            "node": node,
+            "status": "captured_readonly",
+            "reason": "destructive_control_present",
+            "trigger": click,
+            "before_state": before_state,
+            "dialog_state": dialog_state,
+            "captured_at": iso_now(),
+        }
+        record_flow_trace(run_dir, flow_key, trace)
+        session.press_escape()
+        return {
+            "run_type": "flow",
+            "summary": {
+                "node": node,
+                "status": "captured_readonly",
+                "reason": "destructive_control_present",
+                "network": {key: str(path.relative_to(TMP_ROOT)) for key, path in network_artifacts.items()},
+            },
+            "source_title": dialog.get("title") or before.get("title") or node.get("ui_surface"),
+            "source_url": dialog.get("href") or before.get("href") or node["source_url"],
+            "status": "ok",
+            "mutation_status": "captured_readonly",
+            "reason": "destructive_control_present",
+        }
+
+    entity_name = f"{policy['entity_name_prefix']}{config['name_prefix']}_{run_dir.name}"
+    fill = session.fill_first_text_input(entity_name)
+    time.sleep(0.3)
+    filled = session.capture_page(flow_root, label="filled")
+    filled_state = session.inspect_interaction_state(flow_root, label="filled")
+    if not fill.get("ok"):
+        network_artifacts = session.write_network_artifacts(flow_root)
+        trace = {
+            "node": node,
+            "status": "captured_readonly",
+            "reason": fill.get("reason") or "form_input_not_found",
+            "trigger": click,
+            "fill": fill,
+            "before_state": before_state,
+            "dialog_state": dialog_state,
+            "filled_state": filled_state,
+            "captured_at": iso_now(),
+        }
+        record_flow_trace(run_dir, flow_key, trace)
+        session.press_escape()
+        return {
+            "run_type": "flow",
+            "summary": {
+                "node": node,
+                "status": "captured_readonly",
+                "reason": trace["reason"],
+                "network": {key: str(path.relative_to(TMP_ROOT)) for key, path in network_artifacts.items()},
+            },
+            "source_title": filled.get("title") or dialog.get("title") or node.get("ui_surface"),
+            "source_url": filled.get("href") or dialog.get("href") or node["source_url"],
+            "status": "ok",
+            "mutation_status": "captured_readonly",
+            "reason": trace["reason"],
+        }
+
+    submit = session.submit_dialog(config["submit_labels"])
     time.sleep(1.6)
     after = session.capture_page(flow_root, label="after-submit")
+    after_state = session.inspect_interaction_state(flow_root, label="after-submit")
     network_artifacts = session.write_network_artifacts(flow_root)
     created_url = after.get("href")
+    submitted = bool(submit.get("ok"))
     mutation = {
-        "flow": "create_issue",
-        "status": "ok" if submit.get("ok") else "blocked",
-        "title": title_value,
+        "flow": flow_key,
+        "entity_type": config["entity_type"],
+        "status": "ok" if submitted else "captured_readonly",
+        "name": entity_name,
         "created_url": created_url,
-        "owned": title_value.startswith(policy["entity_name_prefix"]),
+        "owned": entity_name.startswith(policy["entity_name_prefix"]),
         "cleanup": {
-            "status": "manual_cleanup_required",
+            "status": "manual_cleanup_required" if submitted else "not_submitted",
             "allowed_destructive_on_owned_entities_only": policy.get(
                 "allow_destructive_on_owned_entities_only", True
             ),
         },
         "captured_at": iso_now(),
     }
-    mutation_path = record_mutation(run_dir, f"create-issue-{run_dir.name}", mutation)
+    mutation_path = record_mutation(run_dir, f"{flow_key}-{run_dir.name}", mutation)
     trace = {
         "node": node,
         "status": mutation["status"],
@@ -1280,24 +1648,37 @@ def execute_create_issue_flow(session: CdpSession, run_dir: Path, node: dict, po
         "submit": submit,
         "before_url": before.get("href"),
         "after_url": created_url,
-        "title_value": title_value,
+        "entity_name": entity_name,
+        "before_state": before_state,
+        "dialog_state": dialog_state,
+        "filled_state": filled_state,
+        "after_state": after_state,
         "mutation_path": str(mutation_path.relative_to(TMP_ROOT)),
+        "captured_at": iso_now(),
     }
-    record_flow_trace(run_dir, node["scope_key"], trace)
+    record_flow_trace(run_dir, flow_key, trace)
     summary = {
         "node": node,
         "status": mutation["status"],
         "mutation": mutation,
+        "form_state": {
+            "before": summarize_interaction_state(before_state),
+            "dialog": summarize_interaction_state(dialog_state),
+            "filled": summarize_interaction_state(filled_state),
+            "after": summarize_interaction_state(after_state),
+        },
         "network": {key: str(path.relative_to(TMP_ROOT)) for key, path in network_artifacts.items()},
     }
+    if not submitted:
+        session.press_escape()
     return {
         "run_type": "flow",
         "summary": summary,
-        "source_title": after.get("title") or before.get("title") or node.get("ui_surface"),
-        "source_url": created_url or before.get("href") or node["source_url"],
-        "status": "ok" if mutation["status"] == "ok" else "blocked",
-        "mutation_status": "captured_mutation" if mutation["status"] == "ok" else "blocked",
-        "reason": mutation["cleanup"]["status"] if mutation["status"] == "ok" else submit.get("reason"),
+        "source_title": after.get("title") or dialog.get("title") or node.get("ui_surface"),
+        "source_url": created_url or dialog.get("href") or node["source_url"],
+        "status": "ok",
+        "mutation_status": "captured_mutation" if submitted else "captured_readonly",
+        "reason": mutation["cleanup"]["status"] if submitted else submit.get("reason"),
     }
 
 
@@ -1318,8 +1699,10 @@ def execute_flow_node(session: CdpSession, run_dir: Path, node: dict, policy: di
             "mutation_status": "captured_readonly",
             "reason": "sandbox_not_allowed",
         }
-    if node["scope_key"] == "create_issue":
-        return execute_create_issue_flow(session, run_dir, node, policy)
+    if node["scope_key"] in SAFE_CREATE_FLOW_CONFIG:
+        return execute_safe_create_flow(session, run_dir, node, policy)
+    if node.get("metadata", {}).get("flow_kind") == "readonly_form_probe":
+        return execute_readonly_form_probe(session, run_dir, node)
     summary = {
         "node": node,
         "status": "blocked",

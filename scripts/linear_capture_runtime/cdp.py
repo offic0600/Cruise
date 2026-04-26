@@ -170,6 +170,109 @@ class CdpSession:
             timeout=8,
         )
 
+    def inspect_interaction_state(self, out_dir: Path, label="state"):
+        state_dir = out_dir / "interaction-state"
+        state_dir.mkdir(parents=True, exist_ok=True)
+        data = self.eval_value(
+            """
+(() => {
+  const normalizeText = (value) => (value || '').replace(/\\s+/g, ' ').trim();
+  const isVisible = (el) => {
+    if (!el) return false;
+    const style = window.getComputedStyle(el);
+    const rect = el.getBoundingClientRect();
+    return style.visibility !== 'hidden' && style.display !== 'none' && rect.width > 0 && rect.height > 0;
+  };
+  const labelOf = (el) => normalizeText(
+    el.getAttribute('aria-label') ||
+    el.getAttribute('placeholder') ||
+    el.innerText ||
+    el.textContent ||
+    ''
+  ).slice(0, 180);
+  const describeControl = (el, index) => ({
+    index,
+    tag: (el.tagName || '').toLowerCase(),
+    role: el.getAttribute('role'),
+    type: el.getAttribute('type'),
+    label: labelOf(el),
+    name: el.getAttribute('name'),
+    placeholder: el.getAttribute('placeholder'),
+    disabled: !!(el.disabled || el.getAttribute('aria-disabled') === 'true'),
+    readonly: !!(el.readOnly || el.getAttribute('aria-readonly') === 'true'),
+    value_excerpt: ('value' in el ? el.value : el.textContent || '').slice(0, 120),
+  });
+  const describeButton = (el, index) => {
+    const label = labelOf(el);
+    return {
+      index,
+      tag: (el.tagName || '').toLowerCase(),
+      role: el.getAttribute('role'),
+      label,
+      aria: el.getAttribute('aria-label'),
+      disabled: !!(el.disabled || el.getAttribute('aria-disabled') === 'true'),
+      destructive: /delete|remove|archive|discard|cancel subscription/i.test(label),
+      submit_like: /create|save|submit|confirm|add|apply/i.test(label),
+    };
+  };
+  const controls = Array.from(document.querySelectorAll('input:not([type="hidden"]), textarea, select, [contenteditable="true"], [role="textbox"], [role="combobox"]'))
+    .filter(isVisible)
+    .slice(0, 80)
+    .map(describeControl);
+  const buttons = Array.from(document.querySelectorAll('button, [role="button"], [role="menuitem"]'))
+    .filter(isVisible)
+    .slice(0, 120)
+    .map(describeButton);
+  const overlaySelectors = [
+    '[role="dialog"]',
+    '[aria-modal="true"]',
+    '[role="menu"]',
+    '[role="listbox"]',
+    '[role="tooltip"]',
+    '[data-radix-popper-content-wrapper]',
+    '[data-headlessui-state]',
+  ];
+  const overlayNodes = Array.from(new Set(overlaySelectors.flatMap((selector) => Array.from(document.querySelectorAll(selector)))))
+    .filter(isVisible)
+    .slice(0, 20);
+  const overlays = overlayNodes.map((el, index) => ({
+    index,
+    tag: (el.tagName || '').toLowerCase(),
+    role: el.getAttribute('role'),
+    aria_modal: el.getAttribute('aria-modal'),
+    label: labelOf(el),
+    text_excerpt: normalizeText(el.innerText || el.textContent || '').slice(0, 1200),
+    control_count: Array.from(el.querySelectorAll('input, textarea, select, [contenteditable="true"], [role="textbox"], [role="combobox"]')).filter(isVisible).length,
+    button_count: Array.from(el.querySelectorAll('button, [role="button"], [role="menuitem"]')).filter(isVisible).length,
+  }));
+  const active = document.activeElement;
+  return {
+    href: location.href,
+    title: document.title,
+    captured_at: new Date().toISOString(),
+    overlay_count: overlays.length,
+    form_control_count: controls.length,
+    submit_candidate_count: buttons.filter((button) => button.submit_like && !button.disabled && !button.destructive).length,
+    destructive_button_count: buttons.filter((button) => button.destructive).length,
+    active_element: active ? {
+      tag: (active.tagName || '').toLowerCase(),
+      role: active.getAttribute('role'),
+      label: labelOf(active),
+    } : null,
+    overlays,
+    controls,
+    buttons,
+  };
+})()
+""",
+            timeout=8,
+        )
+        (state_dir / f"{label}.json").write_text(
+            json.dumps(data, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        return data
+
     def click_locator(self, locator: dict):
         return self.eval_value(
             f"""
