@@ -808,55 +808,58 @@ def build_interaction_domain_clusters(captures_by_scope: dict, quality_by_scope:
         scoped_captures.sort(key=lambda item: (item[1].get("captured_at") or "", item[1].get("latest_run_id") or ""))
         if len(scoped_captures) < INTERACTION_CLUSTER_MIN_ITEMS:
             continue
-        selected = scoped_captures[:INTERACTION_CLUSTER_MAX_ITEMS]
-        scopes = [scope for scope, _capture in selected]
-        captures = [capture for _scope, capture in selected]
-        artifact_hashes = [capture["latest_artifact_hash"] for capture in captures]
-        cluster_hash = hashlib.sha256("|".join(artifact_hashes).encode("utf-8")).hexdigest()
         spec = interaction_domain_spec(cluster_id)
-        clusters.append(
-            {
-                "work_id": f"{cluster_id}-{cluster_hash[:12]}",
-                "work_type": "evidence_cluster",
-                "cluster_id": cluster_id,
-                "capture_run_id": captures[-1]["latest_run_id"],
-                "source_capture_run_id": captures[-1]["latest_run_id"],
-                "capture_run_ids": [capture["latest_run_id"] for capture in captures],
-                "artifact_hash": cluster_hash,
-                "artifact_hashes": artifact_hashes,
-                "source_ledger_key": f"cluster:{cluster_id}:{cluster_hash[:12]}",
-                "scope_dedupe_key": f"cluster:{cluster_id}:{cluster_hash[:12]}",
-                "scope_key": cluster_id,
-                "scope_keys": scopes,
-                "ledger_refs": [f"interaction:{scope}" for scope in scopes],
-                "ui_surface": spec["ui_surface"],
-                "goal": spec["goal"],
-                "candidate_changes": spec["candidate_changes"],
-                "implementation_slice": {
-                    "name": f"{cluster_id} batch interaction closure",
-                    "expected_change": "80-350 lines across the domain owner files; consume 4-12 related interaction evidence refs in one product slice",
-                    "allowed_gap_count": "4-12 strongly related interaction gaps",
-                },
-                "line_budget": INTERACTION_CLUSTER_LINE_BUDGET,
-                "evidence_quality": {scope: quality_by_scope[scope] for scope in scopes},
-                "blocked_scope_keys": [],
-                "evidence_refs": {
-                    "capture_latest": relative_to_repo(CAPTURE_ROOT / "latest.json"),
-                    "captures": [capture_ref_for(scope, capture) for scope, capture in selected],
-                },
-                "acceptance_checks": [
-                    "本轮必须消费同一 domain 的 4-12 条 interaction evidence，禁止退化成单按钮、wording-only 或 route-only 微任务。",
-                    "产品代码改动目标为 80-350 行左右，形成用户可见的菜单/弹窗/导航/状态反馈闭环。",
-                    "`cd frontend && npx tsc --noEmit`",
-                    "若改动 route helper、domain component 或 i18n，补/跑对应 focused test。",
-                ],
-                "source_paths": existing_source_paths(cluster_id),
-                "milestone_summary": f"{cluster_id} domain cluster：{len(scopes)} 条 interaction evidence 已按产品域批量收口。",
-                "status": "pending",
-                "created_at": iso_now(),
-                "updated_at": iso_now(),
-            }
-        )
+        for batch_index, start in enumerate(range(0, len(scoped_captures), INTERACTION_CLUSTER_MAX_ITEMS), start=1):
+            selected = scoped_captures[start : start + INTERACTION_CLUSTER_MAX_ITEMS]
+            if len(selected) < INTERACTION_CLUSTER_MIN_ITEMS:
+                continue
+            scopes = [scope for scope, _capture in selected]
+            captures = [capture for _scope, capture in selected]
+            artifact_hashes = [capture["latest_artifact_hash"] for capture in captures]
+            cluster_hash = hashlib.sha256("|".join(artifact_hashes).encode("utf-8")).hexdigest()
+            clusters.append(
+                {
+                    "work_id": f"{cluster_id}-{cluster_hash[:12]}",
+                    "work_type": "evidence_cluster",
+                    "cluster_id": cluster_id,
+                    "capture_run_id": captures[-1]["latest_run_id"],
+                    "source_capture_run_id": captures[-1]["latest_run_id"],
+                    "capture_run_ids": [capture["latest_run_id"] for capture in captures],
+                    "artifact_hash": cluster_hash,
+                    "artifact_hashes": artifact_hashes,
+                    "source_ledger_key": f"cluster:{cluster_id}:{cluster_hash[:12]}",
+                    "scope_dedupe_key": f"cluster:{cluster_id}:{cluster_hash[:12]}",
+                    "scope_key": cluster_id,
+                    "scope_keys": scopes,
+                    "ledger_refs": [f"interaction:{scope}" for scope in scopes],
+                    "ui_surface": spec["ui_surface"],
+                    "goal": spec["goal"],
+                    "candidate_changes": spec["candidate_changes"],
+                    "implementation_slice": {
+                        "name": f"{cluster_id} batch {batch_index} interaction closure",
+                        "expected_change": "80-350 lines across the domain owner files; consume 4-12 related interaction evidence refs in one product slice",
+                        "allowed_gap_count": "4-12 strongly related interaction gaps",
+                    },
+                    "line_budget": INTERACTION_CLUSTER_LINE_BUDGET,
+                    "evidence_quality": {scope: quality_by_scope[scope] for scope in scopes},
+                    "blocked_scope_keys": [],
+                    "evidence_refs": {
+                        "capture_latest": relative_to_repo(CAPTURE_ROOT / "latest.json"),
+                        "captures": [capture_ref_for(scope, capture) for scope, capture in selected],
+                    },
+                    "acceptance_checks": [
+                        "本轮必须消费同一 domain 的 4-12 条 interaction evidence，禁止退化成单按钮、wording-only 或 route-only 微任务。",
+                        "产品代码改动目标为 80-350 行左右，形成用户可见的菜单/弹窗/导航/状态反馈闭环。",
+                        "`cd frontend && npx tsc --noEmit`",
+                        "若改动 route helper、domain component 或 i18n，补/跑对应 focused test。",
+                    ],
+                    "source_paths": existing_source_paths(cluster_id),
+                    "milestone_summary": f"{cluster_id} domain cluster batch {batch_index}：{len(scopes)} 条 interaction evidence 已按产品域批量收口。",
+                    "status": "pending",
+                    "created_at": iso_now(),
+                    "updated_at": iso_now(),
+                }
+            )
     return clusters
 
 
