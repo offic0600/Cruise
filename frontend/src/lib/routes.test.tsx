@@ -152,7 +152,7 @@ describe('routes helpers for active issues workspace routing', () => {
     expect(teamIssuesPath('acme', 'eng', 'active')).toBe('/acme/team/eng/active');
     expect(teamIssuesPath('acme', 'eng', 'backlog')).toBe('/acme/team/eng/backlog');
     expect(teamIssuesPath('acme', 'eng', 'done')).toBe('/acme/team/eng/done');
-    expect(teamProjectsPath('acme', 'eng')).toBe('/acme/team/eng/projects');
+    expect(teamProjectsPath('acme', 'eng')).toBe('/acme/team/eng/projects/all');
     expect(teamViewsRootPath('acme', 'eng')).toBe('/acme/team/eng/views');
     expect(teamNewViewPath('acme', 'eng')).toBe('/acme/team/eng/view/new');
   });

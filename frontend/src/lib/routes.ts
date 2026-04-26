@@ -39,7 +39,7 @@ export function workspaceProjectsAllPath(workspaceSlug: string) {
 }
 
 export function teamProjectsPath(workspaceSlug: string, teamKey: string) {
-  return normalizePath(`/${workspaceSlug}/team/${teamKey}/projects`);
+  return normalizePath(`/${workspaceSlug}/team/${teamKey}/projects/all`);
 }
 
 export function workspaceProjectViewPath(

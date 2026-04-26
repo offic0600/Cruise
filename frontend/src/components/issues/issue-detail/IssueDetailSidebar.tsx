@@ -2,6 +2,7 @@
 
 import { type ReactNode, useMemo, useState } from 'react';
 import {
+  CheckCircle2,
   ChevronDown,
   FolderKanban,
   GitBranchPlus,
@@ -117,6 +118,7 @@ export function IssueDetailSidebar({
     setLastSidebarAction(message);
     window.setTimeout(() => setLastSidebarAction((current) => (current === message ? null : current)), 2200);
   };
+  const assignSelfLabel = storedUser?.username || storedUser?.email || t('issues.detailSidebar.me');
 
   return (
     <aside className="space-y-3 xl:sticky xl:top-24 xl:self-start">
@@ -172,6 +174,103 @@ export function IssueDetailSidebar({
             {lastSidebarAction}
           </div>
         ) : null}
+      </SidebarCard>
+
+      <SidebarCard title={t('issues.detailSidebar.quickActions')} bodyClassName="space-y-3">
+        <div className="grid grid-cols-2 gap-2">
+          <QuickActionButton
+            label={t('issues.detailSidebar.startWork')}
+            value={t('common.status.IN_PROGRESS')}
+            active={draftIssue.state === 'IN_PROGRESS'}
+            onClick={() => {
+              onSetDraftIssue((current) => ({ ...current, state: 'IN_PROGRESS', resolution: null }));
+              announceSidebarAction(t('issues.detailSidebar.feedbackStarted'));
+            }}
+          />
+          <QuickActionButton
+            label={t('issues.detailSidebar.sendReview')}
+            value={t('common.status.IN_REVIEW')}
+            active={draftIssue.state === 'IN_REVIEW'}
+            onClick={() => {
+              onSetDraftIssue((current) => ({ ...current, state: 'IN_REVIEW', resolution: null }));
+              announceSidebarAction(t('issues.detailSidebar.feedbackReview'));
+            }}
+          />
+          <QuickActionButton
+            label={t('issues.detailSidebar.markDone')}
+            value={t('common.status.DONE')}
+            active={draftIssue.state === 'DONE'}
+            onClick={() => {
+              onSetDraftIssue((current) => ({ ...current, state: 'DONE', resolution: 'COMPLETED' }));
+              announceSidebarAction(t('issues.detailSidebar.feedbackDone'));
+            }}
+          />
+          <QuickActionButton
+            label={t('issues.detailSidebar.raisePriority')}
+            value={t('common.priority.URGENT')}
+            active={draftIssue.priority === 'URGENT'}
+            onClick={() => {
+              onSetDraftIssue((current) => ({ ...current, priority: current.priority === 'URGENT' ? 'HIGH' : 'URGENT' }));
+              announceSidebarAction(t('issues.detailSidebar.feedbackPriority'));
+            }}
+          />
+          <QuickActionButton
+            label={t('issues.detailSidebar.assignSelf')}
+            value={assignSelfLabel}
+            active={storedUser?.id != null && draftIssue.assigneeId === storedUser.id}
+            disabled={storedUser?.id == null}
+            onClick={() => {
+              if (storedUser?.id == null) return;
+              const assigneeId = storedUser.id;
+              onSetDraftIssue((current) => ({ ...current, assigneeId }));
+              announceSidebarAction(t('issues.detailSidebar.feedbackAssigned'));
+            }}
+          />
+          <QuickActionButton
+            label={t('issues.detailSidebar.clearAssignee')}
+            value={notSetLabel}
+            active={draftIssue.assigneeId == null}
+            onClick={() => {
+              onSetDraftIssue((current) => ({ ...current, assigneeId: null }));
+              announceSidebarAction(t('issues.detailSidebar.feedbackClearedAssignee'));
+            }}
+          />
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              announceSidebarAction(t('issues.detailSidebar.feedbackRelated'));
+              void onCreateRelated();
+            }}
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-border-soft bg-white px-2 text-[11px] font-medium text-ink-700 transition hover:bg-slate-50"
+          >
+            <GitBranchPlus className="h-3.5 w-3.5 text-ink-400" />
+            {t('issues.more.relatedIssue')}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              announceSidebarAction(t('issues.detailSidebar.feedbackLink'));
+              void onAddLink();
+            }}
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-border-soft bg-white px-2 text-[11px] font-medium text-ink-700 transition hover:bg-slate-50"
+          >
+            <Link2 className="h-3.5 w-3.5 text-ink-400" />
+            {t('issues.more.addLink')}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              announceSidebarAction(t('issues.detailSidebar.feedbackAskLinear'));
+              onAskLinear();
+            }}
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-slate-900 bg-slate-950 px-2 text-[11px] font-medium text-white transition hover:bg-slate-900"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+            {t('issues.detailSidebar.askLinear')}
+          </button>
+        </div>
       </SidebarCard>
       <SidebarCard title={t('issues.detailPage.properties')} bodyClassName="flex flex-col items-start gap-2.5">
         <IssueStatusPill
@@ -484,6 +583,40 @@ function ContextMetric({ label, value }: { label: string; value: string }) {
       <div className="text-[10px] uppercase tracking-[0.16em] text-ink-400">{label}</div>
       <div className="mt-1 truncate text-sm font-medium text-ink-800">{value}</div>
     </div>
+  );
+}
+
+function QuickActionButton({
+  label,
+  value,
+  active,
+  disabled = false,
+  onClick,
+}: {
+  label: string;
+  value: string;
+  active: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        'group rounded-2xl border px-3 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-50',
+        active
+          ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+          : 'border-border-soft bg-white text-ink-700 hover:bg-slate-50 hover:text-ink-950'
+      )}
+    >
+      <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-400">
+        <CheckCircle2 className={cn('h-3.5 w-3.5', active ? 'text-emerald-600' : 'text-ink-300 group-hover:text-ink-500')} />
+        {label}
+      </div>
+      <div className="mt-1 truncate text-sm font-semibold">{value}</div>
+    </button>
   );
 }
 
