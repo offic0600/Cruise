@@ -52,6 +52,10 @@ def slugify(value: str) -> str:
     return text or "surface"
 
 
+def element_label(element: dict) -> str:
+    return (element.get("text") or element.get("aria") or element.get("href") or "").strip()
+
+
 def work_id_for(scope_key: str, artifact_hash: str) -> str:
     return f"{slugify(scope_key)}-{artifact_hash[:12]}"
 
@@ -118,7 +122,7 @@ def load_capture_paths(latest_capture: dict):
 
 
 def capture_paths_are_actionable(capture_paths: dict) -> bool:
-    if capture_paths.get("run_type") == "flow":
+    if capture_paths.get("run_type") in {"flow", "interaction"}:
         return (
             bool(capture_paths.get("manifest"))
             and bool(capture_paths.get("summary"))
@@ -134,7 +138,7 @@ def capture_paths_are_actionable(capture_paths: dict) -> bool:
 
 def capture_evidence_quality(capture_paths: dict) -> dict:
     reasons = []
-    if capture_paths.get("run_type") == "flow":
+    if capture_paths.get("run_type") in {"flow", "interaction"}:
         if not capture_paths_are_actionable(capture_paths):
             reasons.append("capture_bundle_missing_flow_trace")
             return {"status": "invalid", "reasons": reasons, "element_count": 0}
@@ -147,6 +151,8 @@ def capture_evidence_quality(capture_paths: dict) -> dict:
             "element_count": int((trace.get("after_state") or {}).get("form_control_count", 0) or 0),
             "title": capture_paths.get("manifest", {}).get("source_target_title"),
             "url": capture_paths.get("manifest", {}).get("source_target_url"),
+            "interaction_label": element_label(trace.get("interaction_element") or {}),
+            "interaction_outcome": trace.get("outcome"),
             "flow_status": summary.get("status") or trace.get("status"),
             "flow_reason": reason,
             "mutation_status": (summary.get("mutation") or {}).get("status"),
@@ -235,6 +241,7 @@ def resolve_recapture_request(requests: dict, *, scope_key: str, artifact_hash: 
 
 
 def existing_source_paths(scope_key: str):
+    base_scope_key = scope_key.split("#", 1)[0]
     candidates = {
         "inbox": [
             REPO_ROOT / "frontend/src/components/inbox/InboxPage.tsx",
@@ -308,21 +315,21 @@ def existing_source_paths(scope_key: str):
         selected = candidates["settings"]
     elif scope_key == ISSUE_CREATE_FLOW_CLUSTER_ID:
         selected = candidates["issue_create_flow"]
-    elif scope_key == "inbox":
+    elif base_scope_key == "inbox":
         selected = candidates["inbox"]
-    elif scope_key.startswith("issue:"):
+    elif base_scope_key.startswith("issue:"):
         selected = candidates["issue"]
-    elif scope_key.startswith("projects") or scope_key.startswith("project:"):
+    elif base_scope_key.startswith("projects") or base_scope_key.startswith("project:"):
         selected = candidates["projects"]
-    elif scope_key.startswith("views"):
+    elif base_scope_key.startswith("views"):
         selected = candidates["views"]
-    elif scope_key.startswith("cycles"):
+    elif base_scope_key.startswith("cycles"):
         selected = candidates["cycles"]
-    elif "/team:" in scope_key:
+    elif "/team:" in base_scope_key:
         selected = candidates["team_issues"]
-    elif scope_key.startswith("roadmap"):
+    elif base_scope_key.startswith("roadmap"):
         selected = candidates["roadmap"]
-    elif scope_key.startswith("settings:"):
+    elif base_scope_key.startswith("settings:"):
         selected = candidates["settings"]
     else:
         selected = [REPO_ROOT / "frontend/src/components/AppLayout.tsx", REPO_ROOT / "frontend/src/lib/routes.ts"]
@@ -458,7 +465,28 @@ def build_work_item(latest_capture: dict, capture_paths: dict):
     page = capture_paths["page"]
     elements = capture_paths["elements"]
     scope_key = manifest.get("capture_scope") or latest_capture["latest_capture_scope"]
-    blueprint = blueprint_for(scope_key, page, elements)
+    run_type = manifest.get("run_type", latest_capture.get("run_type", "page"))
+    if run_type == "interaction":
+        trace = capture_paths.get("trace") or {}
+        trigger = trace.get("interaction_element") or {}
+        label = element_label(trigger) or scope_key
+        outcome = trace.get("outcome") or trace.get("reason") or summary.get("reason") or summary.get("status")
+        blueprint = {
+            "goal": f"围绕 {manifest.get('ui_surface') or scope_key} 的 `{label}` interaction 做一个证据驱动小闭环：对齐点击前后状态、弹层/菜单/导航反馈。",
+            "candidate_changes": [
+                f"对齐 `{label}` 触发后的 UI 状态，当前 capture outcome={outcome or 'unknown'}。",
+                "补齐对应菜单、弹窗、导航或 no-op 反馈，不做 wording-only 微调。",
+                "确保相关页面的主操作入口、禁用态、loading/empty/error feedback 不回退。",
+            ],
+            "acceptance_checks": [
+                "当前 interaction 的点击前后状态能在产品实现中找到对应反馈或 surface。",
+                "`cd frontend && npx tsc --noEmit`",
+                "若改动 route helper、composer/menu helper 或 i18n，运行对应 focused test。",
+            ],
+            "milestone_summary_template": f"{scope_key} interaction 小闭环：`{label}` 的触发反馈已按 capture 收口。",
+        }
+    else:
+        blueprint = blueprint_for(scope_key, page, elements)
     artifact_hash = latest_capture["latest_artifact_hash"]
     work_id = work_id_for(scope_key, artifact_hash)
 

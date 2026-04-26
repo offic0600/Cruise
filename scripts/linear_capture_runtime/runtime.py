@@ -29,7 +29,7 @@ RETRYABLE_ERROR_MARKERS = (
     "ConnectionResetError",
     "Connection closed",
 )
-NODE_TYPE_ORDER = {"flow": 0, "interaction": 1, "page": 2}
+NODE_TYPE_ORDER = {"page": 0, "interaction": 1, "flow": 2}
 CAPTURE_QUALITY_RETRY_COUNT = 4
 CAPTURE_QUALITY_RETRY_SECONDS = 2.5
 DEEP_INTERACTION_ELEMENT_LIMIT = 100
