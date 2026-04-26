@@ -148,17 +148,20 @@ describe('routes helpers for active issues workspace routing', () => {
   });
 
   it('builds semantic backlog and done team routes', () => {
+    expect(teamIssuesPath('acme', 'eng', 'all')).toBe('/acme/team/eng/all');
     expect(teamIssuesPath('acme', 'eng', 'active')).toBe('/acme/team/eng/active');
     expect(teamIssuesPath('acme', 'eng', 'backlog')).toBe('/acme/team/eng/backlog');
     expect(teamIssuesPath('acme', 'eng', 'done')).toBe('/acme/team/eng/done');
   });
 
   it('preserves backlog and done suffixes when replacing the team key', () => {
+    expect(replaceTeamKeyInPath('/acme/team/eng/all', 'design')).toBe('/acme/team/design/all');
     expect(replaceTeamKeyInPath('/acme/team/eng/backlog', 'design')).toBe('/acme/team/design/backlog');
     expect(replaceTeamKeyInPath('/acme/team/eng/done', 'design')).toBe('/acme/team/design/done');
   });
 
   it('derives the issue view directly from semantic team routes', () => {
+    expect(issueViewFromTeamRoute('/acme/team/eng/all')).toBe('all');
     expect(issueViewFromTeamRoute('/acme/team/eng/active')).toBe('active');
     expect(issueViewFromTeamRoute('/acme/team/eng/backlog')).toBe('backlog');
     expect(issueViewFromTeamRoute('/acme/team/eng/done')).toBe('done');

@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { CheckCircle2, ChevronDown, Circle, CircleDashed, CircleEllipsis, FilterX, LoaderCircle, Maximize2, Search, SlidersHorizontal, X } from 'lucide-react';
+import { CheckCircle2, ChevronDown, Circle, CircleDashed, CircleEllipsis, Eye, FilterX, LayoutList, LoaderCircle, Maximize2, PanelRightOpen, Plus, Search, SlidersHorizontal } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
+import IssueComposer from '@/components/issues/IssueComposer';
 import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Sheet, SheetContent, SheetDismissButton, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useI18n } from '@/i18n/useI18n';
 import type { CustomFieldDefinition, Team } from '@/lib/api';
-import { issueDetailPath, issueViewFromTeamRoute, teamIssuesPath } from '@/lib/routes';
+import { issueDetailPath, issueViewFromTeamRoute, teamIssuesPath, workspaceNewViewPath } from '@/lib/routes';
 import { useIssueWorkspace } from '@/lib/query/issues';
 import {
   activeFilterSummary,
@@ -28,6 +28,7 @@ import {
   labelForState,
   labelForType,
   type ActiveWorkbenchSort,
+  type ActiveWorkbenchRow,
   type FilterDraft,
   type FilterSummaryContext,
 } from './issue-workbench';
@@ -367,6 +368,15 @@ function toggleSort(
   updateQuery(router, pathname, searchParams, { sort: sort === 'updatedAt' ? 'manual' : 'updatedAt' });
 }
 
+function setSort(
+  router: ReturnType<typeof useRouter>,
+  pathname: string,
+  searchParams: URLSearchParams,
+  sort: ActiveWorkbenchSort
+) {
+  updateQuery(router, pathname, searchParams, { sort: sort === 'manual' ? 'manual' : null });
+}
+
 function updateQuery(router: ReturnType<typeof useRouter>, pathname: string, searchParams: URLSearchParams, updates: Record<string, string | null>) {
   const params = new URLSearchParams(searchParams.toString());
   Object.entries(updates).forEach(([key, value]) => {
@@ -432,6 +442,9 @@ export default function ActiveIssuesWorkbenchPage() {
   const sort = readSortValue(searchParams);
   const collapsedStates = useMemo(() => readCollapsedStates(searchParams), [searchParams]);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [createIssueOpen, setCreateIssueOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(() => searchParams.get('details') === 'open');
+  const [selectedIssueId, setSelectedIssueId] = useState<number | null>(null);
   const [draftFilters, setDraftFilters] = useState<FilterDraft>(() => readFilterDraft(searchParams, []));
   const filterSummaryContext = useMemo<FilterSummaryContext>(
     () => ({
@@ -462,6 +475,11 @@ export default function ActiveIssuesWorkbenchPage() {
     [workbenchRows]
   );
 
+  const selectedIssue = useMemo(() => {
+    if (!workbenchRows.length) return null;
+    return workbenchRows.find((issue) => issue.id === selectedIssueId) ?? workbenchRows[0] ?? null;
+  }, [selectedIssueId, workbenchRows]);
+
   const issueCounts = useMemo(() => {
     return {
       all: issues.length,
@@ -480,6 +498,14 @@ export default function ActiveIssuesWorkbenchPage() {
     ],
     [isZh, issueCounts.active, issueCounts.backlog, issueCounts.done]
   );
+
+  const createIssueParams = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set('type', 'TASK');
+    params.set('state', currentView === 'backlog' ? 'BACKLOG' : currentView === 'done' ? 'DONE' : 'TODO');
+    if (currentTeamId) params.set('teamId', String(currentTeamId));
+    return params;
+  }, [currentTeamId, currentView]);
 
   const openIssue = (issueId: number) => {
     const issue = issues.find((item) => item.id === issueId);
@@ -505,7 +531,7 @@ export default function ActiveIssuesWorkbenchPage() {
                   {activeTabs.map((tab) => {
                     const active = currentView === tab.id;
                     const tabHref = currentOrganizationSlug && currentTeam?.key
-                      ? updateHref(teamIssuesPath(currentOrganizationSlug, currentTeam.key, tab.id === 'all' ? undefined : tab.id), searchParams, {})
+                      ? updateHref(teamIssuesPath(currentOrganizationSlug, currentTeam.key, tab.id), searchParams, {})
                       : updateHref(pathname, searchParams, { view: tab.id });
                     return (
                       <Link
@@ -556,7 +582,7 @@ export default function ActiveIssuesWorkbenchPage() {
                   }`}
                 >
                   <SlidersHorizontal className="mr-2 h-4 w-4" />
-                  {filterButtonLabel(draftFilters, isZh, filterSummaryContext)}
+                  {isFilterActive(draftFilters) ? filterButtonLabel(draftFilters, isZh, filterSummaryContext) : isZh ? '添加筛选' : 'Add filter'}
                 </Button>
                 <Button
                   type="button"
@@ -569,9 +595,42 @@ export default function ActiveIssuesWorkbenchPage() {
                 </Button>
                 <DisplayMenu
                   isZh={isZh}
+                  sort={sort}
                   collapsedStates={collapsedStates}
+                  onSetSort={(nextSort) => setSort(router, pathname, searchParams, nextSort)}
                   onToggleGroup={(state) => toggleGroupCollapsed(router, pathname, searchParams, collapsedStates, state)}
                 />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  aria-pressed={detailsOpen}
+                  onClick={() => setDetailsOpen((current) => !current)}
+                  className={`h-10 rounded-full border px-3 text-sm ${
+                    detailsOpen
+                      ? 'border-slate-700 bg-slate-100 text-slate-950 hover:bg-white'
+                      : 'border-slate-800 bg-slate-900 text-slate-200 hover:bg-slate-800'
+                  }`}
+                >
+                  <PanelRightOpen className="mr-2 h-4 w-4" />
+                  {isZh ? '打开详情' : 'Open details'}
+                </Button>
+                {currentOrganizationSlug ? (
+                  <Link
+                    href={workspaceNewViewPath(currentOrganizationSlug, 'issues')}
+                    className="inline-flex h-10 items-center rounded-full border border-slate-800 bg-slate-900 px-3 text-sm font-medium text-slate-200 transition hover:bg-slate-800"
+                  >
+                    <LayoutList className="mr-2 h-4 w-4" />
+                    {isZh ? '新增视图' : 'Add new view'}
+                  </Link>
+                ) : null}
+                <Button
+                  type="button"
+                  onClick={() => setCreateIssueOpen(true)}
+                  className="h-10 rounded-full bg-slate-100 px-3 text-sm text-slate-950 shadow-none hover:bg-white"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  {isZh ? '新建事项' : 'Create new issue'}
+                </Button>
               </div>
             </div>
           </div>
@@ -609,8 +668,17 @@ export default function ActiveIssuesWorkbenchPage() {
                         <button
                           key={issue.id}
                           type="button"
-                          onClick={() => openIssue(issue.id)}
-                          className="grid w-full grid-cols-[minmax(0,1fr)_140px_120px_72px] items-center gap-4 px-5 py-3 text-left transition hover:bg-slate-900/70 sm:px-6"
+                          onClick={() => {
+                            if (detailsOpen) {
+                              setSelectedIssueId(issue.id);
+                              return;
+                            }
+                            openIssue(issue.id);
+                          }}
+                          aria-selected={selectedIssue?.id === issue.id}
+                          className={`grid w-full grid-cols-[minmax(0,1fr)_140px_120px_72px] items-center gap-4 px-5 py-3 text-left transition hover:bg-slate-900/70 sm:px-6 ${
+                            selectedIssue?.id === issue.id && detailsOpen ? 'bg-slate-900/80 ring-1 ring-inset ring-slate-700' : ''
+                          }`}
                         >
                           <div className="min-w-0 space-y-1.5">
                             <div className="flex items-center gap-3 text-sm">
@@ -654,6 +722,13 @@ export default function ActiveIssuesWorkbenchPage() {
                 <Maximize2 className="h-4 w-4" />
               </button>
             </div>
+            {detailsOpen ? (
+              <IssueDetailsPreview
+                issue={selectedIssue}
+                isZh={isZh}
+                onOpenIssue={(issueId) => openIssue(issueId)}
+              />
+            ) : null}
           </div>
 
           <aside className="rounded-[24px] border border-slate-800 bg-[#0b0d11] p-5">
@@ -684,42 +759,145 @@ export default function ActiveIssuesWorkbenchPage() {
         onClear={() => clearFilters(router, pathname, searchParams, customFieldDefinitions, setDraftFilters, setFilterOpen)}
         onApply={() => applyFilterDraft(router, pathname, searchParams, draftFilters, setFilterOpen)}
       />
+      <IssueComposer
+        mode="modal"
+        open={createIssueOpen}
+        onClose={() => setCreateIssueOpen(false)}
+        initialParams={createIssueParams}
+        localeScope="team-issues-workbench"
+      />
     </AppLayout>
   );
 }
 
 function DisplayMenu({
   isZh,
+  sort,
   collapsedStates,
+  onSetSort,
   onToggleGroup,
 }: {
   isZh: boolean;
+  sort: ActiveWorkbenchSort;
   collapsedStates: Set<string>;
+  onSetSort: (sort: ActiveWorkbenchSort) => void;
   onToggleGroup: (state: (typeof GROUP_ORDER)[number]) => void;
 }) {
   return (
-    <div className="rounded-full border border-slate-800 bg-slate-900 px-1 py-1 text-sm text-slate-200">
-      <div className="flex items-center gap-1">
-        <span className="px-2 text-sm text-slate-200">{isZh ? DISPLAY_LABEL.zh : DISPLAY_LABEL.en}</span>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="secondary"
+          className="h-10 rounded-full border border-slate-800 bg-slate-900 px-3 text-sm text-slate-200 hover:bg-slate-800"
+        >
+          <LayoutList className="mr-2 h-4 w-4" />
+          {isZh ? '显示选项' : 'Display options'}
+          <ChevronDown className="ml-2 h-4 w-4 text-slate-500" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-72 border-slate-800 bg-[#0f1117] p-2 text-slate-100">
+        <DropdownMenuLabel className="text-slate-500">{isZh ? DISPLAY_LABEL.zh : DISPLAY_LABEL.en}</DropdownMenuLabel>
+        <div className="px-3 pb-2 text-xs leading-5 text-slate-500">
+          {isZh ? '调整列表排序、状态分组和捕获 crawler 需要的打开态。' : 'Tune list sorting, state groups, and the opened overlay state required by the crawler.'}
+        </div>
+        <DropdownMenuSeparator className="bg-slate-800" />
+        <DropdownMenuCheckboxItem
+          checked={sort === 'updatedAt'}
+          onCheckedChange={(checked) => {
+            if (checked) onSetSort('updatedAt');
+          }}
+          className="text-slate-100 focus:bg-slate-900"
+        >
+          {sortLabel('updatedAt', isZh)}
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuCheckboxItem
+          checked={sort === 'manual'}
+          onCheckedChange={(checked) => {
+            if (checked) onSetSort('manual');
+          }}
+          className="text-slate-100 focus:bg-slate-900"
+        >
+          {sortLabel('manual', isZh)}
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuSeparator className="bg-slate-800" />
         {GROUP_ORDER.map((state) => {
-          const collapsed = collapsedStates.has(state);
+          const visible = !collapsedStates.has(state);
           return (
-            <Button
+            <DropdownMenuCheckboxItem
               key={state}
-              type="button"
-              variant="ghost"
-              onClick={() => onToggleGroup(state)}
-              className={`h-8 rounded-full px-2.5 text-[12px] ${
-                collapsed
-                  ? 'text-slate-500 hover:bg-slate-800 hover:text-slate-200'
-                  : 'bg-slate-100 text-slate-950 hover:bg-white'
-              }`}
+              checked={visible}
+              onCheckedChange={() => onToggleGroup(state)}
+              className="text-slate-100 focus:bg-slate-900"
             >
               {labelForState(state, isZh)}
-            </Button>
+            </DropdownMenuCheckboxItem>
           );
         })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function IssueDetailsPreview({
+  issue,
+  isZh,
+  onOpenIssue,
+}: {
+  issue: ActiveWorkbenchRow | null;
+  isZh: boolean;
+  onOpenIssue: (issueId: number) => void;
+}) {
+  if (!issue) {
+    return (
+      <div className="mt-5 rounded-[22px] border border-dashed border-slate-800 bg-slate-950/60 p-5 text-sm text-slate-500">
+        {isZh ? '打开详情后，选择任意事项即可在这里预览。' : 'Open details, then choose an issue to preview it here.'}
       </div>
+    );
+  }
+
+  return (
+    <div className="mt-5 overflow-hidden rounded-[22px] border border-slate-800 bg-slate-950/70">
+      <div className="flex flex-col gap-3 border-b border-slate-800 px-5 py-4 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-slate-500">
+            <Eye className="h-3.5 w-3.5" />
+            {isZh ? '详情预览' : 'Details preview'}
+          </div>
+          <div className="mt-2 flex items-center gap-2 text-sm">
+            <IssueStateIcon state={issue.state} />
+            <span className="font-medium text-slate-400">{issue.identifier}</span>
+            <span className="truncate font-semibold text-white">{issue.title}</span>
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => onOpenIssue(issue.id)}
+          className="h-9 rounded-full border-slate-700 bg-slate-100 px-3 text-xs text-slate-950 hover:bg-white"
+        >
+          {isZh ? '进入完整详情' : 'Open full detail'}
+        </Button>
+      </div>
+      <div className="grid gap-3 px-5 py-4 text-sm text-slate-400 md:grid-cols-4">
+        <PreviewMetric label={isZh ? '状态' : 'State'} value={labelForState(issue.state, isZh)} />
+        <PreviewMetric label={isZh ? '优先级' : 'Priority'} value={issue.priorityLabel} />
+        <PreviewMetric label={isZh ? '负责人' : 'Assignee'} value={issue.assigneeLabel} />
+        <PreviewMetric label={isZh ? '更新时间' : 'Updated'} value={issue.updatedLabel} />
+      </div>
+      <div className="border-t border-slate-800 px-5 py-4 text-sm text-slate-500">
+        {issue.projectName ? `${isZh ? '项目' : 'Project'} · ${issue.projectName} · ` : ''}
+        {issue.typeLabel}
+      </div>
+    </div>
+  );
+}
+
+function PreviewMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-[#090b10] p-3">
+      <div className="text-[10px] uppercase tracking-[0.18em] text-slate-600">{label}</div>
+      <div className="mt-1 truncate text-sm font-medium text-slate-200">{value || '—'}</div>
     </div>
   );
 }

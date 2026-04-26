@@ -93,7 +93,7 @@ export function teamActivePath(workspaceSlug: string, teamKey: string) {
   return normalizePath(`/${workspaceSlug}/team/${teamKey}/active`);
 }
 
-export function teamIssuesPath(workspaceSlug: string, teamKey: string, view: Exclude<'all' | 'active' | 'backlog' | 'done', 'all'> = 'active') {
+export function teamIssuesPath(workspaceSlug: string, teamKey: string, view: 'all' | 'active' | 'backlog' | 'done' = 'active') {
   return normalizePath(`/${workspaceSlug}/team/${teamKey}/${view}`);
 }
 

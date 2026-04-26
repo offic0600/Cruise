@@ -1408,6 +1408,7 @@ const enMessages = {
     title: "Search",
     placeholder: "Search issues, projects, and documents",
     tabs: {
+      all: "All",
       issues: "Issues",
       projects: "Projects",
       documents: "Documents",

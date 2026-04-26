@@ -722,6 +722,7 @@ const zhCNMessages = {
     title: '搜索',
     placeholder: '搜索事项、项目和文档',
     tabs: {
+      all: '全部',
       issues: '事项',
       projects: '项目',
       documents: '文档',
