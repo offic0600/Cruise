@@ -651,6 +651,12 @@ const enMessages = {
       copyBranchName: "Branch",
       copyPrompt: "Prompt",
       configureTools: "Tools",
+      propertiesCockpit: "Properties cockpit",
+      propertiesCockpitDescription: "Update status, priority, assignee, project, and labels without opening the sidebar.",
+      workOnIssue: "Work on issue",
+      labels: "Labels",
+      nextActions: "Next actions",
+      assignToCurrentUser: "Assign to {name}",
     },
     activityEvent: {
       system: "System",

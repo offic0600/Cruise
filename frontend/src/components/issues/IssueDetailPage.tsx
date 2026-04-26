@@ -900,6 +900,25 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
                     });
                   }}
                 />
+                <IssueDetailPropertyCommandCenter
+                  issue={issue}
+                  draftIssue={draftIssue}
+                  members={members}
+                  projects={projects}
+                  labels={issueLabels}
+                  currentUserId={user?.id ?? null}
+                  t={t}
+                  onSetDraftIssue={(updater) => setDraftIssue((current) => (current ? updater(current) : current))}
+                  onCreateLabel={async (scopeType, name) => {
+                    await createLabelMutation.mutateAsync({
+                      organizationId,
+                      scopeType,
+                      scopeId: scopeType === 'TEAM' ? issue.teamId : null,
+                      name,
+                      createdBy: user?.id ?? null,
+                    });
+                  }}
+                />
               </div>
               <IssueDetailActionBar
                 issue={issue}
@@ -2574,6 +2593,238 @@ function IssueDetailHeroMeta({
         <Link2 className="h-3.5 w-3.5 text-ink-400" />
         <span>{relationsCount ? `${relationsCount} relations` : t('issues.emptyStates.relations')}</span>
       </a>
+    </div>
+  );
+}
+
+function IssueDetailPropertyCommandCenter({
+  issue,
+  draftIssue,
+  members,
+  projects,
+  labels,
+  currentUserId,
+  t,
+  onSetDraftIssue,
+  onCreateLabel,
+}: {
+  issue: Issue;
+  draftIssue: DraftIssue;
+  members: Array<{ id: number; name: string }>;
+  projects: Project[];
+  labels: Label[];
+  currentUserId: number | null;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+  onSetDraftIssue: (updater: (current: DraftIssue) => DraftIssue) => void;
+  onCreateLabel: (scopeType: 'TEAM' | 'WORKSPACE', name: string) => Promise<void>;
+}) {
+  const selectedProject = projects.find((project) => project.id === draftIssue.projectId);
+  const selectedAssignee = members.find((member) => member.id === draftIssue.assigneeId);
+  const selectedLabels = labels.filter((label) => draftIssue.labelIds.includes(label.id));
+  const currentMember = members.find((member) => member.id === currentUserId);
+
+  const moveToState = (state: Issue['state']) => {
+    onSetDraftIssue((current) => ({
+      ...current,
+      state,
+      resolution: nextResolutionForState(state, current.resolution),
+      assigneeId: current.assigneeId ?? currentUserId,
+    }));
+  };
+
+  return (
+    <section className="mt-4 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_46px_rgba(15,23,42,0.05)]">
+      <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="space-y-4 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold text-ink-900">{t('issues.detailPage.propertiesCockpit')}</div>
+              <p className="mt-1 text-sm text-ink-500">{t('issues.detailPage.propertiesCockpitDescription')}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => moveToState('IN_PROGRESS')}
+              className="inline-flex h-9 items-center gap-2 rounded-full bg-slate-950 px-3 text-sm font-semibold text-white transition hover:bg-slate-900"
+            >
+              <Flame className="h-4 w-4 text-amber-300" />
+              {t('issues.detailPage.workOnIssue')}
+            </button>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <PropertyCockpitCard label={t('issues.columns.state')} value={issueStateLabel(draftIssue.state, t)} tone="emerald">
+              <InlineIssuePill
+                label={issueStateLabel(draftIssue.state, t)}
+                value={draftIssue.state}
+                options={ISSUE_STATES.map((value) => buildInlineStateOption(value, t))}
+                onChange={(value) =>
+                  onSetDraftIssue((current) => ({
+                    ...current,
+                    state: value as Issue['state'],
+                    resolution: nextResolutionForState(value as Issue['state'], current.resolution),
+                  }))
+                }
+              />
+            </PropertyCockpitCard>
+            <PropertyCockpitCard label={t('issues.columns.priority')} value={issuePriorityLabel(draftIssue.priority, t)} tone="amber">
+              <InlineIssuePill
+                label={issuePriorityLabel(draftIssue.priority, t)}
+                value={draftIssue.priority ?? EMPTY}
+                options={ISSUE_PRIORITIES.map((value) => buildInlinePriorityOption(value, t))}
+                emptyLabel={t('views.new.preview.noPriority')}
+                onChange={(value) =>
+                  onSetDraftIssue((current) => ({
+                    ...current,
+                    priority: value === EMPTY ? null : (value as Issue['priority']),
+                  }))
+                }
+              />
+            </PropertyCockpitCard>
+            <PropertyCockpitCard label={t('issues.detailPage.assignee')} value={selectedAssignee?.name ?? t('common.notSet')} tone="rose">
+              <InlineIssuePill
+                label={selectedAssignee?.name ?? t('common.notSet')}
+                value={draftIssue.assigneeId != null ? String(draftIssue.assigneeId) : EMPTY}
+                options={members.map((member) => ({
+                  value: String(member.id),
+                  label: member.name,
+                  avatarText: initialsForName(member.name),
+                  avatarClassName: 'bg-rose-100 text-rose-600',
+                }))}
+                emptyLabel={t('common.notSet')}
+                searchable
+                searchPlaceholder={t('issues.detailSidebar.searchAssignee')}
+                noSearchResultsLabel={t('issues.detailSidebar.noAssigneeResults')}
+                onChange={(value) =>
+                  onSetDraftIssue((current) => ({
+                    ...current,
+                    assigneeId: value === EMPTY ? null : Number(value),
+                  }))
+                }
+              />
+            </PropertyCockpitCard>
+            <PropertyCockpitCard label={t('issues.columns.project')} value={selectedProject?.name ?? t('common.notSet')} tone="sky">
+              <InlineIssuePill
+                label={selectedProject?.name ?? t('issues.detailSidebar.addToProject')}
+                value={draftIssue.projectId != null ? String(draftIssue.projectId) : EMPTY}
+                options={projects.map((project) => ({
+                  value: String(project.id),
+                  label: project.name,
+                  icon: <FolderKanban className="h-4 w-4 text-ink-400" />,
+                }))}
+                emptyLabel={t('common.notSet')}
+                searchable
+                searchPlaceholder={t('issues.detailSidebar.addToProject')}
+                noSearchResultsLabel={t('common.empty')}
+                onChange={(value) =>
+                  onSetDraftIssue((current) => ({
+                    ...current,
+                    projectId: value === EMPTY ? null : Number(value),
+                  }))
+                }
+              />
+            </PropertyCockpitCard>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border-soft bg-slate-50 px-3 py-3">
+            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-400">
+              {t('issues.detailPage.labels')}
+            </span>
+            {selectedLabels.length ? (
+              selectedLabels.slice(0, 4).map((label) => (
+                <span key={label.id} className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-ink-700 ring-1 ring-inset ring-slate-200">
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: label.color || '#fb7185' }} />
+                  {label.name}
+                </span>
+              ))
+            ) : (
+              <span className="text-sm text-ink-400">{t('settings.composer.labels')}</span>
+            )}
+            <InlineLabelsPill
+              labels={labels}
+              teamId={issue.teamId}
+              selectedLabelIds={draftIssue.labelIds}
+              t={t}
+              onCreateLabel={onCreateLabel}
+              onToggle={(labelId) =>
+                onSetDraftIssue((current) => ({
+                  ...current,
+                  labelIds: current.labelIds.includes(labelId)
+                    ? current.labelIds.filter((value) => value !== labelId)
+                    : [...current.labelIds, labelId],
+                }))
+              }
+            />
+          </div>
+        </div>
+
+        <div className="border-t border-border-soft bg-slate-950 p-4 text-white lg:border-l lg:border-t-0">
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{t('issues.detailPage.nextActions')}</div>
+          <div className="mt-4 grid gap-2">
+            <button
+              type="button"
+              onClick={() => moveToState('BACKLOG')}
+              className="flex items-center justify-between rounded-2xl bg-white/8 px-3 py-2.5 text-left text-sm transition hover:bg-white/12"
+            >
+              <span>{t('common.status.BACKLOG')}</span>
+              <Circle className="h-4 w-4 text-slate-400" />
+            </button>
+            <button
+              type="button"
+              onClick={() => moveToState('IN_REVIEW')}
+              className="flex items-center justify-between rounded-2xl bg-white/8 px-3 py-2.5 text-left text-sm transition hover:bg-white/12"
+            >
+              <span>{t('common.status.IN_REVIEW')}</span>
+              <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+            </button>
+            <button
+              type="button"
+              disabled={currentUserId == null}
+              onClick={() =>
+                onSetDraftIssue((current) => ({
+                  ...current,
+                  assigneeId: currentUserId,
+                }))
+              }
+              className="flex items-center justify-between rounded-2xl bg-white/8 px-3 py-2.5 text-left text-sm transition hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <span>{currentMember ? t('issues.detailPage.assignToCurrentUser', { name: currentMember.name }) : t('issues.detailSidebar.assignSelf')}</span>
+              <span className="rounded-full bg-white/12 px-2 py-0.5 text-xs text-slate-300">{t('issues.detailSidebar.me')}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PropertyCockpitCard({
+  label,
+  value,
+  tone,
+  children,
+}: {
+  label: string;
+  value: string;
+  tone: 'emerald' | 'amber' | 'rose' | 'sky';
+  children: ReactNode;
+}) {
+  const toneClassName = {
+    emerald: 'bg-emerald-50 text-emerald-700',
+    amber: 'bg-amber-50 text-amber-700',
+    rose: 'bg-rose-50 text-rose-700',
+    sky: 'bg-sky-50 text-sky-700',
+  }[tone];
+
+  return (
+    <div className="rounded-2xl border border-border-soft bg-white p-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-400">{label}</div>
+          <div className="mt-1 truncate text-sm font-semibold text-ink-900">{value}</div>
+        </div>
+        <span className={cn('h-2.5 w-2.5 shrink-0 rounded-full', toneClassName)} />
+      </div>
+      <div className="mt-3 [&_button]:h-9 [&_button]:max-w-full [&_button]:px-3 [&_button]:text-sm">{children}</div>
     </div>
   );
 }

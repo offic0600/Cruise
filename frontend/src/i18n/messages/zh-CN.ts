@@ -393,6 +393,12 @@ const zhCNMessages = {
       copyBranchName: '分支',
       copyPrompt: '提示词',
       configureTools: '工具',
+      propertiesCockpit: '属性驾驶舱',
+      propertiesCockpitDescription: '不用打开侧栏，也能更新状态、优先级、负责人、项目和标签。',
+      workOnIssue: '处理事项',
+      labels: '标签',
+      nextActions: '下一步操作',
+      assignToCurrentUser: '指派给 {name}',
     },
     activityEvent: {
       system: '系统',
