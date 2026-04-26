@@ -375,6 +375,12 @@ const zhCNMessages = {
       actionAddDocument: '文档',
       actionSubscribe: '订阅',
       actionSubscribed: '已订阅',
+      commentOptions: '评论选项',
+      copyCommentLink: '复制评论链接',
+      copyCommentText: '复制评论内容',
+      quoteReply: '引用回复',
+      commentTextCopied: '评论内容已复制。',
+      commentQuoted: '已把评论引用到回复框。',
     },
     activityEvent: {
       system: '系统',

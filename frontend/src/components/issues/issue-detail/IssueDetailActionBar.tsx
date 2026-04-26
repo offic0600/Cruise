@@ -9,6 +9,7 @@ import {
   Link2,
   LoaderCircle,
   Send,
+  Star,
   Wrench,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -33,6 +34,8 @@ export function IssueDetailActionBar({
   onAddLink,
   onCopyPrompt,
   onConfigureCodingTools,
+  isFavorite,
+  onToggleFavorite,
 }: {
   issue: Issue;
   moreMenu: ReactNode;
@@ -43,6 +46,8 @@ export function IssueDetailActionBar({
   onAddLink: () => Promise<void>;
   onCopyPrompt: () => Promise<void>;
   onConfigureCodingTools: () => void;
+  isFavorite: boolean;
+  onToggleFavorite: () => void;
 }) {
   const [lastAction, setLastAction] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
@@ -65,6 +70,15 @@ export function IssueDetailActionBar({
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
           {issue.identifier}
         </span>
+        <Tooltip content={isFavorite ? 'Remove favorite' : 'Add to favorites'}>
+          <ActionIconButton
+            aria-label={isFavorite ? 'Remove favorite' : 'Add to favorites'}
+            onClick={() => void runAction(isFavorite ? 'Removed from favorites' : 'Added to favorites', onToggleFavorite)}
+            className={isFavorite ? 'border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100 hover:text-amber-700' : undefined}
+          >
+            <Star className={cn('h-4 w-4', isFavorite ? 'fill-amber-400 text-amber-400' : '')} strokeWidth={2} />
+          </ActionIconButton>
+        </Tooltip>
         <Tooltip content="Copy issue URL">
           <ActionIconButton aria-label="Copy issue URL" onClick={() => void runAction('Link copied', onCopyLink)} disabled={busyAction === 'Link copied'}>
             {busyAction === 'Link copied' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" strokeWidth={2} />}

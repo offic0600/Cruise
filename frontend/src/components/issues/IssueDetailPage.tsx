@@ -30,6 +30,7 @@ import {
   MoreHorizontal,
   Paperclip,
   Plus,
+  Quote,
   Repeat,
   SmilePlus,
   Star,
@@ -143,6 +144,7 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const subIssueFileInputRef = useRef<HTMLInputElement | null>(null);
   const subIssueTitleRef = useRef<HTMLInputElement | null>(null);
+  const commentTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const lastHydratedIssueIdRef = useRef<number | null>(null);
   const user = getStoredUser();
   const organizationId = user?.organizationId ?? 1;
@@ -367,6 +369,7 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
       comments
         .map((comment) => ({
           id: `comment-${comment.id}`,
+          commentId: comment.id,
           kind: 'comment' as const,
           createdAt: comment.createdAt,
           authorId: comment.authorId,
@@ -664,6 +667,25 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
     setCommentBody('');
   };
 
+  const copyCommentLink = async (commentId: number) => {
+    if (!issue || !currentOrganizationSlug || typeof window === 'undefined') return;
+    await copyText(`${window.location.origin}${issueDetailPath(currentOrganizationSlug, issue)}#comment-${commentId}`, `comment-${commentId}`);
+  };
+
+  const copyCommentText = async (body: string) => {
+    await copyText(body, t('issues.detailPage.commentTextCopied'));
+  };
+
+  const quoteComment = (body: string) => {
+    const quotedBody = body
+      .split('\n')
+      .map((line) => `> ${line}`)
+      .join('\n');
+    setCommentBody((current) => `${current ? `${current.trimEnd()}\n\n` : ''}${quotedBody}\n\n`);
+    window.setTimeout(() => commentTextareaRef.current?.focus(), 0);
+    showActionToast(t('issues.detailPage.commentQuoted'), t('issues.detail.commentPlaceholder'));
+  };
+
   const createLinkedDoc = async () => {
     if (!issue || !docTitle.trim()) return;
     await createDocMutation.mutateAsync({
@@ -878,6 +900,8 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
                 onAddLink={addLinkAttachment}
                 onCopyPrompt={copyIssuePrompt}
                 onConfigureCodingTools={showCodingToolsHint}
+                isFavorite={isFavorite}
+                onToggleFavorite={toggleFavorite}
                 moreMenu={
                   <IssueMoreMenu
                     issue={issue}
@@ -1218,18 +1242,26 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
                               `User ${item.authorId ?? ''}`.trim()
                             );
                             return (
-                              <div key={item.id} className="grid grid-cols-[24px_minmax(0,1fr)] gap-3">
+                              <div key={item.id} id={item.id} className="group grid grid-cols-[24px_minmax(0,1fr)] gap-3">
                                 <div className="flex justify-center pt-1">
                                   <div className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[#ff8a80] text-[8px] font-semibold uppercase text-white">
                                     {initialsForName(actorName)}
                                   </div>
                                 </div>
                                 <div className="min-w-0">
-                                  <div className="text-[13px] leading-6 text-ink-700">
-                                    <span className="font-medium text-ink-900">{actorName}</span>
-                                    <span className="ml-2 text-[12px] text-ink-400">
-                                      {formatRelativeTime(item.createdAt, locale)}
-                                    </span>
+                                  <div className="flex items-start justify-between gap-3 text-[13px] leading-6 text-ink-700">
+                                    <div className="min-w-0">
+                                      <span className="font-medium text-ink-900">{actorName}</span>
+                                      <span className="ml-2 text-[12px] text-ink-400">
+                                        {formatRelativeTime(item.createdAt, locale)}
+                                      </span>
+                                    </div>
+                                    <CommentOptionsMenu
+                                      t={t}
+                                      onCopyLink={() => void copyCommentLink(item.commentId)}
+                                      onCopyText={() => void copyCommentText(item.body)}
+                                      onQuoteReply={() => quoteComment(item.body)}
+                                    />
                                   </div>
                                   <div className="whitespace-pre-wrap text-[14px] leading-6 text-ink-900">{item.body}</div>
                                 </div>
@@ -1276,6 +1308,7 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
 
                 <div className="rounded-[18px] border border-border-soft bg-white px-5 py-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
                   <Textarea
+                    ref={commentTextareaRef}
                     value={commentBody}
                     onChange={(event) => setCommentBody(event.target.value)}
                     data-testid="issue-detail-comment-input"
@@ -1780,6 +1813,46 @@ function DetailSection({
       </div>
       <div className="space-y-3">{children}</div>
     </section>
+  );
+}
+
+function CommentOptionsMenu({
+  t,
+  onCopyLink,
+  onCopyText,
+  onQuoteReply,
+}: {
+  t: (key: string, vars?: Record<string, string | number>) => string;
+  onCopyLink: () => void;
+  onCopyText: () => void;
+  onQuoteReply: () => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={t('issues.detailPage.commentOptions')}
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-ink-300 opacity-0 transition hover:bg-slate-50 hover:text-ink-700 group-hover:opacity-100 data-[state=open]:bg-slate-50 data-[state=open]:text-ink-700 data-[state=open]:opacity-100"
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-52 rounded-[18px] p-1.5">
+        <DropdownMenuItem onSelect={onCopyLink} className="gap-3 rounded-xl px-3 py-2.5">
+          <Link2 className="h-4 w-4 text-ink-500" />
+          <span>{t('issues.detailPage.copyCommentLink')}</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={onCopyText} className="gap-3 rounded-xl px-3 py-2.5">
+          <Copy className="h-4 w-4 text-ink-500" />
+          <span>{t('issues.detailPage.copyCommentText')}</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={onQuoteReply} className="gap-3 rounded-xl px-3 py-2.5">
+          <Quote className="h-4 w-4 text-ink-500" />
+          <span>{t('issues.detailPage.quoteReply')}</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

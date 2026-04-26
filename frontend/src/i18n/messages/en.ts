@@ -633,6 +633,12 @@ const enMessages = {
       actionAddDocument: "Document",
       actionSubscribe: "Subscribe",
       actionSubscribed: "Subscribed",
+      commentOptions: "Comment options",
+      copyCommentLink: "Copy comment link",
+      copyCommentText: "Copy comment text",
+      quoteReply: "Quote reply",
+      commentTextCopied: "Comment text copied.",
+      commentQuoted: "Comment quoted in the reply box.",
     },
     activityEvent: {
       system: "System",
