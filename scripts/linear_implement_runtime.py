@@ -492,6 +492,8 @@ def build_work_item(latest_capture: dict, capture_paths: dict):
 
     return {
         "work_id": work_id,
+        "work_type": f"{run_type}_evidence",
+        "run_type": run_type,
         "capture_run_id": latest_capture["latest_run_id"],
         "source_capture_run_id": latest_capture["latest_run_id"],
         "source_ledger_key": f"{manifest.get('run_type', 'page')}:{scope_key}",
@@ -960,6 +962,9 @@ def reconcile_ledger_enqueued_from_queue(queue: dict, ledger: dict) -> bool:
 
 def item_has_actionable_evidence(item: dict) -> bool:
     refs = item.get("evidence_refs") or {}
+    trace_ref = refs.get("trace")
+    if trace_ref and (REPO_ROOT / trace_ref).exists():
+        return True
     page_ref = refs.get("page_json") or refs.get("page")
     elements_ref = refs.get("elements_json") or refs.get("elements")
     if not page_ref or not elements_ref:
