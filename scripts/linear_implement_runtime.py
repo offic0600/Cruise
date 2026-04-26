@@ -14,6 +14,12 @@ RECAPTURE_REQUESTS_PATH = CAPTURE_ROOT / "state" / "recapture-requests.json"
 TEAM_ISSUES_CLUSTER_ID = "team-issues-list"
 SETTINGS_CONFIGURATION_CLUSTER_ID = "settings-configuration"
 ISSUE_CREATE_FLOW_CLUSTER_ID = "issue-create-flow"
+TEAM_ISSUES_INTERACTIONS_CLUSTER_ID = "team-issues-interactions"
+ISSUE_DETAIL_INTERACTIONS_CLUSTER_ID = "issue-detail-interactions"
+WORKSPACE_NAVIGATION_INTERACTIONS_CLUSTER_ID = "workspace-navigation-interactions"
+PROJECTS_INTERACTIONS_CLUSTER_ID = "projects-interactions"
+VIEWS_INTERACTIONS_CLUSTER_ID = "views-interactions"
+SETTINGS_INTERACTIONS_CLUSTER_ID = "settings-interactions"
 TEAM_ISSUES_SCOPE_ORDER = [
     "workspace:cleantrack/team:CLE/active",
     "workspace:cleantrack/team:CLE/all",
@@ -22,6 +28,17 @@ TEAM_ISSUES_SCOPE_ORDER = [
 ]
 CREATE_FLOW_SCOPE_ORDER = ["create_issue", "create_project", "create_view", "create_label"]
 LINE_BUDGET = {"min": 50, "max": 300}
+INTERACTION_CLUSTER_LINE_BUDGET = {"min": 80, "max": 350}
+INTERACTION_CLUSTER_MIN_ITEMS = 4
+INTERACTION_CLUSTER_MAX_ITEMS = 12
+INTERACTION_CLUSTER_IDS = {
+    TEAM_ISSUES_INTERACTIONS_CLUSTER_ID,
+    ISSUE_DETAIL_INTERACTIONS_CLUSTER_ID,
+    WORKSPACE_NAVIGATION_INTERACTIONS_CLUSTER_ID,
+    PROJECTS_INTERACTIONS_CLUSTER_ID,
+    VIEWS_INTERACTIONS_CLUSTER_ID,
+    SETTINGS_INTERACTIONS_CLUSTER_ID,
+}
 
 
 def iso_now() -> str:
@@ -315,11 +332,26 @@ def existing_source_paths(scope_key: str):
         ],
         "projects": [
             REPO_ROOT / "frontend/src/components/projects/WorkspaceProjectsPage.tsx",
+            REPO_ROOT / "frontend/src/app/[workspaceSlug]/team/[teamKey]/projects/page.tsx",
             REPO_ROOT / "frontend/src/lib/routes.ts",
         ],
         "views": [
             REPO_ROOT / "frontend/src/app/views/page.tsx",
+            REPO_ROOT / "frontend/src/components/views/ViewsDirectory.tsx",
+            REPO_ROOT / "frontend/src/components/views/ViewsWorkbench.tsx",
+            REPO_ROOT / "frontend/src/components/views/NewViewWorkbench.tsx",
+            REPO_ROOT / "frontend/src/app/[workspaceSlug]/team/[teamKey]/views/page.tsx",
+            REPO_ROOT / "frontend/src/app/[workspaceSlug]/team/[teamKey]/view/new/page.tsx",
+            REPO_ROOT / "frontend/src/app/[workspaceSlug]/views/[resourceType]/page.tsx",
             REPO_ROOT / "frontend/src/lib/routes.ts",
+        ],
+        "workspace_navigation": [
+            REPO_ROOT / "frontend/src/components/AppLayout.tsx",
+            REPO_ROOT / "frontend/src/app/search/page.tsx",
+            REPO_ROOT / "frontend/src/components/inbox/InboxPage.tsx",
+            REPO_ROOT / "frontend/src/lib/routes.ts",
+            REPO_ROOT / "frontend/src/i18n/messages/en.ts",
+            REPO_ROOT / "frontend/src/i18n/messages/zh-CN.ts",
         ],
         "cycles": [
             REPO_ROOT / "frontend/src/components/AppLayout.tsx",
@@ -369,12 +401,18 @@ def existing_source_paths(scope_key: str):
             REPO_ROOT / "frontend/src/i18n/messages/zh-CN.ts",
         ],
     }
-    if scope_key == TEAM_ISSUES_CLUSTER_ID:
+    if scope_key in {TEAM_ISSUES_INTERACTIONS_CLUSTER_ID, TEAM_ISSUES_CLUSTER_ID}:
         selected = candidates["team_issues"]
-    elif scope_key == SETTINGS_CONFIGURATION_CLUSTER_ID:
+    elif scope_key in {ISSUE_DETAIL_INTERACTIONS_CLUSTER_ID, ISSUE_CREATE_FLOW_CLUSTER_ID}:
+        selected = candidates["issue_create_flow"] + candidates["issue"]
+    elif scope_key == WORKSPACE_NAVIGATION_INTERACTIONS_CLUSTER_ID:
+        selected = candidates["workspace_navigation"]
+    elif scope_key == PROJECTS_INTERACTIONS_CLUSTER_ID:
+        selected = candidates["projects"]
+    elif scope_key == VIEWS_INTERACTIONS_CLUSTER_ID:
+        selected = candidates["views"]
+    elif scope_key in {SETTINGS_INTERACTIONS_CLUSTER_ID, SETTINGS_CONFIGURATION_CLUSTER_ID}:
         selected = candidates["settings"]
-    elif scope_key == ISSUE_CREATE_FLOW_CLUSTER_ID:
-        selected = candidates["issue_create_flow"]
     elif base_scope_key == "inbox":
         selected = candidates["inbox"]
     elif base_scope_key.startswith("issue:"):
@@ -383,6 +421,8 @@ def existing_source_paths(scope_key: str):
         selected = candidates["projects"]
     elif base_scope_key.startswith("views"):
         selected = candidates["views"]
+    elif base_scope_key.startswith("route:cleantrack-search"):
+        selected = candidates["workspace_navigation"]
     elif base_scope_key.startswith("cycles"):
         selected = candidates["cycles"]
     elif "/team:" in base_scope_key:
@@ -658,6 +698,216 @@ def capture_ref_for(scope_key: str, capture: dict) -> dict:
         "run_type": capture.get("run_type", "page"),
         **build_evidence_refs(capture, paths),
     }
+
+
+def interaction_domain_for_scope(scope_key: str) -> str:
+    base_scope_key = scope_key.split("#", 1)[0]
+    if base_scope_key.startswith("workspace:cleantrack/team:CLE/"):
+        return TEAM_ISSUES_INTERACTIONS_CLUSTER_ID
+    if base_scope_key.startswith("issue:"):
+        return ISSUE_DETAIL_INTERACTIONS_CLUSTER_ID
+    if base_scope_key.startswith("settings:") or "/settings/" in base_scope_key:
+        return SETTINGS_INTERACTIONS_CLUSTER_ID
+    if base_scope_key.startswith("project:") or base_scope_key.startswith("projects"):
+        return PROJECTS_INTERACTIONS_CLUSTER_ID
+    if base_scope_key.startswith("views") or "/views/" in base_scope_key or "/view/" in base_scope_key:
+        return VIEWS_INTERACTIONS_CLUSTER_ID
+    return WORKSPACE_NAVIGATION_INTERACTIONS_CLUSTER_ID
+
+
+def interaction_domain_spec(cluster_id: str) -> dict:
+    specs = {
+        TEAM_ISSUES_INTERACTIONS_CLUSTER_ID: {
+            "ui_surface": "Team issues interactions",
+            "goal": "围绕 Team issues interactions 做一个 domain cluster：批量收口 toolbar、tabs、filter/display、详情预览、导航和行点击反馈，而不是单控件微任务。",
+            "candidate_changes": [
+                "合并同一 team issues 页面里的 4-12 个 interaction evidence，形成一个可感知 UI slice。",
+                "优先实现菜单/弹窗/导航/状态反馈的共享模式，避免每个按钮单独 commit。",
+                "保持 active/all/backlog/done 的 toolbar、list row 和 detail preview 交互一致。",
+            ],
+        },
+        ISSUE_DETAIL_INTERACTIONS_CLUSTER_ID: {
+            "ui_surface": "Issue detail interactions",
+            "goal": "围绕 Issue detail interactions 做一个 domain cluster：批量收口属性栏、创建入口、链接跳转、菜单和 activity/action feedback。",
+            "candidate_changes": [
+                "合并 issue detail 上多个菜单、属性、创建和导航 interaction evidence。",
+                "补齐可复用的 issue detail action surface，而不是对单个 CLE issue 做一次性改动。",
+                "保证 IssueComposer、sidebar 属性和 route helper contract 不回退。",
+            ],
+        },
+        WORKSPACE_NAVIGATION_INTERACTIONS_CLUSTER_ID: {
+            "ui_surface": "Workspace navigation interactions",
+            "goal": "围绕 Workspace navigation interactions 做一个 domain cluster：批量收口搜索、左侧导航、inbox/my issues/projects/views 跳转和全局按钮反馈。",
+            "candidate_changes": [
+                "合并全局导航与 workspace chrome 的多个 interaction evidence。",
+                "统一 Search / Inbox / My issues / Projects / Views 入口的打开态、跳转态与禁用反馈。",
+                "补齐 AppLayout 与 route helper 的共享 contract，避免零散 route-only 微提交。",
+            ],
+        },
+        PROJECTS_INTERACTIONS_CLUSTER_ID: {
+            "ui_surface": "Projects interactions",
+            "goal": "围绕 Projects interactions 做一个 domain cluster：批量收口项目列表、筛选/显示、项目详情入口与创建/管理反馈。",
+            "candidate_changes": [
+                "合并 projects list/detail 的筛选、显示、创建和导航 interaction evidence。",
+                "补齐项目页 shared controls、loading/empty/error feedback 和 route contract。",
+                "保持 WorkspaceProjectsPage 与项目 view route 的行为一致。",
+            ],
+        },
+        VIEWS_INTERACTIONS_CLUSTER_ID: {
+            "ui_surface": "Views interactions",
+            "goal": "围绕 Views interactions 做一个 domain cluster：批量收口 Views directory、new view builder、view detail 的菜单、表单和保存反馈。",
+            "candidate_changes": [
+                "合并 views directory、view detail 和 new view builder 的多个 interaction evidence。",
+                "优先实现创建/保存/筛选/显示菜单的共享交互，而不是只补路由壳。",
+                "确保 ViewsWorkbench、ViewsDirectory 和 NewViewWorkbench 的入口联动一致。",
+            ],
+        },
+        SETTINGS_INTERACTIONS_CLUSTER_ID: {
+            "ui_surface": "Settings interactions",
+            "goal": "围绕 Settings interactions 做一个 domain cluster：批量收口设置页导航、表单、模板/标签/工作流配置和保存反馈。",
+            "candidate_changes": [
+                "合并 settings:* 页面里的表单、菜单、创建/保存和导航 interaction evidence。",
+                "补齐 settings shell 与具体配置 view 的共享反馈 contract。",
+                "避免 settings 单字段 wording/命名微任务，必须形成设置面可见闭环。",
+            ],
+        },
+    }
+    return specs[cluster_id]
+
+
+def covered_interaction_artifact_hashes(queue: dict) -> set[str]:
+    covered = set()
+    for item in queue.get("items", []):
+        status = item.get("status")
+        work_type = item.get("work_type")
+        if work_type == "evidence_cluster" and item.get("cluster_id") in INTERACTION_CLUSTER_IDS:
+            if status not in {"blocked_needs_recapture", "terminal_blocked"}:
+                covered.update(hash_value for hash_value in item.get("artifact_hashes") or [] if hash_value)
+        elif work_type == "interaction_evidence" and status in {"done", "superseded"}:
+            if item.get("artifact_hash"):
+                covered.add(item["artifact_hash"])
+    return covered
+
+
+def build_interaction_domain_clusters(captures_by_scope: dict, quality_by_scope: dict, queue: dict):
+    covered_artifacts = covered_interaction_artifact_hashes(queue)
+    grouped: dict[str, list[tuple[str, dict]]] = {}
+    for scope, capture in captures_by_scope.items():
+        if capture.get("run_type") != "interaction":
+            continue
+        artifact_hash = capture.get("latest_artifact_hash")
+        if not artifact_hash or artifact_hash in covered_artifacts:
+            continue
+        quality = quality_by_scope.get(scope, {})
+        if quality.get("status") != "valid":
+            continue
+        grouped.setdefault(interaction_domain_for_scope(scope), []).append((scope, capture))
+
+    clusters = []
+    for cluster_id, scoped_captures in grouped.items():
+        scoped_captures.sort(key=lambda item: (item[1].get("captured_at") or "", item[1].get("latest_run_id") or ""))
+        if len(scoped_captures) < INTERACTION_CLUSTER_MIN_ITEMS:
+            continue
+        selected = scoped_captures[:INTERACTION_CLUSTER_MAX_ITEMS]
+        scopes = [scope for scope, _capture in selected]
+        captures = [capture for _scope, capture in selected]
+        artifact_hashes = [capture["latest_artifact_hash"] for capture in captures]
+        cluster_hash = hashlib.sha256("|".join(artifact_hashes).encode("utf-8")).hexdigest()
+        spec = interaction_domain_spec(cluster_id)
+        clusters.append(
+            {
+                "work_id": f"{cluster_id}-{cluster_hash[:12]}",
+                "work_type": "evidence_cluster",
+                "cluster_id": cluster_id,
+                "capture_run_id": captures[-1]["latest_run_id"],
+                "source_capture_run_id": captures[-1]["latest_run_id"],
+                "capture_run_ids": [capture["latest_run_id"] for capture in captures],
+                "artifact_hash": cluster_hash,
+                "artifact_hashes": artifact_hashes,
+                "source_ledger_key": f"cluster:{cluster_id}:{cluster_hash[:12]}",
+                "scope_dedupe_key": f"cluster:{cluster_id}:{cluster_hash[:12]}",
+                "scope_key": cluster_id,
+                "scope_keys": scopes,
+                "ledger_refs": [f"interaction:{scope}" for scope in scopes],
+                "ui_surface": spec["ui_surface"],
+                "goal": spec["goal"],
+                "candidate_changes": spec["candidate_changes"],
+                "implementation_slice": {
+                    "name": f"{cluster_id} batch interaction closure",
+                    "expected_change": "80-350 lines across the domain owner files; consume 4-12 related interaction evidence refs in one product slice",
+                    "allowed_gap_count": "4-12 strongly related interaction gaps",
+                },
+                "line_budget": INTERACTION_CLUSTER_LINE_BUDGET,
+                "evidence_quality": {scope: quality_by_scope[scope] for scope in scopes},
+                "blocked_scope_keys": [],
+                "evidence_refs": {
+                    "capture_latest": relative_to_repo(CAPTURE_ROOT / "latest.json"),
+                    "captures": [capture_ref_for(scope, capture) for scope, capture in selected],
+                },
+                "acceptance_checks": [
+                    "本轮必须消费同一 domain 的 4-12 条 interaction evidence，禁止退化成单按钮、wording-only 或 route-only 微任务。",
+                    "产品代码改动目标为 80-350 行左右，形成用户可见的菜单/弹窗/导航/状态反馈闭环。",
+                    "`cd frontend && npx tsc --noEmit`",
+                    "若改动 route helper、domain component 或 i18n，补/跑对应 focused test。",
+                ],
+                "source_paths": existing_source_paths(cluster_id),
+                "milestone_summary": f"{cluster_id} domain cluster：{len(scopes)} 条 interaction evidence 已按产品域批量收口。",
+                "status": "pending",
+                "created_at": iso_now(),
+                "updated_at": iso_now(),
+            }
+        )
+    return clusters
+
+
+def enqueue_interaction_cluster_items(queue: dict, ledger: dict, clusters: list[dict]):
+    added = []
+    for cluster in clusters:
+        if find_queue_item(queue, cluster["work_id"]):
+            continue
+        queue.setdefault("items", []).append(cluster)
+        added.append(cluster["work_id"])
+        for ledger_key in cluster.get("ledger_refs", []):
+            entry = ledger.setdefault("entries", {}).get(ledger_key)
+            if entry:
+                entry["implementation_enqueued_at"] = iso_now()
+                entry["implementation_work_id"] = cluster["work_id"]
+    return added
+
+
+def supersede_micro_interaction_items(state: dict, queue: dict, clusters: list[dict]) -> bool:
+    cluster_by_artifact = {}
+    for cluster in clusters:
+        for artifact_hash in cluster.get("artifact_hashes") or []:
+            cluster_by_artifact[artifact_hash] = cluster["work_id"]
+    if not cluster_by_artifact:
+        return False
+    changed = False
+    active_work_id = state.get("active_work_id")
+    for item in queue.get("items", []):
+        if item.get("work_type") != "interaction_evidence" or item.get("status") not in {"pending", "in_progress"}:
+            continue
+        superseded_by = cluster_by_artifact.get(item.get("artifact_hash"))
+        if not superseded_by:
+            continue
+        item["status"] = "superseded"
+        item["superseded_by"] = superseded_by
+        item["updated_at"] = iso_now()
+        if active_work_id == item.get("work_id"):
+            state["active_work_id"] = None
+        changed = True
+    return changed
+
+
+def supersede_micro_interaction_items_from_queue(state: dict, queue: dict) -> bool:
+    clusters = [
+        item
+        for item in queue.get("items", [])
+        if item.get("work_type") == "evidence_cluster"
+        and item.get("cluster_id") in INTERACTION_CLUSTER_IDS
+        and item.get("status") in {"pending", "in_progress", "done"}
+    ]
+    return supersede_micro_interaction_items(state, queue, clusters)
 
 
 def build_settings_configuration_cluster(captures_by_scope: dict, quality_by_scope: dict):
@@ -1221,6 +1471,8 @@ def enqueue_evidence_clusters(queue: dict, ledger: dict, requests: dict):
             build_issue_create_flow_cluster(captures_by_scope, quality_by_scope),
         )
     )
+    interaction_clusters = build_interaction_domain_clusters(captures_by_scope, quality_by_scope, queue)
+    added.extend(enqueue_interaction_cluster_items(queue, ledger, interaction_clusters))
     return added
 
 
@@ -1231,6 +1483,8 @@ def enqueue_missing_capture_backlog(queue: dict, ledger: dict, requests: dict):
         scope_key = capture.get("latest_capture_scope")
         artifact_hash = capture.get("latest_artifact_hash")
         if not scope_key or not artifact_hash:
+            continue
+        if capture.get("run_type") == "interaction":
             continue
         if artifact_hash in artifact_hashes or scope_key in scope_keys:
             continue
@@ -1278,10 +1532,20 @@ def select_oldest_pending(queue: dict, last_consumed_artifact_hash: Optional[str
         for item in queue.get("items", [])
         if item.get("status") in {"pending", "in_progress"}
         and item.get("artifact_hash") != last_consumed_artifact_hash
+        and item.get("work_type") != "interaction_evidence"
     ]
     if not pending:
         return None
-    pending.sort(key=lambda item: (item.get("created_at", ""), item.get("work_id", "")))
+    def item_priority(item: dict) -> int:
+        if item.get("work_type") == "evidence_cluster":
+            return 0
+        if item.get("work_type") == "page_evidence":
+            return 1
+        if item.get("work_type") == "flow_evidence":
+            return 2
+        return 8
+
+    pending.sort(key=lambda item: (item_priority(item), item.get("created_at", ""), item.get("work_id", "")))
     item = pending[0]
     item["status"] = "in_progress"
     if item.get("scope_key"):
@@ -1371,11 +1635,15 @@ def main():
     migrated = migrate_existing_page_items(state, queue, requests)
     backlog_added = enqueue_evidence_clusters(queue, ledger, requests)
     backlog_added.extend(enqueue_missing_capture_backlog(queue, ledger, requests))
+    micro_superseded = supersede_micro_interaction_items_from_queue(state, queue)
     if backlog_added or ledger_changed or migrated:
         save_queue(queue, queue_path)
         save_state(state, state_path)
         json_dump(CAPTURE_LEDGER_PATH, ledger)
         save_recapture_requests(requests)
+    elif micro_superseded:
+        save_queue(queue, queue_path)
+        save_state(state, state_path)
 
     active_item = select_existing_active(state, queue)
     if active_item:
