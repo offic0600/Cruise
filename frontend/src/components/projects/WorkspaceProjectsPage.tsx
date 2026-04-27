@@ -21,7 +21,7 @@ import type { NotificationSubscription, View, WorkspaceProjectRow } from '@/lib/
 import { queryKeys } from '@/lib/query/keys';
 import { useWorkspaceProjects } from '@/lib/query/projects';
 import { useViewDetail, useViewsIndex } from '@/lib/query/views';
-import { workspaceNewViewPath, workspaceProjectViewPath, workspaceProjectsAllPath } from '@/lib/routes';
+import { teamProjectPath, workspaceNewViewPath, workspaceProjectViewPath, workspaceProjectsAllPath } from '@/lib/routes';
 import { ProjectComposer } from './ProjectComposer';
 
 type WorkspaceProjectsPageProps = {
@@ -630,10 +630,15 @@ export default function WorkspaceProjectsPage({ activeViewId }: WorkspaceProject
             <div className="px-12 py-16 text-sm text-ink-500">{t('projects.workspace.empty')}</div>
           ) : (
             <div className="divide-y divide-border-soft">
-              {filteredRows.map((project) => (
-                <div key={project.id} className="grid grid-cols-[minmax(340px,1fr)_160px_100px_110px_130px_110px] gap-4 px-12 py-5 text-sm text-ink-800">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-3">
+              {filteredRows.map((project) => {
+                const rowClassName = currentOrganizationSlug && currentTeam
+                  ? 'grid grid-cols-[minmax(340px,1fr)_160px_100px_110px_130px_110px] gap-4 px-12 py-5 text-sm text-ink-800 transition hover:bg-slate-50/80 focus-visible:bg-slate-50/80 focus-visible:outline-none'
+                  : 'grid grid-cols-[minmax(340px,1fr)_160px_100px_110px_130px_110px] gap-4 px-12 py-5 text-sm text-ink-800';
+
+                const rowContent = (
+                  <>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-3">
                       <div className="text-ink-400">
                         <FolderKanban className="h-4.5 w-4.5" />
                       </div>
@@ -721,8 +726,19 @@ export default function WorkspaceProjectsPage({ activeViewId }: WorkspaceProject
                       <ProjectStatusRing progressPercent={project.progressPercent} />
                     </div>
                   ) : <div />}
-                </div>
-              ))}
+                  </>
+                );
+
+                return currentOrganizationSlug && currentTeam ? (
+                  <Link key={project.id} href={teamProjectPath(currentOrganizationSlug, currentTeam.key, project.id)} className={rowClassName}>
+                    {rowContent}
+                  </Link>
+                ) : (
+                  <div key={project.id} className={rowClassName}>
+                    {rowContent}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
