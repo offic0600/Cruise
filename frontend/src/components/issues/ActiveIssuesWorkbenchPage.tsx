@@ -392,16 +392,62 @@ function setSort(
 }
 
 function updateQuery(router: ReturnType<typeof useRouter>, pathname: string, searchParams: URLSearchParams, updates: Record<string, string | null>) {
-  const params = new URLSearchParams(searchParams.toString());
-  Object.entries(updates).forEach(([key, value]) => {
-    if (value && value.trim()) {
-      params.set(key, value);
-    } else {
-      params.delete(key);
-    }
-  });
-  const next = params.toString();
-  router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
+  router.replace(updateHref(pathname, searchParams, updates), { scroll: false });
+}
+
+function readDetailsOpen(searchParams: URLSearchParams) {
+  return searchParams.get('details') === 'open';
+}
+
+function setDetailsQuery(
+  router: ReturnType<typeof useRouter>,
+  pathname: string,
+  searchParams: URLSearchParams,
+  open: boolean
+) {
+  updateQuery(router, pathname, searchParams, { details: open ? 'open' : null });
+}
+
+function readRowDensity(searchParams: URLSearchParams): RowDensity {
+  return searchParams.get('density') === 'compact' ? 'compact' : 'comfortable';
+}
+
+function setRowDensityQuery(
+  router: ReturnType<typeof useRouter>,
+  pathname: string,
+  searchParams: URLSearchParams,
+  density: RowDensity
+) {
+  updateQuery(router, pathname, searchParams, { density: density === 'compact' ? 'compact' : null });
+}
+
+function readShowRowMetadata(searchParams: URLSearchParams) {
+  return searchParams.get('meta') !== 'hidden';
+}
+
+function setShowRowMetadataQuery(
+  router: ReturnType<typeof useRouter>,
+  pathname: string,
+  searchParams: URLSearchParams,
+  visible: boolean
+) {
+  updateQuery(router, pathname, searchParams, { meta: visible ? null : 'hidden' });
+}
+
+function setSelectedIssueQuery(
+  router: ReturnType<typeof useRouter>,
+  pathname: string,
+  searchParams: URLSearchParams,
+  issueId: number | null
+) {
+  updateQuery(router, pathname, searchParams, { issue: issueId ? String(issueId) : null });
+}
+
+function readSelectedIssueId(searchParams: URLSearchParams) {
+  const raw = searchParams.get('issue');
+  if (!raw) return null;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function createSearchDraft(searchParams: URLSearchParams) {
