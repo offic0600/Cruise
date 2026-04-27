@@ -503,11 +503,11 @@ export default function ActiveIssuesWorkbenchPage() {
   const collapsedStates = useMemo(() => readCollapsedStates(searchParams), [searchParams]);
   const [filterOpen, setFilterOpen] = useState(false);
   const [createIssueOpen, setCreateIssueOpen] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(() => searchParams.get('details') === 'open');
-  const [selectedIssueId, setSelectedIssueId] = useState<number | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(() => readDetailsOpen(searchParams));
+  const [selectedIssueId, setSelectedIssueId] = useState<number | null>(() => readSelectedIssueId(searchParams));
   const [draftFilters, setDraftFilters] = useState<FilterDraft>(() => readFilterDraft(searchParams, []));
-  const [rowDensity, setRowDensity] = useState<RowDensity>('comfortable');
-  const [showRowMetadata, setShowRowMetadata] = useState(true);
+  const [rowDensity, setRowDensity] = useState<RowDensity>(() => readRowDensity(searchParams));
+  const [showRowMetadata, setShowRowMetadata] = useState(() => readShowRowMetadata(searchParams));
   const [lastWorkbenchAction, setLastWorkbenchAction] = useState<string | null>(null);
   const filterSummaryContext = useMemo<FilterSummaryContext>(
     () => ({
@@ -526,6 +526,10 @@ export default function ActiveIssuesWorkbenchPage() {
   useEffect(() => {
     setSearchDraft((current) => syncSearchDraft(current, searchParams));
     setDraftFilters(readFilterDraft(searchParams, customFieldDefinitions));
+    setDetailsOpen(readDetailsOpen(searchParams));
+    setSelectedIssueId(readSelectedIssueId(searchParams));
+    setRowDensity(readRowDensity(searchParams));
+    setShowRowMetadata(readShowRowMetadata(searchParams));
   }, [customFieldDefinitions, searchParams]);
 
   const workbenchRows = useMemo(
@@ -673,14 +677,28 @@ export default function ActiveIssuesWorkbenchPage() {
                   showRowMetadata={showRowMetadata}
                   onSetSort={(nextSort) => setSort(router, pathname, searchParams, nextSort)}
                   onToggleGroup={(state) => toggleGroupCollapsed(router, pathname, searchParams, collapsedStates, state)}
-                  onSetRowDensity={setRowDensity}
-                  onSetShowRowMetadata={setShowRowMetadata}
+                  onSetRowDensity={(density) => {
+                    setRowDensity(density);
+                    setRowDensityQuery(router, pathname, searchParams, density);
+                  }}
+                  onSetShowRowMetadata={(value) => {
+                    setShowRowMetadata(value);
+                    setShowRowMetadataQuery(router, pathname, searchParams, value);
+                  }}
                 />
                 <Button
                   type="button"
                   variant="secondary"
                   aria-pressed={detailsOpen}
-                  onClick={() => setDetailsOpen((current) => !current)}
+                  onClick={() => {
+                    const nextOpen = !detailsOpen;
+                    setDetailsOpen(nextOpen);
+                    setDetailsQuery(router, pathname, searchParams, nextOpen);
+                    if (!nextOpen) {
+                      setSelectedIssueId(null);
+                      setSelectedIssueQuery(router, pathname, searchParams, null);
+                    }
+                  }}
                   className={`h-10 rounded-full border px-3 text-sm ${
                     detailsOpen
                       ? 'border-slate-700 bg-slate-100 text-slate-950 hover:bg-white'
@@ -722,14 +740,22 @@ export default function ActiveIssuesWorkbenchPage() {
             selectedIssue={selectedIssue}
             onOpenFilters={() => setFilterOpen(true)}
             onToggleDetails={() => {
-              setDetailsOpen((current) => !current);
-              announceWorkbenchAction(detailsOpen ? (isZh ? '已关闭右侧详情预览' : 'Closed the detail preview') : (isZh ? '已打开右侧详情预览' : 'Opened the detail preview'));
+              const nextOpen = !detailsOpen;
+              setDetailsOpen(nextOpen);
+              setDetailsQuery(router, pathname, searchParams, nextOpen);
+              if (!nextOpen) {
+                setSelectedIssueId(null);
+                setSelectedIssueQuery(router, pathname, searchParams, null);
+              }
+              announceWorkbenchAction(nextOpen ? (isZh ? '已打开右侧详情预览' : 'Opened the detail preview') : (isZh ? '已关闭右侧详情预览' : 'Closed the detail preview'));
             }}
             onCreateIssue={() => setCreateIssueOpen(true)}
             onFocusSelected={() => {
               if (!selectedIssue) return;
               setDetailsOpen(true);
+              setDetailsQuery(router, pathname, searchParams, true);
               setSelectedIssueId(selectedIssue.id);
+              setSelectedIssueQuery(router, pathname, searchParams, selectedIssue.id);
               announceWorkbenchAction(isZh ? `已聚焦 ${selectedIssue.identifier}` : `Focused ${selectedIssue.identifier}`);
             }}
           />
