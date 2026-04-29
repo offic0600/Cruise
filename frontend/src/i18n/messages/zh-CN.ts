@@ -70,6 +70,13 @@ const zhCNMessages = {
     agent: '助手',
     search: '搜索',
     logout: '退出登录',
+    myIssuesClusterTitle: '工作区导航',
+    connectGithub: '连接 GitHub',
+    addFilter: '添加筛选',
+    displayOptions: '显示选项',
+    openDetails: '打开详情',
+    openDetailsBadge: '2 条详情',
+    collapseGroup: '折叠分组反馈',
   },
   inbox: {
     ...enMessages.inbox,

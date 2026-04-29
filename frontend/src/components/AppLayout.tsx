@@ -11,7 +11,12 @@ import IssueComposer from '@/components/issues/IssueComposer';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/i18n/useI18n';
 import { clearSession, getStoredSession, type StoredUser } from '@/lib/auth';
-import { publicPath, teamActivePath, teamIssuesPath, teamProjectsPath, teamSettingsPath, teamViewsRootPath, workspaceInboxPath, workspaceMyIssuesPath, workspaceProjectsAllPath, workspaceRootPath, workspaceSectionPath, workspaceViewsPath } from '@/lib/routes';
+import { publicPath, teamActivePath, teamIssuesPath, teamProjectsPath, teamSettingsPath, teamViewsRootPath, workspaceGithubIntegrationPath, workspaceInboxPath, workspaceMyIssuesAssignedPath, workspaceMyIssuesPath, workspaceProjectsAllPath, workspaceRootPath, workspaceSectionPath, workspaceViewsPath } from '@/lib/routes';
+
+interface NavigationFeedback {
+  type: 'info' | 'success';
+  message: string;
+}
 
 interface NavItem {
   href: string;
@@ -46,9 +51,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   } = useCurrentWorkspace();
   const [user, setUser] = useState<StoredUser | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
   const [workspaceSectionOpen, setWorkspaceSectionOpen] = useState(true);
   const [workspaceMoreOpen, setWorkspaceMoreOpen] = useState(false);
+  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
+  const [navigationFeedback, setNavigationFeedback] = useState<NavigationFeedback | null>(null);
   const [workspaceNavItemKeys, setWorkspaceNavItemKeys] = useState<string[]>(DEFAULT_WORKSPACE_NAV_ITEMS);
   const [focusSwitchWorkspace, setFocusSwitchWorkspace] = useState(false);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
@@ -193,7 +199,22 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       ? teamSettingsPath(currentOrganizationSlug, currentTeamKey, 'templates')
       : publicPath('/create-workspace');
   const membersHref = currentOrganizationSlug ? workspaceSectionPath(currentOrganizationSlug, 'team-members') : publicPath('/create-workspace');
+  const connectGithubHref = currentOrganizationSlug ? workspaceGithubIntegrationPath(currentOrganizationSlug) : publicPath('/create-workspace');
+  const myIssuesTabs = useMemo(
+    () => [
+      { key: 'assigned', href: currentOrganizationSlug ? workspaceMyIssuesAssignedPath(currentOrganizationSlug) : '#', label: t('myIssues.views.assigned') },
+      { key: 'created', href: currentOrganizationSlug ? `${workspaceMyIssuesPath(currentOrganizationSlug)}/created` : '#', label: t('myIssues.views.created') },
+      { key: 'subscribed', href: currentOrganizationSlug ? `${workspaceMyIssuesPath(currentOrganizationSlug)}/subscribed` : '#', label: t('myIssues.views.subscribed') },
+      { key: 'activity', href: currentOrganizationSlug ? `${workspaceMyIssuesPath(currentOrganizationSlug)}/activity` : '#', label: t('myIssues.views.activity') },
+    ],
+    [currentOrganizationSlug, t]
+  );
   const createWorkspaceHref = publicPath('/create-workspace');
+
+  const showNavigationFeedback = (message: string, type: NavigationFeedback['type'] = 'success') => {
+    setNavigationFeedback({ type, message });
+    setLastNavigationAction(message);
+  };
 
   const persistWorkspaceNavItems = (next: string[]) => {
     setWorkspaceNavItemKeys(next);
@@ -212,7 +233,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       : [...workspaceNavItemKeys, href];
     persistWorkspaceNavItems(Array.from(new Set(next)));
     setWorkspaceMoreOpen(false);
-    setLastNavigationAction(t('workspaceMenu.navPinned'));
+    showNavigationFeedback(t('workspaceMenu.navPinned'));
   };
 
   const resolveNavHref = (item: NavItem) =>
@@ -381,6 +402,29 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     </div>
                   ) : null}
                 </div>
+                {currentOrganizationSlug ? (
+                  <WorkspaceNavigationCluster
+                    currentPath={pathname}
+                    connectGithubHref={connectGithubHref}
+                    myIssuesTabs={myIssuesTabs}
+                    onNavigate={(href, message) => {
+                      if (href === '#') {
+                        showNavigationFeedback(message, 'info');
+                        return;
+                      }
+                      router.push(href);
+                      showNavigationFeedback(message);
+                    }}
+                    titleLabel={t('workspaceMenu.myIssuesClusterTitle')}
+                    connectGithubLabel={t('workspaceMenu.connectGithub')}
+                    myIssuesTitle={t('nav.myIssues')}
+                    addFilterLabel={t('workspaceMenu.addFilter')}
+                    displayOptionsLabel={t('workspaceMenu.displayOptions')}
+                    openDetailsLabel={t('workspaceMenu.openDetails')}
+                    detailsBadgeLabel={t('workspaceMenu.openDetailsBadge')}
+                    collapseGroupLabel={t('workspaceMenu.collapseGroup')}
+                  />
+                ) : null}
                 {currentOrganizationSlug && currentTeamKey ? (
                   <TeamWorkspaceCluster
                     teamName={currentTeam?.name ?? currentTeamKey}
@@ -394,7 +438,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     joinLabel={t('workspaceMenu.joinTeam')}
                     onJoinTeam={() => {
                       router.push(membersHref);
-                      setLastNavigationAction(t('workspaceMenu.joinTeamOpened'));
+                      showNavigationFeedback(t('workspaceMenu.joinTeamOpened'));
                     }}
                   />
                 ) : null}
@@ -407,22 +451,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             pinnedCount={workspaceNavItems.length}
             moreCount={workspaceMoreItems.length}
             currentPath={pathname}
-            lastAction={lastNavigationAction}
+            lastAction={navigationFeedback?.message ?? lastNavigationAction}
+            lastActionTone={navigationFeedback?.type ?? 'success'}
             searchLabel={t('nav.search')}
             newIssueLabel={t('workspaceMenu.newIssue')}
             settingsLabel={t('workspaceMenu.settings')}
             shortcutLabel={t('workspaceMenu.shortcuts.search')}
             onSearch={() => {
               router.push(searchHref);
-              setLastNavigationAction(t('workspaceMenu.navSearchOpened'));
+              showNavigationFeedback(t('workspaceMenu.navSearchOpened'));
             }}
             onNewIssue={() => {
               setQuickCreateOpen(true);
-              setLastNavigationAction(t('workspaceMenu.navComposerOpened'));
+              showNavigationFeedback(t('workspaceMenu.navComposerOpened'));
             }}
             onSettings={() => {
               router.push(settingsHref);
-              setLastNavigationAction(t('workspaceMenu.navSettingsOpened'));
+              showNavigationFeedback(t('workspaceMenu.navSettingsOpened'));
             }}
           />
 
@@ -471,6 +516,7 @@ function WorkspaceNavigationConsole({
   moreCount,
   currentPath,
   lastAction,
+  lastActionTone,
   searchLabel,
   newIssueLabel,
   settingsLabel,
@@ -484,6 +530,7 @@ function WorkspaceNavigationConsole({
   moreCount: number;
   currentPath: string;
   lastAction: string | null;
+  lastActionTone: NavigationFeedback['type'];
   searchLabel: string;
   newIssueLabel: string;
   settingsLabel: string;
@@ -514,7 +561,10 @@ function WorkspaceNavigationConsole({
           <span>{pinnedCount} pinned · {moreCount} more</span>
         </div>
         {lastAction ? (
-          <div aria-live="polite" className="mt-2 rounded-2xl bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">
+          <div
+            aria-live="polite"
+            className={`mt-2 rounded-2xl px-3 py-2 text-xs font-medium ${lastActionTone === 'info' ? 'bg-sky-50 text-sky-700' : 'bg-emerald-50 text-emerald-700'}`}
+          >
             {lastAction}
           </div>
         ) : null}
@@ -533,6 +583,91 @@ function NavigationConsoleButton({ icon, label, onClick }: { icon: React.ReactNo
       {icon}
       <span className="truncate">{label}</span>
     </button>
+  );
+}
+
+function WorkspaceNavigationCluster({
+  currentPath,
+  connectGithubHref,
+  myIssuesTabs,
+  onNavigate,
+  titleLabel,
+  connectGithubLabel,
+  myIssuesTitle,
+  addFilterLabel,
+  displayOptionsLabel,
+  openDetailsLabel,
+  detailsBadgeLabel,
+  collapseGroupLabel,
+}: {
+  currentPath: string;
+  connectGithubHref: string;
+  myIssuesTabs: Array<{ key: string; href: string; label: string }>;
+  onNavigate: (href: string, message: string) => void;
+  titleLabel: string;
+  connectGithubLabel: string;
+  myIssuesTitle: string;
+  addFilterLabel: string;
+  displayOptionsLabel: string;
+  openDetailsLabel: string;
+  detailsBadgeLabel: string;
+  collapseGroupLabel: string;
+}) {
+  const actionChips = [
+    { key: 'add-filter', label: addFilterLabel, message: addFilterLabel, tone: 'bg-violet-100 text-violet-700' },
+    { key: 'display-options', label: displayOptionsLabel, message: displayOptionsLabel, tone: 'bg-cyan-100 text-cyan-700' },
+    { key: 'open-details', label: openDetailsLabel, message: openDetailsLabel, tone: 'bg-slate-200 text-slate-700' },
+  ];
+
+  return (
+    <div className="ml-3 rounded-2xl border border-border-soft bg-white p-2 shadow-[0_10px_26px_rgba(15,23,42,0.05)]">
+      <div className="flex items-center justify-between gap-2 px-2 pb-2">
+        <div className="min-w-0">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-400">{titleLabel}</div>
+          <div className="mt-1 truncate text-sm font-semibold text-ink-900">{myIssuesTitle}</div>
+        </div>
+        <Link
+          href={connectGithubHref}
+          className="shrink-0 rounded-full border border-border-soft bg-white px-2.5 py-1 text-[11px] font-semibold text-ink-700 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
+        >
+          {connectGithubLabel}
+        </Link>
+      </div>
+      <div className="grid grid-cols-2 gap-1.5 px-2 pb-2">
+        {myIssuesTabs.map((item) => {
+          const isActive = currentPath === item.href || currentPath.startsWith(`${item.href}/`);
+          return (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => onNavigate(item.href, item.label)}
+              className={`rounded-2xl border px-3 py-2 text-left text-[11px] font-semibold transition ${isActive ? 'border-slate-900 bg-slate-900 text-white' : 'border-border-soft bg-slate-50 text-ink-700 hover:border-slate-200 hover:bg-white hover:text-ink-900'}`}
+            >
+              {item.label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="space-y-2 rounded-2xl bg-slate-50 p-2">
+        <div className="flex flex-wrap gap-1.5">
+          {actionChips.map((action) => (
+            <button
+              key={action.key}
+              type="button"
+              onClick={() => onNavigate(myIssuesTabs[0]?.href ?? '#', action.message)}
+              className="inline-flex items-center gap-1 rounded-full border border-transparent bg-white px-2.5 py-1 text-[11px] font-medium text-ink-700 transition hover:border-border-soft hover:text-ink-900"
+            >
+              <span className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${action.tone}`}>•</span>
+              <span>{action.label}</span>
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center justify-between gap-2 rounded-2xl border border-dashed border-border-soft bg-white px-3 py-2 text-[11px] text-ink-600">
+          <span>{collapseGroupLabel}</span>
+          <span className="inline-flex items-center rounded-full bg-ink-100 px-2 py-0.5 font-semibold text-ink-700">{detailsBadgeLabel}</span>
+        </div>
+      </div>
+    </div>
   );
 }
 
