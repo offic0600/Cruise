@@ -12,7 +12,13 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useI18n } from '@/i18n/useI18n';
 import { getDocs, getIssues, getProjects, type Doc, type Issue, type Project } from '@/lib/api';
-import { issueDetailPath, workspaceSectionPath } from '@/lib/routes';
+import {
+  issueDetailPath,
+  teamProjectsPath,
+  teamViewsRootPath,
+  workspaceImportExportPath,
+  workspaceSectionPath,
+} from '@/lib/routes';
 
 type SearchTab = 'all' | 'issues' | 'projects' | 'documents';
 
@@ -20,7 +26,7 @@ const tabs: SearchTab[] = ['all', 'issues', 'projects', 'documents'];
 
 export default function SearchPage() {
   const { t, locale } = useI18n();
-  const { organizationId, currentOrganizationSlug, currentTeamId } = useCurrentWorkspace();
+  const { organizationId, currentOrganizationSlug, currentTeamId, currentTeamKey } = useCurrentWorkspace();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -64,6 +70,17 @@ export default function SearchPage() {
   const totalResults = activeTab === 'all'
     ? allResults.issues.length + allResults.projects.length + allResults.documents.length
     : tabResults.length;
+  const projectsResultsHref = currentOrganizationSlug && currentTeamKey
+    ? teamProjectsPath(currentOrganizationSlug, currentTeamKey)
+    : currentOrganizationSlug
+      ? workspaceSectionPath(currentOrganizationSlug, 'projects')
+      : '#';
+  const viewsResultsHref = currentOrganizationSlug && currentTeamKey
+    ? teamViewsRootPath(currentOrganizationSlug, currentTeamKey)
+    : currentOrganizationSlug
+      ? workspaceSectionPath(currentOrganizationSlug, 'views/issues')
+      : '#';
+  const importIssuesHref = currentOrganizationSlug ? workspaceImportExportPath(currentOrganizationSlug) : '#';
 
   const isLoading = activeTab === 'all'
     ? issuesQuery.isLoading || projectsQuery.isLoading || docsQuery.isLoading

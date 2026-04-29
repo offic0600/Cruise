@@ -102,7 +102,11 @@ export function teamViewsPath(workspaceSlug: string, teamKey: string, resourceTy
 }
 
 export function teamViewsRootPath(workspaceSlug: string, teamKey: string) {
-  return normalizePath(`/${workspaceSlug}/team/${teamKey}/views`);
+  return normalizePath(`/${workspaceSlug}/team/${teamKey}/views/issues`);
+}
+
+export function workspaceImportExportPath(workspaceSlug: string) {
+  return normalizePath(`/${workspaceSlug}/settings/import-export`);
 }
 
 export function teamNewViewPath(workspaceSlug: string, teamKey: string) {
