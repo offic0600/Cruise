@@ -3,9 +3,9 @@ roadmap:
   path: docs/plans/2026-04-16-linear-parity-roadmap.md
   total_tasks: 2
 project:
-  repo_path: /Users/liuzheng/Desktop/Cruise
+  repo_path: d:/workspace/Cruise
   branch: codex/unify-issue-model
-  head: 6314ecf66e18e5dc48346467e0f93ec18ff2cc9f
+  head: 85b2d88c3e62e715f0ec4927215a958cf0f64183
   baseline_commit: 5f9bbf40737ed971c5a7c4d446c68345454a161f
   docs_head: 4db3e2a1fcbffc588cb7cc216e223780d7d8eab5
 implementation_state:
@@ -16,8 +16,8 @@ implementation_state:
   last_consumed_capture_run_id: 20260421T231518+0800
   last_consumed_artifact_hash: ab7b2f12213c5e493633241c0920603483bdb2fb89d69a19b45681fd63847ff3
   active_work_id: workspace-cleantrack-team-cle-active-fe38056b1123
-  last_successful_commit: 6314ecf66e18e5dc48346467e0f93ec18ff2cc9f
-  queue_summary: 2 done / 1 in_progress / 4 pending / 1 terminal_blocked
+  last_successful_commit: 85b2d88c3e62e715f0ec4927215a958cf0f64183
+  queue_summary: frozen — 所有 IMP-01~215 已移入 Frozen history；等待 CAP-08 完成后由 evidence-driven pipeline 重新派生
 implementation_milestones:
   - scope_key: legacy:/issues/[id] wording-loop closeout
     capture_run_id: historical
@@ -39,6 +39,20 @@ implementation_milestones:
     verification:
       - cd frontend && npx tsc --noEmit: passed
     commit: 6314ecf66e18e5dc48346467e0f93ec18ff2cc9f
+  - scope_key: workspace:cleantrack/team:CLE/views regression-fix
+    capture_run_id: n/a
+    summary: 修复 `teamViewsRootPath` 回归 — 返回值从错误的 `/views/issues` 修正为 `/views`
+    verification:
+      - cd frontend && pnpm test -- --run: passed (5 files, 59 tests)
+      - cd frontend && npx tsc --noEmit: passed
+      - git diff --check: passed
+    commit: (pending)
+  - scope_key: scripts windows-path-fix
+    capture_run_id: n/a
+    summary: 修复 `runtime.py` 与 `implement_runtime.py` 的 Mac 硬编码路径，改为从脚本自身位置动态推导 repo root
+    verification:
+      - python path resolution verified: D:\workspace\Cruise for both scripts
+    commit: (pending)
 last_completed_task:
   id: IMP-215
   parent_task: cruise-linear-parity-implement
@@ -59,13 +73,22 @@ last_completed_task:
   commit: dc633bcc15836c5185a38597578d08590fa7be28
   next_task: 暂无新的 Implementation 任务；legacy `/issues/[id]` route API 失败标题 wording 振荡链已人工收口，禁止继续派生仅涉及 wording/命名/对称性的微任务，等待真正改变运行时行为或 contract 的下一条线性 parity 微任务
 current_task:
-  id: CAP-08
-  parent_task: cruise-linear-parity-capture
-  title: 采集 issue 创建/编辑入口的打开态与校验态证据
-  lane: Capture
-  status: in_progress
+  id: REGRESSION-FIX-01
+  parent_task: cruise-linear-parity
+  title: 修复拉取后发现的 teamViewsRootPath 回归 + runtime 脚本 Windows 路径问题
+  lane: Implementation
+  status: done
   done_when: >-
-    在 `attached_cdp_only + websocket_attach=ok` 的前提下，只读采集 issue 创建/编辑入口的打开态、字段默认值与校验反馈，
-    并把结果写成 `tmp/linear-capture/runs/<run_id>/manifest.json`、`summary.json`、`screenshots/`、`har/`、`dom/`
-    与 `tmp/linear-capture/latest.json`；capture 不再负责更新 task-board、roadmap-state、dev-logbook 或 worktime。
+    `teamViewsRootPath('acme', 'eng')` 返回 `/acme/team/eng/views`（非 `/views/issues`）；
+    `runtime.py` 与 `implement_runtime.py` 从 `__file__` 动态推导 repo root 而非硬编码 Mac 路径；
+    验证通过后提交并 push。
   blocker: -
+  verification:
+    - cd frontend && pnpm test -- --run: passed (5 files, 59 tests)
+    - cd frontend && npx tsc --noEmit: passed
+    - python path resolution: both scripts resolve to d:/workspace/Cruise
+  summary: >-
+    git pull 后发现：① `teamViewsRootPath` 在拉取代码中被错误改写为 `/views/issues`（应为 `/views`），导致 routes.test.tsx 失败；
+    ② `runtime.py` 与 `implement_runtime.py` 硬编码了 Mac 路径，在当前 Windows 环境无法运行。
+    已一次性修复并验证通过。
+  commit: (pending)

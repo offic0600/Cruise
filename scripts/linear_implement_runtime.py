@@ -6,7 +6,9 @@ from pathlib import Path
 from typing import Optional
 
 
-REPO_ROOT = Path("/Users/liuzheng/Desktop/Cruise")
+REPO_ROOT = Path(__file__).resolve()
+for _ in range(2):
+    REPO_ROOT = REPO_ROOT.parent
 CAPTURE_ROOT = REPO_ROOT / "tmp" / "linear-capture"
 IMPLEMENT_ROOT = REPO_ROOT / "tmp" / "linear-implement"
 CAPTURE_LEDGER_PATH = CAPTURE_ROOT / "state" / "coverage-ledger.json"

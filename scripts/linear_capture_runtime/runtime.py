@@ -12,7 +12,10 @@ from urllib.parse import urljoin, urlparse, urlunparse
 from .cdp import CdpSession, iso_now, read_watchdog_status
 
 
-REPO_ROOT = Path("/Users/liuzheng/Desktop/Cruise")
+_REPO_ROOT = Path(__file__).resolve()
+for _ in range(3):
+    _REPO_ROOT = _REPO_ROOT.parent
+REPO_ROOT = _REPO_ROOT
 TMP_ROOT = REPO_ROOT / "tmp" / "linear-capture"
 WATCHDOG_STATUS_PATH = REPO_ROOT / ".hermes" / "linear-9222-watchdog" / "last-status.txt"
 MUTATION_POLICY_PATH = REPO_ROOT / "config" / "mutation-policy.json"
