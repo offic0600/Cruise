@@ -11,6 +11,8 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.MediaType
+import org.springframework.test.context.DynamicPropertyRegistry
+import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
@@ -18,6 +20,8 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import java.nio.file.Files
+import java.nio.file.Path
 import java.util.UUID
 
 @SpringBootTest
@@ -1375,5 +1379,17 @@ class OrganizationAccessIntegrationTest {
         val token = payload["token"]?.asText()
         assertThat(token).isNotBlank()
         return token!!
+    }
+
+    companion object {
+        private val sqlitePath: Path = Path.of("build", "tmp", "test-db-${UUID.randomUUID()}.sqlite").toAbsolutePath()
+
+        @JvmStatic
+        @DynamicPropertySource
+        fun registerDynamicProperties(registry: DynamicPropertyRegistry) {
+            Files.createDirectories(sqlitePath.parent)
+            Files.deleteIfExists(sqlitePath)
+            registry.add("CRUISE_SQLITE_PATH") { sqlitePath.toString() }
+        }
     }
 }

@@ -37,6 +37,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-mail")
+    implementation("org.flywaydb:flyway-core")
 
     // JWT
     implementation("io.jsonwebtoken:jjwt-api:0.12.5")
@@ -44,8 +45,9 @@ dependencies {
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.5")
 
     // Database
-    runtimeOnly("com.h2database:h2")
+    implementation("org.hibernate.orm:hibernate-community-dialects")
     runtimeOnly("org.postgresql:postgresql")
+    runtimeOnly("org.xerial:sqlite-jdbc")
 
     // Kotlin
     implementation("org.jetbrains.kotlin:kotlin-stdlib")

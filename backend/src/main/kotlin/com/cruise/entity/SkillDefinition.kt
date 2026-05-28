@@ -22,13 +22,14 @@ class SkillDefinition(
     @Column(length = 50)
     val category: String? = null,
 
-    @Column(name = "intent_patterns", columnDefinition = "TEXT")
+    @Lob
+    @Column(name = "intent_patterns")
     val intentPatterns: String? = null,
 
-    @Column(columnDefinition = "TEXT")
+    @Lob
     val parameters: String? = null,
 
-    @Column(columnDefinition = "TEXT")
+    @Lob
     val outputSchema: String? = null,
 
     @Column(length = 50)

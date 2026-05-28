@@ -5095,3 +5095,56 @@
 | 当前分支 / HEAD（执行前） | `codex/unify-issue-model` / `0186436b98d475718e179d3640ddac1aace32a6b` |
 | feature commit | `0186436b98d475718e179d3640ddac1aace32a6b` |
 | 验证 | `pnpm test -- --run src/lib/routes.test.tsx`、`npx tsc --noEmit`、`git diff --check` |
+
+## Session 330 — 2026-05-28：项目数据存储重构为 PostgreSQL / SQLite 双后端 + Flyway 管理
+
+**目标**：按已确认方案保留 `Spring Data JPA + Hibernate` 仓储模型，移除 H2 运行时依赖，改为 `SPRING_DATASOURCE_URL` 存在时走 PostgreSQL、缺省时走本地 SQLite，并把 schema 管理统一切换到 Flyway。
+
+### 330.1 执行步骤
+
+| 步骤 | 操作 | 结果 |
+|------|------|------|
+| 恢复状态 | `git status --short` / 读取现有 `backend` 配置与迁移文件 / 复核基线测试失败报告 | 确认仓库已有一轮未完成的存储改造，当前主要阻塞点为 SQLite 启动链与遗留启动清理器仍依赖 `information_schema`。 |
+| 实现 | `backend/build.gradle.kts` / `backend/src/main/resources/application.yml` / `backend/src/main/kotlin/com/cruise/config/StorageBackendConfig.kt` | 移除 H2 运行时依赖，引入 Flyway、SQLite JDBC、Hibernate community dialect；增加运行时存储后端选择逻辑，PostgreSQL 走 `SPRING_DATASOURCE_URL`，否则回退 SQLite；默认 SQLite 路径按操作系统解析并在启动前自动创建父目录与数据库文件。 |
+| 实现 | `backend/src/main/resources/db/migration/postgresql/*` / `backend/src/main/resources/db/migration/sqlite/*` | 将原有根迁移链拆分为 PostgreSQL / SQLite 两套 Flyway 迁移目录，由运行时后端动态选择加载位置。 |
+| 实现 | `backend/src/main/kotlin/com/cruise/config/LegacyDataMigrationConfig.kt` / `backend/src/main/kotlin/com/cruise/config/LegacyIssuePayloadCleanupConfig.kt` | 将遗留迁移/清理逻辑中的 H2 风格元数据访问改为跨数据库安全实现；SQLite 分支改用 JDBC metadata / `PRAGMA table_info(...)`，避免 `information_schema` 与 SQLite JDBC 元数据限制。 |
+| 实现 | `backend/src/main/kotlin/com/cruise/entity/AgentActivity.kt` / `backend/src/main/kotlin/com/cruise/entity/AgentSession.kt` / `backend/src/main/kotlin/com/cruise/entity/SkillDefinition.kt` / `backend/src/main/kotlin/com/cruise/entity/SkillExecutionLog.kt` / `backend/src/main/kotlin/com/cruise/entity/UserFeedback.kt` / `backend/src/main/kotlin/com/cruise/entity/View.kt` | 收敛部分 `columnDefinition = "TEXT"` 为更通用的 `@Lob` 映射，降低 SQLite / PostgreSQL 双方言差异。 |
+| 实现 | `backend/src/test/kotlin/com/cruise/config/StorageBackendConfigTest.kt` / `backend/src/test/kotlin/com/cruise/BaselineSchemaValidationTest.kt` / `backend/src/test/kotlin/com/cruise/OrganizationAccessIntegrationTest.kt` | 补充后端选择与 SQLite 路径创建测试，现有集成测试切换为临时 SQLite 数据库，不再依赖 H2。 |
+| 验证 | `.\gradlew.bat :backend:test --tests com.cruise.BaselineSchemaValidationTest` | 通过，确认 SQLite + Flyway + 启动 runner 链路可正常完成。 |
+| 验证 | `.\gradlew.bat :backend:test` | 通过，确认后端全量测试在新存储模型下通过。 |
+| 验证 | `.\gradlew.bat :backend:bootRun` + `Invoke-WebRequest http://localhost:8080/actuator/health` | 后端可在默认 SQLite 路径 `C:\Users\25062215\.cruise\cruise.db` 启动；Flyway 成功创建并执行 5 条迁移；健康接口返回中 `db=UP`，整体 `status=DOWN` 由现有 mail 探针 `localhost:1025` 不可达导致，与本次存储重构无关。 |
+
+### 330.2 本轮落地结果
+
+- 后端现在按运行时配置自动选择数据库后端：
+  - `SPRING_DATASOURCE_URL` 非空且为 `jdbc:postgresql:` 时使用 PostgreSQL。
+  - 未配置时自动回退本地 SQLite。
+- H2 已从应用运行时移除，schema 不再依赖 Hibernate `update` 或 `spring.sql.init.mode`。
+- Flyway 成为唯一 schema authority，并且支持 PostgreSQL / SQLite 双迁移树。
+- SQLite 启动链补齐了目录创建、数据库文件创建、可写性校验与外键启用。
+- 遗留启动清理器对 SQLite 已兼容，不再因 `information_schema` 或 SQLite JDBC metadata 限制导致启动失败。
+
+### 330.3 发现的 Bug 与修复
+
+- 根因：遗留启动清理器仍直接查询 `information_schema.columns` / `information_schema.tables`，SQLite 无该系统表。
+  修复：改为跨数据库安全的元数据探测；SQLite 列检查改走 `PRAGMA table_info(...)`。
+- 根因：SQLite JDBC 的 `DatabaseMetaData.getColumns(null, null, null, null)` 会触发 `too many terms in compound SELECT`。
+  修复：不再全量扫描全部列；SQLite 直接按目标表执行 `PRAGMA table_info(...)`。
+- 根因：若继续保留 `columnDefinition = "TEXT"` 等偏方言映射，双后端 schema 一致性与实体兼容性较弱。
+  修复：将多处长文本字段收敛为更通用的 `@Lob`。
+
+### 330.4 经验沉淀
+
+- 对 SQLite 兼容不能只停留在 Hibernate dialect 与 Flyway 迁移层，所有启动期 JDBC 探测逻辑也必须彻底移除 `information_schema` 假设。
+- 对双后端应用，Flyway 迁移目录按 vendor 拆分比在单套 SQL 中堆方言分支更可维护，也更便于版本对齐。
+- SQLite 与 Hibernate 组合下，schema validate 的边界要谨慎控制；当前方案保留 PostgreSQL `validate`，SQLite 通过 Flyway + 启动测试保证一致性更稳。
+
+### 330.5 当前状态快照
+
+| 指标 | 值 |
+|------|-----|
+| 当前分支 / HEAD（执行前） | `main` / `45c5bfb` |
+| 涉及目录 | `backend/build.gradle.kts`、`backend/src/main/resources/application.yml`、`backend/src/main/resources/db/migration/postgresql/`、`backend/src/main/resources/db/migration/sqlite/`、`backend/src/main/kotlin/com/cruise/config/`、`backend/src/test/kotlin/com/cruise/` |
+| 默认 SQLite 路径 | Windows：`%USERPROFILE%\.cruise\cruise.db`；Linux：`/var/lib/cruise/cruise.db`；可由 `CRUISE_SQLITE_PATH` 覆盖 |
+| 验证 | `.\gradlew.bat :backend:test --tests com.cruise.BaselineSchemaValidationTest`、`.\gradlew.bat :backend:test`、`.\gradlew.bat :backend:bootRun` + `Invoke-WebRequest http://localhost:8080/actuator/health` |
+| Git commit hash | 未提交 |

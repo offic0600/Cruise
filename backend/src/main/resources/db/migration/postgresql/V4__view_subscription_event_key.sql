@@ -1,0 +1,1 @@
+-- No-op: baseline already contains notification_subscription.event_key.

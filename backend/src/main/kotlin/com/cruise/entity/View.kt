@@ -43,13 +43,15 @@ class View(
     @Column(name = "color", length = 32)
     var color: String? = null,
 
-    @Column(name = "filter_json", columnDefinition = "TEXT")
+    @Lob
+    @Column(name = "filter_json")
     var filterJson: String? = null,
 
     @Column(name = "group_by", length = 64)
     var groupBy: String? = null,
 
-    @Column(name = "sort_json", columnDefinition = "TEXT")
+    @Lob
+    @Column(name = "sort_json")
     var sortJson: String? = null,
 
     @Lob

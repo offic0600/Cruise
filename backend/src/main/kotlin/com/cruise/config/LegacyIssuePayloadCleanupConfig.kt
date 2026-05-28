@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.annotation.Order
 import org.springframework.jdbc.core.JdbcTemplate
+import java.sql.Connection
 
 @Configuration
 open class LegacyIssuePayloadCleanupConfig {
@@ -110,14 +111,40 @@ open class LegacyIssuePayloadCleanupConfig {
         tableName: String,
         columnName: String
     ): Boolean =
-        (jdbcTemplate.queryForObject(
-            """
-            select count(*)
-            from information_schema.columns
-            where upper(table_name) = ? and upper(column_name) = ?
-            """.trimIndent(),
-            Long::class.java,
-            tableName.uppercase(),
-            columnName.uppercase()
-        ) ?: 0L) > 0L
+        jdbcTemplate.dataSource?.connection?.use { connection ->
+            if (connection.isSqlite()) {
+                sqliteColumnExists(connection, tableName, columnName)
+            } else {
+                connection.metaData.getColumns(null, null, tableName, columnName).use { columns ->
+                    generateSequence {
+                        if (columns.next()) columns.getString("COLUMN_NAME") else null
+                    }.any { it.equals(columnName, ignoreCase = true) }
+                }
+            }
+        } ?: false
+
+    private fun sqliteColumnExists(
+        connection: Connection,
+        tableName: String,
+        columnName: String
+    ): Boolean {
+        val safeTableName = requireSqlIdentifier(tableName)
+        connection.createStatement().use { statement ->
+            statement.executeQuery("""pragma table_info("$safeTableName")""").use { columns ->
+                return generateSequence {
+                    if (columns.next()) columns.getString("name") else null
+                }.any { it.equals(columnName, ignoreCase = true) }
+            }
+        }
+    }
+
+    private fun Connection.isSqlite(): Boolean =
+        metaData.databaseProductName.equals("SQLite", ignoreCase = true)
+
+    private fun requireSqlIdentifier(identifier: String): String {
+        require(identifier.matches(Regex("[A-Za-z_][A-Za-z0-9_]*"))) {
+            "Unsafe SQL identifier: $identifier"
+        }
+        return identifier
+    }
 }

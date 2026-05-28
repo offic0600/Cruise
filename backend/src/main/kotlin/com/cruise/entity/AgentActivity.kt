@@ -16,7 +16,7 @@ class AgentActivity(
     @Column(nullable = false, length = 50)
     var type: String = "message",
 
-    @Column(columnDefinition = "TEXT")
+    @Lob
     var content: String? = null,
 
     @Column(name = "issue_id")

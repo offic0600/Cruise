@@ -22,16 +22,19 @@ class SkillExecutionLog(
     @Column(name = "user_id")
     val userId: Long? = null,
 
-    @Column(name = "input_data", columnDefinition = "TEXT")
+    @Lob
+    @Column(name = "input_data")
     val inputData: String? = null,
 
-    @Column(name = "output_data", columnDefinition = "TEXT")
+    @Lob
+    @Column(name = "output_data")
     val outputData: String? = null,
 
     @Column(length = 50)
     val status: String = "SUCCESS",
 
-    @Column(name = "error_message", columnDefinition = "TEXT")
+    @Lob
+    @Column(name = "error_message")
     val errorMessage: String? = null,
 
     @Column(name = "execution_time_ms")

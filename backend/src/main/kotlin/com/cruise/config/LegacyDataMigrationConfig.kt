@@ -180,15 +180,13 @@ open class LegacyDataMigrationConfig {
     }
 
     private fun tableExists(jdbcTemplate: JdbcTemplate, tableName: String): Boolean =
-        (jdbcTemplate.queryForObject(
-            """
-            select count(*)
-            from information_schema.tables
-            where upper(table_name) = ?
-            """.trimIndent(),
-            Long::class.java,
-            tableName.uppercase()
-        ) ?: 0L) > 0L
+        jdbcTemplate.dataSource?.connection?.use { connection ->
+            connection.metaData.getTables(null, null, null, arrayOf("TABLE")).use { tables ->
+                generateSequence {
+                    if (tables.next()) tables.getString("TABLE_NAME") else null
+                }.any { it.equals(tableName, ignoreCase = true) }
+            }
+        } ?: false
 
     private fun mapRequirementState(status: String?): String = when (status?.uppercase()) {
         "NEW" -> "BACKLOG"

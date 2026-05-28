@@ -1,0 +1,1 @@
+-- No-op: baseline already contains nullable issue priority.

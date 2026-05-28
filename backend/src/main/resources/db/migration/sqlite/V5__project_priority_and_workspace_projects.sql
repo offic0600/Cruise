@@ -1,0 +1,1 @@
+-- No-op: baseline already contains project.priority.

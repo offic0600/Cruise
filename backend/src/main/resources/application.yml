@@ -19,29 +19,16 @@ spring:
       enabled: true
       force: true
 
-  datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:h2:mem:cruise_db;DB_CLOSE_DELAY=-1}
-    username: ${SPRING_DATASOURCE_USERNAME:sa}
-    password: ${SPRING_DATASOURCE_PASSWORD:}
-    driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:org.h2.Driver}
-
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
-
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
-        dialect: ${SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT:org.hibernate.dialect.H2Dialect}
         format_sql: true
 
-  sql:
-    init:
-      mode: always
+  flyway:
+    enabled: true
 
   mail:
     host: ${SPRING_MAIL_HOST:localhost}

@@ -28,7 +28,7 @@ class UserFeedback(
     @Column(nullable = false)
     val rating: Int,
 
-    @Column(columnDefinition = "TEXT")
+    @Lob
     val comment: String? = null,
 
     @Column(name = "feedback_type", length = 50)

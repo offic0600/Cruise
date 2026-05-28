@@ -25,7 +25,8 @@ class AgentSession(
     @Column(name = "current_intent", length = 100)
     val currentIntent: String? = null,
 
-    @Column(name = "context", columnDefinition = "TEXT")
+    @Lob
+    @Column(name = "context")
     val context: String? = null,
 
     @Column(length = 50)
