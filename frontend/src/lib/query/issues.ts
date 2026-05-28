@@ -5,6 +5,14 @@ import type { CustomFieldDefinition, Issue, Project, RestPageResponse } from '@/
 import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import { queryKeys } from './keys';
 
+function normalizeRelationList(value: unknown) {
+  if (Array.isArray(value)) return value;
+  if (value && typeof value === 'object' && Array.isArray((value as { items?: unknown[] }).items)) {
+    return (value as { items: unknown[] }).items;
+  }
+  return [];
+}
+
 export function useIssueWorkspace(filters?: Parameters<typeof getIssues>[0]) {
   const { organizationId, currentTeamId } = useCurrentWorkspace();
   const scopedFilters = {
@@ -80,6 +88,7 @@ export function useIssueDetails(issueId: number | null) {
       queryKey: issueId ? queryKeys.relations(issueId) : ['issues', 'unknown', 'relations'],
       queryFn: () => getIssueRelations(issueId!),
       enabled,
+      select: normalizeRelationList,
     }),
   };
 }
@@ -110,6 +119,7 @@ export function useIssueDetailWorkspace(issueId: number, organizationId: number)
     relationsQuery: useQuery({
       queryKey: queryKeys.relations(issueId),
       queryFn: () => getIssueRelations(issueId),
+      select: normalizeRelationList,
     }),
     attachmentsQuery: useQuery({
       queryKey: queryKeys.attachments(issueId),
