@@ -66,6 +66,7 @@ cruise:
     backend-base-url: ${CRUISE_AUTH_BACKEND_BASE_URL:http://localhost:8080}
     legacy-password-enabled: true
     default-organization-slug: cruise
+    provider-secret-key: ${CRUISE_AUTH_PROVIDER_SECRET_KEY:cruise-provider-secret-key}
     magic-link:
       enabled: true
       token-ttl-minutes: 15
@@ -74,18 +75,22 @@ cruise:
     google:
       enabled: true
       provider-key: google
-      provider-type: GOOGLE_OIDC
+      protocol: OIDC
+      provider-type: OIDC
       display-name: Google
+      issuer-url: https://accounts.google.com
       authorization-url: https://accounts.google.com/o/oauth2/v2/auth
       token-url: https://oauth2.googleapis.com/token
       userinfo-url: https://openidconnect.googleapis.com/v1/userinfo
+      jwks-url: https://www.googleapis.com/oauth2/v3/certs
       scopes: openid profile email
       is-default: false
       # Set client-id and client-secret in deployment env/config before enabling real sign-in.
     enterprise:
       enabled: false
       provider-key: enterprise
-      provider-type: ENTERPRISE_OIDC
+      protocol: OIDC
+      provider-type: OIDC
       display-name: Enterprise SSO
       scopes: openid profile email
       is-default: false

@@ -25,6 +25,12 @@ const tabs = [
     description: 'Mailbox-to-issue routing',
     sections: ['email-intake'],
   },
+  {
+    href: '/teams/current/settings/auth',
+    labelKey: 'settings.team.authProviders',
+    description: 'Enterprise SSO and OIDC providers',
+    sections: ['auth'],
+  },
 ];
 
 const settingsGroups = [
@@ -54,6 +60,7 @@ const settingsGroups = [
       { href: '/teams/current/settings/templates', labelKey: 'settings.team.templates' },
       { href: '/teams/current/settings/recurring', labelKey: 'settings.team.recurring' },
       { href: '/teams/current/settings/email-intake', labelKey: 'settings.team.emailIntake' },
+      { href: '/teams/current/settings/auth', labelKey: 'settings.team.authProviders' },
     ],
   },
 ];

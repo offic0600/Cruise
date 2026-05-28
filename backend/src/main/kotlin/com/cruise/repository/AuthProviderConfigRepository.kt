@@ -7,5 +7,7 @@ import org.springframework.stereotype.Repository
 @Repository
 interface AuthProviderConfigRepository : JpaRepository<AuthProviderConfig, Long> {
     fun findByProviderKey(providerKey: String): AuthProviderConfig?
-    fun findAllByEnabledTrueOrderByIsDefaultDescDisplayNameAsc(): List<AuthProviderConfig>
+    fun findAllByEnabledTrueOrderByDisplayOrderAscIsDefaultDescDisplayNameAsc(): List<AuthProviderConfig>
+    fun findAllByOrganizationIdAndEnabledTrueOrderByDisplayOrderAscIsDefaultDescDisplayNameAsc(organizationId: Long): List<AuthProviderConfig>
+    fun findAllByOrganizationIdIsNullAndEnabledTrueOrderByDisplayOrderAscIsDefaultDescDisplayNameAsc(): List<AuthProviderConfig>
 }

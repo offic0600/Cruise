@@ -863,6 +863,7 @@ const enMessages = {
       templates: "Templates",
       recurring: "Recurring issues",
       emailIntake: "Email intake",
+      authProviders: "Authentication",
       teamMembers: "Team members",
     },
     templates: {

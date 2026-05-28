@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useI18n } from '@/i18n/useI18n';
-import { getAuthProviders, login, sendMagicLink, type AuthProvider } from '@/lib/api';
+import { discoverAuthProvider, getAuthProviders, login, sendMagicLink, type AuthProvider } from '@/lib/api';
 import { storeSession } from '@/lib/auth';
 import { publicPath } from '@/lib/routes';
 
@@ -24,6 +24,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [providers, setProviders] = useState<AuthProvider[]>([]);
   const [legacyPasswordEnabled, setLegacyPasswordEnabled] = useState(true);
+  const [discoveredProvider, setDiscoveredProvider] = useState<AuthProvider | null>(null);
+  const [ssoEnforced, setSsoEnforced] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -43,12 +45,35 @@ export default function LoginPage() {
   }, []);
 
   const oidcProviders = useMemo(
-    () => providers.filter((provider) => provider.providerType === 'GOOGLE_OIDC' || provider.providerType === 'ENTERPRISE_OIDC'),
+    () => providers.filter((provider) => provider.protocol === 'OIDC'),
     [providers]
   );
+  const visibleOidcProviders = useMemo(
+    () => (discoveredProvider ? [discoveredProvider] : oidcProviders),
+    [discoveredProvider, oidcProviders]
+  );
   const activeOidcProviders = useMemo(() => oidcProviders.filter((provider) => provider.configured), [oidcProviders]);
-  const pendingOidcProviders = useMemo(() => oidcProviders.filter((provider) => !provider.configured), [oidcProviders]);
+  const pendingOidcProviders = useMemo(() => visibleOidcProviders.filter((provider) => !provider.configured), [visibleOidcProviders]);
+  const activeVisibleOidcProviders = useMemo(() => visibleOidcProviders.filter((provider) => provider.configured), [visibleOidcProviders]);
   const emailEnabled = providers.some((provider) => provider.providerType === 'EMAIL_MAGIC_LINK');
+  const fallbackAllowed = !ssoEnforced;
+
+  const handleEmailDiscovery = async (candidateEmail: string) => {
+    const trimmed = candidateEmail.trim();
+    if (!trimmed.includes('@')) {
+      setDiscoveredProvider(null);
+      setSsoEnforced(false);
+      return;
+    }
+    try {
+      const response = await discoverAuthProvider(trimmed);
+      setDiscoveredProvider(response.matched ?? null);
+      setSsoEnforced(response.ssoEnforced);
+    } catch {
+      setDiscoveredProvider(null);
+      setSsoEnforced(false);
+    }
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -110,7 +135,7 @@ export default function LoginPage() {
   const showTestAccount = process.env.NODE_ENV !== 'production';
 
   const renderProviderIcon = (provider: AuthProvider) => {
-    if (provider.providerType === 'GOOGLE_OIDC') {
+    if (provider.providerKey === 'google') {
       return (
         <span className="text-lg font-semibold leading-none text-brand-600" aria-hidden="true">
           G
@@ -169,11 +194,38 @@ export default function LoginPage() {
               </div>
 
               <div className="space-y-5">
-            {showMethodButtons && activeOidcProviders.length > 0 && (
+            {showMethodButtons && (
+              <div className="space-y-3">
+                <div className="meta-label">{t('login.heroAccessTitle')}</div>
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setEmail(next);
+                    if (!next.trim()) {
+                      setDiscoveredProvider(null);
+                      setSsoEnforced(false);
+                    }
+                  }}
+                  onBlur={() => void handleEmailDiscovery(email)}
+                  className="border-border-soft bg-white text-ink-900 placeholder:text-ink-400"
+                  placeholder={t('login.emailPlaceholder')}
+                />
+                {discoveredProvider ? (
+                  <div className="rounded-card border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                    {discoveredProvider.displayName}
+                    {ssoEnforced ? ' · SSO required' : ' · SSO available'}
+                  </div>
+                ) : null}
+              </div>
+            )}
+
+            {showMethodButtons && activeVisibleOidcProviders.length > 0 && (
               <div className="space-y-3">
                 <div className="meta-label">{t('login.oauthTitle')}</div>
                 <div className="grid gap-3">
-                  {activeOidcProviders.map((provider) => (
+                  {activeVisibleOidcProviders.map((provider) => (
                     <Button
                       key={provider.providerKey}
                       type="button"
@@ -186,7 +238,7 @@ export default function LoginPage() {
                         {renderProviderIcon(provider)}
                       </div>
                       <div>
-                        <div className="text-sm font-semibold text-ink-900">{provider.displayName === 'Google' ? t('login.google') : provider.displayName}</div>
+                        <div className="text-sm font-semibold text-ink-900">{provider.buttonText || (provider.displayName === 'Google' ? t('login.google') : provider.displayName)}</div>
                         <div className="text-xs text-ink-400">{t('login.oauthDescription')}</div>
                       </div>
                     </Button>
@@ -195,7 +247,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            {showMethodButtons && (
+            {showMethodButtons && fallbackAllowed && (
               <div className="grid gap-3">
                 {emailEnabled && (
                   <Button
@@ -252,7 +304,7 @@ export default function LoginPage() {
                       </div>
                       <div className="min-w-0">
                         <div className="text-sm font-medium text-ink-900">
-                          {provider.displayName === 'Google' ? t('login.google') : provider.displayName}
+                          {provider.buttonText || (provider.displayName === 'Google' ? t('login.google') : provider.displayName)}
                         </div>
                         <div className="mt-0.5 text-xs leading-5 text-ink-400">
                           {t('login.providerConfigRequired')}
@@ -264,7 +316,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            {emailEnabled && activeMethod === 'email' && (
+            {emailEnabled && activeMethod === 'email' && fallbackAllowed && (
               <form onSubmit={handleMagicLink} className="space-y-4 rounded-card border border-border-subtle bg-surface-soft p-5">
                 <div className="flex items-center justify-between gap-3">
                   <div className="text-sm font-medium text-ink-700">{t('login.emailTitle')}</div>

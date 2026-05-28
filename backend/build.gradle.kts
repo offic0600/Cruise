@@ -55,6 +55,7 @@ dependencies {
 
     // JSON
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+    implementation("com.nimbusds:nimbus-jose-jwt:9.37.3")
 
     // HTTP Client (用于调用 Claude API)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

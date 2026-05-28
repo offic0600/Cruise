@@ -15,15 +15,26 @@ class AuthProviderController(
 ) {
 
     @GetMapping("/providers")
-    fun getProviders(): ResponseEntity<AuthProvidersResponse> =
-        ResponseEntity.ok(authProviderService.getEnabledProviders())
+    fun getProviders(
+        @RequestParam(required = false) organizationId: Long?
+    ): ResponseEntity<AuthProvidersResponse> =
+        ResponseEntity.ok(authProviderService.getEnabledProviders(organizationId))
+
+    @PostMapping("/provider-discovery")
+    fun discoverProvider(
+        @RequestBody request: ProviderDiscoveryRequest
+    ): ResponseEntity<ProviderDiscoveryResponse> =
+        ResponseEntity.ok(authProviderService.discoverProvider(request.email, request.organizationId))
 
     @GetMapping("/oauth/{providerKey}/start")
     fun startOauth(
         @PathVariable providerKey: String,
+        @RequestParam(required = false) loginHint: String?,
+        @RequestParam(required = false) organizationId: Long?,
+        @RequestParam(required = false) redirect: String?,
         response: HttpServletResponse
     ) {
-        response.sendRedirect(oidcAuthService.createAuthorizationUrl(providerKey))
+        response.sendRedirect(oidcAuthService.createAuthorizationUrl(providerKey, loginHint, organizationId, redirect))
     }
 
     @GetMapping("/oauth/{providerKey}/callback")
@@ -49,8 +60,12 @@ class AuthProviderController(
     }
 
     @PostMapping("/logout")
-    fun logout(): ResponseEntity<Map<String, String>> =
-        ResponseEntity.ok(mapOf("status" to "logged_out"))
+    fun logout(
+        @RequestParam(required = false) providerKey: String?,
+        @RequestParam(required = false) idTokenHint: String?,
+        @RequestParam(required = false) postLogoutRedirectUri: String?
+    ): ResponseEntity<LogoutResponse> =
+        ResponseEntity.ok(oidcAuthService.buildLogoutResponse(providerKey, idTokenHint, postLogoutRedirectUri))
 
     @GetMapping("/me")
     fun me(): ResponseEntity<AuthUserPayload> {

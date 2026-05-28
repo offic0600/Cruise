@@ -19,6 +19,24 @@ class OauthLoginSession(
     @Column(name = "provider_key", nullable = false, length = 100)
     var providerKey: String = "",
 
+    @Column(name = "code_verifier", length = 255)
+    var codeVerifier: String? = null,
+
+    @Column(name = "redirect_uri", length = 500)
+    var redirectUri: String? = null,
+
+    @Column(name = "organization_hint")
+    var organizationHint: Long? = null,
+
+    @Column(name = "login_hint", length = 255)
+    var loginHint: String? = null,
+
+    @Column(name = "requested_scopes", length = 255)
+    var requestedScopes: String? = null,
+
+    @Column(name = "post_login_redirect", length = 500)
+    var postLoginRedirect: String? = null,
+
     @Column(name = "expires_at", nullable = false)
     var expiresAt: LocalDateTime = LocalDateTime.now(),
 

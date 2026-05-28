@@ -535,6 +535,7 @@ const zhCNMessages = {
       templates: '模板',
       recurring: '周期性事项',
       emailIntake: '邮件接入',
+      authProviders: '认证提供方',
       teamMembers: '团队成员',
     },
     templates: {
