@@ -441,7 +441,10 @@ class OidcJwtVerifier(
             throw IllegalStateException("Invalid token signature")
         }
 
-        return objectMapper.readValue(claims.toJSONObject().toJSONString(), mapTypeReference)
+        return objectMapper.readValue(
+            objectMapper.writeValueAsString(claims.toJSONObject()),
+            mapTypeReference
+        )
     }
 
     private fun loadJwkSet(jwksUri: String): JWKSet {

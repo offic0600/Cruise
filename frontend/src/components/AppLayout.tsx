@@ -191,15 +191,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     };
   }, [currentOrganizationSlug, currentTeamKey, router]);
 
-  if (!user) return null;
-
-  const searchHref = currentOrganizationSlug ? workspaceSectionPath(currentOrganizationSlug, 'search') : publicPath('/login');
-  const settingsHref =
-    currentOrganizationSlug && currentTeamKey
-      ? teamSettingsPath(currentOrganizationSlug, currentTeamKey, 'templates')
-      : publicPath('/create-workspace');
-  const membersHref = currentOrganizationSlug ? workspaceSectionPath(currentOrganizationSlug, 'team-members') : publicPath('/create-workspace');
-  const connectGithubHref = currentOrganizationSlug ? workspaceGithubIntegrationPath(currentOrganizationSlug) : publicPath('/create-workspace');
   const myIssuesTabs = useMemo(
     () => [
       { key: 'assigned', href: currentOrganizationSlug ? workspaceMyIssuesAssignedPath(currentOrganizationSlug) : '#', label: t('myIssues.views.assigned') },
@@ -209,6 +200,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     ],
     [currentOrganizationSlug, t]
   );
+
+  if (!user) return null;
+
+  const searchHref = currentOrganizationSlug ? workspaceSectionPath(currentOrganizationSlug, 'search') : publicPath('/login');
+  const settingsHref =
+    currentOrganizationSlug && currentTeamKey
+      ? teamSettingsPath(currentOrganizationSlug, currentTeamKey, 'templates')
+      : publicPath('/create-workspace');
+  const membersHref = currentOrganizationSlug ? workspaceSectionPath(currentOrganizationSlug, 'team-members') : publicPath('/create-workspace');
+  const connectGithubHref = currentOrganizationSlug ? workspaceGithubIntegrationPath(currentOrganizationSlug) : publicPath('/create-workspace');
   const createWorkspaceHref = publicPath('/create-workspace');
 
   const showNavigationFeedback = (message: string, type: NavigationFeedback['type'] = 'success') => {
