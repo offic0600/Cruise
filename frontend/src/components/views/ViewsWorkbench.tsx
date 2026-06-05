@@ -55,7 +55,6 @@ import {
   useViewsIndex,
 } from '@/lib/query/views';
 import { useIssueMutations, useIssueWorkspace } from '@/lib/query/issues';
-import { createDefaultViewQueryState } from '@/lib/views/queryState';
 import {
   issueDetailPath,
   resourceTypeToViewSegment,
@@ -109,6 +108,21 @@ function resourceGroupingFields(resourceType: ViewResourceType) {
 
 function deepClone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function defaultQueryState(resourceType: ViewResourceType): ViewQueryState {
+  return {
+    filters: { operator: 'AND', children: [] },
+    display: {
+      layout: 'LIST',
+      visibleColumns: resourceColumns(resourceType),
+      density: 'comfortable',
+      showSubIssues: true,
+      showEmptyGroups: true,
+    },
+    grouping: { field: null },
+    sorting: [{ field: 'updatedAt', direction: 'desc', nulls: 'last' }],
+  };
 }
 
 function queryStateEquals(left: ViewQueryState | null | undefined, right: ViewQueryState | null | undefined) {
@@ -195,7 +209,7 @@ export default function ViewsWorkbench({
     includeSystem: true,
   });
   const indexViews = viewsIndexQuery.data ?? [];
-  const [draftQueryState, setDraftQueryState] = useState<ViewQueryState>(() => createDefaultViewQueryState(resourceType));
+  const [draftQueryState, setDraftQueryState] = useState<ViewQueryState>(() => defaultQueryState(resourceType));
   const [draftName, setDraftName] = useState('');
   const [draftDescription, setDraftDescription] = useState('');
   const [draftVisibility, setDraftVisibility] = useState<ViewVisibility>('PERSONAL');
@@ -204,7 +218,7 @@ export default function ViewsWorkbench({
 
   useEffect(() => {
     if (!activeView) return;
-    const nextState = deepClone(activeView.queryState ?? createDefaultViewQueryState(activeView.resourceType));
+    const nextState = deepClone(activeView.queryState ?? defaultQueryState(activeView.resourceType));
     setDraftQueryState(nextState);
     setDraftName(activeView.name);
     setDraftDescription(activeView.description ?? '');
@@ -508,17 +522,17 @@ export default function ViewsWorkbench({
               <h1 className="text-3xl font-semibold text-ink-900">{activeView.name}</h1>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="mt-1 h-8 w-8 rounded-full text-ink-500 hover:bg-slate-100">
+                  <Button variant="ghost" size="icon" className="ds-icon-button-subtle mt-1 h-8 w-8 rounded-full border border-transparent text-ink-500">
                     <Ellipsis className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-56 rounded-[18px] border border-border-subtle bg-white p-1.5 shadow-elevated">
+                <DropdownMenuContent align="start" className="w-56 rounded-[18px] border border-border-subtle bg-elevated p-1.5 shadow-elevated">
                   <DropdownMenuSub>
                     <DropdownMenuSubTrigger className="rounded-xl px-3 py-2.5 text-sm text-ink-700">
                       <UserRoundPen className="mr-2 h-4 w-4 text-ink-500" />
                       {t('views.actions.owner')}
                     </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent className="w-56 rounded-[18px] border border-border-subtle bg-white p-1.5 shadow-elevated">
+                    <DropdownMenuSubContent className="w-56 rounded-[18px] border border-border-subtle bg-elevated p-1.5 shadow-elevated">
                       {ownerOptions.map((option) => (
                         <DropdownMenuItem
                           key={option.id}
@@ -536,7 +550,7 @@ export default function ViewsWorkbench({
                       <MoveRight className="mr-2 h-4 w-4 text-ink-500" />
                       {t('views.actions.moveTo')}
                     </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent className="w-56 rounded-[18px] border border-border-subtle bg-white p-1.5 shadow-elevated">
+                    <DropdownMenuSubContent className="w-56 rounded-[18px] border border-border-subtle bg-elevated p-1.5 shadow-elevated">
                       <DropdownMenuItem className="rounded-xl px-3 py-2.5 text-sm text-ink-700" onClick={() => handleMoveView('WORKSPACE', null, 'PERSONAL')}>
                         <span>{t('views.visibility.personal')}</span>
                         {activeView.scopeType === 'WORKSPACE' && activeView.visibility === 'PERSONAL' ? <Check className="ml-auto h-4 w-4 text-brand-600" /> : null}
@@ -558,7 +572,7 @@ export default function ViewsWorkbench({
                       <Bell className="mr-2 h-4 w-4 text-ink-500" />
                       {t('views.actions.subscribe')}
                     </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent className="w-72 rounded-[18px] border border-border-subtle bg-white p-1.5 shadow-elevated">
+                    <DropdownMenuSubContent className="w-72 rounded-[18px] border border-border-subtle bg-elevated p-1.5 shadow-elevated">
                       <DropdownMenuCheckboxItem
                         checked={activeSubscriptions.get('ISSUE_ADDED')?.active ?? false}
                         onCheckedChange={() => handleToggleSubscription('ISSUE_ADDED')}
@@ -719,7 +733,7 @@ export default function ViewsWorkbench({
                 </TabsList>
               </Tabs>
             )}
-            <div className="flex items-center gap-2 rounded-card border border-border-soft bg-white px-3 py-2 text-sm text-ink-700">
+            <div className="ds-surface-card flex items-center gap-2 rounded-card px-3 py-2 text-sm text-ink-700">
               <span>{t('views.actions.saveTo')}</span>
               <Select value={draftVisibility} onValueChange={(value) => setDraftVisibility(value as ViewVisibility)}>
                 <SelectTrigger className="h-8 min-w-[132px] border-0 bg-transparent px-0 shadow-none focus:ring-0">
@@ -1040,7 +1054,7 @@ function ViewSection({
             key={view.id}
             href={currentOrganizationSlug ? viewHref(currentOrganizationSlug, view) : '#'}
             className={`flex items-center justify-between rounded-xl px-3 py-2 text-sm transition ${
-              activeId === view.id ? 'bg-ink-900 text-white' : 'text-ink-700 hover:bg-slate-100'
+              activeId === view.id ? 'bg-[color:var(--bg-inverse)] text-[color:var(--fg-inverse)]' : 'text-ink-700 hover:bg-[color:var(--interactive-hover)]'
             }`}
           >
             <span>{view.name}</span>

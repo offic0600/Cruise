@@ -164,7 +164,7 @@ export default function SkillsPage() {
                     <button
                       key={skill.id}
                       onClick={() => setSelectedSkill(skill)}
-                      className={`w-full rounded-card border p-4 text-left transition ${selectedSkill?.id === skill.id ? 'border-brand-600 bg-brand-600/5' : 'border-border-soft bg-white hover:bg-slate-50'}`}
+                      className={`w-full rounded-card border p-4 text-left transition ${selectedSkill?.id === skill.id ? 'border-brand-600 bg-brand-600/5 dark:bg-brand-500/12' : 'border-border-soft bg-[color:var(--interactive-default)] hover:bg-[color:var(--interactive-hover)]'}`}
                     >
                       <div className="font-medium text-ink-900">{skill.name}</div>
                       <div className="mt-1 text-sm text-ink-700">{skill.description}</div>

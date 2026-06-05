@@ -26,26 +26,26 @@ export function issueStateOrder(value: string) {
 }
 
 export function issueStateIcon(state: Issue['state']) {
-  if (state === 'BACKLOG') return <CircleDashed className="h-4 w-4 text-slate-400" />;
-  if (state === 'TODO') return <Circle className="h-4 w-4 text-slate-500" />;
+  if (state === 'BACKLOG') return <CircleDashed className="h-4 w-4 text-ink-400" />;
+  if (state === 'TODO') return <Circle className="h-4 w-4 text-ink-500" />;
   if (state === 'IN_PROGRESS') return <LoaderCircle className="h-4 w-4 text-amber-500" />;
   if (state === 'IN_REVIEW') return <CircleEllipsis className="h-4 w-4 text-sky-500" />;
   if (state === 'DONE') return <CheckCircle2 className="h-4 w-4 text-indigo-500" />;
-  return <Ban className="h-4 w-4 text-slate-400" />;
+  return <Ban className="h-4 w-4 text-ink-400" />;
 }
 
 export function issueStatusMenuIcon(value: IssueStatusMenuValue) {
-  if (value === 'BACKLOG') return <CircleDashed className="h-4 w-4 text-slate-400" />;
-  if (value === 'TODO') return <Circle className="h-4 w-4 text-slate-400" />;
+  if (value === 'BACKLOG') return <CircleDashed className="h-4 w-4 text-ink-400" />;
+  if (value === 'TODO') return <Circle className="h-4 w-4 text-ink-400" />;
   if (value === 'IN_PROGRESS') return <LoaderCircle className="h-4 w-4 text-amber-500" />;
   if (value === 'IN_REVIEW') return <CircleEllipsis className="h-4 w-4 text-sky-500" />;
   if (value === 'DONE') return <CheckCircle2 className="h-4 w-4 text-indigo-500" />;
-  return <Ban className="h-4 w-4 text-slate-400" />;
+  return <Ban className="h-4 w-4 text-ink-400" />;
 }
 
 export function issuePriorityIcon(priority: Issue['priority']) {
   if (priority == null) return <span className="text-[12px] text-ink-300">---</span>;
-  if (priority === 'LOW') return <Minus className="h-4 w-4 text-slate-400" />;
+  if (priority === 'LOW') return <Minus className="h-4 w-4 text-ink-400" />;
   if (priority === 'MEDIUM') return <Equal className="h-4 w-4 text-sky-500" />;
   if (priority === 'HIGH') return <ChevronDown className="h-4 w-4 rotate-180 text-orange-500" />;
   return <Flame className="h-4 w-4 text-rose-500" />;

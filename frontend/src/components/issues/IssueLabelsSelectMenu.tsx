@@ -55,7 +55,7 @@ export function IssueLabelsSelectMenu({
           placeholder={t('settings.composer.searchLabels')}
           className="h-auto border-0 bg-transparent px-0 py-0 text-[16px] shadow-none focus-visible:ring-0"
         />
-        <span className="rounded-lg border border-border-soft px-2 py-1 text-xs font-medium text-ink-400">L</span>
+        <span className="ds-keycap rounded-lg px-2 py-1 text-xs font-medium">L</span>
       </div>
 
       <div className="max-h-80 overflow-y-auto py-2">
@@ -65,7 +65,7 @@ export function IssueLabelsSelectMenu({
               <button
                 type="button"
                 onClick={() => void handleCreate('TEAM')}
-                className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50"
+                className="ds-list-row flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px]"
                 disabled={creating != null}
               >
                 <span className="text-xl leading-none text-ink-500">+</span>
@@ -75,7 +75,7 @@ export function IssueLabelsSelectMenu({
             <button
               type="button"
               onClick={() => void handleCreate('WORKSPACE')}
-              className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50"
+              className="ds-list-row flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px]"
               disabled={creating != null}
             >
               <span className="text-xl leading-none text-ink-500">+</span>
@@ -142,10 +142,10 @@ function IssueLabelOption({
     <button
       type="button"
       onClick={() => onToggle(tag.id)}
-      className={`flex w-full items-center gap-4 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50 ${selected ? 'bg-slate-100' : ''}`}
+      className={`ds-list-row flex w-full items-center gap-4 rounded-2xl px-4 py-3 text-left text-[15px] ${selected ? 'bg-[color:var(--interactive-hover)] text-ink-900' : ''}`}
     >
       <span
-        className={`flex h-6 w-6 items-center justify-center rounded-md border ${selected ? 'border-brand-500 bg-brand-50 text-brand-600' : 'border-border-soft bg-white text-transparent'}`}
+        className={`flex h-6 w-6 items-center justify-center rounded-md border ${selected ? 'border-brand-500 bg-brand-50 text-brand-600' : 'border-border-soft bg-[color:var(--interactive-default)] text-transparent'}`}
       >
         <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 fill-current" aria-hidden="true">
           <path d="M6.4 11.2 3.6 8.4l-.8.8 3.6 3.6 6.8-6.8-.8-.8z" />

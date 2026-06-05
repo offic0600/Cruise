@@ -3,24 +3,34 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-full border text-sm font-medium transition-[background-color,color,border-color,box-shadow,transform] duration-150 ease-out focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        default: "bg-brand-gradient text-white shadow-brand hover:brightness-105",
-        secondary: "border border-border-soft bg-white text-ink-700 hover:bg-slate-50",
-        ghost: "text-ink-700 hover:bg-slate-100",
+        primary: "border-transparent bg-brand-gradient text-white shadow-brand hover:brightness-[1.03] active:translate-y-[1px]",
+        secondary: "border-border-soft bg-[color:var(--interactive-default)] text-ink-700 hover:bg-[color:var(--interactive-hover)]",
+        tertiary: "border-transparent bg-surface-soft text-ink-700 hover:bg-[color:var(--interactive-pressed)]",
+        ghost: "border-transparent bg-transparent text-ink-700 hover:bg-[color:var(--interactive-hover)]",
+        danger: "border-transparent bg-rose-600 text-white shadow-sm hover:bg-rose-700 active:translate-y-[1px]",
+        link: "border-transparent bg-transparent px-0 text-[color:var(--fg-brand)] hover:text-[color:var(--color-brand-500)]",
+        default: "border-transparent bg-brand-gradient text-white shadow-brand hover:brightness-[1.03] active:translate-y-[1px]",
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-lg px-3",
-        lg: "h-11 px-5",
-        icon: "h-10 w-10 rounded-card",
+        xs: "h-[var(--button-height-xs)] px-2.5 text-xs",
+        sm: "h-[var(--button-height-sm)] px-3 text-[13px]",
+        default: "h-[var(--button-height-md)] px-4",
+        md: "h-[var(--button-height-md)] px-4",
+        lg: "h-[var(--button-height-lg)] px-4.5 text-[15px]",
+        xl: "h-[var(--button-height-xl)] px-5 text-[15px]",
+        icon: "h-[var(--button-height-md)] w-[var(--button-height-md)]",
+        "icon-sm": "h-[var(--button-height-sm)] w-[var(--button-height-sm)]",
+        "icon-md": "h-[var(--button-height-md)] w-[var(--button-height-md)]",
+        "icon-lg": "h-[var(--button-height-lg)] w-[var(--button-height-lg)]",
       },
     },
     defaultVariants: {
-      variant: "default",
-      size: "default",
+      variant: "primary",
+      size: "md",
     },
   }
 );

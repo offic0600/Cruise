@@ -158,7 +158,7 @@ export default function SharedIssuesList({
           <section key={group.key} className={renderAsPreview ? 'space-y-2' : 'border-b border-border-soft last:border-b-0'}>
             {showGroupHeader ? (
               renderAsPreview ? (
-                <div className="flex items-center justify-between rounded-[16px] bg-slate-50 px-5 py-3">
+                <div className="ds-group-surface flex items-center justify-between rounded-[16px] px-5 py-3">
                   <div className="flex items-center gap-3">
                     {group.icon}
                     <div className="text-[15px] font-medium text-ink-800">
@@ -173,7 +173,7 @@ export default function SharedIssuesList({
                   type="button"
                   onClick={() => onToggleGroup?.(group.key)}
                   aria-expanded={!isCollapsed}
-                  className="flex w-full items-center px-3 py-2.5 text-left transition hover:bg-slate-50/40"
+                  className="ds-list-row flex w-full items-center px-3 py-2.5 text-left transition"
                 >
                   <div className="flex items-center gap-2 text-sm font-medium text-ink-900">
                     {isCollapsed ? (
@@ -280,13 +280,13 @@ function PreviewIssueRow({
   return (
     <div
       className={[
-        'group grid items-center gap-2.5 rounded-[12px] px-4 py-2.5 transition hover:bg-slate-50',
+        'ds-list-row group grid items-center gap-2.5 rounded-[12px] px-4 py-2.5 transition',
         showDivider && !isLast ? 'border-b border-border-soft' : '',
         'grid-cols-[16px_auto_auto_auto_minmax(0,1fr)_auto]'
       ].join(' ')}
     >
       <div className="flex justify-center">
-        <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border border-border-soft bg-white opacity-0 transition group-hover:opacity-100">
+        <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border border-border-soft bg-[color:var(--interactive-default)] opacity-0 transition group-hover:opacity-100">
           <Check className="h-3 w-3 text-ink-300" />
         </span>
       </div>
@@ -297,11 +297,11 @@ function PreviewIssueRow({
           onOpenChange={(open) => (open ? onOpenIssueMenu(issue.id, 'priority') : onSetActiveIssueMenu(null))}
         >
           <PopoverTrigger asChild>
-            <button type="button" className="flex h-6 w-6 items-center justify-center rounded-md text-ink-500 transition hover:bg-slate-100">
+            <button type="button" className="flex h-6 w-6 items-center justify-center rounded-md text-ink-500 transition hover:bg-[color:var(--interactive-hover)]">
               {issuePriorityIcon(issue.priority)}
             </button>
           </PopoverTrigger>
-          <PopoverContent align="start" sideOffset={10} className="w-[260px] overflow-hidden rounded-[18px] border border-border-subtle bg-white p-0 shadow-elevated">
+          <PopoverContent align="start" sideOffset={10} className="w-[260px] overflow-hidden rounded-[18px] p-0 shadow-elevated">
             <IssuePrioritySelectMenu
               value={issue.priority}
               query={issueMenuSearch}
@@ -330,11 +330,11 @@ function PreviewIssueRow({
           onOpenChange={(open) => (open ? onOpenIssueMenu(issue.id, 'status') : onSetActiveIssueMenu(null))}
         >
           <PopoverTrigger asChild>
-            <button type="button" className="flex h-6 w-6 items-center justify-center rounded-md text-ink-500 transition hover:bg-slate-100">
+            <button type="button" className="flex h-6 w-6 items-center justify-center rounded-md text-ink-500 transition hover:bg-[color:var(--interactive-hover)]">
               {issueStatusMenuIcon(issueStatusMenuValue(issue))}
             </button>
           </PopoverTrigger>
-          <PopoverContent align="start" sideOffset={10} className="w-[260px] overflow-hidden rounded-[18px] border border-border-subtle bg-white p-0 shadow-elevated">
+          <PopoverContent align="start" sideOffset={10} className="w-[260px] overflow-hidden rounded-[18px] p-0 shadow-elevated">
             <IssueStatusSelectMenu
               value={issueStatusMenuValue(issue)}
               query={issueMenuSearch}
@@ -362,7 +362,7 @@ function PreviewIssueRow({
           ? visibleLabels.map((label) => (
               <span
                 key={label.id}
-                className="inline-flex items-center gap-1 rounded-full border border-border-soft bg-white px-2 py-0.5 text-[12px] text-ink-500"
+                className="ds-token-chip inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px]"
               >
                 <span className="inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: label.color || '#94a3b8' }} />
                 <span className="truncate max-w-[72px]">{label.name}</span>
@@ -373,7 +373,7 @@ function PreviewIssueRow({
           <span className="text-[12px] text-ink-400">+{remainingLabelCount}</span>
         ) : null}
         {showProject && issue.projectId != null ? (
-          <span className="inline-flex items-center gap-1 rounded-full border border-border-soft bg-white px-2 py-0.5 text-[12px] text-ink-500">
+          <span className="ds-token-chip inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px]">
             <FolderKanban className="h-3.5 w-3.5 text-ink-400" />
             <span className="truncate max-w-[88px]">{projectNameById.get(String(issue.projectId)) ?? t('views.display.noProject')}</span>
           </span>
@@ -393,7 +393,7 @@ function PreviewIssueRow({
             <PopoverTrigger asChild>
               <button type="button">
                 {issue.assigneeId ? (
-                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-coral-300 text-[9px] font-semibold text-white">
+                  <span className="ds-accent-avatar inline-flex h-6 w-6 items-center justify-center rounded-full text-[9px] font-semibold text-white">
                     {getIssueInitials(assigneeName ?? 'NA')}
                   </span>
                 ) : (
@@ -403,7 +403,7 @@ function PreviewIssueRow({
                 )}
               </button>
             </PopoverTrigger>
-            <PopoverContent align="start" sideOffset={10} className="w-[260px] overflow-hidden rounded-[18px] border border-border-subtle bg-white p-0 shadow-elevated">
+            <PopoverContent align="start" sideOffset={10} className="w-[260px] overflow-hidden rounded-[18px] p-0 shadow-elevated">
               <IssueAssigneeSelectMenu
                 value={issue.assigneeId}
                 members={members}

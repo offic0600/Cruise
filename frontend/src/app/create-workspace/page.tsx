@@ -318,10 +318,10 @@ export default function CreateWorkspacePage() {
           <h1 className="text-5xl font-semibold tracking-tight text-ink-900">{t('createWorkspace.title')}</h1>
           <p className="mx-auto mt-5 max-w-2xl text-xl leading-9 text-ink-600">{t('createWorkspace.subtitle')}</p>
 
-          <div className="mx-auto mt-8 flex w-fit rounded-full border border-white/70 bg-white/80 p-1 shadow-sm backdrop-blur">
+          <div className="ds-segmented-control mx-auto mt-8 flex w-fit rounded-full p-1 shadow-sm backdrop-blur">
             <button
               type="button"
-              className={`rounded-full px-5 py-2 text-sm font-medium transition ${mode === 'create' ? 'bg-ink-900 text-white' : 'text-ink-600 hover:text-ink-900'}`}
+              className={`ds-segmented-control-item rounded-full px-5 py-2 text-sm font-medium transition ${mode === 'create' ? 'bg-[color:var(--bg-inverse)] text-[color:var(--fg-inverse)]' : 'text-ink-600 hover:text-ink-900'}`}
               onClick={() => {
                 setMode('create');
                 setServerError('');
@@ -332,7 +332,7 @@ export default function CreateWorkspacePage() {
             </button>
             <button
               type="button"
-              className={`rounded-full px-5 py-2 text-sm font-medium transition ${mode === 'join' ? 'bg-ink-900 text-white' : 'text-ink-600 hover:text-ink-900'}`}
+              className={`ds-segmented-control-item rounded-full px-5 py-2 text-sm font-medium transition ${mode === 'join' ? 'bg-[color:var(--bg-inverse)] text-[color:var(--fg-inverse)]' : 'text-ink-600 hover:text-ink-900'}`}
               onClick={() => {
                 setMode('join');
                 setServerError('');
@@ -343,7 +343,7 @@ export default function CreateWorkspacePage() {
             </button>
           </div>
 
-          <Card className="mx-auto mt-12 max-w-[36rem] rounded-[1.8rem] border-white/80 bg-white/90 shadow-[0_24px_70px_rgba(15,23,42,0.10)] backdrop-blur">
+          <Card className="mx-auto mt-12 max-w-[36rem] rounded-[1.8rem] border-border-subtle bg-[color:color-mix(in_srgb,var(--bg-surface)_94%,transparent)] shadow-[0_24px_70px_rgba(15,23,42,0.10)] backdrop-blur">
             <CardContent className="space-y-7 p-8 pt-8 text-left">
               {mode === 'create' ? (
                 <>
@@ -361,7 +361,7 @@ export default function CreateWorkspacePage() {
 
                   <div className="space-y-3">
                     <label className="text-lg font-medium text-ink-900">{t('createWorkspace.fields.slug')}</label>
-                    <div className="flex h-14 items-center rounded-[1rem] border border-border-soft bg-slate-50 px-4 text-lg text-ink-900">
+                    <div className="ds-surface-subtle flex h-14 items-center rounded-[1rem] px-4 text-lg text-ink-900">
                       <span className="mr-2 text-ink-500">cruise.app/</span>
                       <input
                         value={slug}
@@ -390,7 +390,7 @@ export default function CreateWorkspacePage() {
                       <div className="flex items-center gap-3">
                         <span className="text-lg text-ink-600">{t('createWorkspace.hostedIn')}</span>
                         <Select value={region} onValueChange={(value) => setRegion(value as (typeof regions)[number])}>
-                          <SelectTrigger className="h-11 w-48 rounded-full border-border-soft bg-white">
+                          <SelectTrigger className="h-11 w-48 rounded-full border-border-soft bg-[color:var(--interactive-default)]">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -405,7 +405,7 @@ export default function CreateWorkspacePage() {
                     </div>
                     <button
                       type="button"
-                      className="flex h-11 w-11 items-center justify-center rounded-full border border-border-soft bg-white text-ink-500"
+                      className="ds-inline-pill-button flex h-11 w-11 items-center justify-center rounded-full text-ink-500"
                       aria-label={t('createWorkspace.help')}
                     >
                       <HelpCircle className="h-5 w-5" />

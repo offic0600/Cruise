@@ -1,1 +1,1 @@
-export { default } from '@/components/issues/ActiveIssuesWorkbenchPage';
+export { default } from '@/app/issues/page';

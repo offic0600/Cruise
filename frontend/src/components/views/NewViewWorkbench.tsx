@@ -55,7 +55,6 @@ import type {
 import { workspaceNewViewPath, workspaceProjectViewPath, workspaceViewPath, workspaceViewsPath } from '@/lib/routes';
 import { queryKeys } from '@/lib/query/keys';
 import { useCreateView, useViewPreviewResults } from '@/lib/query/views';
-import { createDefaultViewQueryState } from '@/lib/views/queryState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -158,6 +157,23 @@ const FILTER_MENU_ENTRIES: FilterMenuEntry[] = [
   { type: 'submenu', id: 'template', label: 'views.new.filters.entries.template', icon: FileText, keywords: ['template'] },
 ];
 
+function defaultQueryState(resourceType: ViewResourceType): ViewQueryState {
+  return {
+    filters: { operator: 'AND', children: [] },
+    display: {
+      layout: 'LIST',
+      visibleColumns: resourceType === 'ISSUE'
+        ? [...ISSUE_DISPLAY_PROPERTY_OPTIONS]
+        : ['key', 'name', 'status', 'ownerId', 'teamId', 'updatedAt'],
+      density: 'comfortable',
+      showSubIssues: true,
+      showEmptyGroups: true,
+    },
+    grouping: { field: resourceType === 'ISSUE' ? 'state' : 'status' },
+    sorting: [{ field: 'updatedAt', direction: 'desc', nulls: 'last' }],
+  };
+}
+
 function displayPropertyLabelKey(value: string) {
   const map: Record<string, string> = {
     identifier: 'views.display.properties.identifier',
@@ -238,8 +254,8 @@ function formatFieldLabel(field: string) {
 }
 
 function issueStateIcon(state: Issue['state']) {
-  if (state === 'BACKLOG') return <CircleDashed className="h-4 w-4 text-slate-400" />;
-  if (state === 'TODO') return <Circle className="h-4 w-4 text-slate-400" />;
+  if (state === 'BACKLOG') return <CircleDashed className="h-4 w-4 text-ink-400" />;
+  if (state === 'TODO') return <Circle className="h-4 w-4 text-ink-400" />;
   if (state === 'IN_PROGRESS') return <LoaderCircle className="h-4 w-4 text-sky-500" />;
   if (state === 'IN_REVIEW') return <CircleEllipsis className="h-4 w-4 text-amber-500" />;
   if (state === 'DONE') return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
@@ -248,7 +264,7 @@ function issueStateIcon(state: Issue['state']) {
 
 function issuePriorityIcon(priority: Issue['priority']) {
   if (priority == null) return <span className="text-[12px] text-ink-300">---</span>;
-  if (priority === 'LOW') return <Minus className="h-4 w-4 text-slate-400" />;
+  if (priority === 'LOW') return <Minus className="h-4 w-4 text-ink-400" />;
   if (priority === 'MEDIUM') return <Equal className="h-4 w-4 text-sky-500" />;
   if (priority === 'HIGH') return <ChevronDown className="h-4 w-4 rotate-180 text-orange-500" />;
   return <Flame className="h-4 w-4 text-rose-500" />;
@@ -323,15 +339,15 @@ function DisplayToggleRow({
         className={[
           'relative inline-flex h-6 w-10 shrink-0 rounded-full transition',
           disabled
-            ? 'cursor-not-allowed bg-slate-100'
+            ? 'cursor-not-allowed bg-[color:var(--interactive-disabled)]'
             : checked
               ? 'bg-indigo-500'
-              : 'bg-slate-200',
+              : 'bg-[color:var(--border-strong)]',
         ].join(' ')}
       >
         <span
           className={[
-            'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition',
+            'absolute top-0.5 h-5 w-5 rounded-full bg-[color:var(--interactive-default)] shadow-sm transition',
             checked ? 'left-[18px]' : 'left-0.5',
           ].join(' ')}
         />
@@ -342,10 +358,8 @@ function DisplayToggleRow({
 
 export default function NewViewWorkbench({
   resourceType,
-  initialSaveTarget = 'PERSONAL',
 }: {
   resourceType: ViewResourceType;
-  initialSaveTarget?: SaveTarget;
 }) {
   const router = useRouter();
   const { locale, t } = useI18n();
@@ -359,10 +373,10 @@ export default function NewViewWorkbench({
     isLoading: workspaceLoading,
   } = useCurrentWorkspace();
   const createViewMutation = useCreateView();
-  const [saveTarget, setSaveTarget] = useState<SaveTarget>(initialSaveTarget);
+  const [saveTarget, setSaveTarget] = useState<SaveTarget>('PERSONAL');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [queryState, setQueryState] = useState<ViewQueryState>(() => createDefaultViewQueryState(resourceType));
+  const [queryState, setQueryState] = useState<ViewQueryState>(() => defaultQueryState(resourceType));
   const [conditions, setConditions] = useState<ConditionDraft[]>([]);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [filterSearch, setFilterSearch] = useState('');
@@ -646,7 +660,7 @@ export default function NewViewWorkbench({
           label: member.name,
           onSelect: () => toggleCondition('assigneeId', 'is', String(member.id)),
           icon: (
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-[10px] font-semibold text-ink-700">
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[color:var(--interactive-disabled)] text-[10px] font-semibold text-ink-700">
               {getInitials(member.name)}
             </span>
           ),
@@ -772,10 +786,10 @@ export default function NewViewWorkbench({
           <span className="text-ink-700">{name.trim() || defaultName}</span>
         </div>
 
-        <div className="overflow-hidden rounded-[28px] border border-border-subtle bg-white shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
+        <div className="ds-surface-card overflow-hidden rounded-[28px] shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
           <div className="flex items-start justify-between gap-6 px-5 py-5">
             <div className="flex min-w-0 flex-1 items-start gap-4">
-              <div className="mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-ink-400">
+              <div className="ds-surface-subtle mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-ink-400">
                 <Layers3 className="h-4.5 w-4.5" />
               </div>
               <div className="min-w-0 flex-1 space-y-2">
@@ -827,11 +841,11 @@ export default function NewViewWorkbench({
                   value={resourceType}
                   onValueChange={(value) => currentOrganizationSlug && router.push(workspaceNewViewPath(currentOrganizationSlug, value === 'PROJECT' ? 'projects' : 'issues'))}
                 >
-                  <TabsList className="rounded-full border border-border-soft bg-white p-0.5 shadow-none">
-                    <TabsTrigger value="ISSUE" className="rounded-full px-4 data-[state=active]:bg-slate-50">
+                  <TabsList className="ds-segmented-control rounded-full p-0.5 shadow-none">
+                    <TabsTrigger value="ISSUE" className="ds-segmented-control-item rounded-full px-4">
                       {t('views.resources.issues')}
                     </TabsTrigger>
-                    <TabsTrigger value="PROJECT" className="rounded-full px-4 data-[state=active]:bg-slate-50">
+                    <TabsTrigger value="PROJECT" className="ds-segmented-control-item rounded-full px-4">
                       {t('views.resources.projects')}
                     </TabsTrigger>
                   </TabsList>
@@ -849,13 +863,13 @@ export default function NewViewWorkbench({
                   }}
                 >
                   <PopoverTrigger asChild>
-                    <Button variant="ghost" size="icon" className="rounded-full border border-border-soft bg-white">
+                    <Button variant="ghost" size="icon" className="ds-inline-pill-button rounded-full">
                       <SlidersHorizontal className="h-4 w-4" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent align="start" sideOffset={10} className="relative w-[238px] overflow-visible rounded-[18px] border border-border-subtle bg-white p-0 shadow-elevated">
+                  <PopoverContent align="start" sideOffset={10} className="relative w-[238px] overflow-visible rounded-[18px] border border-border-subtle bg-surface-elevated p-0 shadow-elevated">
                     <div className="border-b border-border-soft px-3 py-2.5">
-                      <div className="flex items-center gap-3 rounded-xl bg-white px-2.5 py-2 ring-1 ring-border-soft">
+                      <div className="ds-surface-card flex items-center gap-3 rounded-xl px-2.5 py-2">
                         <input
                           value={filterSearch}
                           onChange={(event) => setFilterSearch(event.target.value)}
@@ -890,8 +904,8 @@ export default function NewViewWorkbench({
                                 showPlaceholderToast(t(entry.label));
                               }}
                               className={[
-                                'flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-ink-700 transition hover:bg-slate-100',
-                                isActive ? 'bg-slate-100' : '',
+                                'ds-list-row flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-ink-700',
+                                isActive ? 'bg-[color:var(--interactive-selected)]' : '',
                               ].join(' ')}
                             >
                               <Icon className="h-4 w-4 shrink-0 text-ink-500" />
@@ -903,16 +917,16 @@ export default function NewViewWorkbench({
                       </div>
 
                       {activeSubmenu ? (
-                        <div className="absolute left-[calc(100%+10px)] top-0 z-10 w-[238px] overflow-hidden rounded-[18px] border border-border-subtle bg-white shadow-elevated">
+                        <div className="absolute left-[calc(100%+10px)] top-0 z-10 w-[238px] overflow-hidden rounded-[18px] border border-border-subtle bg-surface-elevated shadow-elevated">
                           <div className="border-b border-border-soft px-3 py-2.5">
-                            <div className="flex items-center gap-2 rounded-xl bg-white px-2.5 py-2 ring-1 ring-border-soft">
+                            <div className="ds-surface-card flex items-center gap-2 rounded-xl px-2.5 py-2">
                               <button
                                 type="button"
                                 onClick={() => {
                                   setSubmenuSearch('');
                                   setActiveSubmenu(null);
                                 }}
-                                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-ink-400 transition hover:bg-slate-100 hover:text-ink-700"
+                                className="ds-icon-button-subtle inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-transparent text-ink-400"
                               >
                                 <ChevronLeft className="h-4 w-4" />
                               </button>
@@ -931,15 +945,15 @@ export default function NewViewWorkbench({
                                 key={option.key}
                                 type="button"
                                 onClick={option.onSelect}
-                                className="group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-ink-700 transition hover:bg-slate-100"
+                                className="ds-list-row group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-ink-700"
                               >
                                 {activeSubmenuField ? (
                                   <span
                                     className={[
                                       'inline-flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-[5px] border transition',
                                       hasCondition(activeSubmenuField, option.key)
-                                        ? 'border-ink-700 bg-ink-700 text-white'
-                                        : 'border-border-soft bg-white text-transparent group-hover:text-ink-300',
+                                        ? 'border-[color:var(--bg-inverse)] bg-[color:var(--bg-inverse)] text-[color:var(--fg-inverse)]'
+                                        : 'border-border-soft bg-[color:var(--interactive-default)] text-transparent group-hover:text-ink-300',
                                     ].join(' ')}
                                   >
                                     <Check className="h-3 w-3" />
@@ -964,16 +978,17 @@ export default function NewViewWorkbench({
 
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="ghost" size="icon" className="rounded-full border border-border-soft bg-white">
+                  <Button variant="ghost" size="icon" className="ds-inline-pill-button rounded-full">
                     <SlidersHorizontal className="h-4 w-4" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent align="end" sideOffset={10} className="w-[354px] overflow-hidden rounded-[22px] border border-border-subtle bg-white p-0 shadow-elevated">
+                <PopoverContent align="end" sideOffset={10} className="w-[354px] overflow-hidden rounded-[22px] border border-border-subtle bg-surface-elevated p-0 shadow-elevated">
                   <div className="max-h-[72vh] overflow-y-auto px-5 py-5">
-                    <div className="flex items-center gap-2 rounded-full border border-border-soft bg-slate-50 p-1">
+                    <div className="ds-segmented-control flex items-center gap-2 rounded-full p-1">
                       <button
                         type="button"
-                        className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-full bg-white text-[15px] font-medium text-ink-900 shadow-sm"
+                        className="ds-segmented-control-item inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-full text-[15px] font-medium text-ink-900"
+                        data-active="true"
                       >
                         <List className="h-4 w-4" />
                         <span>{t('views.display.list')}</span>
@@ -994,7 +1009,7 @@ export default function NewViewWorkbench({
                         valueLabel={t(groupingLabelKey(queryState.grouping.field))}
                       >
                         <Select value={queryState.grouping.field ?? '__none__'} onValueChange={setGroupingField}>
-                          <SelectTrigger className="h-10 min-w-[150px] rounded-full border-border-soft bg-white shadow-none">
+                          <SelectTrigger className="h-10 min-w-[150px] rounded-full border-border-soft bg-[color:var(--interactive-default)] shadow-none">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1026,7 +1041,7 @@ export default function NewViewWorkbench({
                         valueLabel={t(orderingLabelKey(queryState.sorting[0]?.field ?? 'updatedAt'))}
                       >
                         <Select value={queryState.sorting[0]?.field ?? 'updatedAt'} onValueChange={setOrderingField}>
-                          <SelectTrigger className="h-10 min-w-[150px] rounded-full border-border-soft bg-white shadow-none">
+                          <SelectTrigger className="h-10 min-w-[150px] rounded-full border-border-soft bg-[color:var(--interactive-default)] shadow-none">
                             <div className="flex items-center gap-2">
                               <ArrowDownWideNarrow className="h-4 w-4 text-ink-500" />
                               <SelectValue />
@@ -1097,8 +1112,8 @@ export default function NewViewWorkbench({
                                 className={[
                                   'inline-flex h-9 items-center rounded-full border px-3 text-[14px] transition',
                                   checked
-                                    ? 'border-ink-900 bg-ink-900 text-white'
-                                    : 'border-border-soft bg-white text-ink-700 hover:bg-slate-50',
+                                    ? 'border-[color:var(--bg-inverse)] bg-[color:var(--bg-inverse)] text-[color:var(--fg-inverse)]'
+                                    : 'ds-inline-pill-button text-ink-700',
                                 ].join(' ')}
                               >
                                 {t(displayPropertyLabelKey(column))}
@@ -1110,7 +1125,7 @@ export default function NewViewWorkbench({
                               key={column}
                               type="button"
                               disabled
-                              className="inline-flex h-9 items-center rounded-full border border-border-soft bg-slate-50 px-3 text-[14px] text-ink-400"
+                              className="inline-flex h-9 items-center rounded-full border border-border-soft bg-[color:var(--interactive-disabled)] px-3 text-[14px] text-ink-400"
                             >
                               {t(displayPropertyLabelKey(column))}
                             </button>
@@ -1132,7 +1147,7 @@ export default function NewViewWorkbench({
                 key={item.key}
                 type="button"
                 onClick={() => removeConditionValue(item.field, item.value)}
-                className="inline-flex items-center gap-2 rounded-full border border-border-soft bg-white px-3 py-1.5 text-sm text-ink-700 transition hover:bg-slate-50"
+                className="ds-inline-pill-button inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm text-ink-700"
               >
                 <span>{item.label}</span>
                 <span className="text-ink-400">×</span>
@@ -1165,7 +1180,7 @@ export default function NewViewWorkbench({
           ) : groupedPreview.length ? (
             groupedPreview.map((group) => (
               <section key={group.key} className="space-y-2">
-                <div className="flex items-center justify-between rounded-[16px] bg-slate-50 px-5 py-3">
+                <div className="ds-group-surface flex items-center justify-between rounded-[16px] px-5 py-3">
                   <div className="flex items-center gap-3">
                     <FolderKanban className="h-4 w-4 text-ink-400" />
                     <div className="text-[15px] font-medium text-ink-800">

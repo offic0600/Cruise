@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Building2, KeyRound, Mail, ShieldCheck, Sparkles } from 'lucide-react';
+import { ThemeToggle } from '@/design-system/primitives/ThemeToggle';
 import LocaleSwitcher from '@/components/LocaleSwitcher';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,7 +11,6 @@ import { Input } from '@/components/ui/input';
 import { useI18n } from '@/i18n/useI18n';
 import { discoverAuthProvider, getAuthProviders, login, sendMagicLink, type AuthProvider } from '@/lib/api';
 import { storeSession } from '@/lib/auth';
-import { publicPath } from '@/lib/routes';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -44,17 +44,19 @@ export default function LoginPage() {
     };
   }, []);
 
-  const oidcProviders = useMemo(
-    () => providers.filter((provider) => provider.protocol === 'OIDC'),
-    [providers]
-  );
+  const oidcProviders = useMemo(() => providers.filter((provider) => provider.protocol === 'OIDC'), [providers]);
   const visibleOidcProviders = useMemo(
     () => (discoveredProvider ? [discoveredProvider] : oidcProviders),
     [discoveredProvider, oidcProviders]
   );
-  const activeOidcProviders = useMemo(() => oidcProviders.filter((provider) => provider.configured), [oidcProviders]);
-  const pendingOidcProviders = useMemo(() => visibleOidcProviders.filter((provider) => !provider.configured), [visibleOidcProviders]);
-  const activeVisibleOidcProviders = useMemo(() => visibleOidcProviders.filter((provider) => provider.configured), [visibleOidcProviders]);
+  const activeOidcProviders = useMemo(
+    () => visibleOidcProviders.filter((provider) => provider.configured),
+    [visibleOidcProviders]
+  );
+  const pendingOidcProviders = useMemo(
+    () => visibleOidcProviders.filter((provider) => !provider.configured),
+    [visibleOidcProviders]
+  );
   const emailEnabled = providers.some((provider) => provider.providerType === 'EMAIL_MAGIC_LINK');
   const fallbackAllowed = !ssoEnforced;
 
@@ -65,6 +67,7 @@ export default function LoginPage() {
       setSsoEnforced(false);
       return;
     }
+
     try {
       const response = await discoverAuthProvider(trimmed);
       setDiscoveredProvider(response.matched ?? null);
@@ -147,15 +150,16 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(96,165,250,0.14),_transparent_24%),radial-gradient(circle_at_bottom_right,_rgba(34,211,238,0.12),_transparent_20%),linear-gradient(180deg,_#f6f9ff_0%,_#e8f0ff_36%,_#f8fafc_100%)]">
-      <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(15,23,42,0.03),transparent_32%,rgba(37,99,235,0.08)_100%)]" />
+    <div className="relative min-h-screen overflow-hidden bg-page-glow">
+      <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(15,23,42,0.03),transparent_32%,rgba(37,99,235,0.08)_100%)] dark:bg-[linear-gradient(120deg,rgba(255,255,255,0.02),transparent_32%,rgba(75,151,255,0.08)_100%)]" />
       <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between px-6 py-6 lg:px-10">
         <div className="flex items-center gap-3">
           <div className="brand-badge flex h-10 w-10 items-center justify-center rounded-control">
             <Sparkles className="h-5 w-5" />
           </div>
         </div>
-        <div>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
           <LocaleSwitcher />
         </div>
       </div>
@@ -163,7 +167,7 @@ export default function LoginPage() {
       <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-24 lg:px-10">
         <div className="grid w-full max-w-5xl gap-8 lg:grid-cols-[0.84fr_1.08fr] lg:items-center">
           <section className="mx-auto max-w-md lg:mx-0">
-            <div className="inline-flex items-center gap-2 rounded-pill border border-brand-500/15 bg-white/75 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-brand-600 shadow-card">
+            <div className="inline-flex items-center gap-2 rounded-full border border-brand-500/15 bg-[color:color-mix(in_srgb,var(--bg-surface)_88%,transparent)] px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-brand-600 shadow-card">
               <ShieldCheck className="h-3.5 w-3.5" />
               {t('login.eyebrow')}
             </div>
@@ -179,7 +183,7 @@ export default function LoginPage() {
             </div>
           </section>
 
-          <Card className="mx-auto w-full max-w-xl border-white/70 bg-white/78 shadow-elevated backdrop-blur-glass">
+          <Card surface="elevated" className="mx-auto w-full max-w-xl border-border-subtle bg-[color:color-mix(in_srgb,var(--bg-surface)_92%,transparent)] shadow-elevated backdrop-blur-glass">
             <CardContent className="p-6 sm:p-7">
               <div className="mb-6 border-b border-border-subtle pb-5">
                 <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-card bg-brand-gradient text-white shadow-brand">
@@ -209,23 +213,23 @@ export default function LoginPage() {
                     }
                   }}
                   onBlur={() => void handleEmailDiscovery(email)}
-                  className="border-border-soft bg-white text-ink-900 placeholder:text-ink-400"
+                  className="border-border-soft bg-[color:var(--interactive-default)] text-ink-900 placeholder:text-ink-400"
                   placeholder={t('login.emailPlaceholder')}
                 />
                 {discoveredProvider ? (
                   <div className="rounded-card border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
                     {discoveredProvider.displayName}
-                    {ssoEnforced ? ' · SSO required' : ' · SSO available'}
+                    {ssoEnforced ? ` · ${t('login.ssoRequired')}` : ` · ${t('login.ssoAvailable')}`}
                   </div>
                 ) : null}
               </div>
             )}
 
-            {showMethodButtons && activeVisibleOidcProviders.length > 0 && (
+            {showMethodButtons && activeOidcProviders.length > 0 && (
               <div className="space-y-3">
                 <div className="meta-label">{t('login.oauthTitle')}</div>
                 <div className="grid gap-3">
-                  {activeVisibleOidcProviders.map((provider) => (
+                  {activeOidcProviders.map((provider) => (
                     <Button
                       key={provider.providerKey}
                       type="button"
@@ -238,7 +242,9 @@ export default function LoginPage() {
                         {renderProviderIcon(provider)}
                       </div>
                       <div>
-                        <div className="text-sm font-semibold text-ink-900">{provider.buttonText || (provider.displayName === 'Google' ? t('login.google') : provider.displayName)}</div>
+                        <div className="text-sm font-semibold text-ink-900">
+                          {provider.buttonText || (provider.displayName === 'Google' ? t('login.google') : provider.displayName)}
+                        </div>
                         <div className="text-xs text-ink-400">{t('login.oauthDescription')}</div>
                       </div>
                     </Button>
@@ -294,12 +300,12 @@ export default function LoginPage() {
             )}
 
             {showMethodButtons && pendingOidcProviders.length > 0 && (
-              <div className="rounded-card border border-dashed border-border-subtle bg-surface-soft/70 px-4 py-4">
+              <div className="rounded-card border border-dashed border-border-subtle bg-surface-soft px-4 py-4">
                 <div className="meta-label">{t('login.heroAccessTitle')}</div>
                 <div className="mt-3 space-y-2">
                   {pendingOidcProviders.map((provider) => (
                     <div key={provider.providerKey} className="flex items-start gap-3 rounded-control px-1 py-1.5">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-control bg-white text-brand-600 shadow-card">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-control bg-[color:var(--interactive-default)] text-brand-600 shadow-card">
                         {renderProviderIcon(provider)}
                       </div>
                       <div className="min-w-0">
@@ -328,7 +334,7 @@ export default function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  className="border-border-soft bg-white text-ink-900 placeholder:text-ink-400"
+                  className="border-border-soft bg-[color:var(--interactive-default)] text-ink-900 placeholder:text-ink-400"
                   placeholder={t('login.emailPlaceholder')}
                   required
                 />
@@ -338,7 +344,7 @@ export default function LoginPage() {
               </form>
             )}
 
-            {legacyPasswordEnabled && activeMethod === 'password' && (
+            {legacyPasswordEnabled && activeMethod === 'password' && fallbackAllowed && (
               <form onSubmit={handleSubmit} className="space-y-6 rounded-card border border-border-subtle bg-surface-soft p-5">
                 <div className="flex items-center justify-between gap-3">
                   <div className="text-sm font-medium text-ink-700">{t('login.passwordTitle')}</div>
@@ -353,7 +359,7 @@ export default function LoginPage() {
                     value={username}
                     onChange={(event) => setUsername(event.target.value)}
                     data-testid="login-username-input"
-                    className="border-border-soft bg-white text-ink-900 placeholder:text-ink-400"
+                    className="border-border-soft bg-[color:var(--interactive-default)] text-ink-900 placeholder:text-ink-400"
                     placeholder={t('login.usernamePlaceholder')}
                     required
                   />
@@ -366,7 +372,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     data-testid="login-password-input"
-                    className="border-border-soft bg-white text-ink-900 placeholder:text-ink-400"
+                    className="border-border-soft bg-[color:var(--interactive-default)] text-ink-900 placeholder:text-ink-400"
                     placeholder={t('login.passwordPlaceholder')}
                     required
                   />
@@ -385,7 +391,7 @@ export default function LoginPage() {
           </Card>
         </div>
         {showTestAccount && (
-          <div className="absolute bottom-6 left-1/2 z-10 -translate-x-1/2 rounded-pill border border-white/70 bg-white/65 px-4 py-2 text-[11px] text-ink-400 shadow-card backdrop-blur-sm">
+          <div className="absolute bottom-6 left-1/2 z-10 -translate-x-1/2 rounded-full border border-border-subtle bg-[color:color-mix(in_srgb,var(--bg-surface)_84%,transparent)] px-4 py-2 text-[11px] text-ink-400 shadow-card backdrop-blur-sm">
             {t('login.testAccount')}
           </div>
         )}

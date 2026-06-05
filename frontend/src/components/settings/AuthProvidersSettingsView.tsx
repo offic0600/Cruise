@@ -193,7 +193,7 @@ export default function AuthProvidersSettingsView() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-3xl border border-border-soft bg-white p-5">
+      <section className="ds-surface-card rounded-3xl p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="text-sm font-semibold text-ink-900">认证提供方</div>
@@ -211,7 +211,7 @@ export default function AuthProvidersSettingsView() {
             >
               新建提供方
             </Button>
-            <span className="rounded-full bg-slate-100 px-3 py-2 text-xs font-medium text-ink-500">
+            <span className="rounded-full bg-[color:var(--interactive-disabled)] px-3 py-2 text-xs font-medium text-ink-500">
               {providerCards.length} configured
             </span>
           </div>
@@ -226,13 +226,13 @@ export default function AuthProvidersSettingsView() {
               type="button"
               onClick={() => setSelected(provider)}
               className={`w-full rounded-3xl border p-4 text-left transition ${
-                selected?.id === provider.id ? 'border-slate-900 bg-slate-900 text-white' : 'border-border-soft bg-white hover:bg-slate-50'
+                selected?.id === provider.id ? 'border-[color:var(--bg-inverse)] bg-[color:var(--bg-inverse)] text-[color:var(--fg-inverse)]' : 'border-border-soft bg-[color:var(--interactive-default)] hover:bg-[color:var(--interactive-hover)]'
               }`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-sm font-semibold">{provider.displayName}</div>
-                  <div className={`mt-1 text-xs ${selected?.id === provider.id ? 'text-slate-200' : 'text-ink-500'}`}>
+                  <div className={`mt-1 text-xs ${selected?.id === provider.id ? 'text-[color:color-mix(in_srgb,var(--fg-inverse)_78%,transparent)]' : 'text-ink-500'}`}>
                     {provider.scopeLevel} · {provider.providerKey}
                   </div>
                 </div>
@@ -241,14 +241,14 @@ export default function AuthProvidersSettingsView() {
                   {provider.isDefault ? <Badge tone="brand">Default</Badge> : null}
                 </div>
               </div>
-              <div className={`mt-3 text-xs ${selected?.id === provider.id ? 'text-slate-300' : 'text-ink-400'}`}>
+              <div className={`mt-3 text-xs ${selected?.id === provider.id ? 'text-[color:color-mix(in_srgb,var(--fg-inverse)_68%,transparent)]' : 'text-ink-400'}`}>
                 {provider.clientId || 'No client ID'} · {provider.allowedEmailDomains.join(', ') || 'No domain binding'}
               </div>
             </button>
           ))}
         </section>
 
-        <section className="space-y-5 rounded-3xl border border-border-soft bg-white p-5">
+        <section className="ds-surface-card space-y-5 rounded-3xl p-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <div className="text-lg font-semibold text-ink-900">{selected ? '编辑提供方' : '创建提供方'}</div>
@@ -362,7 +362,7 @@ export default function AuthProvidersSettingsView() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-ink-500 sm:flex-row sm:items-center sm:justify-between">
+          <div className="ds-surface-subtle flex flex-col gap-3 rounded-2xl px-4 py-3 text-sm text-ink-500 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div>支持标准企业 OIDC，优先走 Discovery，也允许你手工覆盖端点。</div>
               {feedback ? <div className="mt-1 font-medium text-emerald-700">{feedback}</div> : null}
@@ -388,6 +388,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function Badge({ children, tone = 'default' }: { children: React.ReactNode; tone?: 'default' | 'muted' | 'brand' }) {
   const toneClass =
-    tone === 'brand' ? 'bg-blue-100 text-blue-700' : tone === 'muted' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-100 text-emerald-700';
+    tone === 'brand'
+      ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/16 dark:text-blue-200'
+      : tone === 'muted'
+        ? 'bg-[color:var(--interactive-disabled)] text-ink-500'
+        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/16 dark:text-emerald-200';
   return <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${toneClass}`}>{children}</span>;
 }

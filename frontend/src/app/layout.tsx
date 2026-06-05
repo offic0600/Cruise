@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
+import { ThemeProvider } from '@/design-system/theme/ThemeProvider';
 import { QueryProvider } from '@/components/providers/QueryProvider';
 import { ToastProvider } from '@/components/providers/ToastProvider';
 import { WorkspaceProvider } from '@/components/providers/WorkspaceProvider';
@@ -24,15 +25,17 @@ export default async function RootLayout({
   const messages = getMessages(locale);
 
   return (
-    <html lang={locale}>
+    <html lang={locale} data-theme="light">
       <body>
-        <QueryProvider>
-          <WorkspaceProvider>
-            <I18nProvider locale={locale} messages={messages}>
-              <ToastProvider>{children}</ToastProvider>
-            </I18nProvider>
-          </WorkspaceProvider>
-        </QueryProvider>
+        <ThemeProvider>
+          <QueryProvider>
+            <WorkspaceProvider>
+              <I18nProvider locale={locale} messages={messages}>
+                <ToastProvider>{children}</ToastProvider>
+              </I18nProvider>
+            </WorkspaceProvider>
+          </QueryProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -48,7 +48,7 @@ export function IssueAssigneeSelectMenu({
             placeholder={placeholder}
             className="h-auto border-0 bg-transparent px-0 py-0 text-[16px] shadow-none focus-visible:ring-0"
           />
-          <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-md border border-border-soft bg-white px-1.5 text-[12px] font-medium text-ink-400">
+          <span className="ds-keycap inline-flex h-6 min-w-6 items-center justify-center rounded-md px-1.5 text-[12px] font-medium">
             {shortcut}
           </span>
         </div>
@@ -57,7 +57,7 @@ export function IssueAssigneeSelectMenu({
         <button
           type="button"
           onClick={() => void onSelect(null)}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-[15px] text-ink-700 transition hover:bg-slate-100"
+          className="ds-list-row flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-[15px]"
         >
           <span className="inline-flex h-5 w-5 items-center justify-center text-ink-400">
             <UserCircle2 className="h-4 w-4" />
@@ -74,7 +74,7 @@ export function IssueAssigneeSelectMenu({
           <button
             type="button"
             onClick={() => void onSelect(Number(currentUser.id))}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-[15px] text-ink-700 transition hover:bg-slate-100"
+            className="ds-list-row flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-[15px]"
           >
             <AssigneeAvatar name={currentUser.name} />
             <span className="truncate">{currentUser.name}</span>
@@ -96,7 +96,7 @@ export function IssueAssigneeSelectMenu({
             key={member.id}
             type="button"
             onClick={() => void onSelect(Number(member.id))}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-[15px] text-ink-700 transition hover:bg-slate-100"
+            className="ds-list-row flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-[15px]"
           >
             <AssigneeAvatar name={member.name} />
             <span className="truncate">{member.name}</span>
@@ -118,7 +118,7 @@ export function IssueAssigneeSelectMenu({
 
 function AssigneeAvatar({ name }: { name: string }) {
   return (
-    <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-rose-100 bg-rose-100 text-[10px] font-semibold uppercase text-rose-600">
+    <span className="ds-accent-avatar inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold uppercase">
       {getIssueInitials(name)}
     </span>
   );

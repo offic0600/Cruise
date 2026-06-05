@@ -143,7 +143,9 @@ export interface TestAuthProviderResponse {
 }
 
 export const getAuthProviders = (organizationId?: number | null) =>
-  apiClient.get<AuthProvidersResponse>('/auth/providers', { params: organizationId ? { organizationId } : undefined }).then((r) => r.data);
+  apiClient
+    .get<AuthProvidersResponse>('/auth/providers', { params: organizationId ? { organizationId } : undefined })
+    .then((r) => r.data);
 
 export const discoverAuthProvider = (email: string, organizationId?: number | null) =>
   apiClient.post<ProviderDiscoveryResponse>('/auth/provider-discovery', { email, organizationId }).then((r) => r.data);

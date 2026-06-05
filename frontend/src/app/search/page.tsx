@@ -1,32 +1,27 @@
 'use client';
 
 import Link from 'next/link';
-import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { FileText, Filter, FolderKanban, MessageSquare, Search, SlidersHorizontal } from 'lucide-react';
+import { FileSearch2, Search } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { EmptyState } from '@/design-system/patterns/EmptyState';
+import { PageHeader } from '@/design-system/patterns/PageHeader';
 import AppLayout from '@/components/AppLayout';
 import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useI18n } from '@/i18n/useI18n';
 import { getDocs, getIssues, getProjects, type Doc, type Issue, type Project } from '@/lib/api';
-import {
-  issueDetailPath,
-  teamProjectsPath,
-  teamViewsRootPath,
-  workspaceImportExportPath,
-  workspaceSectionPath,
-} from '@/lib/routes';
+import { issueDetailPath, workspaceSectionPath } from '@/lib/routes';
 
-type SearchTab = 'all' | 'issues' | 'projects' | 'documents';
+type SearchTab = 'issues' | 'projects' | 'documents';
 
-const tabs: SearchTab[] = ['all', 'issues', 'projects', 'documents'];
+const tabs: SearchTab[] = ['issues', 'projects', 'documents'];
 
 export default function SearchPage() {
-  const { t, locale } = useI18n();
-  const { organizationId, currentOrganizationSlug, currentTeamId, currentTeamKey } = useCurrentWorkspace();
+  const { t } = useI18n();
+  const { organizationId, currentOrganizationSlug, currentTeamId } = useCurrentWorkspace();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -38,117 +33,29 @@ export default function SearchPage() {
     queryKey: ['search', 'issues', organizationId ?? 1, currentTeamId ?? 'all', q],
     queryFn: () => getIssues({ organizationId: organizationId ?? 1, teamId: currentTeamId ?? undefined, q }),
     select: (response) => response.items,
-    enabled: hasQuery && (activeTab === 'all' || activeTab === 'issues'),
+    enabled: hasQuery && activeTab === 'issues',
   });
 
   const projectsQuery = useQuery({
     queryKey: ['search', 'projects', organizationId ?? 1, currentTeamId ?? 'all', q],
     queryFn: () => getProjects({ organizationId: organizationId ?? 1, teamId: currentTeamId ?? undefined, q }),
     select: (response) => response.items,
-    enabled: hasQuery && (activeTab === 'all' || activeTab === 'projects'),
+    enabled: hasQuery && activeTab === 'projects',
   });
 
   const docsQuery = useQuery({
     queryKey: ['search', 'documents', organizationId ?? 1, currentTeamId ?? 'all', q],
     queryFn: () => getDocs({ organizationId: organizationId ?? 1, teamId: currentTeamId ?? undefined, q }),
-    enabled: hasQuery && (activeTab === 'all' || activeTab === 'documents'),
+    enabled: hasQuery && activeTab === 'documents',
   });
 
-  const tabResults = useMemo(() => {
+  const results = useMemo(() => {
     if (activeTab === 'issues') return (issuesQuery.data ?? []) as Issue[];
     if (activeTab === 'projects') return (projectsQuery.data ?? []) as Project[];
-    if (activeTab === 'documents') return (docsQuery.data ?? []) as Doc[];
-    return [];
+    return (docsQuery.data ?? []) as Doc[];
   }, [activeTab, issuesQuery.data, projectsQuery.data, docsQuery.data]);
 
-  const allResults = useMemo(() => ({
-    issues: issuesQuery.data ?? [],
-    projects: projectsQuery.data ?? [],
-    documents: docsQuery.data ?? [],
-  }), [docsQuery.data, issuesQuery.data, projectsQuery.data]);
-
-  const totalResults = activeTab === 'all'
-    ? allResults.issues.length + allResults.projects.length + allResults.documents.length
-    : tabResults.length;
-  const projectsResultsHref = currentOrganizationSlug && currentTeamKey
-    ? teamProjectsPath(currentOrganizationSlug, currentTeamKey)
-    : currentOrganizationSlug
-      ? workspaceSectionPath(currentOrganizationSlug, 'projects')
-      : '#';
-  const viewsResultsHref = currentOrganizationSlug && currentTeamKey
-    ? teamViewsRootPath(currentOrganizationSlug, currentTeamKey)
-    : currentOrganizationSlug
-      ? workspaceSectionPath(currentOrganizationSlug, 'views/issues')
-      : '#';
-  const importIssuesHref = currentOrganizationSlug ? workspaceImportExportPath(currentOrganizationSlug) : '#';
-
-  const isLoading = activeTab === 'all'
-    ? issuesQuery.isLoading || projectsQuery.isLoading || docsQuery.isLoading
-    : activeTab === 'issues'
-      ? issuesQuery.isLoading
-      : activeTab === 'projects'
-        ? projectsQuery.isLoading
-        : docsQuery.isLoading;
-
-  const renderResult = (result: Issue | Project | Doc, type: Exclude<SearchTab, 'all'>) => {
-    if (type === 'issues') {
-      const issue = result as Issue;
-      return (
-        <Link
-          key={`issue-${issue.id}`}
-          href={currentOrganizationSlug ? issueDetailPath(currentOrganizationSlug, issue) : '#'}
-          className="group block rounded-[18px] border border-white/10 bg-white/5 p-4 transition hover:border-white/20 hover:bg-white/10"
-        >
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">{issue.identifier}</div>
-              <div className="mt-1 truncate text-[15px] font-medium text-zinc-100">{issue.title}</div>
-              <div className="mt-1 line-clamp-2 text-sm text-zinc-500">{issue.description ?? t('common.empty')}</div>
-            </div>
-            <Badge className="border-white/10 bg-white/10 text-zinc-300">{issue.state}</Badge>
-          </div>
-        </Link>
-      );
-    }
-
-    if (type === 'projects') {
-      const project = result as Project;
-      return (
-        <Link
-          key={`project-${project.id}`}
-          href={currentOrganizationSlug ? workspaceSectionPath(currentOrganizationSlug, 'projects') : '#'}
-          className="group block rounded-[18px] border border-white/10 bg-white/5 p-4 transition hover:border-white/20 hover:bg-white/10"
-        >
-          <div className="flex items-start gap-3">
-            <FolderKanban className="mt-0.5 h-4 w-4 text-zinc-500" />
-            <div className="min-w-0">
-              <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">{project.key ?? `#${project.id}`}</div>
-              <div className="mt-1 truncate text-[15px] font-medium text-zinc-100">{project.name}</div>
-              <div className="mt-1 line-clamp-2 text-sm text-zinc-500">{project.description ?? t('common.empty')}</div>
-            </div>
-          </div>
-        </Link>
-      );
-    }
-
-    const doc = result as Doc;
-    return (
-      <Link
-        key={`doc-${doc.id}`}
-        href={docHref(doc, currentOrganizationSlug)}
-        className="group block rounded-[18px] border border-white/10 bg-white/5 p-4 transition hover:border-white/20 hover:bg-white/10"
-      >
-        <div className="flex items-start gap-3">
-          <FileText className="mt-0.5 h-4 w-4 text-zinc-500" />
-          <div className="min-w-0">
-            <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">{doc.slug}</div>
-            <div className="mt-1 truncate text-[15px] font-medium text-zinc-100">{doc.title}</div>
-            <div className="mt-1 line-clamp-2 text-sm text-zinc-500">{doc.currentContent?.content ?? t('common.empty')}</div>
-          </div>
-        </div>
-      </Link>
-    );
-  };
+  const isLoading = issuesQuery.isLoading || projectsQuery.isLoading || docsQuery.isLoading;
 
   const updateSearch = (next: { q?: string; type?: SearchTab }) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -165,202 +72,95 @@ export default function SearchPage() {
 
   return (
     <AppLayout>
-      <div className="mx-auto flex min-h-[calc(100vh-72px)] w-full max-w-[1480px] flex-col overflow-hidden rounded-[18px] border border-zinc-800 bg-[#0d0d0e] text-zinc-100 shadow-[0_20px_80px_rgba(0,0,0,0.28)]">
-        <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
-          <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+      <div className="space-y-6">
+        <PageHeader title={t('searchPage.title')} />
+
+        <div className="space-y-4">
+          <div className="relative max-w-3xl">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
             <Input
               autoFocus
               value={q}
               onChange={(event) => updateSearch({ q: event.target.value })}
               placeholder={t('searchPage.placeholder')}
-              className="h-9 border-none bg-transparent pl-9 pr-3 text-[15px] text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-0"
+              className="h-12 rounded-full pl-12 pr-4 text-base"
             />
           </div>
-          <button
-            type="button"
-            aria-label={t('projects.workspace.filter')}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-zinc-400 transition hover:bg-white/20 hover:text-zinc-200"
-          >
-            <Filter className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            aria-label={t('views.display.title')}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-zinc-400 transition hover:bg-white/20 hover:text-zinc-200"
-          >
-            <SlidersHorizontal className="h-4 w-4" />
-          </button>
+
+          <div className="flex flex-wrap gap-2">
+            {tabs.map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => updateSearch({ type: tab })}
+                className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                  activeTab === tab ? 'bg-[color:var(--bg-inverse)] text-[color:var(--fg-inverse)] shadow-card' : 'border border-border-soft bg-surface-elevated text-ink-700 hover:bg-surface-soft'
+                }`}
+              >
+                {t(`searchPage.tabs.${tab}`)}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 px-4 py-3">
-          {tabs.map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => updateSearch({ type: tab })}
-              className={`rounded-full border px-3 py-1.5 text-sm transition ${
-                activeTab === tab ? 'border-white/20 bg-white/10 text-white' : 'border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200'
-              }`}
-            >
-              {t(`searchPage.tabs.${tab}`)}
-            </button>
-          ))}
-        </div>
-
-        <SearchCommandPanel
-          isZh={locale.startsWith('zh')}
-          query={q}
-          activeTab={activeTab}
-          totalResults={totalResults}
-          isLoading={isLoading}
-          hasQuery={hasQuery}
-          onSetTab={(tab) => updateSearch({ type: tab })}
-          onClear={() => updateSearch({ q: '', type: 'all' })}
-        />
-
-        <div className="flex-1 px-4 pb-16 pt-2">
-          {!hasQuery ? (
-            <div className="flex h-full min-h-[420px] items-center justify-center rounded-[22px] border border-dashed border-white/10 text-sm text-zinc-600">
-              {t('searchPage.empty')}
-            </div>
-          ) : isLoading ? (
-            <div className="flex h-full min-h-[420px] items-center justify-center rounded-[22px] border border-dashed border-white/10 text-sm text-zinc-600">
-              {t('common.loading')}
-            </div>
-          ) : totalResults ? (
-            <div className="space-y-6">
-              {activeTab === 'all' ? (
-                <>
-                  <ResultSection title={t('searchPage.tabs.issues')} count={allResults.issues.length}>
-                    {allResults.issues.map((issue) => renderResult(issue, 'issues'))}
-                  </ResultSection>
-                  <ResultSection title={t('searchPage.tabs.projects')} count={allResults.projects.length}>
-                    {allResults.projects.map((project) => renderResult(project, 'projects'))}
-                  </ResultSection>
-                  <ResultSection title={t('searchPage.tabs.documents')} count={allResults.documents.length}>
-                    {allResults.documents.map((doc) => renderResult(doc, 'documents'))}
-                  </ResultSection>
-                </>
-              ) : (
-                <ResultSection title={t(`searchPage.tabs.${activeTab}`)} count={tabResults.length}>
-                  {(tabResults as Array<Issue | Project | Doc>).map((result) => renderResult(result, activeTab as Exclude<SearchTab, 'all'>))}
-                </ResultSection>
-              )}
-            </div>
-          ) : (
-            <div className="flex h-full min-h-[420px] items-center justify-center rounded-[22px] border border-dashed border-white/10 text-sm text-zinc-600">
-              {t('searchPage.noResults')}
-            </div>
-          )}
-        </div>
-
-        <div className="pointer-events-none sticky bottom-0 flex justify-end bg-gradient-to-t from-[#0d0d0e] via-[#0d0d0e]/90 to-transparent p-4">
-          <button
-            type="button"
-            className="pointer-events-auto inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm text-zinc-400 transition hover:bg-white/10 hover:text-zinc-200"
-          >
-            <MessageSquare className="h-4 w-4" />
-            Ask Linear
-          </button>
-        </div>
+        {!hasQuery ? (
+          <EmptyState title={t('searchPage.empty')} icon={<FileSearch2 className="h-5 w-5" />} />
+        ) : isLoading ? (
+          <EmptyState title={t('common.loading')} icon={<FileSearch2 className="h-5 w-5" />} />
+        ) : results.length ? (
+          <div className="space-y-3">
+            {activeTab === 'issues'
+              ? (results as Issue[]).map((issue) => (
+                  <Link
+                    key={issue.id}
+                    href={currentOrganizationSlug ? issueDetailPath(currentOrganizationSlug, issue) : '#'}
+                    className="block rounded-panel border border-border-subtle bg-surface-raised p-5 transition hover:bg-surface-soft"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="text-xs uppercase tracking-[0.18em] text-ink-400">{issue.identifier}</div>
+                        <div className="mt-2 truncate text-lg font-semibold text-ink-900">{issue.title}</div>
+                        <div className="mt-2 line-clamp-2 text-sm text-ink-700">{issue.description ?? t('common.empty')}</div>
+                      </div>
+                      <Badge>{issue.state}</Badge>
+                    </div>
+                  </Link>
+                ))
+              : activeTab === 'projects'
+                ? (results as Project[]).map((project) => (
+                    <Link
+                      key={project.id}
+                      href={currentOrganizationSlug ? workspaceSectionPath(currentOrganizationSlug, 'projects') : '#'}
+                      className="block rounded-panel border border-border-subtle bg-surface-raised p-5 transition hover:bg-surface-soft"
+                    >
+                      <div className="text-xs uppercase tracking-[0.18em] text-ink-400">{project.key ?? `#${project.id}`}</div>
+                      <div className="mt-2 text-lg font-semibold text-ink-900">{project.name}</div>
+                      <div className="mt-2 line-clamp-2 text-sm text-ink-700">{project.description ?? t('common.empty')}</div>
+                    </Link>
+                  ))
+                : (results as Doc[]).map((doc) => (
+                    <Link
+                      key={doc.id}
+                      href={docHref(doc, currentOrganizationSlug)}
+                      className="block rounded-panel border border-border-subtle bg-surface-raised p-5 transition hover:bg-surface-soft"
+                    >
+                      <div className="text-xs uppercase tracking-[0.18em] text-ink-400">{doc.slug}</div>
+                      <div className="mt-2 text-lg font-semibold text-ink-900">{doc.title}</div>
+                      <div className="mt-2 text-sm text-ink-700">{doc.currentContent?.content ?? t('common.empty')}</div>
+                    </Link>
+                  ))}
+          </div>
+        ) : (
+          <EmptyState title={t('searchPage.noResults')} icon={<FileSearch2 className="h-5 w-5" />} />
+        )}
       </div>
     </AppLayout>
   );
 }
 
-function SearchCommandPanel({
-  isZh,
-  query,
-  activeTab,
-  totalResults,
-  isLoading,
-  hasQuery,
-  onSetTab,
-  onClear,
-}: {
-  isZh: boolean;
-  query: string;
-  activeTab: SearchTab;
-  totalResults: number;
-  isLoading: boolean;
-  hasQuery: boolean;
-  onSetTab: (tab: SearchTab) => void;
-  onClear: () => void;
-}) {
-  const suggestedTabs: Array<{ tab: SearchTab; label: string }> = [
-    { tab: 'issues', label: isZh ? '事项结果' : 'Issue results' },
-    { tab: 'projects', label: isZh ? '项目结果' : 'Project results' },
-    { tab: 'documents', label: isZh ? '文档结果' : 'Document results' },
-  ];
-
-  return (
-    <div className="border-y border-white/10 bg-white/[0.025] px-4 py-3">
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-        <div className="grid gap-2 sm:grid-cols-3">
-          <SearchSignal label={isZh ? '查询' : 'Query'} value={query || (isZh ? '等待输入' : 'Waiting for input')} />
-          <SearchSignal label={isZh ? '范围' : 'Scope'} value={activeTab} />
-          <SearchSignal label={isZh ? '结果' : 'Results'} value={isLoading ? (isZh ? '加载中' : 'Loading') : String(totalResults)} />
-        </div>
-        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-          {suggestedTabs.map((item) => (
-            <button
-              key={item.tab}
-              type="button"
-              onClick={() => onSetTab(item.tab)}
-              className={`inline-flex h-8 items-center rounded-full border px-3 text-xs font-medium transition ${
-                activeTab === item.tab
-                  ? 'border-white/20 bg-white/15 text-white'
-                  : 'border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200'
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={onClear}
-            disabled={!hasQuery && activeTab === 'all'}
-            className="inline-flex h-8 items-center rounded-full border border-white/10 bg-white/5 px-3 text-xs font-medium text-zinc-400 transition hover:bg-white/10 hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            {isZh ? '清空' : 'Clear'}
-          </button>
-        </div>
-      </div>
-      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
-        <span className="rounded-full bg-white/5 px-2.5 py-1">{isZh ? '快捷键：⌘/Ctrl K' : 'Shortcut: ⌘/Ctrl K'}</span>
-        <span className="rounded-full bg-white/5 px-2.5 py-1">{isZh ? '支持事项、项目和文档聚合搜索' : 'Aggregates issues, projects, and documents'}</span>
-      </div>
-    </div>
-  );
-}
-
-function SearchSignal({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
-      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-600">{label}</div>
-      <div className="mt-1 truncate text-sm font-medium text-zinc-200">{value}</div>
-    </div>
-  );
-}
-
 function normalizeTab(value: string | null): SearchTab {
-  if (value === 'all' || value === 'projects' || value === 'documents') return value;
-  if (value === 'issues') return value;
-  return 'all';
-}
-
-function ResultSection({ title, count, children }: { title: string; count: number; children: ReactNode }) {
-  if (!count) return null;
-  return (
-    <section className="space-y-2">
-      <div className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-[0.16em] text-zinc-600">
-        <span>{title}</span>
-        <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-zinc-500">{count}</span>
-      </div>
-      <div className="space-y-2">{children}</div>
-    </section>
-  );
+  if (value === 'projects' || value === 'documents') return value;
+  return 'issues';
 }
 
 function docHref(doc: Doc, workspaceSlug: string | null) {

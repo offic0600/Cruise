@@ -36,7 +36,7 @@ export function ProjectStatusSelectMenu({
             placeholder={placeholder}
             className="h-auto border-0 bg-transparent px-0 py-0 text-[16px] shadow-none focus-visible:ring-0"
           />
-          <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-md border border-border-soft bg-white px-1.5 text-[12px] font-medium text-ink-400">
+          <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-md border border-border-soft bg-[color:var(--interactive-default)] px-1.5 text-[12px] font-medium text-ink-400">
             {shortcut}
           </span>
         </div>
@@ -47,7 +47,7 @@ export function ProjectStatusSelectMenu({
             key={status}
             type="button"
             onClick={() => void onSelect(status)}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-[15px] text-ink-700 transition hover:bg-slate-100"
+            className="ds-list-row flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-[15px] text-ink-700"
           >
             <span className="flex w-4 justify-center">{projectStatusIcon(status)}</span>
             <span className="truncate">{t(projectStatusLabelKey(status))}</span>

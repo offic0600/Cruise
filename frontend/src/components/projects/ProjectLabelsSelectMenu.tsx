@@ -41,10 +41,10 @@ export function ProjectLabelsSelectMenu({
                   key={label.id}
                   type="button"
                   onClick={() => onToggle(label.id)}
-                  className={`flex w-full items-center gap-4 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50 ${selected ? 'bg-slate-100' : ''}`}
+                  className={`ds-list-row flex w-full items-center gap-4 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 ${selected ? 'bg-[color:var(--interactive-selected)]' : ''}`}
                 >
                   <span
-                    className={`flex h-6 w-6 items-center justify-center rounded-md border ${selected ? 'border-brand-500 bg-brand-50 text-brand-600' : 'border-border-soft bg-white text-transparent'}`}
+                    className={`flex h-6 w-6 items-center justify-center rounded-md border ${selected ? 'border-brand-500 bg-brand-50 text-brand-600 dark:bg-brand-500/16 dark:text-brand-200' : 'border-border-soft bg-[color:var(--interactive-default)] text-transparent'}`}
                   >
                     <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 fill-current" aria-hidden="true">
                       <path d="M6.4 11.2 3.6 8.4l-.8.8 3.6 3.6 6.8-6.8-.8-.8z" />

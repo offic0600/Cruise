@@ -25,7 +25,7 @@ export default function LocaleSwitcher() {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-10 w-full min-w-0 items-center justify-between gap-2 rounded-control border border-white/70 bg-white/65 px-3 text-sm font-medium text-ink-700 shadow-card backdrop-blur-sm transition hover:bg-white/85 hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/20"
+          className="inline-flex h-10 w-full min-w-0 items-center justify-between gap-2 rounded-control border border-border-subtle bg-[color:color-mix(in_srgb,var(--bg-surface)_84%,transparent)] px-3 text-sm font-medium text-ink-700 shadow-card backdrop-blur-sm transition hover:bg-[color:color-mix(in_srgb,var(--bg-surface)_96%,transparent)] hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/20"
         >
           <span className="flex min-w-0 items-center gap-2">
             <Languages className="h-4 w-4 shrink-0 text-brand-600" />

@@ -61,12 +61,12 @@ function ToastActionButton({ action }: { action: AppToastAction }) {
 
   if (action.kind === 'link' && action.href) {
     return (
-      <Link
-        href={action.href}
-        aria-label={action.ariaLabel}
-        title={action.ariaLabel}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border-soft text-ink-500 transition hover:border-border-subtle hover:bg-slate-50 hover:text-ink-900"
-      >
+        <Link
+          href={action.href}
+          aria-label={action.ariaLabel}
+          title={action.ariaLabel}
+          className="ds-inline-pill-button inline-flex h-9 w-9 items-center justify-center rounded-full text-ink-500"
+        >
         {actionIcon(action.icon)}
       </Link>
     );
@@ -87,7 +87,7 @@ function ToastActionButton({ action }: { action: AppToastAction }) {
           timerRef.current = window.setTimeout(() => setConfirmed(false), 1800);
         }
       }}
-      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border-soft text-ink-500 transition hover:border-border-subtle hover:bg-slate-50 hover:text-ink-900"
+      className="ds-inline-pill-button inline-flex h-9 w-9 items-center justify-center rounded-full text-ink-500"
     >
       {confirmed ? actionIcon('check') : actionIcon(action.icon)}
     </button>
@@ -96,7 +96,7 @@ function ToastActionButton({ action }: { action: AppToastAction }) {
 
 function ToastCard({ toast, onDismiss }: { toast: AppToast; onDismiss: () => void }) {
   return (
-    <div className="w-[360px] max-w-[calc(100vw-32px)] rounded-[20px] border border-border-soft bg-white p-4 shadow-[0_18px_40px_rgba(15,23,42,0.14)]">
+    <div className="ds-surface-card w-[360px] max-w-[calc(100vw-32px)] rounded-[20px] p-4 shadow-[0_18px_40px_rgba(15,23,42,0.14)]">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
           <div className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500">
@@ -113,7 +113,7 @@ function ToastCard({ toast, onDismiss }: { toast: AppToast; onDismiss: () => voi
             aria-label={toast.dismissLabel ?? 'Dismiss'}
             title={toast.dismissLabel ?? 'Dismiss'}
             onClick={onDismiss}
-            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-ink-400 transition hover:bg-slate-100 hover:text-ink-900"
+            className="ds-icon-button-subtle inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-transparent text-ink-400"
           >
             <X className="h-4 w-4" />
           </button>

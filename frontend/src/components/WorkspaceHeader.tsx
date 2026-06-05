@@ -2,6 +2,7 @@
 
 import { ChevronDown, LogOut, Plus, Search, Settings, UsersRound } from 'lucide-react';
 import Link from 'next/link';
+import { ThemeToggle } from '@/design-system/primitives/ThemeToggle';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,8 +36,6 @@ type WorkspaceHeaderProps = {
   createWorkspaceLabel: string;
   logoutLabel: string;
   noWorkspacesLabel: string;
-  searchLabel: string;
-  newIssueLabel: string;
   shortcuts: {
     settings: string;
     switchWorkspace: string;
@@ -65,8 +64,6 @@ export default function WorkspaceHeader({
   createWorkspaceLabel,
   logoutLabel,
   noWorkspacesLabel,
-  searchLabel,
-  newIssueLabel,
   shortcuts,
   focusSwitchWorkspace,
   onSwitchWorkspaceFocused,
@@ -77,18 +74,18 @@ export default function WorkspaceHeader({
 
   return (
     <div className="border-b border-border-subtle px-4 py-4">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2.5">
         <DropdownMenu open={menuOpen} onOpenChange={onMenuOpenChange}>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="flex min-w-0 flex-1 items-center gap-3 rounded-full bg-slate-100 px-3 py-2 text-left transition hover:bg-slate-200"
+              className="flex min-w-0 flex-1 items-center gap-3 rounded-full border border-border-soft bg-surface-soft px-3 py-2.5 text-left transition hover:bg-surface-elevated"
             >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-700 text-sm font-semibold text-white">
+              <div className="brand-badge flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white">
                 {initials}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-lg font-semibold text-ink-900">{organization?.name ?? currentWorkspaceLabel}</div>
+                <div className="truncate text-[15px] font-semibold text-ink-900">{organization?.name ?? currentWorkspaceLabel}</div>
               </div>
               <ChevronDown className="h-4 w-4 shrink-0 text-ink-500" />
             </button>
@@ -134,7 +131,7 @@ export default function WorkspaceHeader({
                     <DropdownMenuItem
                       key={item.id}
                       onSelect={() => onSelectOrganization(item.id)}
-                      className={`flex items-center justify-between gap-3 ${item.id === organization?.id ? 'bg-slate-100' : ''}`}
+                      className={`flex items-center justify-between gap-3 ${item.id === organization?.id ? 'bg-surface-soft' : ''}`}
                     >
                       <span>{item.name}</span>
                       {item.id === organization?.id ? <span className="text-xs text-ink-400">{currentWorkspaceLabel}</span> : null}
@@ -166,10 +163,11 @@ export default function WorkspaceHeader({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button variant="secondary" size="icon" className="h-11 w-11 rounded-full" onClick={onSearch} aria-label={searchLabel}>
+        <ThemeToggle />
+        <Button variant="secondary" size="icon-md" onClick={onSearch} aria-label="Search">
           <Search className="h-4 w-4" />
         </Button>
-        <Button variant="secondary" size="icon" className="h-11 w-11 rounded-full" onClick={onNewIssue} aria-label={newIssueLabel}>
+        <Button variant="secondary" size="icon-md" onClick={onNewIssue} aria-label="New issue">
           <Plus className="h-4 w-4" />
         </Button>
       </div>

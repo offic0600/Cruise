@@ -28,7 +28,7 @@ export function ProjectTeamPill({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button type="button" variant="ghost" className="h-10 rounded-full border border-border-soft bg-white px-4 text-sm font-medium text-ink-700 shadow-none hover:bg-slate-50">
+        <Button type="button" variant="ghost" className="ds-inline-pill-button h-10 rounded-full px-4 text-sm font-medium text-ink-700 shadow-none">
           <Users className="mr-2 h-4 w-4 text-ink-400" />
           <span>{selected ? (selected.key || selected.name) : t('projects.composer.workspaceTeam')}</span>
           <ChevronDown className="ml-2 h-4 w-4 text-ink-400" />
@@ -49,7 +49,7 @@ export function ProjectTeamPill({
               key={team.id}
               type="button"
               onClick={() => onSelect(team.id)}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-[15px] text-ink-700 transition hover:bg-slate-100"
+              className="ds-list-row flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-[15px] text-ink-700"
             >
               <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full border border-sky-200 bg-sky-100 px-2 text-[11px] font-semibold text-sky-700">
                 {team.key || team.name.slice(0, 2).toUpperCase()}

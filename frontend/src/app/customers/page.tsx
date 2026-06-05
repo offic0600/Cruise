@@ -58,11 +58,11 @@ export default function CustomersPage() {
                 key={customer.id}
                 type="button"
                 onClick={() => setSelectedId(customer.id)}
-                className={`w-full rounded-panel border p-5 text-left transition ${selected?.id === customer.id ? 'border-ink-900 bg-ink-900 text-white shadow-nav' : 'border-border-subtle bg-surface-raised text-ink-900 shadow-card hover:bg-slate-50'}`}
+                className={`w-full rounded-panel border p-5 text-left transition ${selected?.id === customer.id ? 'border-[color:var(--bg-inverse)] bg-[color:var(--bg-inverse)] text-[color:var(--fg-inverse)] shadow-nav' : 'border-border-subtle bg-surface-raised text-ink-900 shadow-card hover:bg-[color:var(--interactive-hover)]'}`}
               >
                 <div className="text-sm font-semibold">{customer.name}</div>
-                <div className={`mt-2 text-xs ${selected?.id === customer.id ? 'text-slate-300' : 'text-ink-400'}`}>{customer.slugId ?? `#${customer.id}`}</div>
-                <div className={`mt-3 text-sm ${selected?.id === customer.id ? 'text-slate-300' : 'text-ink-700'}`}>{customer.domains ?? t('customers.empty.noDomains')}</div>
+                <div className={`mt-2 text-xs ${selected?.id === customer.id ? 'text-[color:color-mix(in_srgb,var(--fg-inverse)_72%,transparent)]' : 'text-ink-400'}`}>{customer.slugId ?? `#${customer.id}`}</div>
+                <div className={`mt-3 text-sm ${selected?.id === customer.id ? 'text-[color:color-mix(in_srgb,var(--fg-inverse)_72%,transparent)]' : 'text-ink-700'}`}>{customer.domains ?? t('customers.empty.noDomains')}</div>
               </button>
             ))}
           </section>

@@ -154,12 +154,12 @@ export default function CustomFieldsPage() {
         <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
           <section className="space-y-3">
             {customFields.length ? customFields.map((field) => (
-              <button key={field.id} onClick={() => setSelectedId(field.id)} className={`w-full rounded-panel border p-5 text-left transition ${selectedField?.id === field.id ? 'border-ink-900 bg-ink-900 text-white shadow-nav' : 'border-border-subtle bg-surface-raised text-ink-900 shadow-card hover:bg-slate-50'}`}>
+              <button key={field.id} onClick={() => setSelectedId(field.id)} className={`w-full rounded-panel border p-5 text-left transition ${selectedField?.id === field.id ? 'border-[color:var(--bg-inverse)] bg-[color:var(--bg-inverse)] text-[color:var(--fg-inverse)] shadow-nav' : 'border-border-subtle bg-surface-raised text-ink-900 shadow-card hover:bg-[color:var(--interactive-hover)]'}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className={`text-xs uppercase tracking-[0.18em] ${selectedField?.id === field.id ? 'text-slate-300' : 'text-ink-400'}`}>{field.key}</div>
+                    <div className={`text-xs uppercase tracking-[0.18em] ${selectedField?.id === field.id ? 'text-[color:color-mix(in_srgb,var(--fg-inverse)_72%,transparent)]' : 'text-ink-400'}`}>{field.key}</div>
                     <div className="mt-2 text-lg font-semibold">{field.name}</div>
-                    <div className={`mt-2 text-sm ${selectedField?.id === field.id ? 'text-slate-300' : 'text-ink-700'}`}>{field.description ?? t('common.empty')}</div>
+                    <div className={`mt-2 text-sm ${selectedField?.id === field.id ? 'text-[color:color-mix(in_srgb,var(--fg-inverse)_72%,transparent)]' : 'text-ink-700'}`}>{field.description ?? t('common.empty')}</div>
                   </div>
                   <Badge variant={field.isActive ? 'brand' : 'neutral'}>{field.isActive ? t('customFields.status.active') : t('customFields.status.inactive')}</Badge>
                 </div>

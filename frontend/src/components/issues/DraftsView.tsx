@@ -31,13 +31,13 @@ export default function DraftsView() {
       </div>
       <div className="space-y-3">
         {(draftsQuery.data ?? []).map((draft) => (
-          <div key={draft.id} className="flex items-center justify-between rounded-3xl border border-border-soft bg-white p-5">
+          <div key={draft.id} className="ds-surface-card flex items-center justify-between rounded-3xl p-5">
             <div>
               <div className="font-semibold text-ink-900">{draft.title || t('settings.drafts.untitled')}</div>
               <div className="mt-1 text-sm text-ink-500">{draft.updatedAt}</div>
             </div>
             <div className="flex gap-2">
-              <Link href={localizePath(locale, `/issues/new?draftId=${draft.id}`)} className="inline-flex items-center rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white">
+              <Link href={localizePath(locale, `/issues/new?draftId=${draft.id}`)} className="inline-flex items-center rounded-full bg-[color:var(--bg-inverse)] px-4 py-2 text-sm font-medium text-[color:var(--fg-inverse)]">
                 {t('settings.drafts.continue')}
               </Link>
               <Button variant="secondary" onClick={() => deleteMutation.mutate(draft.id)}>Delete</Button>

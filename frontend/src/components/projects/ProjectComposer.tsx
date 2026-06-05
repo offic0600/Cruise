@@ -204,7 +204,7 @@ export function ProjectComposer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="inset-y-auto left-1/2 right-auto top-[4vh] bottom-[4vh] h-auto max-h-[92vh] w-[min(1080px,calc(100vw-48px))] max-w-none -translate-x-1/2 rounded-[28px] border border-border-subtle bg-white p-0 shadow-[0_24px_80px_rgba(15,23,42,0.18)]">
+      <SheetContent className="inset-y-auto left-1/2 right-auto top-[4vh] bottom-[4vh] h-auto max-h-[92vh] w-[min(1080px,calc(100vw-48px))] max-w-none -translate-x-1/2 rounded-[28px] border border-border-subtle bg-surface-elevated p-0 shadow-[0_24px_80px_rgba(15,23,42,0.18)]">
         <div className="flex h-full flex-col overflow-hidden rounded-[28px]">
           <div className="flex items-center justify-between gap-4 border-b border-border-soft px-6 py-5">
             <div className="flex items-center gap-3 text-sm text-ink-500">
@@ -255,7 +255,7 @@ export function ProjectComposer({
                             setDraft((current) => ({ ...current, icon: tone }));
                             setIconOpen(false);
                           }}
-                          className={`rounded-2xl p-2 transition hover:bg-slate-50 ${draft.icon === tone ? 'bg-slate-100' : ''}`}
+                          className={`rounded-2xl p-2 transition hover:bg-[color:var(--interactive-hover)] ${draft.icon === tone ? 'bg-[color:var(--interactive-selected)]' : ''}`}
                         >
                           <ProjectIconPreview tone={tone} />
                         </button>
@@ -269,13 +269,13 @@ export function ProjectComposer({
                     value={draft.name}
                     onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
                     placeholder={t('projects.composer.namePlaceholder')}
-                    className="h-auto border-0 bg-transparent px-0 py-0 text-[42px] font-semibold tracking-[-0.04em] text-ink-900 shadow-none placeholder:text-slate-300 focus-visible:ring-0"
+                    className="h-auto border-0 bg-transparent px-0 py-0 text-[42px] font-semibold tracking-[-0.04em] text-ink-900 shadow-none placeholder:text-ink-300 focus-visible:ring-0"
                   />
                   <Input
                     value={draft.summary}
                     onChange={(event) => setDraft((current) => ({ ...current, summary: event.target.value }))}
                     placeholder={t('projects.composer.summaryPlaceholder')}
-                    className="h-auto border-0 bg-transparent px-0 py-0 text-[20px] text-ink-500 shadow-none placeholder:text-slate-300 focus-visible:ring-0"
+                    className="h-auto border-0 bg-transparent px-0 py-0 text-[20px] text-ink-500 shadow-none placeholder:text-ink-300 focus-visible:ring-0"
                   />
                 </div>
               </div>
@@ -283,7 +283,7 @@ export function ProjectComposer({
               <div className="flex flex-wrap gap-3">
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button type="button" variant="ghost" className="h-11 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-none hover:bg-slate-50">
+                    <Button type="button" variant="ghost" className="ds-inline-pill-button h-11 rounded-full px-4 text-[15px] font-medium text-ink-700 shadow-none">
                       {projectStatusIcon(draft.status)}
                       <span className="ml-2">{t(projectStatusLabelKey(draft.status))}</span>
                       <ChevronDown className="ml-2 h-4 w-4 text-ink-400" />
@@ -304,7 +304,7 @@ export function ProjectComposer({
 
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button type="button" variant="ghost" className="h-11 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-none hover:bg-slate-50">
+                    <Button type="button" variant="ghost" className="ds-inline-pill-button h-11 rounded-full px-4 text-[15px] font-medium text-ink-700 shadow-none">
                       {projectPriorityIcon(draft.priority)}
                       <span className="ml-2">
                         {draft.priority == null ? t('projects.composer.nonePriority') : t(projectPriorityLabelKey(draft.priority) ?? 'projects.composer.nonePriority')}
@@ -327,7 +327,7 @@ export function ProjectComposer({
 
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button type="button" variant="ghost" className="h-11 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-none hover:bg-slate-50">
+                    <Button type="button" variant="ghost" className="ds-inline-pill-button h-11 rounded-full px-4 text-[15px] font-medium text-ink-700 shadow-none">
                       {selectedLead ? memberAvatar(selectedLead.name) : projectLeadIcon()}
                       <span className="ml-2">{selectedLead?.name ?? t('projects.composer.lead')}</span>
                       <ChevronDown className="ml-2 h-4 w-4 text-ink-400" />
@@ -350,7 +350,7 @@ export function ProjectComposer({
 
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button type="button" variant="ghost" className="h-11 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-none hover:bg-slate-50">
+                    <Button type="button" variant="ghost" className="ds-inline-pill-button h-11 rounded-full px-4 text-[15px] font-medium text-ink-700 shadow-none">
                       <Users className="mr-2 h-4 w-4 text-ink-400" />
                       <span>{selectedMemberNames.length ? t('projects.composer.membersCount', { count: selectedMemberNames.length }) : t('projects.composer.members')}</span>
                       <ChevronDown className="ml-2 h-4 w-4 text-ink-400" />
@@ -382,7 +382,7 @@ export function ProjectComposer({
                                     : [...current.memberIds, String(member.id)],
                                 }))
                               }
-                              className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-[15px] text-ink-700 transition hover:bg-slate-100"
+                              className="ds-list-row flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-[15px] text-ink-700"
                             >
                               {memberAvatar(member.name)}
                               <span className="truncate">{member.name}</span>
@@ -412,7 +412,7 @@ export function ProjectComposer({
 
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button type="button" variant="ghost" className="h-11 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-none hover:bg-slate-50">
+                    <Button type="button" variant="ghost" className="ds-inline-pill-button h-11 rounded-full px-4 text-[15px] font-medium text-ink-700 shadow-none">
                       <Tag className="mr-2 h-4 w-4 text-ink-400" />
                       <span>{selectedLabels.length ? t('projects.composer.labelsCount', { count: selectedLabels.length }) : t('projects.composer.labels')}</span>
                       <ChevronDown className="ml-2 h-4 w-4 text-ink-400" />
@@ -435,22 +435,22 @@ export function ProjectComposer({
                   </PopoverContent>
                 </Popover>
 
-                <Button type="button" variant="ghost" disabled className="h-11 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-400 shadow-none disabled:opacity-100">
+                <Button type="button" variant="ghost" disabled className="h-11 rounded-full border border-border-soft bg-[color:var(--interactive-default)] px-4 text-[15px] font-medium text-ink-400 shadow-none disabled:opacity-100">
                   <Link2 className="mr-2 h-4 w-4" />
                   <span>{t('projects.composer.dependencies')}</span>
                 </Button>
               </div>
 
-              <div className="rounded-[24px] border border-border-soft bg-white px-5 py-4">
+              <div className="ds-surface-card rounded-[24px] px-5 py-4">
                 <Textarea
                   value={draft.description}
                   onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
                   placeholder={t('projects.composer.descriptionPlaceholder')}
-                  className="min-h-[220px] resize-none border-0 bg-transparent px-0 py-0 text-[16px] leading-7 text-ink-700 shadow-none placeholder:text-slate-300 focus-visible:ring-0"
+                  className="min-h-[220px] resize-none border-0 bg-transparent px-0 py-0 text-[16px] leading-7 text-ink-700 shadow-none placeholder:text-ink-300 focus-visible:ring-0"
                 />
               </div>
 
-              <div className="rounded-[24px] border border-border-soft bg-white">
+              <div className="ds-surface-card rounded-[24px]">
                 <div className="flex items-center justify-between border-b border-border-soft px-5 py-4">
                   <div className="text-[18px] font-semibold text-ink-900">{t('projects.composer.milestones')}</div>
                   <Button

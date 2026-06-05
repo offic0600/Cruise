@@ -2,22 +2,19 @@
 
 import { type ReactNode, useMemo, useState } from 'react';
 import {
-  CheckCircle2,
   ChevronDown,
   FolderKanban,
-  GitBranchPlus,
-  Link2,
   Plus,
-  Sparkles,
   Tag,
   UserCircle2,
 } from 'lucide-react';
+import { PropertyPill } from '@/design-system/patterns/PropertyPill';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import type { CustomFieldDefinition, Issue, IssueRelation, Label, Project } from '@/lib/api';
+import type { CustomFieldDefinition, Issue, Label, Project } from '@/lib/api';
 import { getStoredUser } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import { IssueAssigneeSelectMenu } from '../IssueAssigneeSelectMenu';
@@ -61,7 +58,6 @@ export function IssueDetailSidebar({
   members,
   projects,
   labels,
-  relations,
   visibleCustomFields,
   activeProperty,
   locale: _locale,
@@ -69,9 +65,6 @@ export function IssueDetailSidebar({
   onSetDraftIssue,
   onSetActiveProperty,
   onCreateLabel,
-  onCreateRelated,
-  onAddLink,
-  onAskLinear,
   renderCustomFieldInput,
   formatCustomFieldValue,
 }: {
@@ -80,7 +73,6 @@ export function IssueDetailSidebar({
   members: Array<{ id: number; name: string }>;
   projects: Project[];
   labels: Label[];
-  relations: IssueRelation[];
   visibleCustomFields: CustomFieldDefinition[];
   activeProperty: string | null;
   locale: string;
@@ -88,9 +80,6 @@ export function IssueDetailSidebar({
   onSetDraftIssue: (updater: (current: SidebarDraft) => SidebarDraft) => void;
   onSetActiveProperty: (value: string | null) => void;
   onCreateLabel: (scopeType: 'TEAM' | 'WORKSPACE', name: string) => Promise<void>;
-  onCreateRelated: () => Promise<void>;
-  onAddLink: () => Promise<void>;
-  onAskLinear: () => void;
   renderCustomFieldInput: (
     field: CustomFieldDefinition,
     value: unknown,
@@ -100,7 +89,6 @@ export function IssueDetailSidebar({
   formatCustomFieldValue: (field: CustomFieldDefinition, value: unknown) => string;
 }) {
   const storedUser = getStoredUser();
-  const [lastSidebarAction, setLastSidebarAction] = useState<string | null>(null);
   const notSetLabel = t('common.notSet');
   const selectedProject = projects.find((project) => project.id === draftIssue.projectId) ?? null;
   const selectedAssignee = members.find((member) => member.id === draftIssue.assigneeId) ?? null;
@@ -114,164 +102,9 @@ export function IssueDetailSidebar({
       resolution: draftIssue.resolution,
     } as Issue);
   }, [draftIssue.resolution, draftIssue.state]);
-  const announceSidebarAction = (message: string) => {
-    setLastSidebarAction(message);
-    window.setTimeout(() => setLastSidebarAction((current) => (current === message ? null : current)), 2200);
-  };
-  const assignSelfLabel = storedUser?.username || storedUser?.email || t('issues.detailSidebar.me');
 
   return (
     <aside className="space-y-3 xl:sticky xl:top-24 xl:self-start">
-      <SidebarCard title="Issue context" bodyClassName="space-y-3">
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <ContextMetric label="Status" value={t(issueStatusMenuLabelKey(currentStatusValue))} />
-          <ContextMetric label="Priority" value={draftIssue.priority == null ? t('views.new.preview.noPriority') : t(issuePriorityLabelKey(draftIssue.priority) ?? 'views.new.preview.noPriority')} />
-          <ContextMetric label="Labels" value={String(draftIssue.labelIds.length)} />
-          <ContextMetric label="Relations" value={String(relations.length)} />
-        </div>
-        <div className="grid gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              announceSidebarAction('Ask Linear opened');
-              onAskLinear();
-            }}
-            className="flex w-full items-center justify-between rounded-2xl border border-border-soft bg-slate-950 px-3 py-2.5 text-left text-sm font-medium text-white transition hover:bg-slate-900"
-          >
-            <span className="inline-flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-amber-300" />
-              Ask Linear
-            </span>
-            <span className="text-xs text-slate-400">{issue.identifier}</span>
-          </button>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                announceSidebarAction('Related issue prompt opened');
-                void onCreateRelated();
-              }}
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-border-soft bg-white px-3 text-xs font-medium text-ink-700 transition hover:bg-slate-50 hover:text-ink-950"
-            >
-              <GitBranchPlus className="h-3.5 w-3.5" />
-              Related
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                announceSidebarAction('Link prompt opened');
-                void onAddLink();
-              }}
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-border-soft bg-white px-3 text-xs font-medium text-ink-700 transition hover:bg-slate-50 hover:text-ink-950"
-            >
-              <Link2 className="h-3.5 w-3.5" />
-              Link
-            </button>
-          </div>
-        </div>
-        {lastSidebarAction ? (
-          <div aria-live="polite" className="rounded-2xl bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">
-            {lastSidebarAction}
-          </div>
-        ) : null}
-      </SidebarCard>
-
-      <SidebarCard title={t('issues.detailSidebar.quickActions')} bodyClassName="space-y-3">
-        <div className="grid grid-cols-2 gap-2">
-          <QuickActionButton
-            label={t('issues.detailSidebar.startWork')}
-            value={t('common.status.IN_PROGRESS')}
-            active={draftIssue.state === 'IN_PROGRESS'}
-            onClick={() => {
-              onSetDraftIssue((current) => ({ ...current, state: 'IN_PROGRESS', resolution: null }));
-              announceSidebarAction(t('issues.detailSidebar.feedbackStarted'));
-            }}
-          />
-          <QuickActionButton
-            label={t('issues.detailSidebar.sendReview')}
-            value={t('common.status.IN_REVIEW')}
-            active={draftIssue.state === 'IN_REVIEW'}
-            onClick={() => {
-              onSetDraftIssue((current) => ({ ...current, state: 'IN_REVIEW', resolution: null }));
-              announceSidebarAction(t('issues.detailSidebar.feedbackReview'));
-            }}
-          />
-          <QuickActionButton
-            label={t('issues.detailSidebar.markDone')}
-            value={t('common.status.DONE')}
-            active={draftIssue.state === 'DONE'}
-            onClick={() => {
-              onSetDraftIssue((current) => ({ ...current, state: 'DONE', resolution: 'COMPLETED' }));
-              announceSidebarAction(t('issues.detailSidebar.feedbackDone'));
-            }}
-          />
-          <QuickActionButton
-            label={t('issues.detailSidebar.raisePriority')}
-            value={t('common.priority.URGENT')}
-            active={draftIssue.priority === 'URGENT'}
-            onClick={() => {
-              onSetDraftIssue((current) => ({ ...current, priority: current.priority === 'URGENT' ? 'HIGH' : 'URGENT' }));
-              announceSidebarAction(t('issues.detailSidebar.feedbackPriority'));
-            }}
-          />
-          <QuickActionButton
-            label={t('issues.detailSidebar.assignSelf')}
-            value={assignSelfLabel}
-            active={storedUser?.id != null && draftIssue.assigneeId === storedUser.id}
-            disabled={storedUser?.id == null}
-            onClick={() => {
-              if (storedUser?.id == null) return;
-              const assigneeId = storedUser.id;
-              onSetDraftIssue((current) => ({ ...current, assigneeId }));
-              announceSidebarAction(t('issues.detailSidebar.feedbackAssigned'));
-            }}
-          />
-          <QuickActionButton
-            label={t('issues.detailSidebar.clearAssignee')}
-            value={notSetLabel}
-            active={draftIssue.assigneeId == null}
-            onClick={() => {
-              onSetDraftIssue((current) => ({ ...current, assigneeId: null }));
-              announceSidebarAction(t('issues.detailSidebar.feedbackClearedAssignee'));
-            }}
-          />
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              announceSidebarAction(t('issues.detailSidebar.feedbackRelated'));
-              void onCreateRelated();
-            }}
-            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-border-soft bg-white px-2 text-[11px] font-medium text-ink-700 transition hover:bg-slate-50"
-          >
-            <GitBranchPlus className="h-3.5 w-3.5 text-ink-400" />
-            {t('issues.more.relatedIssue')}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              announceSidebarAction(t('issues.detailSidebar.feedbackLink'));
-              void onAddLink();
-            }}
-            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-border-soft bg-white px-2 text-[11px] font-medium text-ink-700 transition hover:bg-slate-50"
-          >
-            <Link2 className="h-3.5 w-3.5 text-ink-400" />
-            {t('issues.more.addLink')}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              announceSidebarAction(t('issues.detailSidebar.feedbackAskLinear'));
-              onAskLinear();
-            }}
-            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-slate-900 bg-slate-950 px-2 text-[11px] font-medium text-white transition hover:bg-slate-900"
-          >
-            <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-            {t('issues.detailSidebar.askLinear')}
-          </button>
-        </div>
-      </SidebarCard>
       <SidebarCard title={t('issues.detailPage.properties')} bodyClassName="flex flex-col items-start gap-2.5">
         <IssueStatusPill
           testId="issue-detail-sidebar-state-pill"
@@ -361,39 +194,6 @@ export function IssueDetailSidebar({
         />
       </SidebarCard>
 
-      <div id="relations">
-        <SidebarCard title={t('issues.tabs.relations')} bodyClassName="space-y-2">
-          {relations.length ? (
-            <div className="space-y-1.5">
-              {relations.slice(0, 4).map((relation) => {
-                const relatedId = relation.fromIssueId === issue.id ? relation.toIssueId : relation.fromIssueId;
-                return (
-                  <div key={relation.id} className="rounded-2xl border border-border-soft/80 bg-surface-soft/40 px-3 py-2.5">
-                    <div className="text-[11px] uppercase tracking-[0.16em] text-ink-400">{formatRelationType(relation.relationType)}</div>
-                    <div className="mt-0.5 truncate text-sm font-medium text-ink-800">Issue #{relatedId}</div>
-                  </div>
-                );
-              })}
-              {relations.length > 4 ? (
-                <div className="px-1 text-xs text-ink-400">+{relations.length - 4} more</div>
-              ) : null}
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-border-soft bg-surface-soft/30 px-3 py-3 text-sm text-ink-400">
-              {t('issues.emptyStates.relations')}
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={() => void onCreateRelated()}
-            className="inline-flex h-9 items-center gap-2 rounded-full border border-border-soft bg-white px-3 text-sm font-medium text-ink-700 transition hover:bg-slate-50 hover:text-ink-950"
-          >
-            <GitBranchPlus className="h-4 w-4 text-ink-400" />
-            <span>{t('issues.more.relatedIssue')}</span>
-          </button>
-        </SidebarCard>
-      </div>
-
       {visibleCustomFields.length ? (
         <SidebarCard title={t('issues.detailSidebar.additionalFields')} bodyClassName="space-y-2">
           {visibleCustomFields.map((field) => {
@@ -407,7 +207,7 @@ export function IssueDetailSidebar({
                 isEditing={isEditing}
                 onActivate={() => onSetActiveProperty(fieldKey)}
                 editor={
-                  <div className="rounded-xl border border-border-soft/80 bg-white px-3 py-2.5">
+                  <div className="ds-editor-surface rounded-xl px-3 py-2.5">
                     {renderCustomFieldInput(
                       field,
                       draftIssue.customFields[field.key],
@@ -457,19 +257,17 @@ function IssuePriorityPill({
       }}
     >
       <PopoverTrigger asChild>
-        <button
-          type="button"
-          data-testid={testId}
-          className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
-        >
-          <span className="inline-flex items-center gap-2">
-            <span className="inline-flex items-center justify-center text-ink-500">{issuePriorityIcon(value)}</span>
-            <span className="truncate">{label}</span>
-          </span>
-          <ChevronDown className="h-4 w-4 text-ink-300" />
+        <button type="button" data-testid={testId}>
+          <PropertyPill className="detail-compact-button">
+            <span className="inline-flex items-center gap-2">
+              <span className="inline-flex items-center justify-center text-ink-500">{issuePriorityIcon(value)}</span>
+              <span className="truncate">{label}</span>
+            </span>
+            <ChevronDown className="h-3.5 w-3.5 text-ink-300" />
+          </PropertyPill>
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[260px] overflow-hidden rounded-[18px] border border-border-subtle bg-white p-0 shadow-elevated">
+      <PopoverContent align="start" className="w-[260px] overflow-hidden rounded-[18px] p-0 shadow-elevated">
         <IssuePrioritySelectMenu
           value={value}
           query={query}
@@ -518,22 +316,20 @@ function IssueAssigneePill({
       }}
     >
       <PopoverTrigger asChild>
-        <button
-          type="button"
-          data-testid={testId}
-          className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
-        >
-          <span className="inline-flex items-center gap-2">
-            {currentMember ? (
-              <AvatarChip text={getIssueInitials(currentMember.name)} className="bg-rose-100 text-rose-600" />
-            ) : (
-              <span className="inline-flex h-6 w-6 items-center justify-center text-ink-400">
-                <UserCircle2 className="h-4 w-4" />
-              </span>
-            )}
-            <span className="truncate">{label}</span>
-          </span>
-          <ChevronDown className="h-4 w-4 text-ink-300" />
+        <button type="button" data-testid={testId}>
+          <PropertyPill className="detail-compact-button">
+            <span className="inline-flex items-center gap-2">
+              {currentMember ? (
+                <AvatarChip text={getIssueInitials(currentMember.name)} className="ds-accent-avatar" />
+              ) : (
+                <span className="inline-flex h-5 w-5 items-center justify-center text-ink-400">
+                  <UserCircle2 className="h-3.5 w-3.5" />
+                </span>
+              )}
+              <span className="truncate">{label}</span>
+            </span>
+            <ChevronDown className="h-3.5 w-3.5 text-ink-300" />
+          </PropertyPill>
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[320px] overflow-hidden p-0">
@@ -567,56 +363,13 @@ function SidebarCard({
   bodyClassName?: string;
 }) {
   return (
-    <section className="rounded-[18px] border border-border-soft bg-white px-4 py-3.5 shadow-[0_1px_6px_rgba(15,23,42,0.04)]">
+    <section className="rounded-[18px] border border-border-soft bg-surface-elevated px-4 py-3.5 shadow-card">
       <div className="mb-2.5 flex items-center gap-1.5 text-[15px] font-medium text-ink-700">
         <span>{title}</span>
         <ChevronDown className="h-3.5 w-3.5 text-ink-400" />
       </div>
       <div className={cn('space-y-0.5', bodyClassName)}>{children}</div>
     </section>
-  );
-}
-
-function ContextMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-border-soft bg-surface-soft/50 px-3 py-2">
-      <div className="text-[10px] uppercase tracking-[0.16em] text-ink-400">{label}</div>
-      <div className="mt-1 truncate text-sm font-medium text-ink-800">{value}</div>
-    </div>
-  );
-}
-
-function QuickActionButton({
-  label,
-  value,
-  active,
-  disabled = false,
-  onClick,
-}: {
-  label: string;
-  value: string;
-  active: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={cn(
-        'group rounded-2xl border px-3 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-50',
-        active
-          ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-          : 'border-border-soft bg-white text-ink-700 hover:bg-slate-50 hover:text-ink-950'
-      )}
-    >
-      <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-400">
-        <CheckCircle2 className={cn('h-3.5 w-3.5', active ? 'text-emerald-600' : 'text-ink-300 group-hover:text-ink-500')} />
-        {label}
-      </div>
-      <div className="mt-1 truncate text-sm font-semibold">{value}</div>
-    </button>
   );
 }
 
@@ -645,19 +398,17 @@ function IssueStatusPill({
       }}
     >
       <PopoverTrigger asChild>
-        <button
-          type="button"
-          data-testid={testId}
-          className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
-        >
-          <span className="inline-flex items-center gap-2">
-            <span className="inline-flex items-center justify-center text-ink-500">{issueStatusMenuIcon(value)}</span>
-            <span className="truncate">{label}</span>
-          </span>
-          <ChevronDown className="h-4 w-4 text-ink-300" />
+        <button type="button" data-testid={testId}>
+          <PropertyPill className="detail-compact-button">
+            <span className="inline-flex items-center gap-2">
+              <span className="inline-flex items-center justify-center text-ink-500">{issueStatusMenuIcon(value)}</span>
+              <span className="truncate">{label}</span>
+            </span>
+            <ChevronDown className="h-3.5 w-3.5 text-ink-300" />
+          </PropertyPill>
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[260px] overflow-hidden rounded-[18px] border border-border-subtle bg-white p-0 shadow-elevated">
+      <PopoverContent align="start" className="w-[260px] overflow-hidden rounded-[18px] p-0 shadow-elevated">
         <IssueStatusSelectMenu
           value={value}
           query={query}
@@ -708,13 +459,11 @@ function SingleValuePill({
     : options;
 
   const trigger = (
-    <button
-      type="button"
-      data-testid={testId}
-      className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
-    >
-      <SingleValueDisplay option={selectedOption} fallbackLabel={label || emptyLabel || ''} />
-      <ChevronDown className="h-4 w-4 text-ink-300" />
+    <button type="button" data-testid={testId}>
+      <PropertyPill className="detail-compact-button">
+        <SingleValueDisplay option={selectedOption} fallbackLabel={label || emptyLabel || ''} />
+        <ChevronDown className="h-3.5 w-3.5 text-ink-300" />
+      </PropertyPill>
     </button>
   );
 
@@ -803,25 +552,27 @@ function LabelsPill({
         <button
           type="button"
           data-testid="issue-detail-sidebar-labels-pill"
-          className="inline-flex min-h-11 flex-wrap items-center gap-2 rounded-full border border-border-soft bg-white px-4 py-2 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
+          className={`inline-flex min-h-9 flex-wrap items-center gap-2 px-0 py-0 text-[15px] font-medium text-ink-700 transition ${
+            selectedLabels.length ? 'hover:text-ink-900' : 'interactive-subtle-row'
+          }`}
         >
           {selectedLabels.length ? (
             <>
               {selectedLabels.map((label) => (
                 <span
                   key={label.id}
-                  className="inline-flex items-center gap-2 rounded-full border border-border-soft bg-white px-3 py-1 text-[14px] font-medium text-ink-700"
+                  className="detail-compact-chip"
                 >
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: label.color || '#ef4444' }} />
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: label.color || 'var(--fill-danger)' }} />
                   <span>{label.name}</span>
                 </span>
               ))}
-              <Plus className="h-4 w-4 text-ink-400" />
+              <Plus className="h-3.5 w-3.5 text-ink-400" />
             </>
           ) : (
             <>
-              <Tag className="h-4 w-4 text-ink-400" />
-              <span>{t('settings.composer.labels')}</span>
+              <Tag className="h-3.5 w-3.5 text-ink-400" />
+              <span className="text-[14px] font-medium text-ink-500">Add label</span>
             </>
           )}
         </button>
@@ -855,7 +606,7 @@ function SingleValueOption({
     <button
       type="button"
       onClick={onSelect}
-      className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-ink-700 transition hover:bg-slate-50"
+      className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-ink-700 transition hover:bg-surface-soft"
     >
       <span className="flex h-4 w-4 items-center justify-center text-brand-600">
         {selected ? (
@@ -888,14 +639,6 @@ function AvatarChip({ text, className }: { text: string; className?: string }) {
   );
 }
 
-function formatRelationType(value: IssueRelation['relationType']) {
-  return value
-    .toLowerCase()
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
 function InlineEditableRow({
   label,
   valueLabel,
@@ -910,7 +653,7 @@ function InlineEditableRow({
   editor: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-border-soft/70 bg-surface-soft/30 px-3 py-3">
+    <div className="rounded-2xl border border-border-soft bg-surface-soft px-3 py-3">
       <div className="mb-1 text-[11px] uppercase tracking-[0.16em] text-ink-400">{label}</div>
       {isEditing ? (
         editor

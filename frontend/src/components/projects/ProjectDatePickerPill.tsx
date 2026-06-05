@@ -41,7 +41,7 @@ export function ProjectDatePickerPill({
           type="button"
           variant="ghost"
           disabled={disabled}
-          className="h-11 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-none hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          className="ds-inline-pill-button h-11 rounded-full px-4 text-[15px] font-medium text-ink-700 shadow-none disabled:cursor-not-allowed disabled:opacity-50"
         >
           <CalendarDays className="mr-2 h-4 w-4 text-ink-400" />
           <span>{display}</span>

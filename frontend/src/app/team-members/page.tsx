@@ -146,7 +146,7 @@ export default function TeamMembersPage() {
           <div className="flex gap-3">
             <Link
               href={localizePath(locale, '/teams/current/settings/templates')}
-              className="inline-flex h-10 items-center justify-center rounded-xl border border-border-soft bg-white px-4 text-sm font-medium text-ink-700 transition hover:bg-slate-50"
+              className="ds-inline-pill-button inline-flex h-10 items-center justify-center rounded-xl px-4 text-sm font-medium text-ink-700"
             >
               {t('teamMembers.issueSettings')}
             </Link>
@@ -185,7 +185,7 @@ export default function TeamMembersPage() {
                 </div>
               ) : null}
               {latestInvite ? (
-                <div className="rounded-2xl border border-border-soft bg-slate-50 p-4">
+                <div className="ds-surface-subtle rounded-2xl p-4">
                   <div className="text-sm font-medium text-ink-900">{t('teamMembers.invites.latest')}</div>
                   <div className="mt-2 break-all text-sm text-ink-700">{latestInvite.inviteUrl}</div>
                   <div className="mt-2 text-xs text-ink-500">{t('teamMembers.invites.expiresInDays')}</div>

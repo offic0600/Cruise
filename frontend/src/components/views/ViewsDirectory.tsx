@@ -10,10 +10,8 @@ import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import { getTeamMembers } from '@/lib/api/legacy';
 import type { View, ViewResourceType, ViewScopeType } from '@/lib/api/types';
 import { useCreateView, useViewsIndex } from '@/lib/query/views';
-import { createDefaultViewQueryState } from '@/lib/views/queryState';
 import {
   resourceTypeToViewSegment,
-  teamNewViewPath,
   workspaceNewViewPath,
   workspaceProjectViewPath,
   workspaceViewPath,
@@ -30,6 +28,25 @@ type TeamMember = {
   name: string;
   email?: string | null;
 };
+
+function defaultQueryState(resourceType: ViewResourceType) {
+  return {
+    filters: { operator: 'AND' as const, children: [] },
+    display: {
+      layout: 'LIST' as const,
+      visibleColumns: resourceType === 'ISSUE'
+        ? ['identifier', 'title', 'priority', 'state', 'assignee', 'project', 'labels', 'updatedAt', 'createdAt']
+        : resourceType === 'PROJECT'
+          ? ['key', 'name', 'status', 'ownerId', 'teamId', 'updatedAt', 'createdAt']
+          : ['slugId', 'name', 'status', 'health', 'ownerId', 'targetDate', 'updatedAt', 'createdAt'],
+      density: 'comfortable' as const,
+      showSubIssues: true,
+      showEmptyGroups: true,
+    },
+    grouping: { field: null as string | null },
+    sorting: [{ field: 'updatedAt', direction: 'desc' as const, nulls: 'last' as const }],
+  };
+}
 
 function initials(value: string) {
   return value
@@ -92,7 +109,6 @@ export default function ViewsDirectory({
   const createViewMutation = useCreateView();
   const members = Array.isArray(membersQuery.data) ? membersQuery.data : [];
   const views = viewsQuery.data ?? [];
-  const defaultQueryState = useMemo(() => createDefaultViewQueryState(resourceType), [resourceType]);
 
   const orderedViews = useMemo(() => views.filter((view) => !view.isSystem), [views]);
 
@@ -115,11 +131,7 @@ export default function ViewsDirectory({
 
   async function handleCreate() {
     if (!currentOrganizationSlug) return;
-    if (resourceType === 'INITIATIVE' || defaultQueryState.display.visibleColumns.length === 0) return;
-    if (scopeType === 'TEAM' && (teamKey ?? currentTeamKey)) {
-      router.push(teamNewViewPath(currentOrganizationSlug, teamKey ?? currentTeamKey!));
-      return;
-    }
+    if (resourceType === 'INITIATIVE') return;
     router.push(workspaceNewViewPath(currentOrganizationSlug, resourceTypeToViewSegment(resourceType)));
   }
 
@@ -141,7 +153,7 @@ export default function ViewsDirectory({
                     variant="ghost"
                     size="icon"
                     aria-label={t('common.search')}
-                    className="rounded-full border border-border-soft bg-white text-ink-600 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:bg-slate-50"
+                    className="ds-inline-pill-button rounded-full text-ink-600"
                   >
                     <SlidersHorizontal className="h-4 w-4" />
                   </Button>
@@ -166,7 +178,7 @@ export default function ViewsDirectory({
                 size="icon"
                 onClick={handleCreate}
                 aria-label={t('common.create')}
-                className="rounded-full border border-border-soft bg-white text-ink-600 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:bg-slate-50"
+                className="ds-inline-pill-button rounded-full text-ink-600"
               >
                 <Plus className="h-4.5 w-4.5" />
               </Button>
@@ -177,22 +189,22 @@ export default function ViewsDirectory({
         <div className="flex items-center justify-between gap-4 py-5">
           {scopeType === 'WORKSPACE' ? (
             <Tabs value={resourceType} onValueChange={(value) => currentOrganizationSlug && router.push(workspaceViewsPath(currentOrganizationSlug, resourceTypeToViewSegment(value as ViewResourceType)))}>
-              <TabsList className="rounded-full border border-border-soft bg-white p-1 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+              <TabsList className="ds-segmented-control rounded-full p-1 shadow-none">
                 <TabsTrigger
                   value="ISSUE"
-                  className="min-w-[92px] rounded-full border border-transparent px-5 text-[15px] text-ink-600 transition data-[state=active]:border-border-soft data-[state=active]:bg-slate-50 data-[state=active]:font-medium data-[state=active]:text-ink-900 data-[state=active]:shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
+                  className="ds-segmented-control-item min-w-[92px] rounded-full border border-transparent px-5 text-[15px] text-ink-600 transition"
                 >
                   {t('views.resources.issues')}
                 </TabsTrigger>
                 <TabsTrigger
                   value="PROJECT"
-                  className="min-w-[92px] rounded-full border border-transparent px-5 text-[15px] text-ink-600 transition data-[state=active]:border-border-soft data-[state=active]:bg-slate-50 data-[state=active]:font-medium data-[state=active]:text-ink-900 data-[state=active]:shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
+                  className="ds-segmented-control-item min-w-[92px] rounded-full border border-transparent px-5 text-[15px] text-ink-600 transition"
                 >
                   {t('views.resources.projects')}
                 </TabsTrigger>
                 <TabsTrigger
                   value="INITIATIVE"
-                  className="min-w-[104px] rounded-full border border-transparent px-5 text-[15px] text-ink-600 transition data-[state=active]:border-border-soft data-[state=active]:bg-slate-50 data-[state=active]:font-medium data-[state=active]:text-ink-900 data-[state=active]:shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
+                  className="ds-segmented-control-item min-w-[104px] rounded-full border border-transparent px-5 text-[15px] text-ink-600 transition"
                 >
                   {t('views.resources.initiatives')}
                 </TabsTrigger>
@@ -200,10 +212,10 @@ export default function ViewsDirectory({
             </Tabs>
           ) : (
             <Tabs value="ISSUE">
-              <TabsList className="rounded-full border border-border-soft bg-white p-1 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+              <TabsList className="ds-segmented-control rounded-full p-1 shadow-none">
                 <TabsTrigger
                   value="ISSUE"
-                  className="min-w-[92px] rounded-full border border-transparent px-5 text-[15px] text-ink-600 transition data-[state=active]:border-border-soft data-[state=active]:bg-slate-50 data-[state=active]:font-medium data-[state=active]:text-ink-900 data-[state=active]:shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
+                  className="ds-segmented-control-item min-w-[92px] rounded-full border border-transparent px-5 text-[15px] text-ink-600 transition"
                 >
                   {t('views.resources.issues')}
                 </TabsTrigger>
@@ -220,7 +232,7 @@ export default function ViewsDirectory({
           </div>
 
           <div className="space-y-3">
-            <div className="grid grid-cols-[minmax(0,1fr)_220px_40px] items-center gap-3 rounded-[18px] bg-slate-50/90 px-4 py-4">
+            <div className="ds-group-surface grid grid-cols-[minmax(0,1fr)_220px_40px] items-center gap-3 rounded-[18px] px-4 py-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-700 text-[11px] font-semibold text-white">
                   {initials(workspaceLabel)}
@@ -233,7 +245,7 @@ export default function ViewsDirectory({
               <button
                 type="button"
                 onClick={handleCreate}
-                disabled={resourceType === 'INITIATIVE' || defaultQueryState.display.visibleColumns.length === 0}
+                disabled={resourceType === 'INITIATIVE'}
                 className="text-lg leading-none text-ink-500 transition hover:text-ink-900 disabled:cursor-not-allowed disabled:text-ink-300"
               >
                 +
@@ -243,7 +255,7 @@ export default function ViewsDirectory({
             {viewsQuery.isPending && showLoadingState ? (
               <div className="px-1 py-10 text-sm text-ink-500">{t('common.loading')}</div>
             ) : orderedViews.length ? (
-              <div className="divide-y divide-border-soft rounded-[20px] bg-white">
+              <div className="ds-surface-card divide-y divide-border-soft rounded-[20px]">
                 {orderedViews.map((view) => {
                   const owner = ownerLabel(view, members);
                   return (
@@ -256,11 +268,11 @@ export default function ViewsDirectory({
                               : workspaceViewPath(currentOrganizationSlug, view)
                             : '#'
                         }
-                      className="grid grid-cols-[minmax(0,1fr)_220px_40px] items-center gap-3 rounded-[18px] px-4 py-4 transition hover:bg-slate-50"
+                      className="ds-list-row grid grid-cols-[minmax(0,1fr)_220px_40px] items-center gap-3 rounded-[18px] px-4 py-4"
                     >
                       <div className="min-w-0">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-ink-500">
+                          <div className="ds-surface-subtle flex h-7 w-7 items-center justify-center rounded-full text-ink-500">
                             {view.resourceType === 'PROJECT' ? <FolderKanban className="h-3.5 w-3.5" /> : <Layers3 className="h-3.5 w-3.5" />}
                           </div>
                           <div className="truncate text-[15px] font-medium text-ink-900">{view.name}</div>

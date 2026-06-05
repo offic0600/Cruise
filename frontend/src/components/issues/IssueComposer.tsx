@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Calendar, CalendarPlus, CheckCircle2, ChevronDown, ChevronRight, Circle, CircleDashed, CircleEllipsis, Equal, Expand, Flame, FolderKanban, GitBranchPlus, Link2, LoaderCircle, Minimize2, Minus, MoreHorizontal, Paperclip, Repeat, Save, Tag, UserCircle2, X, XCircle } from 'lucide-react';
+import { Calendar, CalendarPlus, CheckCircle2, ChevronDown, ChevronRight, Circle, CircleDashed, CircleEllipsis, Equal, Expand, Flame, Link2, LoaderCircle, Minimize2, Minus, MoreHorizontal, Paperclip, Repeat, Save, Tag, UserCircle2, X, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/providers/ToastProvider';
 import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
@@ -67,7 +67,7 @@ import {
   parseIssueCreateParams,
 } from '@/lib/issues/composer';
 import { queryKeys } from '@/lib/query/keys';
-import { issueDetailPath, teamSettingsPath, workspaceGithubIntegrationPath, workspaceSectionPath } from '@/lib/routes';
+import { issueDetailPath, teamSettingsPath, workspaceSectionPath } from '@/lib/routes';
 import { buildIssueCreatedToast } from '@/lib/toast/issue-created';
 import { cn } from '@/lib/utils';
 import { issuePriorityIcon, issuePriorityLabelKey, issueStatusMenuIcon, issueStatusMenuLabelKey } from './issues-list-utils';
@@ -128,7 +128,6 @@ export default function IssueComposer({
   const [recurringEnabled, setRecurringEnabled] = useState(false);
   const [recurringInterval, setRecurringInterval] = useState('1');
   const [recurringUnit, setRecurringUnit] = useState<'day' | 'week' | 'month'>('week');
-  const [createError, setCreateError] = useState<string | null>(null);
 
   const projectsQuery = useQuery({
     queryKey: queryKeys.projects,
@@ -279,13 +278,6 @@ export default function IssueComposer({
 
   const scopeName = currentTeam?.name ?? currentOrganization?.name ?? 'Workspace';
   const selectedLabelIds = draft.labelIds;
-  const composerBusy =
-    projectsQuery.isLoading ||
-    teamsQuery.isLoading ||
-    membersQuery.isLoading ||
-    templatesQuery.isLoading ||
-    createIssueMutation.isPending ||
-    createRecurringMutation.isPending;
 
   const resetComposer = () => {
     const nextDraft = parseIssueCreateParams(initialParams ?? new URLSearchParams(), projects, templates);
@@ -298,7 +290,6 @@ export default function IssueComposer({
     setRecurringEnabled(false);
     setRecurringInterval('1');
     setRecurringUnit('week');
-    setCreateError(null);
   };
 
   const handleClose = () => {
@@ -306,7 +297,7 @@ export default function IssueComposer({
     onClose?.();
   };
 
-  const submitCreate = async () => {
+  const handleCreate = async () => {
     if (recurringEnabled) {
       await createRecurringMutation.mutateAsync({
         organizationId,
@@ -414,15 +405,6 @@ export default function IssueComposer({
     onClose?.();
   };
 
-  const handleCreate = async () => {
-    setCreateError(null);
-    try {
-      await submitCreate();
-    } catch {
-      setCreateError(t('issues.errors.create'));
-    }
-  };
-
   const handleSaveServerDraft = async () => {
     await saveDraftMutation.mutateAsync({
       id: initialDraftId ?? undefined,
@@ -485,8 +467,6 @@ export default function IssueComposer({
       labels={labels}
       labelCatalog={labelCatalog}
       members={members}
-      projects={projects}
-      teams={teams}
       scopeName={scopeName}
       dirty={dirty}
       pendingFiles={pendingFiles}
@@ -495,13 +475,10 @@ export default function IssueComposer({
       recurringInterval={recurringInterval}
       recurringUnit={recurringUnit}
       createPending={createIssueMutation.isPending || createRecurringMutation.isPending}
-      createError={createError}
       selectedLabelIds={selectedLabelIds}
       templates={templates}
       currentUserId={storedUser?.id != null ? String(storedUser.id) : null}
       currentUserName={storedUser?.username ?? null}
-      currentOrganizationSlug={currentOrganizationSlug}
-      currentTeamKey={currentTeamKey}
       t={t}
       locale={locale}
       isExpanded={isExpanded}
@@ -542,7 +519,6 @@ export default function IssueComposer({
       savingTemplate={savingTemplate}
       templateName={templateName}
       createPending={createIssueMutation.isPending}
-      createError={createError}
       currentOrganizationSlug={currentOrganizationSlug}
       currentTeamKey={currentTeamKey}
       locale={locale}
@@ -570,15 +546,10 @@ export default function IssueComposer({
       {mode === 'page' ? (
         <div className="mx-auto max-w-5xl px-8 py-8">{fullBody}</div>
       ) : (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/16 px-6 py-10 backdrop-blur-[2px]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface-overlay px-6 py-10 backdrop-blur-[2px]">
           <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={t('issues.actions.new')}
-            aria-busy={composerBusy}
-            data-testid="issue-composer-dialog"
             className={cn(
-              'w-full overflow-hidden rounded-[32px] border border-black/5 bg-white shadow-[0_28px_80px_rgba(15,23,42,0.18)] transition-[width,height,max-width] duration-200 ease-linear',
+              'w-full overflow-hidden rounded-[32px] border border-border-subtle bg-surface-elevated shadow-[0_28px_80px_rgba(15,23,42,0.18)] transition-[width,height,max-width] duration-200 ease-linear',
               isExpanded
                 ? 'h-[calc(100vh-24px)] max-w-[min(1320px,calc(100vw-24px))]'
                 : 'max-w-6xl'
@@ -600,8 +571,6 @@ function QuickCreateView({
   labels,
   labelCatalog,
   members,
-  projects,
-  teams,
   scopeName,
   dirty,
   pendingFiles,
@@ -610,13 +579,10 @@ function QuickCreateView({
   recurringInterval,
   recurringUnit,
   createPending,
-  createError,
   selectedLabelIds,
   templates,
   currentUserId,
   currentUserName,
-  currentOrganizationSlug,
-  currentTeamKey,
   t,
   locale,
   isExpanded,
@@ -637,8 +603,6 @@ function QuickCreateView({
   labels: Label[];
   labelCatalog?: { teamLabels: Label[]; workspaceLabels: Label[] };
   members: TeamMember[];
-  projects: Array<{ id: number; name: string }>;
-  teams: Array<{ id: number; name: string }>;
   scopeName: string;
   dirty: boolean;
   pendingFiles: File[];
@@ -647,13 +611,10 @@ function QuickCreateView({
   recurringInterval: string;
   recurringUnit: 'day' | 'week' | 'month';
   createPending: boolean;
-  createError: string | null;
   selectedLabelIds: string[];
   templates: IssueTemplate[];
   currentUserId: string | null;
   currentUserName: string | null;
-  currentOrganizationSlug: string | null;
-  currentTeamKey: string | null;
   t: (key: string, params?: Record<string, string | number>) => string;
   locale: Locale;
   isExpanded: boolean;
@@ -672,23 +633,12 @@ function QuickCreateView({
 }) {
   const labelsLabel = t('settings.composer.labels');
   const dueDateInputRef = useRef<HTMLInputElement | null>(null);
-  const readinessSignals = buildComposerReadinessSignals({
-    draft,
-    projects,
-    teams,
-    members,
-    labels,
-    pendingFiles,
-    recurringEnabled,
-    createMore,
-    t,
-  });
 
   return (
     <div className={cn('flex flex-col', isExpanded ? 'h-full min-h-0' : '')}>
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3 text-[15px] text-ink-700">
-          <div className="inline-flex h-10 items-center rounded-full border border-border-soft px-3 text-sm font-medium text-ink-700">
+          <div className="ds-inline-pill-button inline-flex h-10 items-center rounded-full px-3 text-sm font-medium text-ink-700">
             {scopeName}
           </div>
           <span className="text-ink-300">&gt;</span>
@@ -699,7 +649,7 @@ function QuickCreateView({
             <button
               type="button"
               onClick={() => void onSaveDraft()}
-              className="inline-flex h-10 items-center rounded-full border border-border-soft px-4 text-sm font-medium text-ink-700 transition hover:bg-slate-50"
+              className="ds-inline-pill-button inline-flex h-10 items-center rounded-full px-4 text-sm font-medium text-ink-700"
             >
               {t('settings.composer.saveDraft')}
             </button>
@@ -707,7 +657,7 @@ function QuickCreateView({
           <button
             type="button"
             onClick={onToggleExpanded}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border-soft text-ink-500 transition hover:bg-slate-50 hover:text-ink-900"
+            className="ds-inline-pill-button inline-flex h-10 w-10 items-center justify-center rounded-full text-ink-500"
             aria-label={isExpanded ? t('settings.composer.collapseComposer') : t('settings.composer.expandComposer')}
           >
             {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Expand className="h-4 w-4" />}
@@ -716,7 +666,7 @@ function QuickCreateView({
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border-soft text-ink-500 transition hover:bg-slate-50 hover:text-ink-900"
+              className="ds-inline-pill-button inline-flex h-10 w-10 items-center justify-center rounded-full text-ink-500"
               aria-label={t('common.cancel')}
             >
               <X className="h-4 w-4" />
@@ -724,12 +674,6 @@ function QuickCreateView({
           ) : null}
         </div>
       </div>
-
-      {createError ? (
-        <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
-          {createError}
-        </div>
-      ) : null}
 
       <div className={cn('mt-10', isExpanded ? 'flex-1' : '')}>
         <input
@@ -810,34 +754,12 @@ function QuickCreateView({
         />
       </div>
 
-      <ComposerFlowRail
-        signals={readinessSignals}
-        createPending={createPending}
-        createError={createError}
-        recurringEnabled={recurringEnabled}
-        t={t}
-        compact={!isExpanded}
-      />
-
-      <ComposerContextDock
-        draft={draft}
-        projects={projects}
-        teams={teams}
-        members={members}
-        pendingFiles={pendingFiles}
-        templates={templates}
-        currentOrganizationSlug={currentOrganizationSlug}
-        currentTeamKey={currentTeamKey}
-        t={t}
-        compact={!isExpanded}
-      />
-
       <div className="mt-10 flex items-end justify-between gap-4">
         <div className="flex min-h-12 flex-1 items-center gap-3">
           <button
             type="button"
             onClick={onPickFiles}
-            className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-border-soft text-ink-600 transition hover:bg-slate-50 hover:text-ink-900"
+            className="ds-inline-pill-button inline-flex h-12 w-12 items-center justify-center rounded-full text-ink-600"
             aria-label={t('settings.composer.addFiles')}
           >
             <Paperclip className="h-5 w-5" />
@@ -863,7 +785,7 @@ function QuickCreateView({
                   }
                   input.click();
                 }}
-                className="inline-flex h-12 min-w-[168px] items-center rounded-[16px] border border-slate-200 bg-white px-5 text-[15px] font-medium text-ink-800 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:bg-slate-50"
+                className="ds-surface-card inline-flex h-12 min-w-[168px] items-center rounded-[16px] px-5 text-[15px] font-medium text-ink-800 transition hover:bg-[color:var(--interactive-hover)]"
               >
                 {formatRecurringDateDisplay(draft.plannedEndDate)}
               </button>
@@ -887,7 +809,7 @@ function QuickCreateView({
               <button
                 type="button"
                 onClick={() => onRecurringEnabledChange(false)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ink-400 transition hover:bg-slate-50 hover:text-ink-700"
+                className="ds-icon-button-subtle inline-flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-ink-400"
                 aria-label={t('common.cancel')}
               >
                 <X className="h-5 w-5" />
@@ -905,10 +827,10 @@ function QuickCreateView({
                 type="button"
                 aria-pressed={createMore}
                 onClick={() => onCreateMoreChange(!createMore)}
-                className={`relative h-7 w-12 rounded-full transition ${createMore ? 'bg-slate-900' : 'bg-slate-200'}`}
+                className={`relative h-7 w-12 rounded-full transition ${createMore ? 'bg-[color:var(--bg-inverse)]' : 'bg-[color:var(--border-strong)]'}`}
               >
                 <span
-                  className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition ${createMore ? 'left-6' : 'left-1'}`}
+                  className={`absolute top-1 h-5 w-5 rounded-full bg-[color:var(--interactive-default)] shadow-sm transition ${createMore ? 'left-6' : 'left-1'}`}
                 />
               </button>
               <span>{t('settings.composer.createMore')}</span>
@@ -944,7 +866,6 @@ function FullCreateView({
   savingTemplate,
   templateName,
   createPending,
-  createError,
   currentOrganizationSlug,
   currentTeamKey,
   locale,
@@ -969,7 +890,6 @@ function FullCreateView({
   savingTemplate: boolean;
   templateName: string;
   createPending: boolean;
-  createError: string | null;
   currentOrganizationSlug: string | null;
   currentTeamKey: string | null;
   locale: Locale;
@@ -984,20 +904,9 @@ function FullCreateView({
   onCreate: () => Promise<void>;
 }) {
   const selectedLabelNames = labels.filter((item) => draft.labelIds.includes(String(item.id))).map((item) => item.name).join(', ');
-  const readinessSignals = buildComposerReadinessSignals({
-    draft,
-    projects,
-    teams,
-    members,
-    labels,
-    pendingFiles,
-    recurringEnabled: false,
-    createMore: false,
-    t,
-  });
 
   return (
-    <div className="rounded-[32px] border border-border-soft bg-white p-8 shadow-sm">
+    <div className="ds-surface-card rounded-[32px] p-8 shadow-sm">
       <div className="flex items-center justify-between gap-4">
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-ink-400">{t('settings.composer.fullCreateEyebrow')}</div>
@@ -1006,7 +915,7 @@ function FullCreateView({
         <div className="flex items-center gap-2">
           <Link
                 href={currentOrganizationSlug ? workspaceSectionPath(currentOrganizationSlug, 'drafts') : '#'}
-            className="inline-flex h-10 items-center rounded-full border border-border-soft px-4 text-sm font-medium text-ink-700 transition hover:bg-slate-50"
+            className="ds-inline-pill-button inline-flex h-10 items-center rounded-full px-4 text-sm font-medium text-ink-700"
           >
             {t('issues.actions.openDrafts')}
           </Link>
@@ -1019,32 +928,6 @@ function FullCreateView({
           </Button>
         </div>
       </div>
-
-      {createError ? (
-        <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
-          {createError}
-        </div>
-      ) : null}
-
-      <ComposerFlowRail
-        signals={readinessSignals}
-        createPending={createPending}
-        createError={createError}
-        recurringEnabled={false}
-        t={t}
-      />
-
-      <ComposerContextDock
-        draft={draft}
-        projects={projects}
-        teams={teams}
-        members={members}
-        pendingFiles={pendingFiles}
-        templates={templates}
-        currentOrganizationSlug={currentOrganizationSlug}
-        currentTeamKey={currentTeamKey}
-        t={t}
-      />
 
       <div className="mt-8 grid gap-6">
         <div className="grid gap-3">
@@ -1189,7 +1072,7 @@ function FullCreateView({
         ) : null}
 
         {savingTemplate ? (
-          <div className="rounded-2xl border border-border-soft bg-slate-50 p-4">
+          <div className="ds-surface-subtle rounded-2xl p-4">
             <div className="mb-3 text-sm font-medium text-ink-900">{t('settings.composer.saveAsTemplate')}</div>
             <div className="flex gap-3">
               <Input value={templateName} onChange={(event) => onTemplateNameChange(event.target.value)} placeholder={t('settings.composer.templateName')} />
@@ -1199,13 +1082,6 @@ function FullCreateView({
             </div>
           </div>
         ) : null}
-
-        <ComposerSubmitPlan
-          draft={draft}
-          pendingFiles={pendingFiles}
-          createPending={createPending}
-          t={t}
-        />
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border-soft pt-6">
           <div className="flex flex-wrap items-center gap-3">
@@ -1222,7 +1098,7 @@ function FullCreateView({
                     ? teamSettingsPath(currentOrganizationSlug, currentTeamKey, 'templates')
                     : '#'
                 }
-              className="inline-flex h-10 items-center rounded-full border border-border-soft px-4 text-sm font-medium text-ink-700 transition hover:bg-slate-50"
+              className="ds-inline-pill-button inline-flex h-10 items-center rounded-full px-4 text-sm font-medium text-ink-700"
             >
               {t('issues.actions.manageTemplates')}
             </Link>
@@ -1233,7 +1109,7 @@ function FullCreateView({
         </div>
 
         {pendingFiles.length ? (
-          <div className="rounded-2xl border border-border-soft bg-white p-4">
+          <div className="ds-surface-card rounded-2xl p-4">
             <div className="text-sm font-medium text-ink-900">{t('settings.composer.selectedFiles')}</div>
             <div className="mt-2 space-y-1 text-sm text-ink-500">
               {pendingFiles.map((file) => (
@@ -1244,277 +1120,6 @@ function FullCreateView({
         ) : null}
       </div>
     </div>
-  );
-}
-
-type ComposerReadinessSignal = {
-  id: string;
-  label: string;
-  value: string;
-  complete: boolean;
-  optional?: boolean;
-};
-
-function ComposerFlowRail({
-  signals,
-  createPending,
-  createError,
-  recurringEnabled,
-  t,
-  compact = false,
-}: {
-  signals: ComposerReadinessSignal[];
-  createPending: boolean;
-  createError: string | null;
-  recurringEnabled: boolean;
-  t: (key: string, params?: Record<string, string | number>) => string;
-  compact?: boolean;
-}) {
-  const titleReady = signals.find((signal) => signal.id === 'title')?.complete ?? false;
-  const completeCount = signals.filter((signal) => signal.complete).length;
-  const visibleSignals = compact ? signals.slice(0, 4) : signals;
-
-  return (
-    <div
-      data-testid="issue-create-flow-rail"
-      className={cn(
-        'mt-6 overflow-hidden rounded-[24px] border px-5 py-4 shadow-[0_10px_30px_rgba(15,23,42,0.05)]',
-        createError
-          ? 'border-rose-200 bg-rose-50'
-          : titleReady
-            ? 'border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-slate-50'
-            : 'border-border-soft bg-gradient-to-br from-slate-50 via-white to-white'
-      )}
-    >
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <span
-            className={cn(
-              'mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-2xl',
-              createPending
-                ? 'bg-sky-100 text-sky-600'
-                : titleReady
-                  ? 'bg-emerald-100 text-emerald-600'
-                  : 'bg-slate-100 text-ink-500'
-            )}
-          >
-            {createPending ? <LoaderCircle className="h-4.5 w-4.5 animate-spin" /> : titleReady ? <CheckCircle2 className="h-4.5 w-4.5" /> : <CircleDashed className="h-4.5 w-4.5" />}
-          </span>
-          <div>
-            <div className="text-sm font-semibold text-ink-900">{t('settings.composer.flowTitle')}</div>
-            <div className="mt-1 text-sm text-ink-500">
-              {createPending
-                ? t('issues.actions.creating')
-                : titleReady
-                  ? t('settings.composer.flowReady')
-                  : t('settings.composer.flowNeedsTitle')}
-            </div>
-          </div>
-        </div>
-        <div className="rounded-full border border-black/5 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-ink-400">
-          {t('settings.composer.flowSubtitle', { complete: completeCount, total: signals.length })}
-        </div>
-      </div>
-
-      <div className={cn('mt-4 grid gap-2', compact ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-2 xl:grid-cols-4')}>
-        {visibleSignals.map((signal) => (
-          <ComposerReadinessSignalCard key={signal.id} signal={signal} />
-        ))}
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-ink-500">
-        <span className="rounded-full bg-white px-3 py-1 font-medium text-ink-600">
-          {recurringEnabled ? t('settings.composer.recurringPlanBody') : t('settings.composer.submitPlanBody')}
-        </span>
-        {createError ? <span className="rounded-full bg-rose-100 px-3 py-1 font-semibold text-rose-700">{createError}</span> : null}
-      </div>
-    </div>
-  );
-}
-
-function ComposerReadinessSignalCard({ signal }: { signal: ComposerReadinessSignal }) {
-  return (
-    <div className="rounded-2xl border border-black/5 bg-white px-3.5 py-3">
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-ink-400">
-        <span
-          className={cn(
-            'inline-flex h-5 w-5 items-center justify-center rounded-full',
-            signal.complete ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
-          )}
-        >
-          {signal.complete ? <CheckCircle2 className="h-3.5 w-3.5" /> : <CircleDashed className="h-3.5 w-3.5" />}
-        </span>
-        <span>{signal.label}</span>
-      </div>
-      <div className={cn('mt-2 truncate text-sm font-medium', signal.complete ? 'text-ink-800' : 'text-amber-700')}>
-        {signal.value}
-      </div>
-    </div>
-  );
-}
-
-function ComposerSubmitPlan({
-  draft,
-  pendingFiles,
-  createPending,
-  t,
-}: {
-  draft: IssueComposerDraft;
-  pendingFiles: File[];
-  createPending: boolean;
-  t: (key: string, params?: Record<string, string | number>) => string;
-}) {
-  const linkCount = countDraftLinks(draft);
-  const steps = [
-    t('settings.composer.planCreateIssue'),
-    pendingFiles.length ? t('settings.composer.planUploadFiles', { count: pendingFiles.length }) : t('settings.composer.planSkipFiles'),
-    linkCount ? t('settings.composer.planAttachLinks', { count: linkCount }) : t('settings.composer.planSkipLinks'),
-    t('settings.composer.planRouteDetail'),
-  ];
-
-  return (
-    <div className="rounded-[24px] border border-border-soft bg-slate-50/80 p-5">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="text-sm font-semibold text-ink-900">{t('settings.composer.submitPlan')}</div>
-          <div className="mt-1 text-sm text-ink-500">{t('settings.composer.metadataHint')}</div>
-        </div>
-        <span className="inline-flex h-9 items-center rounded-full border border-border-soft bg-white px-3 text-xs font-semibold uppercase tracking-[0.14em] text-ink-400">
-          {createPending ? t('issues.actions.creating') : t('settings.composer.metadataPreview')}
-        </span>
-      </div>
-      <div className="mt-4 grid gap-2 md:grid-cols-4">
-        {steps.map((step, index) => (
-          <div key={step} className="rounded-2xl border border-black/5 bg-white px-3 py-3 text-sm text-ink-700">
-            <div className="mb-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">
-              {index + 1}
-            </div>
-            <div className="font-medium leading-5">{step}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ComposerContextDock({
-  draft,
-  projects,
-  teams,
-  members,
-  pendingFiles,
-  templates,
-  currentOrganizationSlug,
-  currentTeamKey,
-  t,
-  compact = false,
-}: {
-  draft: IssueComposerDraft;
-  projects: Array<{ id: number; name: string }>;
-  teams: Array<{ id: number; name: string }>;
-  members: TeamMember[];
-  pendingFiles: File[];
-  templates: IssueTemplate[];
-  currentOrganizationSlug: string | null;
-  currentTeamKey: string | null;
-  t: (key: string, params?: Record<string, string | number>) => string;
-  compact?: boolean;
-}) {
-  const selectedProject = projects.find((project) => String(project.id) === draft.projectId)?.name;
-  const selectedTeam = teams.find((team) => String(team.id) === draft.teamId)?.name;
-  const selectedAssignee = members.find((member) => String(member.id) === draft.assigneeId)?.name;
-  const selectedTemplate = templates.find((template) => String(template.id) === draft.templateId)?.name;
-  const linkCount = countDraftLinks(draft);
-  const githubHref = currentOrganizationSlug ? workspaceGithubIntegrationPath(currentOrganizationSlug, 'issue-create') : null;
-  const templateHref =
-    currentOrganizationSlug && currentTeamKey
-      ? teamSettingsPath(currentOrganizationSlug, currentTeamKey, 'templates')
-      : null;
-
-  const cards = [
-    {
-      id: 'scope',
-      icon: FolderKanban,
-      label: t('settings.composer.contextScope'),
-      value: [selectedTeam ?? t('common.notSet'), selectedProject ?? t('settings.composer.noProject')].join(' · '),
-      detail: selectedTemplate
-        ? t('settings.composer.contextTemplateValue', { name: selectedTemplate })
-        : t('settings.composer.contextNoTemplate'),
-    },
-    {
-      id: 'ownership',
-      icon: UserCircle2,
-      label: t('settings.composer.contextOwnership'),
-      value: selectedAssignee ?? t('common.notSet'),
-      detail: draft.priority ? issuePriorityLabel(draft.priority, t) : t('views.new.preview.noPriority'),
-    },
-    {
-      id: 'resources',
-      icon: Link2,
-      label: t('settings.composer.contextResources'),
-      value: [
-        linkCount ? t('settings.composer.linkCount', { count: linkCount }) : t('settings.composer.noLinks'),
-        pendingFiles.length ? t('settings.composer.filesSelected', { count: pendingFiles.length }) : t('settings.composer.noAttachments'),
-      ].join(' · '),
-      detail: t('settings.composer.submitPlanBody'),
-    },
-  ];
-
-  return (
-    <section
-      data-testid="issue-create-context-dock"
-      className={cn(
-        'mt-4 rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-[0_12px_34px_rgba(15,23,42,0.04)]',
-        compact ? 'hidden md:block' : ''
-      )}
-    >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="text-sm font-semibold text-ink-900">{t('settings.composer.creationContextTitle')}</div>
-          <p className="mt-1 text-sm text-ink-500">{t('settings.composer.creationContextDescription')}</p>
-        </div>
-        {githubHref ? (
-          <Link
-            href={githubHref}
-            className="inline-flex h-9 items-center gap-2 rounded-full bg-slate-950 px-3 text-sm font-semibold text-white transition hover:bg-slate-900"
-          >
-            <GitBranchPlus className="h-4 w-4 text-slate-300" />
-            {t('settings.composer.connectGitHub')}
-          </Link>
-        ) : (
-          <span className="inline-flex h-9 items-center rounded-full border border-border-soft bg-slate-50 px-3 text-xs font-semibold text-ink-400">
-            {t('settings.composer.contextGitHubUnavailable')}
-          </span>
-        )}
-      </div>
-
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
-        {cards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <div key={card.id} className="rounded-2xl border border-black/5 bg-slate-50 px-4 py-3">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-ink-400">
-                <Icon className="h-4 w-4 text-ink-400" />
-                {card.label}
-              </div>
-              <div className="mt-2 truncate text-sm font-semibold text-ink-900">{card.value}</div>
-              <div className="mt-1 truncate text-xs text-ink-500">{card.detail}</div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-ink-500">
-        <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-ink-600">
-          {t('settings.composer.contextGitHubDescription')}
-        </span>
-        {templateHref ? (
-          <Link href={templateHref} className="rounded-full bg-white px-3 py-1 font-semibold text-ink-600 ring-1 ring-inset ring-slate-200 transition hover:bg-slate-50">
-            {t('issues.actions.manageTemplates')}
-          </Link>
-        ) : null}
-      </div>
-    </section>
   );
 }
 
@@ -1558,7 +1163,7 @@ function SingleValuePill({
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
+            className="ds-inline-pill-button inline-flex h-11 items-center gap-2 rounded-full px-4 text-[15px] font-medium text-ink-700 shadow-sm"
           >
             <SingleValueDisplay option={selectedOption} fallbackLabel={label || emptyLabel || ''} />
             <ChevronDown className="h-4 w-4 text-ink-300" />
@@ -1603,7 +1208,7 @@ function SingleValuePill({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
+          className="ds-inline-pill-button inline-flex h-11 items-center gap-2 rounded-full px-4 text-[15px] font-medium text-ink-700 shadow-sm"
         >
           <SingleValueDisplay option={selectedOption} fallbackLabel={label || emptyLabel || ''} />
           <ChevronDown className="h-4 w-4 text-ink-300" />
@@ -1638,7 +1243,7 @@ function SingleValueOption({
     <button
       type="button"
       onClick={onSelect}
-      className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-ink-700 transition hover:bg-slate-50"
+      className="ds-list-row flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-ink-700"
     >
       <span className="flex h-4 w-4 items-center justify-center text-brand-600">
         {selected ? (
@@ -1683,7 +1288,7 @@ function MiniInlineSelect({
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger
         className={cn(
-          'h-12 rounded-[16px] border-slate-200 bg-white px-4 text-[15px] font-medium text-ink-800 shadow-[0_1px_2px_rgba(15,23,42,0.04)] focus:ring-0',
+          'h-12 rounded-[16px] border-border-soft bg-[color:var(--interactive-default)] px-4 text-[15px] font-medium text-ink-800 shadow-[0_1px_2px_rgba(15,23,42,0.04)] focus:ring-0',
           widthClassName
         )}
       >
@@ -1726,7 +1331,7 @@ function LabelsPill({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
+          className="ds-inline-pill-button inline-flex h-11 items-center gap-2 rounded-full px-4 text-[15px] font-medium text-ink-700 shadow-sm"
         >
           <Tag className="h-4 w-4 text-ink-400" />
           <span>{label}</span>
@@ -1772,7 +1377,7 @@ function ComposerStatusPill({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
+          className="ds-inline-pill-button inline-flex h-11 items-center gap-2 rounded-full px-4 text-[15px] font-medium text-ink-700 shadow-sm"
         >
           <span className="inline-flex items-center gap-2">
             <span className="inline-flex items-center justify-center text-ink-500">{issueStatusMenuIcon(value)}</span>
@@ -1781,7 +1386,7 @@ function ComposerStatusPill({
           <ChevronDown className="h-4 w-4 text-ink-300" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[260px] overflow-hidden rounded-[18px] border border-border-subtle bg-white p-0 shadow-elevated">
+      <PopoverContent align="start" className="w-[260px] overflow-hidden rounded-[18px] border border-border-subtle bg-surface-elevated p-0 shadow-elevated">
         <IssueStatusSelectMenu
           value={value}
           query={query}
@@ -1825,7 +1430,7 @@ function ComposerPriorityPill({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
+          className="ds-inline-pill-button inline-flex h-11 items-center gap-2 rounded-full px-4 text-[15px] font-medium text-ink-700 shadow-sm"
         >
           <span className="inline-flex items-center gap-2">
             <span className="inline-flex items-center justify-center text-ink-500">{issuePriorityIcon(value)}</span>
@@ -1834,7 +1439,7 @@ function ComposerPriorityPill({
           <ChevronDown className="h-4 w-4 text-ink-300" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[260px] overflow-hidden rounded-[18px] border border-border-subtle bg-white p-0 shadow-elevated">
+      <PopoverContent align="start" className="w-[260px] overflow-hidden rounded-[18px] border border-border-subtle bg-surface-elevated p-0 shadow-elevated">
         <IssuePrioritySelectMenu
           value={value}
           query={query}
@@ -1883,7 +1488,7 @@ function ComposerAssigneePill({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
+          className="ds-inline-pill-button inline-flex h-11 items-center gap-2 rounded-full px-4 text-[15px] font-medium text-ink-700 shadow-sm"
         >
           <span className="inline-flex items-center gap-2">
             {currentMember ? (
@@ -1974,7 +1579,7 @@ function QuickActionsPill({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border-soft bg-white text-ink-700 shadow-sm transition hover:bg-slate-50"
+          className="ds-inline-pill-button inline-flex h-11 w-11 items-center justify-center rounded-full text-ink-700 shadow-sm"
         >
           <MoreHorizontal className="h-4.5 w-4.5 text-ink-500" strokeWidth={2} />
         </button>
@@ -1993,7 +1598,7 @@ function QuickActionsPill({
                 <button
                   type="button"
                   onClick={() => applyDueDate('')}
-                  className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50"
+                  className="ds-list-row flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800"
                 >
                   <Calendar className="h-5 w-5 text-ink-500" />
                   <span>{t('settings.composer.customDueDate')}</span>
@@ -2011,7 +1616,7 @@ function QuickActionsPill({
                     key={option.label}
                     type="button"
                     onClick={() => applyDueDate(option.value)}
-                    className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50"
+                    className="ds-list-row flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800"
                   >
                     <Calendar className="h-5 w-5 text-ink-500" />
                     <span className="flex-1">{option.label}</span>
@@ -2048,7 +1653,7 @@ function QuickActionsPill({
                 <button
                   type="button"
                   onClick={addLink}
-                  className="inline-flex h-10 items-center rounded-full border border-border-soft px-4 text-sm font-medium text-ink-700 transition hover:bg-slate-50"
+                  className="ds-inline-pill-button inline-flex h-10 items-center rounded-full px-4 text-sm font-medium text-ink-700"
                 >
                   {t('settings.composer.confirmAddLink')}
                 </button>
@@ -2238,10 +1843,10 @@ function buildStateOption(value: Issue['state'], t: (key: string, params?: Recor
   const label = issueStateLabel(value, t);
 
   if (value === 'BACKLOG') {
-    return { value, label, icon: <CircleDashed className="h-4 w-4" />, iconClassName: 'text-slate-400' };
+    return { value, label, icon: <CircleDashed className="h-4 w-4" />, iconClassName: 'text-ink-400' };
   }
   if (value === 'TODO') {
-    return { value, label, icon: <Circle className="h-4 w-4" />, iconClassName: 'text-slate-400' };
+    return { value, label, icon: <Circle className="h-4 w-4" />, iconClassName: 'text-ink-400' };
   }
   if (value === 'IN_PROGRESS') {
     return { value, label, icon: <LoaderCircle className="h-4 w-4" />, iconClassName: 'text-sky-500' };
@@ -2259,7 +1864,7 @@ function buildPriorityOption(value: Exclude<Issue['priority'], null>, t: (key: s
   const label = issuePriorityLabel(value, t);
 
   if (value === 'LOW') {
-    return { value, label, icon: <Minus className="h-4 w-4" />, iconClassName: 'text-slate-400' };
+    return { value, label, icon: <Minus className="h-4 w-4" />, iconClassName: 'text-ink-400' };
   }
   if (value === 'MEDIUM') {
     return { value, label, icon: <Equal className="h-4 w-4" />, iconClassName: 'text-sky-500' };
@@ -2268,102 +1873,6 @@ function buildPriorityOption(value: Exclude<Issue['priority'], null>, t: (key: s
     return { value, label, icon: <ChevronDown className="h-4 w-4 rotate-180" />, iconClassName: 'text-orange-500' };
   }
   return { value, label, icon: <Flame className="h-4 w-4" />, iconClassName: 'text-rose-500' };
-}
-
-function buildComposerReadinessSignals({
-  draft,
-  projects,
-  teams,
-  members,
-  labels,
-  pendingFiles,
-  recurringEnabled,
-  createMore,
-  t,
-}: {
-  draft: IssueComposerDraft;
-  projects: Array<{ id: number; name: string }>;
-  teams: Array<{ id: number; name: string }>;
-  members: TeamMember[];
-  labels: Label[];
-  pendingFiles: File[];
-  recurringEnabled: boolean;
-  createMore: boolean;
-  t: (key: string, params?: Record<string, string | number>) => string;
-}): ComposerReadinessSignal[] {
-  const projectName = projects.find((project) => String(project.id) === draft.projectId)?.name;
-  const teamName = teams.find((team) => String(team.id) === draft.teamId)?.name;
-  const assigneeName = members.find((member) => String(member.id) === draft.assigneeId)?.name;
-  const selectedLabelCount = labels.filter((label) => draft.labelIds.includes(String(label.id))).length;
-  const linkCount = countDraftLinks(draft);
-
-  return [
-    {
-      id: 'title',
-      label: t('settings.composer.signalTitle'),
-      value: draft.title.trim() || t('settings.composer.signalRequired'),
-      complete: !!draft.title.trim(),
-    },
-    {
-      id: 'project',
-      label: t('settings.composer.signalProject'),
-      value: projectName ?? t('settings.composer.noProject'),
-      complete: true,
-      optional: true,
-    },
-    {
-      id: 'team',
-      label: t('settings.composer.signalTeam'),
-      value: teamName ?? t('common.notSet'),
-      complete: true,
-      optional: true,
-    },
-    {
-      id: 'assignee',
-      label: t('settings.composer.signalAssignee'),
-      value: assigneeName ?? t('common.notSet'),
-      complete: true,
-      optional: true,
-    },
-    {
-      id: 'labels',
-      label: t('settings.composer.signalLabels'),
-      value: selectedLabelCount ? t('settings.composer.labelCount', { count: selectedLabelCount }) : t('settings.composer.noLabels'),
-      complete: true,
-      optional: true,
-    },
-    {
-      id: 'attachments',
-      label: t('settings.composer.signalAttachments'),
-      value: pendingFiles.length ? t('settings.composer.filesSelected', { count: pendingFiles.length }) : t('settings.composer.noAttachments'),
-      complete: true,
-      optional: true,
-    },
-    {
-      id: 'links',
-      label: t('settings.composer.signalLinks'),
-      value: linkCount ? t('settings.composer.linkCount', { count: linkCount }) : t('settings.composer.noLinks'),
-      complete: true,
-      optional: true,
-    },
-    {
-      id: 'mode',
-      label: t('settings.composer.signalMode'),
-      value: recurringEnabled
-        ? t('settings.composer.signalRecurringIssue')
-        : createMore
-          ? t('settings.composer.signalCreateMore')
-          : t('settings.composer.signalStandardIssue'),
-      complete: true,
-    },
-  ];
-}
-
-function countDraftLinks(draft: IssueComposerDraft) {
-  return draft.linksText
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean).length;
 }
 
 function getInitials(name: string) {

@@ -18,15 +18,15 @@ export function projectStatusLabelKey(status: ProjectComposerStatus) {
 export function projectStatusIcon(status: ProjectComposerStatus) {
   switch (status) {
     case 'PLANNED':
-      return <CircleDashed className="h-4 w-4 text-slate-400" />;
+      return <CircleDashed className="h-4 w-4 text-ink-400" />;
     case 'ACTIVE':
       return <LoaderCircle className="h-4 w-4 text-amber-500" />;
     case 'PAUSED':
-      return <Pause className="h-4 w-4 text-slate-500" />;
+      return <Pause className="h-4 w-4 text-ink-500" />;
     case 'COMPLETED':
       return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
     case 'ARCHIVED':
-      return <Archive className="h-4 w-4 text-slate-400" />;
+      return <Archive className="h-4 w-4 text-ink-400" />;
   }
 }
 
@@ -39,7 +39,7 @@ export function projectPriorityLabelKey(priority: ProjectComposerPriority) {
 }
 
 export function projectLeadIcon() {
-  return <UserCircle2 className="h-4 w-4 text-slate-400" />;
+  return <UserCircle2 className="h-4 w-4 text-ink-400" />;
 }
 
 export function getProjectInitials(name: string | null | undefined) {
@@ -60,7 +60,7 @@ export function projectIconToneClasses(tone: ProjectIconTone) {
       return 'bg-rose-100 text-rose-600 border-rose-200';
     case 'slate':
     default:
-      return 'bg-slate-100 text-slate-600 border-slate-200';
+      return 'bg-[color:var(--interactive-disabled)] text-ink-600 border-border-soft';
   }
 }
 

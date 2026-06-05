@@ -5,14 +5,6 @@ import type { CustomFieldDefinition, Issue, Project, RestPageResponse } from '@/
 import { useCurrentWorkspace } from '@/components/providers/WorkspaceProvider';
 import { queryKeys } from './keys';
 
-function normalizeRelationList(value: unknown) {
-  if (Array.isArray(value)) return value;
-  if (value && typeof value === 'object' && Array.isArray((value as { items?: unknown[] }).items)) {
-    return (value as { items: unknown[] }).items;
-  }
-  return [];
-}
-
 export function useIssueWorkspace(filters?: Parameters<typeof getIssues>[0]) {
   const { organizationId, currentTeamId } = useCurrentWorkspace();
   const scopedFilters = {
@@ -41,13 +33,6 @@ export function useIssueWorkspace(filters?: Parameters<typeof getIssues>[0]) {
   const membersQuery = useQuery({
     queryKey: [...queryKeys.teamMembers, organizationId ?? 1, currentTeamId ?? 'all'],
     queryFn: () => getTeamMembers({ organizationId: organizationId ?? 1, teamId: currentTeamId ?? undefined }),
-    select: (response) => response.items,
-  });
-  const labelsQuery = useQuery({
-    queryKey: queryKeys.labels({ organizationId: organizationId ?? 1, teamId: scopedFilters.teamId ?? currentTeamId ?? undefined }),
-    queryFn: () => getLabels({ organizationId: organizationId ?? 1, teamId: scopedFilters.teamId ?? currentTeamId ?? undefined }),
-    select: (catalog) => [...catalog.workspaceLabels, ...catalog.teamLabels],
-    staleTime: 60 * 1000,
   });
 
   return {
@@ -56,7 +41,6 @@ export function useIssueWorkspace(filters?: Parameters<typeof getIssues>[0]) {
     projectsQuery,
     teamsQuery,
     membersQuery,
-    labelsQuery,
   };
 }
 
@@ -88,7 +72,6 @@ export function useIssueDetails(issueId: number | null) {
       queryKey: issueId ? queryKeys.relations(issueId) : ['issues', 'unknown', 'relations'],
       queryFn: () => getIssueRelations(issueId!),
       enabled,
-      select: normalizeRelationList,
     }),
   };
 }
@@ -119,7 +102,6 @@ export function useIssueDetailWorkspace(issueId: number, organizationId: number)
     relationsQuery: useQuery({
       queryKey: queryKeys.relations(issueId),
       queryFn: () => getIssueRelations(issueId),
-      select: normalizeRelationList,
     }),
     attachmentsQuery: useQuery({
       queryKey: queryKeys.attachments(issueId),

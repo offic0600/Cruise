@@ -32,7 +32,7 @@ const SheetContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed inset-y-0 right-0 z-50 flex h-full w-full max-w-2xl flex-col overflow-y-auto border-l border-border-subtle bg-white shadow-elevated",
+        "fixed inset-y-0 right-0 z-50 flex h-full w-full max-w-2xl flex-col overflow-y-auto border-l border-border-subtle bg-surface-elevated shadow-elevated",
         className
       )}
       {...props}
@@ -45,7 +45,7 @@ const SheetContent = React.forwardRef<
 SheetContent.displayName = DialogPrimitive.Content.displayName;
 
 const SheetHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("sticky top-0 z-10 border-b border-border-subtle bg-white/95 px-6 py-5 backdrop-blur", className)} {...props} />
+  <div className={cn("sticky top-0 z-10 border-b border-border-subtle bg-surface-elevated px-6 py-5 backdrop-blur", className)} {...props} />
 );
 
 const SheetTitle = React.forwardRef<
@@ -69,7 +69,7 @@ const SheetDismissButton = React.forwardRef<HTMLButtonElement, React.ButtonHTMLA
     <SheetClose asChild>
       <button
         ref={ref}
-        className={cn("rounded-card border border-border-soft p-2 text-ink-700 transition hover:bg-slate-50", className)}
+        className={cn("ds-inline-pill-button rounded-full p-2 text-ink-700", className)}
         {...props}
       >
         <X className="h-4 w-4" />

@@ -21,7 +21,7 @@ import type { NotificationSubscription, View, WorkspaceProjectRow } from '@/lib/
 import { queryKeys } from '@/lib/query/keys';
 import { useWorkspaceProjects } from '@/lib/query/projects';
 import { useViewDetail, useViewsIndex } from '@/lib/query/views';
-import { teamProjectPath, workspaceNewViewPath, workspaceProjectViewPath, workspaceProjectsAllPath } from '@/lib/routes';
+import { workspaceNewViewPath, workspaceProjectViewPath, workspaceProjectsAllPath } from '@/lib/routes';
 import { ProjectComposer } from './ProjectComposer';
 
 type WorkspaceProjectsPageProps = {
@@ -108,14 +108,14 @@ function healthTone(health: string | null) {
     case 'OFF_TRACK':
       return 'bg-rose-500';
     default:
-      return 'bg-slate-300';
+      return 'bg-[color:var(--border-strong)]';
   }
 }
 
 function progressTone(progressPercent: number) {
   if (progressPercent >= 100) return 'border-emerald-500 text-emerald-600';
   if (progressPercent > 0) return 'border-amber-500 text-amber-600';
-  return 'border-slate-300 text-slate-400';
+  return 'border-border-strong text-ink-400';
 }
 
 function sortWorkspaceProjects(rows: WorkspaceProjectRow[], field: ProjectSortField) {
@@ -153,94 +153,6 @@ function ProjectStatusRing({ progressPercent }: { progressPercent: number }) {
     <div className={`inline-flex h-6 min-w-[52px] items-center justify-center rounded-full border px-2.5 text-xs font-medium ${progressTone(progressPercent)}`}>
       {progressPercent}%
     </div>
-  );
-}
-
-function ProjectWorkspaceRail({
-  title,
-  rows,
-  totalRows,
-  visibleColumnCount,
-  sortLabel,
-  includeArchived,
-  t,
-  onCreate,
-  onResetFilters,
-  onToggleArchived,
-}: {
-  title: string;
-  rows: WorkspaceProjectRow[];
-  totalRows: number;
-  visibleColumnCount: number;
-  sortLabel: string;
-  includeArchived: boolean;
-  t: (key: string, vars?: Record<string, string | number>) => string;
-  onCreate: () => void;
-  onResetFilters: () => void;
-  onToggleArchived: () => void;
-}) {
-  const atRiskCount = rows.filter((row) => row.health === 'AT_RISK' || row.health === 'OFF_TRACK').length;
-  const withMilestoneCount = rows.filter((row) => row.nextMilestoneName).length;
-  const avgProgress = rows.length
-    ? Math.round(rows.reduce((sum, row) => sum + row.progressPercent, 0) / rows.length)
-    : 0;
-  const metrics = [
-    { label: t('projects.workspace.rail.visible'), value: String(rows.length) },
-    { label: t('projects.workspace.rail.total'), value: String(totalRows) },
-    { label: t('projects.workspace.rail.risk'), value: String(atRiskCount) },
-    { label: t('projects.workspace.rail.progress'), value: `${avgProgress}%` },
-  ];
-
-  return (
-    <section className="mb-5 overflow-hidden rounded-[26px] border border-border-soft bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 text-white shadow-[0_20px_60px_rgba(15,23,42,0.18)]">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{t('projects.workspace.rail.eyebrow')}</div>
-          <div className="mt-2 text-xl font-semibold tracking-tight">{title}</div>
-          <div className="mt-1 text-sm text-slate-400">
-            {t('projects.workspace.rail.summary', {
-              columns: visibleColumnCount,
-              sort: sortLabel,
-              milestones: withMilestoneCount,
-            })}
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={onResetFilters}
-            className="inline-flex h-9 items-center rounded-full border border-white/10 bg-white/5 px-3 text-xs font-medium text-slate-200 transition hover:bg-white/10"
-          >
-            {t('projects.workspace.rail.reset')}
-          </button>
-          <button
-            type="button"
-            onClick={onToggleArchived}
-            className={`inline-flex h-9 items-center rounded-full px-3 text-xs font-medium transition ${
-              includeArchived ? 'bg-white text-slate-950 hover:bg-slate-100' : 'border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10'
-            }`}
-          >
-            {includeArchived ? t('projects.workspace.rail.archivedOn') : t('projects.workspace.rail.archivedOff')}
-          </button>
-          <button
-            type="button"
-            onClick={onCreate}
-            className="inline-flex h-9 items-center gap-2 rounded-full bg-white px-3 text-xs font-semibold text-slate-950 transition hover:bg-slate-100"
-          >
-            <Plus className="h-4 w-4" />
-            {t('projects.actions.new')}
-          </button>
-        </div>
-      </div>
-      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {metrics.map((metric) => (
-          <div key={metric.label} className="rounded-2xl border border-white/10 bg-white/[0.06] px-3 py-3">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{metric.label}</div>
-            <div className="mt-1 text-2xl font-semibold tracking-tight text-white">{metric.value}</div>
-          </div>
-        ))}
-      </div>
-    </section>
   );
 }
 
@@ -364,15 +276,6 @@ export default function WorkspaceProjectsPage({ activeViewId }: WorkspaceProject
   }, [activeView, ownerId, projectsQuery.data?.items, sortField, targetDate]);
 
   const showColumn = (column: ProjectTableColumn) => visibleColumns.includes(column);
-  const resetFilters = () => {
-    setSearch('');
-    setStatus('__all__');
-    setPriority('__all__');
-    setOwnerId('__all__');
-    setHealth('__all__');
-    setHasMilestone('__all__');
-    setTargetDate('all');
-  };
 
   return (
     <AppLayout>
@@ -392,7 +295,7 @@ export default function WorkspaceProjectsPage({ activeViewId }: WorkspaceProject
           <div className="flex items-center gap-2">
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label={t('projects.workspace.filter')} className="rounded-full border border-border-soft bg-white text-ink-600 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:bg-slate-50">
+                <Button variant="ghost" size="icon" aria-label={t('projects.workspace.filter')} className="ds-inline-pill-button rounded-full text-ink-600">
                   <Filter className="h-4 w-4" />
                 </Button>
               </PopoverTrigger>
@@ -495,14 +398,14 @@ export default function WorkspaceProjectsPage({ activeViewId }: WorkspaceProject
 
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label={t('views.display.title')} className="rounded-full border border-border-soft bg-white text-ink-600 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:bg-slate-50">
+                <Button variant="ghost" size="icon" aria-label={t('views.display.title')} className="ds-inline-pill-button rounded-full text-ink-600">
                   <SlidersHorizontal className="h-4 w-4" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-[360px] rounded-[20px] border-border-subtle p-4">
                 <div className="space-y-4">
-                  <div className="flex rounded-full border border-border-soft bg-slate-50 p-1">
-                    <button type="button" className="flex flex-1 items-center justify-center gap-2 rounded-full bg-white px-3 py-2 text-sm font-medium text-ink-900 shadow-sm">
+                  <div className="ds-segmented-control flex rounded-full p-1">
+                    <button type="button" className="ds-segmented-control-item flex flex-1 items-center justify-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-ink-900" data-active="true">
                       <List className="h-4 w-4" />
                       {t('views.display.list')}
                     </button>
@@ -538,8 +441,8 @@ export default function WorkspaceProjectsPage({ activeViewId }: WorkspaceProject
                             }
                             className={`rounded-full border px-3 py-1.5 text-sm transition ${
                               active
-                                ? 'border-sky-200 bg-sky-50 text-sky-700'
-                                : 'border-border-soft bg-white text-ink-700 hover:bg-slate-50'
+                                ? 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/40 dark:bg-sky-500/16 dark:text-sky-200'
+                                : 'ds-inline-pill-button text-ink-700'
                             }`}
                           >
                             {t(`projects.workspace.columns.${column}`)}
@@ -557,7 +460,7 @@ export default function WorkspaceProjectsPage({ activeViewId }: WorkspaceProject
               size="icon"
               aria-label={t('common.create')}
               onClick={() => setCreateOpen(true)}
-              className="rounded-full border border-border-soft bg-white text-ink-600 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:bg-slate-50"
+              className="ds-inline-pill-button rounded-full text-ink-600"
             >
               <Plus className="h-4.5 w-4.5" />
             </Button>
@@ -569,8 +472,8 @@ export default function WorkspaceProjectsPage({ activeViewId }: WorkspaceProject
             href={currentOrganizationSlug ? workspaceProjectsAllPath(currentOrganizationSlug) : '#'}
             className={`rounded-full border px-4 py-2 text-sm transition ${
               activeView == null
-                ? 'border-border-soft bg-slate-100 font-medium text-ink-900'
-                : 'border-border-soft bg-white text-ink-700 hover:bg-slate-50'
+                ? 'border-border-soft bg-[color:var(--interactive-selected)] font-medium text-ink-900'
+                : 'ds-inline-pill-button text-ink-700'
             }`}
           >
             {t('projects.workspace.allProjects')}
@@ -581,8 +484,8 @@ export default function WorkspaceProjectsPage({ activeViewId }: WorkspaceProject
               href={currentOrganizationSlug ? projectViewHref(currentOrganizationSlug, view) : '#'}
               className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition ${
                 activeView?.id === view.id
-                  ? 'border-border-soft bg-slate-100 font-medium text-ink-900'
-                  : 'border-border-soft bg-white text-ink-700 hover:bg-slate-50'
+                  ? 'border-border-soft bg-[color:var(--interactive-selected)] font-medium text-ink-900'
+                  : 'ds-inline-pill-button text-ink-700'
               }`}
             >
               <FolderKanban className="h-4 w-4 text-ink-400" />
@@ -601,20 +504,7 @@ export default function WorkspaceProjectsPage({ activeViewId }: WorkspaceProject
           </Button>
         </div>
 
-        <ProjectWorkspaceRail
-          title={activeView?.name ?? t('projects.workspace.allProjects')}
-          rows={filteredRows}
-          totalRows={projectsQuery.data?.items.length ?? 0}
-          visibleColumnCount={visibleColumns.length}
-          sortLabel={t(`projects.workspace.sort.${sortField}`)}
-          includeArchived={includeArchived}
-          t={t}
-          onCreate={() => setCreateOpen(true)}
-          onResetFilters={resetFilters}
-          onToggleArchived={() => setIncludeArchived((current) => !current)}
-        />
-
-        <div className="overflow-hidden rounded-[28px] border border-border-soft bg-white">
+        <div className="ds-surface-card overflow-hidden rounded-[28px]">
           <div className="grid grid-cols-[minmax(340px,1fr)_160px_100px_110px_130px_110px] gap-4 border-b border-border-soft px-12 py-4 text-sm font-medium text-ink-600">
             <div>{t('projects.workspace.columns.name')}</div>
             {showColumn('health') ? <div>{t('projects.workspace.columns.health')}</div> : <div />}
@@ -630,21 +520,16 @@ export default function WorkspaceProjectsPage({ activeViewId }: WorkspaceProject
             <div className="px-12 py-16 text-sm text-ink-500">{t('projects.workspace.empty')}</div>
           ) : (
             <div className="divide-y divide-border-soft">
-              {filteredRows.map((project) => {
-                const rowClassName = currentOrganizationSlug && currentTeam
-                  ? 'grid grid-cols-[minmax(340px,1fr)_160px_100px_110px_130px_110px] gap-4 px-12 py-5 text-sm text-ink-800 transition hover:bg-slate-50/80 focus-visible:bg-slate-50/80 focus-visible:outline-none'
-                  : 'grid grid-cols-[minmax(340px,1fr)_160px_100px_110px_130px_110px] gap-4 px-12 py-5 text-sm text-ink-800';
-
-                const rowContent = (
-                  <>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-3">
+              {filteredRows.map((project) => (
+                <div key={project.id} className="ds-list-row grid grid-cols-[minmax(340px,1fr)_160px_100px_110px_130px_110px] gap-4 px-12 py-5 text-sm text-ink-800">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-3">
                       <div className="text-ink-400">
                         <FolderKanban className="h-4.5 w-4.5" />
                       </div>
                       <div className="truncate text-[16px] font-medium text-ink-900">{project.name}</div>
                       {project.nextMilestoneName ? (
-                        <Badge variant="warning" className="rounded-full bg-amber-50 text-amber-700">
+                        <Badge variant="warning" className="rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/16 dark:text-amber-200">
                           {project.nextMilestoneName}
                         </Badge>
                       ) : null}
@@ -653,7 +538,7 @@ export default function WorkspaceProjectsPage({ activeViewId }: WorkspaceProject
                           <PopoverTrigger asChild>
                             <button
                               type="button"
-                              className="ml-1 inline-flex h-8 w-8 items-center justify-center rounded-full border border-border-soft text-ink-500 transition hover:bg-slate-50"
+                              className="ds-inline-pill-button ml-1 inline-flex h-8 w-8 items-center justify-center rounded-full text-ink-500"
                               aria-label={t('projects.workspace.subscribe')}
                             >
                               <Bell className="h-4 w-4" />
@@ -668,7 +553,7 @@ export default function WorkspaceProjectsPage({ activeViewId }: WorkspaceProject
                                     key={eventKey}
                                     type="button"
                                     onClick={() => subscriptionMutation.mutate({ projectId: project.id, eventKey, active: !checked })}
-                                    className="flex w-full items-center justify-between rounded-[12px] px-3 py-2 text-left text-sm text-ink-800 transition hover:bg-slate-50"
+                                    className="ds-list-row flex w-full items-center justify-between rounded-[12px] px-3 py-2 text-left text-sm text-ink-800"
                                   >
                                     <span>{t(`inbox.events.${eventKey}`)}</span>
                                     <input type="checkbox" readOnly checked={checked} className="h-4 w-4 rounded border-border-soft" />
@@ -726,19 +611,8 @@ export default function WorkspaceProjectsPage({ activeViewId }: WorkspaceProject
                       <ProjectStatusRing progressPercent={project.progressPercent} />
                     </div>
                   ) : <div />}
-                  </>
-                );
-
-                return currentOrganizationSlug && currentTeam ? (
-                  <Link key={project.id} href={teamProjectPath(currentOrganizationSlug, currentTeam.key, project.id)} className={rowClassName}>
-                    {rowContent}
-                  </Link>
-                ) : (
-                  <div key={project.id} className={rowClassName}>
-                    {rowContent}
-                  </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           )}
         </div>

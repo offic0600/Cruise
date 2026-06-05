@@ -30,16 +30,11 @@ import {
   MoreHorizontal,
   Paperclip,
   Plus,
-  Quote,
   Repeat,
-  Search,
   SmilePlus,
   Star,
   Tag,
   Trash2,
-  UserCircle2,
-  History,
-  WandSparkles,
 } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import { IssueDetailActionBar } from '@/components/issues/issue-detail/IssueDetailActionBar';
@@ -82,19 +77,7 @@ import {
 import { getStoredUser } from '@/lib/auth';
 import { useIssueDetailWorkspace, useIssueMutations } from '@/lib/query/issues';
 import { queryKeys } from '@/lib/query/keys';
-import {
-  issueDetailPath,
-  slugifyPathSegment,
-  teamActivePath,
-  teamIssuesPath,
-  workspaceInboxPath,
-  workspaceMyIssuesAssignedPath,
-  workspaceRootPath,
-  workspaceSectionPath,
-  workspaceViewsPath,
-  workspaceViewsRootPath,
-  workspaceNewViewPath,
-} from '@/lib/routes';
+import { issueDetailPath, teamActivePath } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
 const EMPTY = '__empty__';
@@ -103,12 +86,7 @@ const ISSUE_PRIORITIES: Exclude<Issue['priority'], null>[] = ['LOW', 'MEDIUM', '
 const ISSUE_RESOLUTIONS: NonNullable<Issue['resolution']>[] = ['COMPLETED', 'CANCELED', 'DUPLICATE', 'OBSOLETE', 'WONT_DO'];
 const RELATION_TYPES = ['BLOCKS', 'BLOCKED_BY', 'RELATES_TO', 'DUPLICATES', 'CAUSED_BY', 'SPLIT_FROM'] as const;
 
-type IssueDetailPageBackLink = {
-  href?: string | null;
-  label?: string | null;
-};
-
-interface IssueDetailPageProps extends IssueDetailPageBackLink {
+interface IssueDetailPageProps {
   issueId: number;
   embedded?: boolean;
 }
@@ -151,7 +129,7 @@ type InlinePillOption = {
   avatarClassName?: string;
 };
 
-export default function IssueDetailPage({ issueId, embedded = false, href = null, label = null }: IssueDetailPageProps) {
+export default function IssueDetailPage({ issueId, embedded = false }: IssueDetailPageProps) {
   const { locale, t } = useI18n();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -160,7 +138,6 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const subIssueFileInputRef = useRef<HTMLInputElement | null>(null);
   const subIssueTitleRef = useRef<HTMLInputElement | null>(null);
-  const commentTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const lastHydratedIssueIdRef = useRef<number | null>(null);
   const user = getStoredUser();
   const organizationId = user?.organizationId ?? 1;
@@ -213,11 +190,6 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
   const projects = projectsQuery.data ?? [];
   const teams = teamsQuery.data ?? [];
   const labels = labelsQuery.data ?? [];
-  const issueLabels = useMemo(() => {
-    const labelMap = new Map(labels.map((label) => [label.id, label]));
-    issue?.labels.forEach((label) => labelMap.set(label.id, label));
-    return [...labelMap.values()];
-  }, [issue?.labels, labels]);
   const members = useMemo(() => {
     const allMembers = (membersQuery.data as Array<{ id: number; name: string; teamId?: number | null }> | undefined) ?? [];
     const scopedTeamId = issue?.teamId ?? currentTeamId ?? null;
@@ -226,8 +198,6 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
   }, [currentTeamId, issue?.teamId, membersQuery.data]);
   const customFieldDefinitions = (issue?.customFieldDefinitions ?? customFieldDefinitionsQuery.data ?? []) as CustomFieldDefinition[];
   const parentIssue = parentIssueQuery.data ?? null;
-  const detailBackHref = !embedded ? href ?? null : null;
-  const detailBackLabel = label ?? t('issues.detailPage.backToIssues');
   const isActivityLoading = commentsQuery.isLoading || activityQuery.isLoading;
   const isAttachmentsLoading = attachmentsQuery.isLoading;
   const isChildIssuesLoading = childIssuesQuery.isLoading;
@@ -243,7 +213,6 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
   const [activeProperty, setActiveProperty] = useState<string | null>(null);
   const [isAddingChild, setIsAddingChild] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
-  const [issueReactions, setIssueReactions] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!issue) return;
@@ -386,7 +355,6 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
       comments
         .map((comment) => ({
           id: `comment-${comment.id}`,
-          commentId: comment.id,
           kind: 'comment' as const,
           createdAt: comment.createdAt,
           authorId: comment.authorId,
@@ -412,14 +380,6 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
       dismissLabel: t('issueCreatedToast.dismiss'),
       durationMs: 3200,
     });
-  };
-
-  const addIssueReaction = (reaction: string) => {
-    setIssueReactions((current) => ({
-      ...current,
-      [reaction]: (current[reaction] ?? 0) + 1,
-    }));
-    showActionToast(t('issues.detailPage.reactionAddedTitle'), t('issues.detailPage.reactionAddedDescription', { reaction }));
   };
 
   const copyText = async (value: string, description: string) => {
@@ -479,44 +439,11 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
     await copyText(prompt, issue.identifier);
   };
 
-  const copyBranchName = async () => {
-    if (!issue) return;
-    await copyText(buildIssueBranchName(issue), issue.identifier);
-  };
-
   const showCodingToolsHint = () => {
     showActionToast(
       'Configure coding tools',
       locale.startsWith('zh') ? '该入口暂时为占位交互。' : 'This entry is currently a placeholder.'
     );
-  };
-
-  const openAskLinear = () => {
-    if (!currentOrganizationSlug || !issue) {
-      showActionToast(
-        'Ask Linear',
-        locale.startsWith('zh') ? '当前 issue 上下文暂不可用。' : 'The current issue context is not available yet.'
-      );
-      return;
-    }
-
-    const query = encodeURIComponent(`${issue.identifier} ${issue.title}`.trim());
-    router.push(`${workspaceSectionPath(currentOrganizationSlug, 'search')}?query=${query}`);
-  };
-
-  const openChatHistory = () => {
-    if (!currentOrganizationSlug || !issue) return;
-    router.push(`${issueDetailPath(currentOrganizationSlug, issue)}#activity`);
-  };
-
-  const openRelationsPanel = () => {
-    if (!currentOrganizationSlug || !issue) return;
-    router.push(`${issueDetailPath(currentOrganizationSlug, issue)}#relations`);
-  };
-
-  const openChildIssueComposer = () => {
-    if (!currentOrganizationSlug || !issue) return;
-    router.push(`${workspaceNewViewPath(currentOrganizationSlug, 'issues')}?parentIssueId=${issue.id}&sourceIssueId=${issue.id}`);
   };
 
   const quickCreateDoc = async () => {
@@ -725,30 +652,6 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
     setCommentBody('');
   };
 
-  const copyCommentLink = async (commentId: number) => {
-    if (!issue || !currentOrganizationSlug || typeof window === 'undefined') return;
-    await copyText(`${window.location.origin}${issueDetailPath(currentOrganizationSlug, issue)}#comment-${commentId}`, `comment-${commentId}`);
-  };
-
-  const copyCommentText = async (body: string) => {
-    await copyText(body, t('issues.detailPage.commentTextCopied'));
-  };
-
-  const quoteComment = (body: string) => {
-    const quotedBody = body
-      .split('\n')
-      .map((line) => `> ${line}`)
-      .join('\n');
-    setCommentBody((current) => `${current ? `${current.trimEnd()}\n\n` : ''}${quotedBody}\n\n`);
-    window.setTimeout(() => commentTextareaRef.current?.focus(), 0);
-    showActionToast(t('issues.detailPage.commentQuoted'), t('issues.detail.commentPlaceholder'));
-  };
-
-  const appendCommentSnippet = (snippet: string) => {
-    setCommentBody((current) => `${current ? `${current.trimEnd()}\n` : ''}${snippet}`);
-    window.setTimeout(() => commentTextareaRef.current?.focus(), 0);
-  };
-
   const createLinkedDoc = async () => {
     if (!issue || !docTitle.trim()) return;
     await createDocMutation.mutateAsync({
@@ -831,65 +734,7 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
     embedded ? <div className="h-full overflow-y-auto bg-transparent">{content}</div> : <AppLayout>{content}</AppLayout>;
 
   if (issueQuery.isLoading || !draftIssue) {
-    return wrapShell(
-      <div className={cn(embedded ? 'px-6 py-5' : 'mx-auto max-w-[1280px] px-6 py-10')}>
-        <div className="flex flex-col gap-8 pb-10">
-          <header className="flex flex-col gap-6 border-b border-border-soft/80 pb-7">
-            <div className="flex items-start justify-between gap-6">
-              <div className="min-w-0 flex-1 space-y-4">
-                {!embedded ? (
-                  <div className="h-5 w-40 animate-pulse rounded-full bg-slate-200/80" />
-                ) : null}
-                <div className="space-y-3">
-                  <div className="h-12 w-full max-w-[520px] animate-pulse rounded-2xl bg-slate-200/80" />
-                  <div className="h-5 w-32 animate-pulse rounded-full bg-slate-200/70" />
-                </div>
-              </div>
-              <div className="hidden shrink-0 items-center gap-2 xl:flex">
-                <div className="h-9 w-9 animate-pulse rounded-full bg-slate-200/80" />
-                <div className="h-9 w-9 animate-pulse rounded-full bg-slate-200/80" />
-                <div className="h-9 w-9 animate-pulse rounded-full bg-slate-200/80" />
-                <div className="h-9 w-24 animate-pulse rounded-full bg-slate-200/80" />
-              </div>
-            </div>
-          </header>
-
-          <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_292px]">
-            <main className="min-w-0 space-y-8">
-              <section className="rounded-[28px] border border-border-subtle bg-surface-raised px-6 py-6 shadow-[0_18px_48px_rgba(15,23,42,0.05)]">
-                <div className="space-y-4">
-                  <div className="h-5 w-28 animate-pulse rounded-full bg-slate-200/70" />
-                  <div className="h-24 w-full animate-pulse rounded-[24px] bg-slate-100" />
-                  <div className="h-24 w-full animate-pulse rounded-[24px] bg-slate-100/90" />
-                </div>
-              </section>
-              <section className="space-y-3">
-                <div className="h-5 w-24 animate-pulse rounded-full bg-slate-200/70" />
-                <div className="h-14 w-full animate-pulse rounded-[22px] bg-slate-100" />
-              </section>
-            </main>
-
-            <aside className="space-y-3 xl:sticky xl:top-24 xl:self-start">
-              <div className="rounded-[24px] border border-border-subtle bg-surface-raised px-4 py-4 shadow-[0_18px_44px_rgba(15,23,42,0.05)]">
-                <div className="space-y-3">
-                  <div className="h-4 w-24 animate-pulse rounded-full bg-slate-200/70" />
-                  <div className="h-9 w-32 animate-pulse rounded-full bg-slate-100" />
-                  <div className="h-9 w-36 animate-pulse rounded-full bg-slate-100" />
-                  <div className="h-9 w-28 animate-pulse rounded-full bg-slate-100" />
-                </div>
-              </div>
-              <div className="rounded-[24px] border border-border-subtle bg-surface-raised px-4 py-4 shadow-[0_18px_44px_rgba(15,23,42,0.05)]">
-                <div className="space-y-3">
-                  <div className="h-4 w-20 animate-pulse rounded-full bg-slate-200/70" />
-                  <div className="h-9 w-full animate-pulse rounded-full bg-slate-100" />
-                  <div className="h-9 w-5/6 animate-pulse rounded-full bg-slate-100" />
-                </div>
-              </div>
-            </aside>
-          </div>
-        </div>
-      </div>
-    );
+    return wrapShell(<div className="py-16 text-center text-ink-400">{t('common.loading')}</div>);
   }
 
   if (!issue) {
@@ -901,20 +746,16 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
         <div className="flex flex-col gap-8 pb-10">
           <header className="flex flex-col gap-6 border-b border-border-soft/80 pb-7">
             <div className="flex items-start justify-between gap-6">
-              <div className="min-w-0 flex-1 space-y-4">
+              <div className="min-w-0 space-y-4">
                 {!embedded ? (
                   <div className="flex items-center gap-2 text-sm text-ink-500">
-                    {detailBackHref ? (
-                      <Link href={detailBackHref} className="inline-flex items-center gap-1.5 transition hover:text-ink-900">
-                        <ArrowLeft className="h-4 w-4" />
-                        {detailBackLabel}
-                      </Link>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 text-ink-400">
-                        <ArrowLeft className="h-4 w-4" />
-                        {detailBackLabel}
-                      </span>
-                    )}
+                    <Link
+                      href={currentOrganizationSlug && currentTeamKey ? teamActivePath(currentOrganizationSlug, currentTeamKey) : '#'}
+                      className="inline-flex items-center gap-1.5 transition hover:text-ink-900"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      {t('issues.detailPage.backToIssues')}
+                    </Link>
                     <ChevronRight className="h-4 w-4 text-ink-300" />
                     {parentIssue && currentOrganizationSlug ? (
                       <>
@@ -934,44 +775,6 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
                   value={draftIssue.title}
                   onChange={(value) => setDraftIssue((current) => (current ? { ...current, title: value } : current))}
                 />
-                <IssueDetailHeroMeta
-                  issue={issue}
-                  draftIssue={draftIssue}
-                  members={members}
-                  projects={projects}
-                  labels={issueLabels}
-                  relationsCount={relations.length}
-                  t={t}
-                  onSetDraftIssue={(updater) => setDraftIssue((current) => (current ? updater(current) : current))}
-                  onCreateLabel={async (scopeType, name) => {
-                    await createLabelMutation.mutateAsync({
-                      organizationId,
-                      scopeType,
-                      scopeId: scopeType === 'TEAM' ? issue.teamId : null,
-                      name,
-                      createdBy: user?.id ?? null,
-                    });
-                  }}
-                />
-                <IssueDetailPropertyCommandCenter
-                  issue={issue}
-                  draftIssue={draftIssue}
-                  members={members}
-                  projects={projects}
-                  labels={issueLabels}
-                  currentUserId={user?.id ?? null}
-                  t={t}
-                  onSetDraftIssue={(updater) => setDraftIssue((current) => (current ? updater(current) : current))}
-                  onCreateLabel={async (scopeType, name) => {
-                    await createLabelMutation.mutateAsync({
-                      organizationId,
-                      scopeType,
-                      scopeId: scopeType === 'TEAM' ? issue.teamId : null,
-                      name,
-                      createdBy: user?.id ?? null,
-                    });
-                  }}
-                />
               </div>
               <IssueDetailActionBar
                 issue={issue}
@@ -981,10 +784,7 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
                 onCreateRelated={createRelatedIssue}
                 onAddLink={addLinkAttachment}
                 onCopyPrompt={copyIssuePrompt}
-                onCopyBranchName={copyBranchName}
                 onConfigureCodingTools={showCodingToolsHint}
-                isFavorite={isFavorite}
-                onToggleFavorite={toggleFavorite}
                 moreMenu={
                   <IssueMoreMenu
                     issue={issue}
@@ -1022,54 +822,6 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
             </div>
           </header>
 
-          <IssueDetailInteractionStrip
-            issue={issue}
-            attachmentsCount={attachments.length}
-            relationsCount={relations.length}
-            docsCount={docs.length}
-            childIssuesCount={childIssues.length}
-            activityCount={activity.length + comments.length}
-            isSubscribed={isSubscribed}
-            t={t}
-            onAddLink={() => void addLinkAttachment()}
-            onCreateSubIssue={() => {
-              setSubIssueDraft(createSubIssueDraft(issue));
-              setSubIssueFiles([]);
-              setIsAddingChild(true);
-            }}
-            onAddDocument={() => void quickCreateDoc()}
-            onToggleSubscribed={() => setIsSubscribed((current) => !current)}
-          />
-
-          <IssueDetailReferenceRail
-            activityItems={activityItems}
-            commentItems={commentItems}
-            relations={relations}
-            attachments={attachments}
-            actorNameMap={actorNameMap}
-            workspaceSlug={currentOrganizationSlug}
-            locale={locale}
-            t={t}
-          />
-
-          <IssueDetailDeveloperHandoff
-            issue={issue}
-            branchName={buildIssueBranchName(issue)}
-            t={t}
-            onCopyBranchName={() => void copyBranchName()}
-            onCopyPrompt={() => void copyIssuePrompt()}
-            onConfigureCodingTools={showCodingToolsHint}
-          />
-
-          {currentOrganizationSlug ? (
-            <IssueDetailNavigationLaunchpad
-              workspaceSlug={currentOrganizationSlug}
-              teamHref={currentTeamKey ? teamActivePath(currentOrganizationSlug, currentTeamKey) : null}
-              createIssueHref={`/issues/new?teamId=${issue.teamId ?? currentTeamId ?? ''}`}
-              t={t}
-            />
-          ) : null}
-
           <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_292px]">
             <main className="min-w-0 space-y-8">
               <section className="pb-2">
@@ -1092,15 +844,20 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
                   onChange={(event) => uploadAttachment(event.target.files?.[0] ?? null)}
                 />
                 <div className="flex items-center gap-2.5 text-ink-400">
-                  <IssueReactionPicker
-                    reactions={issueReactions}
-                    t={t}
-                    onReact={addIssueReaction}
-                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      showActionToast('Reactions', locale.startsWith('zh') ? '表情反馈即将支持。' : 'Reactions are coming soon.')
+                    }
+                    className="ds-icon-button-subtle inline-flex h-7 w-7 items-center justify-center rounded-full border border-transparent transition"
+                    aria-label="Add reaction"
+                  >
+                    <SmilePlus className="h-4 w-4 stroke-[1.8]" />
+                  </button>
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-transparent transition hover:border-slate-200 hover:bg-white hover:text-ink-900"
+                    className="ds-icon-button-subtle inline-flex h-7 w-7 items-center justify-center rounded-full border border-transparent transition"
                     aria-label={t('issues.detailPage.uploadAttachment')}
                   >
                     <Paperclip className="h-4 w-4 stroke-[1.8]" />
@@ -1132,7 +889,7 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
                     )}
                   >
                     <div className="overflow-hidden">
-                      <div className="rounded-[24px] border border-border-soft bg-white px-5 py-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
+                      <div className="rounded-[24px] border border-border-soft bg-surface-elevated px-5 py-4 shadow-card">
                         <input
                           ref={subIssueTitleRef}
                           value={subIssueDraft.title}
@@ -1255,7 +1012,7 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
                             <button
                               type="button"
                               onClick={() => subIssueFileInputRef.current?.click()}
-                              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-ink-400 transition hover:border-slate-200 hover:bg-slate-50 hover:text-ink-700"
+                              className="ds-icon-button-subtle inline-flex h-10 w-10 items-center justify-center rounded-full border border-transparent transition"
                               aria-label={t('issues.detailPage.uploadAttachment')}
                             >
                               <Paperclip className="h-4 w-4 stroke-[1.8]" />
@@ -1297,7 +1054,7 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
                         <Link
                           key={child.id}
                           href={currentOrganizationSlug ? issueDetailPath(currentOrganizationSlug, child) : '#'}
-                          className="flex items-center justify-between gap-4 rounded-xl px-3 py-2 transition hover:bg-slate-50"
+                          className="ds-list-row flex items-center justify-between gap-4 rounded-xl px-3 py-2 transition"
                         >
                           <div className="min-w-0">
                             <div className="truncate text-sm text-ink-900">{child.title}</div>
@@ -1321,7 +1078,7 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
                     >
                       {isSubscribed ? 'Unsubscribe' : 'Subscribe'}
                     </button>
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#ff8a80] text-[9px] font-semibold uppercase text-white">
+                      <div className="ds-accent-avatar flex h-6 w-6 items-center justify-center rounded-full text-[9px] font-semibold uppercase">
                         {initialsForName(valueFromMap(actorNameMap, user?.id ?? issue.reporterId ?? null, issue.identifier))}
                       </div>
                     </div>
@@ -1349,26 +1106,18 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
                               `User ${item.authorId ?? ''}`.trim()
                             );
                             return (
-                              <div key={item.id} id={item.id} className="group grid grid-cols-[24px_minmax(0,1fr)] gap-3">
+                              <div key={item.id} className="grid grid-cols-[24px_minmax(0,1fr)] gap-3">
                                 <div className="flex justify-center pt-1">
-                                  <div className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[#ff8a80] text-[8px] font-semibold uppercase text-white">
+                                  <div className="ds-accent-avatar flex h-4.5 w-4.5 items-center justify-center rounded-full text-[8px] font-semibold uppercase">
                                     {initialsForName(actorName)}
                                   </div>
                                 </div>
                                 <div className="min-w-0">
-                                  <div className="flex items-start justify-between gap-3 text-[13px] leading-6 text-ink-700">
-                                    <div className="min-w-0">
-                                      <span className="font-medium text-ink-900">{actorName}</span>
-                                      <span className="ml-2 text-[12px] text-ink-400">
-                                        {formatRelativeTime(item.createdAt, locale)}
-                                      </span>
-                                    </div>
-                                    <CommentOptionsMenu
-                                      t={t}
-                                      onCopyLink={() => void copyCommentLink(item.commentId)}
-                                      onCopyText={() => void copyCommentText(item.body)}
-                                      onQuoteReply={() => quoteComment(item.body)}
-                                    />
+                                  <div className="text-[13px] leading-6 text-ink-700">
+                                    <span className="font-medium text-ink-900">{actorName}</span>
+                                    <span className="ml-2 text-[12px] text-ink-400">
+                                      {formatRelativeTime(item.createdAt, locale)}
+                                    </span>
                                   </div>
                                   <div className="whitespace-pre-wrap text-[14px] leading-6 text-ink-900">{item.body}</div>
                                 </div>
@@ -1390,7 +1139,7 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
                     {attachments.map((attachment) => (
                       <div
                         key={attachment.id}
-                        className="inline-flex items-center gap-2 rounded-full border border-border-soft bg-white px-3 py-1.5 text-sm text-ink-700"
+                        className="inline-flex items-center gap-2 rounded-full border border-border-soft bg-[color:var(--interactive-default)] px-3 py-1.5 text-sm text-ink-700"
                       >
                         <Paperclip className="h-3.5 w-3.5 text-ink-400" />
                         <button
@@ -1413,75 +1162,31 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
                   </div>
                 ) : null}
 
-                <div className="rounded-[18px] border border-border-soft bg-white px-5 py-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+                <div className="rounded-[18px] border border-border-soft bg-surface-elevated px-5 py-4 shadow-card">
                   <Textarea
-                    ref={commentTextareaRef}
                     value={commentBody}
                     onChange={(event) => setCommentBody(event.target.value)}
-                    onKeyDown={(event) => {
-                      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-                        event.preventDefault();
-                        void addComment();
-                      }
-                    }}
                     data-testid="issue-detail-comment-input"
                     placeholder={t('issues.detail.commentPlaceholder')}
                     className="min-h-[104px] resize-none border-0 px-0 py-0 text-[15px] leading-7 text-ink-900 placeholder:text-ink-300 focus-visible:ring-0"
                   />
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <CommentComposerQuickButton
-                      label={t('issues.detailPage.quoteLatestComment')}
-                      disabled={!commentItems.length}
-                      onClick={() => {
-                        const latestComment = commentItems[commentItems.length - 1];
-                        if (latestComment) quoteComment(latestComment.body);
-                      }}
-                    />
-                    <CommentComposerQuickButton
-                      label={t('issues.detailPage.mentionAssignee')}
-                      disabled={draftIssue.assigneeId == null}
-                      onClick={() => {
-                        const assigneeName = members.find((member) => member.id === draftIssue.assigneeId)?.name;
-                        if (assigneeName) appendCommentSnippet(`@${assigneeName} `);
-                      }}
-                    />
-                    <CommentComposerQuickButton
-                      label={t('issues.detailPage.insertChecklist')}
-                      onClick={() => appendCommentSnippet('- [ ] ')}
-                    />
-                  </div>
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border-soft/70 pt-3">
-                    <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-ink-400">
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="inline-flex h-8 items-center gap-1.5 rounded-full border border-transparent px-2.5 transition hover:border-slate-200 hover:bg-slate-50 hover:text-ink-700"
-                        aria-label={t('issues.detailPage.uploadAttachment')}
-                      >
-                        <Paperclip className="h-4 w-4 stroke-[1.8]" />
-                        {t('issues.detailPage.attachToComment')}
-                      </button>
-                      <span className="hidden sm:inline">{t('issues.detailPage.commentShortcut')}</span>
-                      {commentBody.trim() ? (
-                        <span className="rounded-full bg-slate-50 px-2 py-1 text-ink-500">
-                          {t('issues.detailPage.commentCharacterCount', { count: commentBody.trim().length })}
-                        </span>
-                      ) : null}
-                    </div>
+                  <div className="mt-3 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="ds-icon-button-subtle inline-flex h-7 w-7 items-center justify-center rounded-full border border-transparent transition"
+                      aria-label={t('issues.detailPage.uploadAttachment')}
+                    >
+                      <Paperclip className="h-4 w-4 stroke-[1.8]" />
+                    </button>
                     <button
                       type="button"
                       onClick={() => void addComment()}
-                      disabled={!commentBody.trim() || createCommentMutation.isPending}
                       data-testid="issue-detail-comment-submit-button"
-                      className="inline-flex h-8 items-center gap-2 rounded-full border border-slate-200 bg-slate-950 px-3 text-sm font-medium text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-ink-300"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-border-soft bg-[color:var(--interactive-default)] text-ink-500 transition hover:bg-[color:var(--interactive-hover)] hover:text-ink-900"
                       aria-label={t('issues.detail.addComment')}
                     >
-                      {createCommentMutation.isPending ? (
-                        <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <ArrowUp className="h-3.5 w-3.5 stroke-[2.2]" />
-                      )}
-                      {createCommentMutation.isPending ? t('issues.detailPage.commentSubmitting') : t('issues.detail.addComment')}
+                      <ArrowUp className="h-3.5 w-3.5 stroke-[2.2]" />
                     </button>
                   </div>
                 </div>
@@ -1493,8 +1198,7 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
               issue={issue}
               members={members}
               projects={projects}
-              labels={issueLabels}
-              relations={relations}
+              labels={labels}
               visibleCustomFields={visibleCustomFields}
               activeProperty={activeProperty}
               locale={locale}
@@ -1511,27 +1215,6 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
                   name,
                   createdBy: user?.id ?? null,
                 });
-              }}
-              onCreateRelated={async () => {
-                openChildIssueComposer();
-                showActionToast(
-                  t('issues.detailSidebar.feedbackRelated'),
-                  locale.startsWith('zh') ? '已带入当前事项上下文打开新建入口。' : 'Opened the new issue flow with this issue prefilled as context.'
-                );
-              }}
-              onAddLink={async () => {
-                openRelationsPanel();
-                showActionToast(
-                  t('issues.detailSidebar.feedbackLink'),
-                  locale.startsWith('zh') ? '已跳转到关联区域以继续补充外部链接。' : 'Jumped to the relations section so you can keep adding links.'
-                );
-              }}
-              onAskLinear={() => {
-                openAskLinear();
-                showActionToast(
-                  t('issues.detailSidebar.feedbackAskLinear'),
-                  locale.startsWith('zh') ? '已在搜索页带入当前事项标题与编号。' : 'Opened workspace search with the current issue identifier and title.'
-                );
               }}
               renderCustomFieldInput={(field, value, onChange, onDone) => (
                 <CustomFieldInput field={field} value={value} onChange={onChange} onDone={onDone} />
@@ -1859,267 +1542,6 @@ export default function IssueDetailPage({ issueId, embedded = false, href = null
   );
 }
 
-function IssueDetailInteractionStrip({
-  issue,
-  attachmentsCount,
-  relationsCount,
-  docsCount,
-  childIssuesCount,
-  activityCount,
-  isSubscribed,
-  t,
-  onAddLink,
-  onCreateSubIssue,
-  onAddDocument,
-  onToggleSubscribed,
-}: {
-  issue: Issue;
-  attachmentsCount: number;
-  relationsCount: number;
-  docsCount: number;
-  childIssuesCount: number;
-  activityCount: number;
-  isSubscribed: boolean;
-  t: (key: string, vars?: Record<string, string | number>) => string;
-  onAddLink: () => void;
-  onCreateSubIssue: () => void;
-  onAddDocument: () => void;
-  onToggleSubscribed: () => void;
-}) {
-  const metrics = [
-    { label: t('issues.detailPage.resources'), value: attachmentsCount + relationsCount },
-    { label: t('issues.detailPage.subIssues'), value: childIssuesCount },
-    { label: t('issues.detailPage.linkedDocs'), value: docsCount },
-    { label: t('issues.tabs.activity'), value: activityCount },
-  ];
-
-  return (
-    <section
-      data-testid="issue-detail-interaction-strip"
-      className="overflow-hidden rounded-[28px] border border-border-soft bg-gradient-to-br from-white via-slate-50 to-white p-4 shadow-[0_16px_48px_rgba(15,23,42,0.05)]"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <div className="text-sm font-semibold text-ink-900">{t('issues.detailPage.interactionStripTitle')}</div>
-          <div className="mt-1 text-sm text-ink-500">
-            {t('issues.detailPage.interactionStripSubtitle', { identifier: issue.identifier })}
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={onAddLink}
-            className="inline-flex h-9 items-center gap-2 rounded-full border border-border-soft bg-white px-3 text-sm font-medium text-ink-700 transition hover:bg-slate-50"
-          >
-            <Link2 className="h-4 w-4 text-ink-400" />
-            {t('issues.detailPage.actionAddLink')}
-          </button>
-          <button
-            type="button"
-            onClick={onCreateSubIssue}
-            className="inline-flex h-9 items-center gap-2 rounded-full border border-border-soft bg-white px-3 text-sm font-medium text-ink-700 transition hover:bg-slate-50"
-          >
-            <Plus className="h-4 w-4 text-ink-400" />
-            {t('issues.detailPage.actionCreateSubIssue')}
-          </button>
-          <button
-            type="button"
-            onClick={onAddDocument}
-            className="inline-flex h-9 items-center gap-2 rounded-full border border-border-soft bg-white px-3 text-sm font-medium text-ink-700 transition hover:bg-slate-50"
-          >
-            <FileText className="h-4 w-4 text-ink-400" />
-            {t('issues.detailPage.actionAddDocument')}
-          </button>
-          <button
-            type="button"
-            onClick={onToggleSubscribed}
-            className={cn(
-              'inline-flex h-9 items-center gap-2 rounded-full px-3 text-sm font-medium transition',
-              isSubscribed
-                ? 'bg-slate-900 text-white hover:bg-slate-800'
-                : 'border border-border-soft bg-white text-ink-700 hover:bg-slate-50'
-            )}
-          >
-            <CheckCircle2 className="h-4 w-4" />
-            {isSubscribed ? t('issues.detailPage.actionSubscribed') : t('issues.detailPage.actionSubscribe')}
-          </button>
-        </div>
-      </div>
-      <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-        {metrics.map((metric) => (
-          <div key={metric.label} className="rounded-2xl border border-black/5 bg-white px-4 py-3">
-            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-400">{metric.label}</div>
-            <div className="mt-2 text-2xl font-semibold tracking-tight text-ink-900">{metric.value}</div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function IssueDetailReferenceRail({
-  activityItems,
-  commentItems,
-  relations,
-  attachments,
-  actorNameMap,
-  workspaceSlug,
-  locale,
-  t,
-}: {
-  activityItems: Array<{
-    id: string;
-    createdAt: string;
-    authorId: number | null;
-    summary: string | null;
-    eventType: string;
-    payload: Record<string, unknown> | null;
-  }>;
-  commentItems: Array<{
-    id: string;
-    commentId: number;
-    createdAt: string;
-    authorId: number | null;
-    body: string;
-  }>;
-  relations: Array<{ id: number; relationType: string; toIssueId: number; createdAt: string }>;
-  attachments: Array<{ id: number; filename: string; attachmentType: string; externalUrl: string | null; linkTitle: string | null }>;
-  actorNameMap: Map<number, string>;
-  workspaceSlug: string | null;
-  locale: string;
-  t: (key: string, vars?: Record<string, string | number>) => string;
-}) {
-  const timelineItems = [
-    ...activityItems.map((item) => ({
-      id: item.id,
-      href: `#${item.id}`,
-      label: renderActivitySummary(item, t),
-      meta: formatRelativeTime(item.createdAt, locale),
-      createdAt: item.createdAt,
-      actor: valueFromMap(actorNameMap, item.authorId, t('issues.activityEvent.system')),
-    })),
-    ...commentItems.map((item) => ({
-      id: item.id,
-      href: `#${item.id}`,
-      label: item.body.trim() || t('issues.tabs.comments'),
-      meta: formatRelativeTime(item.createdAt, locale),
-      createdAt: item.createdAt,
-      actor: valueFromMap(actorNameMap, item.authorId, t('issues.activityEvent.system')),
-    })),
-  ]
-    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
-    .slice(0, 3);
-
-  const participants = Array.from(
-    new Map(
-      [...activityItems, ...commentItems]
-        .filter((item) => item.authorId != null)
-        .map((item) => [item.authorId!, valueFromMap(actorNameMap, item.authorId, t('issues.activityEvent.system'))])
-    ).entries()
-  ).slice(0, 4);
-  const visibleRelations = relations.slice(0, 3);
-  const visibleLinks = attachments.filter((attachment) => attachment.attachmentType === 'LINK' || attachment.externalUrl).slice(0, 2);
-
-  return (
-    <section
-      data-testid="issue-detail-reference-rail"
-      className="grid gap-3 rounded-[24px] border border-border-soft bg-white p-4 shadow-[0_12px_34px_rgba(15,23,42,0.04)] lg:grid-cols-3"
-    >
-      <div className="lg:col-span-3">
-        <div className="text-sm font-semibold text-ink-900">{t('issues.detailPage.referenceRailTitle')}</div>
-        <p className="mt-1 text-sm text-ink-500">{t('issues.detailPage.referenceRailDescription')}</p>
-      </div>
-
-      <ReferenceRailCard icon={Clock3} title={t('issues.detailPage.referenceRailActivity')}>
-        {timelineItems.length ? (
-          timelineItems.map((item) => (
-            <a key={item.id} href={item.href} className="block rounded-2xl px-3 py-2 transition hover:bg-slate-50">
-              <span className="block truncate text-sm font-medium text-ink-800">{item.label}</span>
-              <span className="mt-0.5 block truncate text-xs text-ink-400">
-                {item.actor} · {item.meta}
-              </span>
-            </a>
-          ))
-        ) : (
-          <ReferenceRailEmpty label={t('issues.detailPage.referenceRailNoActivity')} />
-        )}
-      </ReferenceRailCard>
-
-      <ReferenceRailCard icon={UserCircle2} title={t('issues.detailPage.referenceRailPeople')}>
-        {participants.length ? (
-          participants.map(([id, name]) => {
-            const profileHref = workspaceSlug ? `/${workspaceSlug}/profiles/${slugifyPathSegment(name.split('@')[0] ?? name)}` : '#activity';
-            return (
-              <a key={id} href={profileHref} className="flex items-center gap-3 rounded-2xl px-3 py-2 transition hover:bg-slate-50">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-100 text-xs font-semibold text-rose-600">
-                  {initialsForName(name)}
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium text-ink-800">{name}</span>
-                  <span className="block text-xs text-ink-400">{t('issues.detailPage.referenceRailOpenProfile')}</span>
-                </span>
-              </a>
-            );
-          })
-        ) : (
-          <ReferenceRailEmpty label={t('issues.detailPage.referenceRailNoPeople')} />
-        )}
-      </ReferenceRailCard>
-
-      <ReferenceRailCard icon={Link2} title={t('issues.detailPage.referenceRailResources')}>
-        {visibleRelations.length || visibleLinks.length ? (
-          <>
-            {visibleRelations.map((relation) => (
-              <a key={relation.id} href="#relations" className="block rounded-2xl px-3 py-2 transition hover:bg-slate-50">
-                <span className="block truncate text-sm font-medium text-ink-800">
-                  {t(`issues.relationType.${relation.relationType}`)}
-                </span>
-                <span className="mt-0.5 block text-xs text-ink-400">#{relation.toIssueId}</span>
-              </a>
-            ))}
-            {visibleLinks.map((attachment) => (
-              <a
-                key={attachment.id}
-                href={attachment.externalUrl ?? '#resources'}
-                className="block rounded-2xl px-3 py-2 transition hover:bg-slate-50"
-              >
-                <span className="block truncate text-sm font-medium text-ink-800">{attachment.linkTitle || attachment.filename}</span>
-                <span className="mt-0.5 block truncate text-xs text-ink-400">{attachment.externalUrl ?? attachment.filename}</span>
-              </a>
-            ))}
-          </>
-        ) : (
-          <ReferenceRailEmpty label={t('issues.detailPage.referenceRailNoRelations')} />
-        )}
-      </ReferenceRailCard>
-    </section>
-  );
-}
-
-function ReferenceRailCard({
-  icon: Icon,
-  title,
-  children,
-}: {
-  icon: typeof Clock3;
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="rounded-[20px] border border-black/5 bg-slate-50 p-2">
-      <div className="flex items-center gap-2 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-ink-400">
-        <Icon className="h-4 w-4 text-ink-400" />
-        {title}
-      </div>
-      <div className="space-y-1">{children}</div>
-    </div>
-  );
-}
-
-function ReferenceRailEmpty({ label }: { label: string }) {
-  return <div className="rounded-2xl px-3 py-3 text-sm text-ink-400">{label}</div>;
-}
-
 function DetailSection({
   id,
   title,
@@ -2139,267 +1561,6 @@ function DetailSection({
       </div>
       <div className="space-y-3">{children}</div>
     </section>
-  );
-}
-
-function CommentComposerQuickButton({
-  label,
-  disabled = false,
-  onClick,
-}: {
-  label: string;
-  disabled?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className="inline-flex h-7 items-center rounded-full border border-border-soft bg-slate-50 px-2.5 text-xs font-medium text-ink-500 transition hover:bg-white hover:text-ink-800 disabled:cursor-not-allowed disabled:opacity-45"
-    >
-      {label}
-    </button>
-  );
-}
-
-function IssueDetailDeveloperHandoff({
-  issue,
-  branchName,
-  t,
-  onCopyBranchName,
-  onCopyPrompt,
-  onConfigureCodingTools,
-}: {
-  issue: Issue;
-  branchName: string;
-  t: (key: string, vars?: Record<string, string | number>) => string;
-  onCopyBranchName: () => void;
-  onCopyPrompt: () => void;
-  onConfigureCodingTools: () => void;
-}) {
-  return (
-    <section className="grid gap-3 rounded-[24px] border border-dashed border-slate-300 bg-white/80 p-4 shadow-[0_12px_34px_rgba(15,23,42,0.04)] md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-slate-950 px-2.5 py-1 text-xs font-semibold text-white">{t('issues.detailPage.developerHandoff')}</span>
-          <span className="text-xs font-medium text-ink-400">{issue.identifier}</span>
-        </div>
-        <div className="mt-2 truncate font-mono text-sm text-ink-700">{branchName}</div>
-        <p className="mt-1 text-sm text-ink-500">{t('issues.detailPage.developerHandoffDescription')}</p>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={onCopyBranchName}
-          className="inline-flex h-9 items-center gap-2 rounded-full border border-border-soft bg-white px-3 text-sm font-medium text-ink-700 transition hover:bg-slate-50"
-        >
-          <Copy className="h-4 w-4 text-ink-400" />
-          {t('issues.detailPage.copyBranchName')}
-        </button>
-        <button
-          type="button"
-          onClick={onCopyPrompt}
-          className="inline-flex h-9 items-center gap-2 rounded-full border border-border-soft bg-white px-3 text-sm font-medium text-ink-700 transition hover:bg-slate-50"
-        >
-          <MessageSquare className="h-4 w-4 text-ink-400" />
-          {t('issues.detailPage.copyPrompt')}
-        </button>
-        <button
-          type="button"
-          onClick={onConfigureCodingTools}
-          className="inline-flex h-9 items-center gap-2 rounded-full bg-slate-950 px-3 text-sm font-medium text-white transition hover:bg-slate-900"
-        >
-          <FolderKanban className="h-4 w-4 text-slate-300" />
-          {t('issues.detailPage.configureTools')}
-        </button>
-      </div>
-    </section>
-  );
-}
-
-function IssueDetailNavigationLaunchpad({
-  workspaceSlug,
-  teamHref,
-  createIssueHref,
-  t,
-}: {
-  workspaceSlug: string;
-  teamHref: string | null;
-  createIssueHref: string;
-  t: (key: string, vars?: Record<string, string | number>) => string;
-}) {
-  const launchItems = [
-    {
-      href: workspaceSectionPath(workspaceSlug, 'search'),
-      label: t('issues.detailPage.launchSearch'),
-      description: t('issues.detailPage.launchSearchDescription'),
-      icon: Search,
-    },
-    {
-      href: createIssueHref,
-      label: t('issues.detailPage.launchCreateIssue'),
-      description: t('issues.detailPage.launchCreateIssueDescription'),
-      icon: Plus,
-    },
-    {
-      href: workspaceInboxPath(workspaceSlug),
-      label: t('nav.inbox'),
-      description: t('issues.detailPage.launchInboxDescription'),
-      icon: MessageSquare,
-    },
-    {
-      href: workspaceMyIssuesAssignedPath(workspaceSlug),
-      label: t('nav.myIssues'),
-      description: t('issues.detailPage.launchMyIssuesDescription'),
-      icon: UserCircle2,
-    },
-    {
-      href: workspaceViewsRootPath(workspaceSlug),
-      label: t('nav.views'),
-      description: t('issues.detailPage.launchViewsDescription'),
-      icon: CircleEllipsis,
-    },
-    {
-      href: teamHref ?? workspaceRootPath(workspaceSlug),
-      label: t('issues.detailPage.launchWorkspace'),
-      description: t('issues.detailPage.launchWorkspaceDescription'),
-      icon: FolderKanban,
-    },
-  ];
-
-  return (
-    <section className="rounded-[24px] border border-border-soft bg-white p-3 shadow-[0_12px_34px_rgba(15,23,42,0.04)]">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-1 pb-3">
-        <div>
-          <div className="text-sm font-semibold text-ink-900">{t('issues.detailPage.navigationLaunchpad')}</div>
-          <p className="mt-1 text-sm text-ink-500">{t('issues.detailPage.navigationLaunchpadDescription')}</p>
-        </div>
-        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-ink-500">⌘K</span>
-      </div>
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-        {launchItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="group flex min-h-20 items-start gap-3 rounded-2xl border border-transparent bg-slate-50 px-3 py-3 transition hover:border-border-soft hover:bg-white hover:shadow-[0_10px_28px_rgba(15,23,42,0.06)]"
-            >
-              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white text-ink-500 ring-1 ring-inset ring-slate-200 transition group-hover:bg-slate-950 group-hover:text-white">
-                <Icon className="h-4 w-4" />
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold text-ink-900">{item.label}</span>
-                <span className="mt-1 line-clamp-2 block text-xs leading-5 text-ink-500">{item.description}</span>
-              </span>
-            </Link>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function CommentOptionsMenu({
-  t,
-  onCopyLink,
-  onCopyText,
-  onQuoteReply,
-}: {
-  t: (key: string, vars?: Record<string, string | number>) => string;
-  onCopyLink: () => void;
-  onCopyText: () => void;
-  onQuoteReply: () => void;
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={t('issues.detailPage.commentOptions')}
-          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-ink-300 opacity-0 transition hover:bg-slate-50 hover:text-ink-700 group-hover:opacity-100 data-[state=open]:bg-slate-50 data-[state=open]:text-ink-700 data-[state=open]:opacity-100"
-        >
-          <MoreHorizontal className="h-4 w-4" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52 rounded-[18px] p-1.5">
-        <DropdownMenuItem onSelect={onCopyLink} className="gap-3 rounded-xl px-3 py-2.5">
-          <Link2 className="h-4 w-4 text-ink-500" />
-          <span>{t('issues.detailPage.copyCommentLink')}</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={onCopyText} className="gap-3 rounded-xl px-3 py-2.5">
-          <Copy className="h-4 w-4 text-ink-500" />
-          <span>{t('issues.detailPage.copyCommentText')}</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={onQuoteReply} className="gap-3 rounded-xl px-3 py-2.5">
-          <Quote className="h-4 w-4 text-ink-500" />
-          <span>{t('issues.detailPage.quoteReply')}</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-const ISSUE_REACTION_OPTIONS = ['👍', '👀', '✅', '🚀', '❤️', '🔥'] as const;
-
-function IssueReactionPicker({
-  reactions,
-  t,
-  onReact,
-}: {
-  reactions: Record<string, number>;
-  t: (key: string, vars?: Record<string, string | number>) => string;
-  onReact: (reaction: string) => void;
-}) {
-  const activeReactions = Object.entries(reactions).filter(([, count]) => count > 0);
-
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <Popover>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-transparent transition hover:border-slate-200 hover:bg-white hover:text-ink-900 data-[state=open]:border-slate-200 data-[state=open]:bg-white data-[state=open]:text-ink-900"
-            aria-label={t('issues.detailPage.addReaction')}
-          >
-            <SmilePlus className="h-4 w-4 stroke-[1.8]" />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent align="start" className="w-[280px] rounded-[22px] border-border-soft p-3 shadow-[0_18px_48px_rgba(15,23,42,0.12)]">
-          <div className="px-1 pb-2">
-            <div className="text-sm font-semibold text-ink-900">{t('issues.detailPage.reactionPickerTitle')}</div>
-            <div className="mt-1 text-xs text-ink-400">{t('issues.detailPage.reactionPickerDescription')}</div>
-          </div>
-          <div className="grid grid-cols-6 gap-1.5">
-            {ISSUE_REACTION_OPTIONS.map((reaction) => (
-              <button
-                key={reaction}
-                type="button"
-                onClick={() => onReact(reaction)}
-                className="flex h-10 items-center justify-center rounded-2xl text-xl transition hover:bg-slate-100"
-                aria-label={t('issues.detailPage.addReactionValue', { reaction })}
-              >
-                {reaction}
-              </button>
-            ))}
-          </div>
-        </PopoverContent>
-      </Popover>
-
-      {activeReactions.map(([reaction, count]) => (
-        <button
-          key={reaction}
-          type="button"
-          onClick={() => onReact(reaction)}
-          className="inline-flex h-7 items-center gap-1 rounded-full border border-border-soft bg-white px-2 text-xs font-semibold text-ink-700 transition hover:bg-slate-50"
-          aria-label={t('issues.detailPage.addReactionValue', { reaction })}
-        >
-          <span>{reaction}</span>
-          <span className="text-ink-400">{count}</span>
-        </button>
-      ))}
-    </div>
   );
 }
 
@@ -2623,7 +1784,7 @@ function IssueMoreMenu({
         {trigger ?? (
           <button
             type="button"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border-soft bg-white text-ink-500 transition hover:bg-slate-50 hover:text-ink-900"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border-soft bg-[color:var(--interactive-default)] text-ink-500 transition hover:bg-[color:var(--interactive-hover)] hover:text-ink-900"
             aria-label={t('issues.more.menu')}
           >
             <MoreHorizontal className="h-4.5 w-4.5" />
@@ -2665,7 +1826,7 @@ function InlineSelectRow({
   return (
     <div className="py-2">
       <div className="mb-1 text-[11px] uppercase tracking-[0.18em] text-ink-400">{label}</div>
-      <div className="rounded-xl bg-white/40 p-1">{editor}</div>
+      <div className="ds-editor-surface rounded-xl p-1">{editor}</div>
     </div>
   );
 }
@@ -2687,7 +1848,7 @@ function InlineInputRow({
     <div className="py-2">
       <div className="mb-1 text-[11px] uppercase tracking-[0.18em] text-ink-400">{label}</div>
       {isEditing ? (
-        <div className="space-y-2 rounded-xl bg-white/50 p-1.5">{editor}</div>
+        <div className="ds-editor-surface space-y-2 rounded-xl p-1.5">{editor}</div>
       ) : (
         <button
           type="button"
@@ -2721,7 +1882,7 @@ function InlineCustomFieldRow({
     <div className="border-t border-border-soft/70 first:border-t-0 py-2">
       <div className="mb-1 text-[11px] uppercase tracking-[0.18em] text-ink-400">{field.name}</div>
       {isEditing ? (
-        <div className="space-y-2 rounded-xl bg-white/50 p-1.5">
+        <div className="ds-editor-surface space-y-2 rounded-xl p-1.5">
           <CustomFieldInput field={field} value={value} onChange={onChange} onDone={onDone} />
         </div>
       ) : (
@@ -2757,23 +1918,11 @@ function IssueStateBadge({
   t: (key: string, vars?: Record<string, string | number>) => string;
 }) {
   if (state === 'DONE') {
-    return (
-      <Badge variant="success">
-        {resolution && resolution !== 'COMPLETED'
-          ? `${t(`common.status.${state}`)} / ${t(`common.resolution.${resolution}`)}`
-          : t(`common.status.${state}`)}
-      </Badge>
-    );
+    return <Badge variant="success">{resolution && resolution !== 'COMPLETED' ? `${t(`common.status.${state}`)} 路 ${t(`common.resolution.${resolution}`)}` : t(`common.status.${state}`)}</Badge>;
   }
   if (state === 'IN_PROGRESS' || state === 'IN_REVIEW') return <Badge variant="brand">{t(`common.status.${state}`)}</Badge>;
   if (state === 'CANCELED') {
-    return (
-      <Badge variant="danger">
-        {resolution && resolution !== 'CANCELED'
-          ? `${t(`common.status.${state}`)} / ${t(`common.resolution.${resolution}`)}`
-          : t(`common.status.${state}`)}
-      </Badge>
-    );
+    return <Badge variant="danger">{resolution && resolution !== 'CANCELED' ? `${t(`common.status.${state}`)} 路 ${t(`common.resolution.${resolution}`)}` : t(`common.status.${state}`)}</Badge>;
   }
   return <Badge variant="neutral">{t(`common.status.${state}`)}</Badge>;
 }
@@ -2788,11 +1937,11 @@ function SectionLoadingRows({ rows = 3 }: { rows?: number }) {
       {Array.from({ length: rows }).map((_, index) => (
         <div key={index} className="grid grid-cols-[22px_minmax(0,1fr)] gap-3">
           <div className="flex justify-center pt-[7px]">
-            <div className="h-[14px] w-[14px] animate-pulse rounded-full border border-slate-200 bg-slate-100" />
+            <div className="ds-skeleton-dot h-[14px] w-[14px] animate-pulse rounded-full" />
           </div>
           <div className="space-y-2 pb-[10px] pt-[1px]">
-            <div className="h-3.5 w-3/4 animate-pulse rounded-full bg-slate-100" />
-            <div className="h-3.5 w-1/3 animate-pulse rounded-full bg-slate-100" />
+            <div className="ds-skeleton-line h-3.5 w-3/4 animate-pulse rounded-full" />
+            <div className="ds-skeleton-line h-3.5 w-1/3 animate-pulse rounded-full" />
           </div>
         </div>
       ))}
@@ -2804,7 +1953,7 @@ function SectionLoadingChips({ count = 2 }: { count?: number }) {
   return (
     <div className="flex flex-wrap gap-2">
       {Array.from({ length: count }).map((_, index) => (
-        <div key={index} className="h-8 w-28 animate-pulse rounded-full bg-slate-100" />
+        <div key={index} className="ds-skeleton-chip h-8 w-28 animate-pulse rounded-full" />
       ))}
     </div>
   );
@@ -2835,12 +1984,12 @@ function IssueActivityTimeline({
         const actorName = valueFromMap(actorNameMap, item.authorId, t('issues.activityEvent.system'));
         const translatedSummary = renderActivitySummary(item, t);
         return (
-          <div key={item.id} id={item.id} className="grid grid-cols-[22px_minmax(0,1fr)] gap-3">
+          <div key={item.id} className="grid grid-cols-[22px_minmax(0,1fr)] gap-3">
             <div className="relative flex justify-center pt-[7px]">
               {index < items.length - 1 ? (
-                <span className="absolute left-1/2 top-[15px] h-[calc(100%-6px)] w-px -translate-x-1/2 bg-slate-200" />
+                <span className="ds-timeline-line absolute left-1/2 top-[15px] h-[calc(100%-6px)] w-px -translate-x-1/2" />
               ) : null}
-              <span className="relative z-10 h-[14px] w-[14px] rounded-full border border-slate-300 bg-white" />
+              <span className="ds-timeline-node relative z-10 h-[14px] w-[14px] rounded-full" />
             </div>
             <div className="pb-[10px] pt-[1px] text-[13px] leading-6 text-ink-700">
               <span className="font-medium text-ink-900">{actorName}</span>
@@ -2874,410 +2023,6 @@ function EditableTitle({
   );
 }
 
-function IssueDetailHeroMeta({
-  issue,
-  draftIssue,
-  members,
-  projects,
-  labels,
-  relationsCount,
-  t,
-  onSetDraftIssue,
-  onCreateLabel,
-}: {
-  issue: Issue;
-  draftIssue: DraftIssue;
-  members: Array<{ id: number; name: string }>;
-  projects: Project[];
-  labels: Label[];
-  relationsCount: number;
-  t: (key: string, vars?: Record<string, string | number>) => string;
-  onSetDraftIssue: (updater: (current: DraftIssue) => DraftIssue) => void;
-  onCreateLabel: (scopeType: 'TEAM' | 'WORKSPACE', name: string) => Promise<void>;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-2.5 pt-1">
-      <span className="inline-flex h-9 items-center rounded-full border border-border-soft bg-slate-50 px-3 text-sm font-semibold tracking-[-0.01em] text-ink-700">
-        {issue.identifier}
-      </span>
-      <InlineIssuePill
-        label={issueStateLabel(draftIssue.state, t)}
-        value={draftIssue.state}
-        options={ISSUE_STATES.map((value) => buildInlineStateOption(value, t))}
-        onChange={(value) =>
-          onSetDraftIssue((current) => ({
-            ...current,
-            state: value as Issue['state'],
-            resolution: nextResolutionForState(value as Issue['state'], current.resolution),
-          }))
-        }
-      />
-      <InlineIssuePill
-        label={issuePriorityLabel(draftIssue.priority, t)}
-        value={draftIssue.priority ?? EMPTY}
-        options={ISSUE_PRIORITIES.map((value) => buildInlinePriorityOption(value, t))}
-        emptyLabel={t('views.new.preview.noPriority')}
-        onChange={(value) =>
-          onSetDraftIssue((current) => ({
-            ...current,
-            priority: value === EMPTY ? null : (value as Issue['priority']),
-          }))
-        }
-      />
-      <InlineIssuePill
-        label={members.find((member) => member.id === draftIssue.assigneeId)?.name ?? t('common.notSet')}
-        value={draftIssue.assigneeId != null ? String(draftIssue.assigneeId) : EMPTY}
-        options={members.map((member) => ({
-          value: String(member.id),
-          label: member.name,
-          avatarText: initialsForName(member.name),
-          avatarClassName: 'bg-rose-100 text-rose-600',
-        }))}
-        emptyLabel={t('common.notSet')}
-        searchable
-        searchPlaceholder={t('issues.detailSidebar.searchAssignee')}
-        noSearchResultsLabel={t('issues.detailSidebar.noAssigneeResults')}
-        onChange={(value) =>
-          onSetDraftIssue((current) => ({
-            ...current,
-            assigneeId: value === EMPTY ? null : Number(value),
-          }))
-        }
-      />
-      <InlineIssuePill
-        label={projects.find((project) => project.id === draftIssue.projectId)?.name ?? t('issues.detailSidebar.addToProject')}
-        value={draftIssue.projectId != null ? String(draftIssue.projectId) : EMPTY}
-        options={projects.map((project) => ({
-          value: String(project.id),
-          label: project.name,
-          icon: <FolderKanban className="h-4 w-4 text-ink-400" />,
-        }))}
-        emptyLabel={t('common.notSet')}
-        searchable
-        searchPlaceholder={t('issues.detailSidebar.addToProject')}
-        noSearchResultsLabel={t('common.empty')}
-        onChange={(value) =>
-          onSetDraftIssue((current) => ({
-            ...current,
-            projectId: value === EMPTY ? null : Number(value),
-          }))
-        }
-      />
-      <InlineLabelsPill
-        labels={labels}
-        teamId={issue.teamId}
-        selectedLabelIds={draftIssue.labelIds}
-        t={t}
-        onCreateLabel={onCreateLabel}
-        onToggle={(labelId) =>
-          onSetDraftIssue((current) => ({
-            ...current,
-            labelIds: current.labelIds.includes(labelId)
-              ? current.labelIds.filter((value) => value !== labelId)
-              : [...current.labelIds, labelId],
-          }))
-        }
-      />
-      <a href="#relations" className="inline-flex h-9 items-center gap-2 rounded-full border border-border-soft bg-white px-3 text-sm font-medium text-ink-600 transition hover:bg-slate-50 hover:text-ink-900">
-        <Link2 className="h-3.5 w-3.5 text-ink-400" />
-        <span>{relationsCount ? `${relationsCount} relations` : t('issues.emptyStates.relations')}</span>
-      </a>
-    </div>
-  );
-}
-
-function IssueDetailPropertyCommandCenter({
-  issue,
-  draftIssue,
-  members,
-  projects,
-  labels,
-  currentUserId,
-  t,
-  onSetDraftIssue,
-  onCreateLabel,
-}: {
-  issue: Issue;
-  draftIssue: DraftIssue;
-  members: Array<{ id: number; name: string }>;
-  projects: Project[];
-  labels: Label[];
-  currentUserId: number | null;
-  t: (key: string, vars?: Record<string, string | number>) => string;
-  onSetDraftIssue: (updater: (current: DraftIssue) => DraftIssue) => void;
-  onCreateLabel: (scopeType: 'TEAM' | 'WORKSPACE', name: string) => Promise<void>;
-}) {
-  const selectedProject = projects.find((project) => project.id === draftIssue.projectId);
-  const selectedAssignee = members.find((member) => member.id === draftIssue.assigneeId);
-  const selectedLabels = labels.filter((label) => draftIssue.labelIds.includes(label.id));
-  const currentMember = members.find((member) => member.id === currentUserId);
-
-  const moveToState = (state: Issue['state']) => {
-    onSetDraftIssue((current) => ({
-      ...current,
-      state,
-      resolution: nextResolutionForState(state, current.resolution),
-      assigneeId: current.assigneeId ?? currentUserId,
-    }));
-  };
-
-  return (
-    <section className="mt-4 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_46px_rgba(15,23,42,0.05)]">
-      <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <div className="space-y-4 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold text-ink-900">{t('issues.detailPage.propertiesCockpit')}</div>
-              <p className="mt-1 text-sm text-ink-500">{t('issues.detailPage.propertiesCockpitDescription')}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => moveToState('IN_PROGRESS')}
-              className="inline-flex h-9 items-center gap-2 rounded-full bg-slate-950 px-3 text-sm font-semibold text-white transition hover:bg-slate-900"
-            >
-              <Flame className="h-4 w-4 text-amber-300" />
-              {t('issues.detailPage.workOnIssue')}
-            </button>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <PropertyCockpitCard label={t('issues.columns.state')} value={issueStateLabel(draftIssue.state, t)} tone="emerald">
-              <InlineIssuePill
-                label={issueStateLabel(draftIssue.state, t)}
-                value={draftIssue.state}
-                options={ISSUE_STATES.map((value) => buildInlineStateOption(value, t))}
-                onChange={(value) =>
-                  onSetDraftIssue((current) => ({
-                    ...current,
-                    state: value as Issue['state'],
-                    resolution: nextResolutionForState(value as Issue['state'], current.resolution),
-                  }))
-                }
-              />
-            </PropertyCockpitCard>
-            <PropertyCockpitCard label={t('issues.columns.priority')} value={issuePriorityLabel(draftIssue.priority, t)} tone="amber">
-              <InlineIssuePill
-                label={issuePriorityLabel(draftIssue.priority, t)}
-                value={draftIssue.priority ?? EMPTY}
-                options={ISSUE_PRIORITIES.map((value) => buildInlinePriorityOption(value, t))}
-                emptyLabel={t('views.new.preview.noPriority')}
-                onChange={(value) =>
-                  onSetDraftIssue((current) => ({
-                    ...current,
-                    priority: value === EMPTY ? null : (value as Issue['priority']),
-                  }))
-                }
-              />
-            </PropertyCockpitCard>
-            <PropertyCockpitCard label={t('issues.detailPage.assignee')} value={selectedAssignee?.name ?? t('common.notSet')} tone="rose">
-              <InlineIssuePill
-                label={selectedAssignee?.name ?? t('common.notSet')}
-                value={draftIssue.assigneeId != null ? String(draftIssue.assigneeId) : EMPTY}
-                options={members.map((member) => ({
-                  value: String(member.id),
-                  label: member.name,
-                  avatarText: initialsForName(member.name),
-                  avatarClassName: 'bg-rose-100 text-rose-600',
-                }))}
-                emptyLabel={t('common.notSet')}
-                searchable
-                searchPlaceholder={t('issues.detailSidebar.searchAssignee')}
-                noSearchResultsLabel={t('issues.detailSidebar.noAssigneeResults')}
-                onChange={(value) =>
-                  onSetDraftIssue((current) => ({
-                    ...current,
-                    assigneeId: value === EMPTY ? null : Number(value),
-                  }))
-                }
-              />
-            </PropertyCockpitCard>
-            <PropertyCockpitCard label={t('issues.columns.project')} value={selectedProject?.name ?? t('common.notSet')} tone="sky">
-              <InlineIssuePill
-                label={selectedProject?.name ?? t('issues.detailSidebar.addToProject')}
-                value={draftIssue.projectId != null ? String(draftIssue.projectId) : EMPTY}
-                options={projects.map((project) => ({
-                  value: String(project.id),
-                  label: project.name,
-                  icon: <FolderKanban className="h-4 w-4 text-ink-400" />,
-                }))}
-                emptyLabel={t('common.notSet')}
-                searchable
-                searchPlaceholder={t('issues.detailSidebar.addToProject')}
-                noSearchResultsLabel={t('common.empty')}
-                onChange={(value) =>
-                  onSetDraftIssue((current) => ({
-                    ...current,
-                    projectId: value === EMPTY ? null : Number(value),
-                  }))
-                }
-              />
-            </PropertyCockpitCard>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border-soft bg-slate-50 px-3 py-3">
-            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-400">
-              {t('issues.detailPage.labels')}
-            </span>
-            {selectedLabels.length ? (
-              selectedLabels.slice(0, 4).map((label) => (
-                <span key={label.id} className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-ink-700 ring-1 ring-inset ring-slate-200">
-                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: label.color || '#fb7185' }} />
-                  {label.name}
-                </span>
-              ))
-            ) : (
-              <span className="text-sm text-ink-400">{t('settings.composer.labels')}</span>
-            )}
-            <InlineLabelsPill
-              labels={labels}
-              teamId={issue.teamId}
-              selectedLabelIds={draftIssue.labelIds}
-              t={t}
-              onCreateLabel={onCreateLabel}
-              onToggle={(labelId) =>
-                onSetDraftIssue((current) => ({
-                  ...current,
-                  labelIds: current.labelIds.includes(labelId)
-                    ? current.labelIds.filter((value) => value !== labelId)
-                    : [...current.labelIds, labelId],
-                }))
-              }
-            />
-          </div>
-        </div>
-
-        <div className="border-t border-border-soft bg-slate-950 p-4 text-white lg:border-l lg:border-t-0">
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{t('issues.detailPage.nextActions')}</div>
-          <div className="mt-4 grid gap-2">
-            <button
-              type="button"
-              onClick={() => moveToState('BACKLOG')}
-              className="flex items-center justify-between rounded-2xl bg-white/8 px-3 py-2.5 text-left text-sm transition hover:bg-white/12"
-            >
-              <span>{t('common.status.BACKLOG')}</span>
-              <Circle className="h-4 w-4 text-slate-400" />
-            </button>
-            <button
-              type="button"
-              onClick={() => moveToState('IN_REVIEW')}
-              className="flex items-center justify-between rounded-2xl bg-white/8 px-3 py-2.5 text-left text-sm transition hover:bg-white/12"
-            >
-              <span>{t('common.status.IN_REVIEW')}</span>
-              <CheckCircle2 className="h-4 w-4 text-emerald-300" />
-            </button>
-            <button
-              type="button"
-              disabled={currentUserId == null}
-              onClick={() =>
-                onSetDraftIssue((current) => ({
-                  ...current,
-                  assigneeId: currentUserId,
-                }))
-              }
-              className="flex items-center justify-between rounded-2xl bg-white/8 px-3 py-2.5 text-left text-sm transition hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <span>{currentMember ? t('issues.detailPage.assignToCurrentUser', { name: currentMember.name }) : t('issues.detailSidebar.assignSelf')}</span>
-              <span className="rounded-full bg-white/12 px-2 py-0.5 text-xs text-slate-300">{t('issues.detailSidebar.me')}</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function PropertyCockpitCard({
-  label,
-  value,
-  tone,
-  children,
-}: {
-  label: string;
-  value: string;
-  tone: 'emerald' | 'amber' | 'rose' | 'sky';
-  children: ReactNode;
-}) {
-  const toneClassName = {
-    emerald: 'bg-emerald-50 text-emerald-700',
-    amber: 'bg-amber-50 text-amber-700',
-    rose: 'bg-rose-50 text-rose-700',
-    sky: 'bg-sky-50 text-sky-700',
-  }[tone];
-
-  return (
-    <div className="rounded-2xl border border-border-soft bg-white p-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-400">{label}</div>
-          <div className="mt-1 truncate text-sm font-semibold text-ink-900">{value}</div>
-        </div>
-        <span className={cn('h-2.5 w-2.5 shrink-0 rounded-full', toneClassName)} />
-      </div>
-      <div className="mt-3 [&_button]:h-9 [&_button]:max-w-full [&_button]:px-3 [&_button]:text-sm">{children}</div>
-    </div>
-  );
-}
-
-function DetailHeaderSkeleton({ embedded = false }: { embedded?: boolean }) {
-  return (
-    <header className="flex flex-col gap-6 border-b border-border-soft/80 pb-7">
-      <div className="flex items-start justify-between gap-6">
-        <div className="min-w-0 flex-1 space-y-4">
-          {!embedded ? <div className="h-5 w-40 animate-pulse rounded-full bg-slate-200/80" /> : null}
-          <div className="space-y-3">
-            <div className="h-12 w-full max-w-[520px] animate-pulse rounded-2xl bg-slate-200/80" />
-            <div className="h-5 w-32 animate-pulse rounded-full bg-slate-200/70" />
-          </div>
-        </div>
-        <div className="hidden shrink-0 items-center gap-2 xl:flex">
-          <div className="h-9 w-9 animate-pulse rounded-full bg-slate-200/80" />
-          <div className="h-9 w-9 animate-pulse rounded-full bg-slate-200/80" />
-          <div className="h-9 w-9 animate-pulse rounded-full bg-slate-200/80" />
-          <div className="h-9 w-24 animate-pulse rounded-full bg-slate-200/80" />
-        </div>
-      </div>
-    </header>
-  );
-}
-
-function DetailBodySkeleton() {
-  return (
-    <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_292px]">
-      <main className="min-w-0 space-y-8">
-        <section className="rounded-[28px] border border-border-subtle bg-surface-raised px-6 py-6 shadow-[0_18px_48px_rgba(15,23,42,0.05)]">
-          <div className="space-y-4">
-            <div className="h-5 w-28 animate-pulse rounded-full bg-slate-200/70" />
-            <div className="h-24 w-full animate-pulse rounded-[24px] bg-slate-100" />
-            <div className="h-24 w-full animate-pulse rounded-[24px] bg-slate-100/90" />
-          </div>
-        </section>
-        <section className="space-y-3">
-          <div className="h-5 w-24 animate-pulse rounded-full bg-slate-200/70" />
-          <div className="h-14 w-full animate-pulse rounded-[22px] bg-slate-100" />
-        </section>
-      </main>
-
-      <aside className="space-y-3 xl:sticky xl:top-24 xl:self-start">
-        <div className="rounded-[24px] border border-border-subtle bg-surface-raised px-4 py-4 shadow-[0_18px_44px_rgba(15,23,42,0.05)]">
-          <div className="space-y-3">
-            <div className="h-4 w-24 animate-pulse rounded-full bg-slate-200/70" />
-            <div className="h-9 w-32 animate-pulse rounded-full bg-slate-100" />
-            <div className="h-9 w-36 animate-pulse rounded-full bg-slate-100" />
-            <div className="h-9 w-28 animate-pulse rounded-full bg-slate-100" />
-          </div>
-        </div>
-        <div className="rounded-[24px] border border-border-subtle bg-surface-raised px-4 py-4 shadow-[0_18px_44px_rgba(15,23,42,0.05)]">
-          <div className="space-y-3">
-            <div className="h-4 w-20 animate-pulse rounded-full bg-slate-200/70" />
-            <div className="h-9 w-full animate-pulse rounded-full bg-slate-100" />
-            <div className="h-9 w-5/6 animate-pulse rounded-full bg-slate-100" />
-          </div>
-        </div>
-      </aside>
-    </div>
-  );
-}
-
 function EditableSurface({
   value,
   onChange,
@@ -3290,7 +2035,7 @@ function EditableSurface({
   minHeight?: number;
 }) {
   return (
-    <div className="rounded-2xl border border-border-soft/70 bg-white/48 px-4 py-3 transition focus-within:border-border-soft focus-within:bg-white/70">
+    <div className="ds-editor-surface rounded-2xl px-4 py-3 transition">
       <div
         contentEditable
         suppressContentEditableWarning
@@ -3532,7 +2277,7 @@ function InlineIssuePill({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
+          className="ds-inline-pill-button inline-flex h-11 items-center gap-2 rounded-full px-4 text-[15px] font-medium"
         >
           <InlinePillDisplay option={selectedOption} fallbackLabel={label || emptyLabel || ''} />
           <ChevronDown className="h-4 w-4 text-ink-300" />
@@ -3618,7 +2363,7 @@ function InlineLabelsPill({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft bg-white px-4 text-[15px] font-medium text-ink-700 shadow-sm transition hover:bg-slate-50"
+          className="ds-inline-pill-button inline-flex h-11 items-center gap-2 rounded-full px-4 text-[15px] font-medium"
         >
           <Tag className="h-4 w-4 text-ink-400" />
           <span className="max-w-[180px] truncate">
@@ -3642,7 +2387,7 @@ function InlineLabelsPill({
                 <button
                   type="button"
                   onClick={() => void handleCreate('TEAM')}
-                  className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50"
+                  className="ds-list-row flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px]"
                   disabled={creating != null}
                 >
                   <span className="text-xl leading-none text-ink-500">+</span>
@@ -3652,7 +2397,7 @@ function InlineLabelsPill({
               <button
                 type="button"
                 onClick={() => void handleCreate('WORKSPACE')}
-                className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50"
+                className="ds-list-row flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px]"
                 disabled={creating != null}
               >
                 <span className="text-xl leading-none text-ink-500">+</span>
@@ -3669,7 +2414,7 @@ function InlineLabelsPill({
                   key={label.id}
                   type="button"
                   onClick={() => onToggle(label.id)}
-                  className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50"
+                  className="ds-list-row flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px]"
                 >
                   <span className="inline-flex h-2.5 w-2.5 rounded-full" style={{ backgroundColor: label.color || '#fb7185' }} />
                   <span className="flex-1 truncate">{label.name}</span>
@@ -3708,7 +2453,7 @@ function InlineSubIssueMoreMenu({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border-soft bg-white text-ink-700 shadow-sm transition hover:bg-slate-50"
+          className="ds-inline-pill-button inline-flex h-11 w-11 items-center justify-center rounded-full text-ink-700"
         >
           <MoreHorizontal className="h-4.5 w-4.5 text-ink-500" strokeWidth={2} />
         </button>
@@ -3790,7 +2535,7 @@ function InlinePillOptionRow({
     <button
       type="button"
       onClick={onSelect}
-      className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] text-ink-800 transition hover:bg-slate-50"
+      className="ds-list-row flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px]"
     >
       {option ? <InlinePillDisplay option={option} fallbackLabel={option.label} /> : <span>{label}</span>}
       {selected ? <Check className="ml-auto h-4 w-4 text-ink-500" /> : null}
@@ -3823,7 +2568,7 @@ function buildInlineStateOption(state: Issue['state'], t: (key: string) => strin
   const iconClassName = 'h-4 w-4';
   const icon =
     state === 'TODO' ? (
-      <Circle className={cn(iconClassName, 'text-slate-400')} />
+      <Circle className={cn(iconClassName, 'text-ink-400')} />
     ) : state === 'IN_PROGRESS' ? (
       <LoaderCircle className={cn(iconClassName, 'text-sky-500')} />
     ) : state === 'IN_REVIEW' ? (
@@ -3831,9 +2576,9 @@ function buildInlineStateOption(state: Issue['state'], t: (key: string) => strin
     ) : state === 'DONE' ? (
       <CheckCircle2 className={cn(iconClassName, 'text-emerald-500')} />
     ) : state === 'CANCELED' ? (
-      <Circle className={cn(iconClassName, 'text-slate-300')} />
+      <Circle className={cn(iconClassName, 'text-ink-300')} />
     ) : (
-      <Circle className={cn(iconClassName, 'text-slate-300')} />
+      <Circle className={cn(iconClassName, 'text-ink-300')} />
     );
   return {
     value: state,
@@ -3845,11 +2590,11 @@ function buildInlineStateOption(state: Issue['state'], t: (key: string) => strin
 function buildInlinePriorityOption(priority: Exclude<Issue['priority'], null>, t: (key: string) => string): InlinePillOption {
   const icon =
     priority === 'LOW' ? (
-      <Minus className="h-4 w-4 text-slate-400" />
+      <Minus className="h-4 w-4 text-ink-400" />
     ) : priority === 'MEDIUM' ? (
       <Equal className="h-4 w-4 text-sky-500" />
     ) : priority === 'HIGH' ? (
-      <Flag className="h-4 w-4 text-slate-700" />
+      <Flag className="h-4 w-4 text-ink-700" />
     ) : (
       <Flame className="h-4 w-4 text-rose-500" />
     );
@@ -3934,11 +2679,6 @@ function buildIssuePrompt({
 
   lines.push('', 'Please help me work on this issue with the context above.');
   return lines.join('\n');
-}
-
-function buildIssueBranchName(issue: Pick<Issue, 'identifier' | 'title'>) {
-  const titleSlug = slugifyPathSegment(issue.title).slice(0, 56).replace(/-+$/g, '');
-  return `feature/${issue.identifier.toLowerCase()}${titleSlug ? `-${titleSlug}` : ''}`;
 }
 
 function translateIssueValue(t: (key: string) => string, key: string, fallback: string) {
@@ -4080,3 +2820,5 @@ function formatDate(value: string | null, locale: string) {
     minute: '2-digit',
   }).format(new Date(value));
 }
+
+

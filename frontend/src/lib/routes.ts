@@ -26,22 +26,8 @@ export function workspaceSectionPath(workspaceSlug: string, section: string) {
   return normalizePath(`/${workspaceSlug}/${section}`);
 }
 
-export function workspaceIntegrationPath(workspaceSlug: string, integration: string, source?: string) {
-  const path = normalizePath(`/${workspaceSlug}/settings/integrations/${integration}`);
-  if (!source?.trim()) return path;
-  return `${path}?${new URLSearchParams({ source: source.trim() }).toString()}`;
-}
-
-export function workspaceGithubIntegrationPath(workspaceSlug: string, source = 'try') {
-  return workspaceIntegrationPath(workspaceSlug, 'github', source);
-}
-
 export function workspaceMyIssuesPath(workspaceSlug: string) {
   return normalizePath(`/${workspaceSlug}/my-issues`);
-}
-
-export function workspaceMyIssuesAssignedPath(workspaceSlug: string) {
-  return normalizePath(`/${workspaceSlug}/my-issues/assigned`);
 }
 
 export function workspaceInboxPath(workspaceSlug: string) {
@@ -50,14 +36,6 @@ export function workspaceInboxPath(workspaceSlug: string) {
 
 export function workspaceProjectsAllPath(workspaceSlug: string) {
   return normalizePath(`/${workspaceSlug}/projects/all`);
-}
-
-export function teamProjectsPath(workspaceSlug: string, teamKey: string) {
-  return normalizePath(`/${workspaceSlug}/team/${teamKey}/projects/all`);
-}
-
-export function teamProjectPath(workspaceSlug: string, teamKey: string, projectId: number | string) {
-  return normalizePath(`/${workspaceSlug}/team/${teamKey}/projects/${String(projectId)}`);
 }
 
 export function workspaceProjectViewPath(
@@ -89,28 +67,12 @@ export function workspaceViewsPath(workspaceSlug: string, resourceType: Workspac
   return normalizePath(`/${workspaceSlug}/views/${resourceType}`);
 }
 
-export function workspaceViewsRootPath(workspaceSlug: string) {
-  return normalizePath(`/${workspaceSlug}/views`);
-}
-
 export function workspaceNewViewPath(workspaceSlug: string, resourceType: WorkspaceViewResourceSegment) {
   return normalizePath(`/${workspaceSlug}/views/${resourceType}/new`);
 }
 
 export function teamViewsPath(workspaceSlug: string, teamKey: string, resourceType: 'issues') {
   return normalizePath(`/${workspaceSlug}/team/${teamKey}/views/${resourceType}`);
-}
-
-export function teamViewsRootPath(workspaceSlug: string, teamKey: string) {
-  return normalizePath(`/${workspaceSlug}/team/${teamKey}/views`);
-}
-
-export function workspaceImportExportPath(workspaceSlug: string) {
-  return normalizePath(`/${workspaceSlug}/settings/import-export`);
-}
-
-export function teamNewViewPath(workspaceSlug: string, teamKey: string) {
-  return normalizePath(`/${workspaceSlug}/team/${teamKey}/view/new`);
 }
 
 export function workspaceViewPath(
@@ -129,10 +91,6 @@ export function workspaceViewPath(
 
 export function teamActivePath(workspaceSlug: string, teamKey: string) {
   return normalizePath(`/${workspaceSlug}/team/${teamKey}/active`);
-}
-
-export function teamIssuesPath(workspaceSlug: string, teamKey: string, view: 'all' | 'active' | 'backlog' | 'done' = 'active') {
-  return normalizePath(`/${workspaceSlug}/team/${teamKey}/${view}`);
 }
 
 export function teamSettingsPath(workspaceSlug: string, teamKey: string, section?: string) {
@@ -176,13 +134,6 @@ export function parseTeamRoute(pathname: string) {
     teamKey: segments[2] ?? null,
     suffix: segments.slice(3),
   };
-}
-
-export function issueViewFromTeamRoute(pathname: string) {
-  const route = parseTeamRoute(pathname);
-  const view = route?.suffix[0] ?? null;
-  if (view === 'all' || view === 'active' || view === 'backlog' || view === 'done') return view;
-  return null;
 }
 
 export function replaceTeamKeyInPath(pathname: string, nextTeamKey: string) {

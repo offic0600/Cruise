@@ -22,10 +22,8 @@ import { issueDetailPath, workspaceProjectViewPath, workspaceViewPath } from '@/
 import { cn } from '@/lib/utils';
 
 type InboxTab = 'all' | 'unread' | 'archived';
-type InboxDisplayMode = 'split' | 'focus';
 
 const KNOWN_EVENT_KEYS = ['ISSUE_ADDED', 'ISSUE_COMPLETED_OR_CANCELED', 'PROJECT_UPDATED', 'PROJECT_MILESTONE_ADDED'] as const;
-const INBOX_DISPLAY_PARAM = 'display';
 
 function getInitials(value: string | null | undefined) {
   if (!value) return 'SY';
@@ -155,11 +153,12 @@ function NotificationRow({
         }
       }}
       className={cn(
-        'group grid cursor-pointer grid-cols-[40px_minmax(0,1fr)_auto] gap-3 rounded-[14px] px-4 py-3 transition',
-        selected ? 'bg-slate-100' : 'hover:bg-slate-50'
+        'ds-list-row group grid cursor-pointer grid-cols-[40px_minmax(0,1fr)_auto] gap-3 rounded-[14px] px-4 py-3',
+        selected && 'bg-[color:var(--interactive-selected)] text-ink-900'
       )}
+      data-active={selected ? 'true' : undefined}
     >
-      <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-ink-700">
+      <div className="ds-accent-avatar relative flex h-10 w-10 items-center justify-center rounded-full text-[11px] font-semibold">
         {item.actorAvatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={item.actorAvatarUrl} alt={item.actorName ?? ''} className="h-10 w-10 rounded-full object-cover" />
@@ -173,7 +172,7 @@ function NotificationRow({
       </div>
       <div className="flex min-w-[72px] items-start justify-end gap-2">
         <div className="pt-[2px] text-[12px] text-ink-400">{item.relativeTime}</div>
-        <div className="mt-[3px] h-2.5 w-2.5 shrink-0 rounded-full border border-slate-300 bg-white">
+        <div className="mt-[3px] h-2.5 w-2.5 shrink-0 rounded-full border border-border-soft bg-[color:var(--interactive-default)]">
           {item.isUnread ? <div className="h-full w-full rounded-full bg-brand-600" /> : null}
         </div>
         <div className="ml-1 flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
@@ -184,7 +183,7 @@ function NotificationRow({
                 event.stopPropagation();
                 onMarkUnread();
               }}
-              className="rounded-full p-1.5 text-ink-400 transition hover:bg-white hover:text-ink-700"
+              className="ds-icon-button-subtle rounded-full border border-transparent p-1.5"
               aria-label={t('inbox.markUnread')}
             >
               <CircleDot className="h-3.5 w-3.5" />
@@ -197,7 +196,7 @@ function NotificationRow({
                 event.stopPropagation();
                 onArchive();
               }}
-              className="rounded-full p-1.5 text-ink-400 transition hover:bg-white hover:text-ink-700"
+              className="ds-icon-button-subtle rounded-full border border-transparent p-1.5"
               aria-label={t('inbox.archive')}
             >
               <Archive className="h-3.5 w-3.5" />
@@ -224,30 +223,17 @@ function DetailPanelChrome({
   title,
   subtitle,
   actions,
-  onBack,
-  backLabel,
   children,
 }: {
   title: string;
   subtitle?: string;
   actions?: ReactNode;
-  onBack?: () => void;
-  backLabel?: string;
   children: ReactNode;
 }) {
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between gap-4 border-b border-border-soft/80 px-5 py-4 sm:px-6">
+      <div className="flex items-center justify-between gap-4 border-b border-border-soft/80 px-6 py-4">
         <div className="min-w-0">
-          {onBack ? (
-            <button
-              type="button"
-              onClick={onBack}
-              className="mb-2 inline-flex items-center rounded-full border border-border-soft px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-ink-500 transition hover:bg-slate-50 hover:text-ink-900"
-            >
-              {backLabel}
-            </button>
-          ) : null}
           <div className="truncate text-[18px] font-semibold tracking-tight text-ink-900">{title}</div>
           {subtitle ? <div className="mt-1 text-sm text-ink-500">{subtitle}</div> : null}
         </div>
@@ -260,7 +246,7 @@ function DetailPanelChrome({
 
 function SummaryMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-slate-50 px-4 py-3">
+    <div className="ds-surface-subtle rounded-2xl px-4 py-3">
       <div className="text-[11px] uppercase tracking-[0.18em] text-ink-400">{label}</div>
       <div className="mt-1 text-sm font-medium text-ink-800">{value}</div>
     </div>
@@ -282,7 +268,7 @@ function ProjectSummaryCard({
 }) {
   const milestoneName = typeof notification.payload?.milestoneName === 'string' ? notification.payload.milestoneName : null;
   return (
-    <div className="rounded-[20px] border border-border-soft/80 bg-white px-5 py-5">
+    <div className="ds-surface-card rounded-[20px] px-5 py-5">
       <div className="text-xs uppercase tracking-[0.18em] text-ink-400">{t('inbox.projectSummary.overview')}</div>
       <div className="mt-3 text-[26px] font-semibold tracking-tight text-ink-900">{project?.name ?? notification.resourceTitle ?? t('inbox.resources.PROJECT')}</div>
       <div className="mt-2 text-sm leading-6 text-ink-500">{project?.description ?? notification.body}</div>
@@ -296,7 +282,7 @@ function ProjectSummaryCard({
       </div>
       {href ? (
         <div className="mt-5">
-          <Link href={href} className="inline-flex items-center gap-2 rounded-full border border-border-soft px-4 py-2 text-sm text-ink-700 transition hover:bg-slate-50">
+          <Link href={href} className="ds-inline-pill-button inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm">
             {t('inbox.openResource')}
             <ExternalLink className="h-4 w-4" />
           </Link>
@@ -318,7 +304,7 @@ function InitiativeSummaryCard({
   t: (key: string) => string;
 }) {
   return (
-    <div className="rounded-[20px] border border-border-soft/80 bg-white px-5 py-5">
+    <div className="ds-surface-card rounded-[20px] px-5 py-5">
       <div className="text-xs uppercase tracking-[0.18em] text-ink-400">{t('inbox.initiativeSummary.overview')}</div>
       <div className="mt-3 text-[26px] font-semibold tracking-tight text-ink-900">{initiative?.name ?? notification.resourceTitle ?? t('inbox.resources.INITIATIVE')}</div>
       <div className="mt-2 text-sm leading-6 text-ink-500">{initiative?.description ?? notification.body}</div>
@@ -346,10 +332,7 @@ export default function InboxPage() {
   const [actorFilter, setActorFilter] = useState<string>('__all__');
   const [resourceFilter, setResourceFilter] = useState<string>('__all__');
   const [eventFilter, setEventFilter] = useState<string>('__all__');
-  const displayModeParam = searchParams.get(INBOX_DISPLAY_PARAM);
-  const displayMode: InboxDisplayMode = displayModeParam === 'focus' ? 'focus' : 'split';
-  const selectedNotificationId = Number(searchParams.get('notificationId') ?? '') || null;
-  const detailVisible = displayMode === 'split' || selectedNotificationId !== null;
+  const selectedId = Number(searchParams.get('notificationId') ?? '') || null;
 
   const notificationsQuery = useQuery({
     queryKey: ['inbox', currentUserId ?? 0],
@@ -425,12 +408,11 @@ export default function InboxPage() {
   );
 
   const selectedNotification = useMemo(
-    () => filteredNotifications.find((notification) => notification.id === selectedNotificationId) ?? (displayMode === 'split' ? filteredNotifications[0] ?? null : null),
-    [displayMode, filteredNotifications, selectedNotificationId]
+    () => filteredNotifications.find((notification) => notification.id === selectedId) ?? filteredNotifications[0] ?? null,
+    [filteredNotifications, selectedId]
   );
 
   useEffect(() => {
-    if (displayMode !== 'split') return;
     const nextSelectedId = selectedNotification?.id ?? null;
     const currentQueryId = searchParams.get('notificationId');
     if ((nextSelectedId == null && currentQueryId == null) || String(nextSelectedId ?? '') === currentQueryId) return;
@@ -441,50 +423,7 @@ export default function InboxPage() {
       params.set('notificationId', String(nextSelectedId));
     }
     router.replace(`${pathname}${params.toString() ? `?${params}` : ''}`, { scroll: false });
-  }, [displayMode, pathname, router, searchParams, selectedNotification?.id]);
-
-  function updateSearchParams(mutator: (params: URLSearchParams) => void) {
-    const params = new URLSearchParams(searchParams.toString());
-    mutator(params);
-    router.replace(`${pathname}${params.toString() ? `?${params}` : ''}`, { scroll: false });
-  }
-
-  function setDisplayMode(nextDisplayMode: InboxDisplayMode) {
-    updateSearchParams((params) => {
-      if (nextDisplayMode === 'split') {
-        params.delete(INBOX_DISPLAY_PARAM);
-      } else {
-        params.set(INBOX_DISPLAY_PARAM, nextDisplayMode);
-      }
-    });
-  }
-
-  function selectNotification(notificationId: number) {
-    updateSearchParams((params) => {
-      params.set('notificationId', String(notificationId));
-      if (displayMode === 'focus') {
-        params.set(INBOX_DISPLAY_PARAM, 'focus');
-      }
-    });
-  }
-
-  function clearFocusedSelection() {
-    updateSearchParams((params) => {
-      params.delete('notificationId');
-      if (displayMode === 'focus') {
-        params.set(INBOX_DISPLAY_PARAM, 'focus');
-      }
-    });
-  }
-
-  const focusListHref = useMemo(() => {
-    if (displayMode !== 'focus') return null;
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete('notificationId');
-    params.set(INBOX_DISPLAY_PARAM, 'focus');
-    const query = params.toString();
-    return `${pathname}${query ? `?${query}` : ''}`;
-  }, [displayMode, pathname, searchParams]);
+  }, [pathname, router, searchParams, selectedNotification?.id]);
 
   useEffect(() => {
     if (!selectedNotification || selectedNotification.readAt != null || markReadMutation.isPending) return;
@@ -552,13 +491,13 @@ export default function InboxPage() {
   return (
     <AppLayout>
       <div className="h-[calc(100vh-48px)] overflow-hidden px-3 pb-3">
-        <div className="flex h-full min-h-0 flex-col rounded-[24px] border border-border-soft/90 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+        <div className="ds-surface-card flex h-full min-h-0 flex-col rounded-[24px]">
           <div className="flex items-center justify-between border-b border-border-soft/80 px-5 py-3">
             <div className="flex items-center gap-3">
               <div className="text-[24px] font-semibold tracking-tight text-ink-900">{t('inbox.title')}</div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button type="button" className="rounded-full p-1.5 text-ink-400 transition hover:bg-slate-100 hover:text-ink-700" aria-label={t('inbox.more')}>
+                  <button type="button" className="ds-icon-button-subtle rounded-full border border-transparent p-1.5" aria-label={t('inbox.more')}>
                     <MoreHorizontal className="h-4 w-4" />
                   </button>
                 </DropdownMenuTrigger>
@@ -576,9 +515,10 @@ export default function InboxPage() {
                   type="button"
                   onClick={() => setTab(value)}
                   className={cn(
-                    'rounded-full border px-3 py-1.5 text-sm transition',
-                    tab === value ? 'border-border-soft bg-slate-100 font-medium text-ink-900' : 'border-transparent text-ink-500 hover:bg-slate-50'
+                    'ds-segmented-control-item rounded-full border px-3 py-1.5 text-sm',
+                    tab === value ? 'font-medium text-ink-900' : 'text-ink-500'
                   )}
+                  data-active={tab === value ? 'true' : 'false'}
                 >
                   {t(`inbox.${value}`)} <span className="ml-1 text-ink-400">{counts[value]}</span>
                 </button>
@@ -588,8 +528,8 @@ export default function InboxPage() {
                   <button
                     type="button"
                     className={cn(
-                      'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition',
-                      filterSummaryCount > 0 ? 'border-border-soft bg-slate-100 text-ink-900' : 'border-border-soft text-ink-600 hover:bg-slate-50'
+                      'ds-inline-pill-button inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm',
+                      filterSummaryCount > 0 && 'bg-[color:var(--interactive-selected)] text-ink-900'
                     )}
                   >
                     <Filter className="h-4 w-4" />
@@ -638,29 +578,14 @@ export default function InboxPage() {
                   </div>
                 </PopoverContent>
               </Popover>
-              <button
-                type="button"
-                onClick={() => setDisplayMode(displayMode === 'split' ? 'focus' : 'split')}
-                className={cn(
-                  'rounded-full border p-2 transition',
-                  displayMode === 'split'
-                    ? 'border-border-soft bg-slate-100 text-ink-800'
-                    : 'border-border-soft text-ink-400 hover:bg-slate-50 hover:text-ink-700'
-                )}
-                aria-label={t(displayMode === 'split' ? 'inbox.displayMode.focus' : 'inbox.displayMode.split')}
-              >
+              <button type="button" className="ds-inline-pill-button rounded-full p-2 text-ink-400" aria-label={t('inbox.display')}>
                 <PanelRightOpen className="h-4 w-4" />
               </button>
             </div>
           </div>
 
-          <div
-            className={cn(
-              'min-h-0 flex-1',
-              detailVisible ? 'grid grid-cols-[minmax(320px,420px)_minmax(0,1fr)]' : 'flex flex-col'
-            )}
-          >
-            <div className={cn('min-h-0', detailVisible ? 'border-r border-border-soft/80' : '')}>
+          <div className="grid min-h-0 flex-1 grid-cols-[420px_minmax(0,1fr)]">
+            <div className="min-h-0 border-r border-border-soft/80">
               <div className="h-full overflow-y-auto px-3 py-3">
                 {notificationsQuery.isPending ? (
                   <div className="px-4 py-8 text-sm text-ink-500">{t('common.loading')}</div>
@@ -674,7 +599,11 @@ export default function InboxPage() {
                         notification={notification}
                         item={listItems[index]}
                         selected={selectedNotification?.id === notification.id}
-                        onSelect={() => selectNotification(notification.id)}
+                        onSelect={() => {
+                          const params = new URLSearchParams(searchParams.toString());
+                          params.set('notificationId', String(notification.id));
+                          router.replace(`${pathname}?${params}`, { scroll: false });
+                        }}
                         onArchive={() => archiveMutation.mutate(notification.id)}
                         onMarkUnread={() => markUnreadMutation.mutate(notification.id)}
                         t={t}
@@ -685,82 +614,66 @@ export default function InboxPage() {
               </div>
             </div>
 
-            {detailVisible ? (
-              <div className="min-h-0 overflow-hidden bg-[linear-gradient(180deg,#ffffff_0%,#fbfcfd_100%)]">
-                {!selectedNotification ? (
-                  <DetailPlaceholder title={t('inbox.emptyTitle')} body={t('inbox.emptyBody')} />
-                ) : selectedDetailKind === 'ISSUE' && selectedIssueId ? (
-                  <IssueDetailPage
-                    issueId={selectedIssueId}
-                    embedded
-                    href={focusListHref}
-                    label={displayMode === 'focus' ? t('inbox.backToList') : null}
-                  />
-                ) : selectedDetailKind === 'PROJECT' ? (
-                  <DetailPanelChrome
-                    title={selectedNotification.resourceTitle ?? t('inbox.resources.PROJECT')}
-                    subtitle={eventLabel(t, selectedNotification.eventKey)}
-                    onBack={displayMode === 'focus' ? clearFocusedSelection : undefined}
-                    backLabel={t('inbox.backToList')}
-                    actions={
-                      <>
-                        {openSelectedResourceHref ? (
-                          <Link href={openSelectedResourceHref} className="rounded-full border border-border-soft p-2 text-ink-400 transition hover:bg-slate-50 hover:text-ink-700">
-                            <ExternalLink className="h-4 w-4" />
-                          </Link>
-                        ) : null}
-                        <button type="button" onClick={() => archiveMutation.mutate(selectedNotification.id)} className="rounded-full border border-border-soft p-2 text-ink-400 transition hover:bg-slate-50 hover:text-ink-700">
-                          <Archive className="h-4 w-4" />
+            <div className="min-h-0 overflow-hidden bg-[color:var(--bg-canvas-muted)]">
+              {!selectedNotification ? (
+                <DetailPlaceholder title={t('inbox.emptyTitle')} body={t('inbox.emptyBody')} />
+              ) : selectedDetailKind === 'ISSUE' && selectedIssueId ? (
+                <IssueDetailPage issueId={selectedIssueId} embedded />
+              ) : selectedDetailKind === 'PROJECT' ? (
+                <DetailPanelChrome
+                  title={selectedNotification.resourceTitle ?? t('inbox.resources.PROJECT')}
+                  subtitle={eventLabel(t, selectedNotification.eventKey)}
+                  actions={
+                    <>
+                      {openSelectedResourceHref ? (
+                        <Link href={openSelectedResourceHref} className="ds-inline-pill-button rounded-full p-2 text-ink-400">
+                          <ExternalLink className="h-4 w-4" />
+                        </Link>
+                      ) : null}
+                      <button type="button" onClick={() => archiveMutation.mutate(selectedNotification.id)} className="ds-inline-pill-button rounded-full p-2 text-ink-400">
+                        <Archive className="h-4 w-4" />
+                      </button>
+                    </>
+                  }
+                >
+                  <div className="h-full overflow-y-auto px-6 py-5">
+                    {projectSummaryQuery.isLoading ? <div className="text-sm text-ink-500">{t('common.loading')}</div> : <ProjectSummaryCard project={projectSummaryQuery.data ?? null} notification={selectedNotification} locale={locale} t={t} href={openSelectedResourceHref} />}
+                  </div>
+                </DetailPanelChrome>
+              ) : selectedDetailKind === 'INITIATIVE' ? (
+                <DetailPanelChrome title={selectedNotification.resourceTitle ?? t('inbox.resources.INITIATIVE')} subtitle={eventLabel(t, selectedNotification.eventKey)}>
+                  <div className="h-full overflow-y-auto px-6 py-5">
+                    <InitiativeSummaryCard initiative={initiativeQuery.data ?? null} notification={selectedNotification} locale={locale} t={t} />
+                  </div>
+                </DetailPanelChrome>
+              ) : (
+                <DetailPanelChrome
+                  title={selectedNotification.resourceTitle ?? selectedNotification.title}
+                  subtitle={eventLabel(t, selectedNotification.eventKey)}
+                  actions={
+                    <>
+                      {openSelectedResourceHref ? (
+                        <Link href={openSelectedResourceHref} className="ds-inline-pill-button rounded-full p-2 text-ink-400">
+                          <ExternalLink className="h-4 w-4" />
+                        </Link>
+                      ) : null}
+                      {selectedNotification.readAt == null ? (
+                        <button type="button" onClick={() => markReadMutation.mutate(selectedNotification.id)} className="ds-inline-pill-button rounded-full p-2 text-ink-400">
+                          <CheckCheck className="h-4 w-4" />
                         </button>
-                      </>
-                    }
-                  >
-                    <div className="h-full overflow-y-auto px-6 py-5">
-                      {projectSummaryQuery.isLoading ? <div className="text-sm text-ink-500">{t('common.loading')}</div> : <ProjectSummaryCard project={projectSummaryQuery.data ?? null} notification={selectedNotification} locale={locale} t={t} href={openSelectedResourceHref} />}
+                      ) : null}
+                    </>
+                  }
+                >
+                  <div className="h-full overflow-y-auto px-6 py-5">
+                    <div className="ds-surface-card rounded-[20px] px-5 py-5">
+                      <div className="text-sm font-medium text-ink-900">{selectedNotification.title}</div>
+                      <div className="mt-3 text-sm leading-7 text-ink-600">{selectedNotification.body}</div>
                     </div>
-                  </DetailPanelChrome>
-                ) : selectedDetailKind === 'INITIATIVE' ? (
-                  <DetailPanelChrome
-                    title={selectedNotification.resourceTitle ?? t('inbox.resources.INITIATIVE')}
-                    subtitle={eventLabel(t, selectedNotification.eventKey)}
-                    onBack={displayMode === 'focus' ? clearFocusedSelection : undefined}
-                    backLabel={t('inbox.backToList')}
-                  >
-                    <div className="h-full overflow-y-auto px-6 py-5">
-                      <InitiativeSummaryCard initiative={initiativeQuery.data ?? null} notification={selectedNotification} locale={locale} t={t} />
-                    </div>
-                  </DetailPanelChrome>
-                ) : (
-                  <DetailPanelChrome
-                    title={selectedNotification.resourceTitle ?? selectedNotification.title}
-                    subtitle={eventLabel(t, selectedNotification.eventKey)}
-                    onBack={displayMode === 'focus' ? clearFocusedSelection : undefined}
-                    backLabel={t('inbox.backToList')}
-                    actions={
-                      <>
-                        {openSelectedResourceHref ? (
-                          <Link href={openSelectedResourceHref} className="rounded-full border border-border-soft p-2 text-ink-400 transition hover:bg-slate-50 hover:text-ink-700">
-                            <ExternalLink className="h-4 w-4" />
-                          </Link>
-                        ) : null}
-                        {selectedNotification.readAt == null ? (
-                          <button type="button" onClick={() => markReadMutation.mutate(selectedNotification.id)} className="rounded-full border border-border-soft p-2 text-ink-400 transition hover:bg-slate-50 hover:text-ink-700">
-                            <CheckCheck className="h-4 w-4" />
-                          </button>
-                        ) : null}
-                      </>
-                    }
-                  >
-                    <div className="h-full overflow-y-auto px-6 py-5">
-                      <div className="rounded-[20px] border border-border-soft/80 bg-white px-5 py-5">
-                        <div className="text-sm font-medium text-ink-900">{selectedNotification.title}</div>
-                        <div className="mt-3 text-sm leading-7 text-ink-600">{selectedNotification.body}</div>
-                      </div>
-                    </div>
-                  </DetailPanelChrome>
-                )}
-              </div>
-            ) : null}
+                  </div>
+                </DetailPanelChrome>
+              )}
+            </div>
           </div>
         </div>
       </div>
